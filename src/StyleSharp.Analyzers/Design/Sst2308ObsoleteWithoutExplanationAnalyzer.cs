@@ -44,14 +44,8 @@ public sealed class Sst2308ObsoleteWithoutExplanationAnalyzer : DiagnosticAnalyz
     {
         var attribute = (AttributeSyntax)context.Node;
         if (!ObsoleteAttributeFacts.IsObsoleteName(attribute.Name)
-            || !ObsoleteAttributeFacts.HasNoUsableMessage(context.SemanticModel, attribute, context.CancellationToken))
-        {
-            return;
-        }
-
-        var target = ObsoleteAttributeFacts.GetAnnotatedName(attribute.Parent?.Parent);
-        if (target.Length == 0
-            || !ObsoleteAttributeFacts.IsFrameworkObsoleteAttribute(context.SemanticModel, attribute, context.CancellationToken))
+            || !ObsoleteAttributeFacts.HasNoUsableMessage(context.SemanticModel, attribute, context.CancellationToken)
+            || ObsoleteAttributeFacts.GetFrameworkObsoleteTarget(context.SemanticModel, attribute, context.CancellationToken) is not { } target)
         {
             return;
         }

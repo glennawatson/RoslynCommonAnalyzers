@@ -2,9 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -27,33 +24,12 @@ public sealed class Sst1128ConstructorInitializerOnOwnLineAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.BaseConstructorInitializer, SyntaxKind.ThisConstructorInitializer);
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => LayoutHelpers.ReportWhenSharesLineWithPreviousToken(
+                nodeContext,
+                ((ConstructorInitializerSyntax)nodeContext.Node).ColonToken,
+                ReadabilityRules.ConstructorInitializerOnOwnLine),
+            SyntaxKind.BaseConstructorInitializer,
+            SyntaxKind.ThisConstructorInitializer);
     }
-
-    /// <summary>Reports a constructor initializer that shares the signature line.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        var initializer = (ConstructorInitializerSyntax)context.Node;
-        var previous = initializer.ColonToken.GetPreviousToken();
-        if (previous.IsKind(SyntaxKind.None))
-        {
-            return;
-        }
-
-        var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        if (LineOf(text, previous.Span.End) != LineOf(text, initializer.ColonToken.SpanStart))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.ConstructorInitializerOnOwnLine, initializer.GetLocation()));
-    }
-
-    /// <summary>Returns the zero-based line number for a position.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="position">The position to look up.</param>
-    /// <returns>The line number.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 }

@@ -50,12 +50,12 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
 
         context.RegisterCompilationStartAction(start =>
         {
-            var contentTypes = GetContentTypes(start.Compilation);
-            if (contentTypes is null)
+            if (start.Compilation.GetTypeByMetadataName(ContentTypeMetadataNames[0]) is null)
             {
                 return;
             }
 
+            var contentTypes = MetadataTypeLookup.ResolveAll(start.Compilation, ContentTypeMetadataNames);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, contentTypes), SyntaxKind.SimpleAssignmentExpression);
         });
     }
@@ -63,7 +63,7 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
     /// <summary>Reports SES1604 for <c>AllowDangerouslySetContent = true</c> on a gated Semantic Kernel type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="contentTypes">The gated Semantic Kernel types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] contentTypes)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] contentTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -77,7 +77,7 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
         }
 
         if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: AllowDangerouslySetContentPropertyName } property
-            || GetGatedContentType(property.ContainingType, contentTypes) is not { } contentType)
+            || !TypeRelations.IsOneOf(property.ContainingType, contentTypes))
         {
             return;
         }
@@ -86,7 +86,7 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
             SecurityRules.PromptTemplateContentEncodingDisabled,
             assignment.SyntaxTree,
             assignment.Span,
-            contentType.Name));
+            property.ContainingType.Name));
     }
 
     /// <summary>Returns whether an assignment target syntactically names the content flag.</summary>
@@ -101,44 +101,4 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
 
             _ => false,
         };
-
-    /// <summary>Returns the gated Semantic Kernel type when a bound property's container is one of them.</summary>
-    /// <param name="containingType">The bound property's containing type.</param>
-    /// <param name="contentTypes">The gated Semantic Kernel types resolved for the compilation.</param>
-    /// <returns>The gated type, or <see langword="null"/> when the container is not gated.</returns>
-    private static INamedTypeSymbol? GetGatedContentType(INamedTypeSymbol containingType, INamedTypeSymbol?[] contentTypes)
-    {
-        for (var i = 0; i < contentTypes.Length; i++)
-        {
-            if (contentTypes[i] is { } contentType && SymbolEqualityComparer.Default.Equals(contentType, containingType))
-            {
-                return contentType;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Resolves the Semantic Kernel types the rule gates on, or nothing when Semantic Kernel is absent.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved type, or <see langword="null"/> when the marker type is absent.</returns>
-    private static INamedTypeSymbol?[]? GetContentTypes(Compilation compilation)
-    {
-        // The marker (index 0) lives in the always-referenced abstractions assembly; without it the project does
-        // not use Semantic Kernel, so nothing is registered and a project that cannot set the flag pays nothing.
-        var marker = compilation.GetTypeByMetadataName(ContentTypeMetadataNames[0]);
-        if (marker is null)
-        {
-            return null;
-        }
-
-        var types = new INamedTypeSymbol?[ContentTypeMetadataNames.Length];
-        types[0] = marker;
-        for (var i = 1; i < ContentTypeMetadataNames.Length; i++)
-        {
-            types[i] = compilation.GetTypeByMetadataName(ContentTypeMetadataNames[i]);
-        }
-
-        return types;
-    }
 }

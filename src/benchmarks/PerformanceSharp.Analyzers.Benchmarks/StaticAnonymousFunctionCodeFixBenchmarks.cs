@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -67,7 +68,7 @@ public class StaticAnonymousFunctionCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> StaticAnonymousFunction_ApplyFixAsync()
     {
-        var updated = Psh1000StaticAnonymousFunctionCodeFixProvider.Apply(_document, _root, _function);
+        var updated = TargetCodeFix.Apply(_document, _root, _function, Psh1000StaticAnonymousFunctionCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

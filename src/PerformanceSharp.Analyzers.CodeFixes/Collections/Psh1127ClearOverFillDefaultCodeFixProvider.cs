@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -17,7 +16,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1127ClearOverFillDefaultCodeFixProvider))]
 [Shared]
-public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
 {
     /// <summary>The name of the array length property used by the ranged fallback.</summary>
     private const string LengthPropertyName = "Length";
@@ -31,38 +30,25 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
     /// <summary>The metadata name of the array type that hosts Clear.</summary>
     private const string ArrayMetadataName = "System.Array";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.ClearOverFillDefault.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         ReplaceNodeCodeFix.RegisterAsync(context, "Use Array.Clear", nameof(Psh1127ClearOverFillDefaultCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces a reported Fill call with its Clear form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The Fill invocation to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, InvocationExpressionSyntax invocation) =>
-        TryGetReplacement(model, invocation, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(invocation, replacement!))
-            : document;
 
     /// <summary>Resolves the reported Fill call and builds its Clear replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && TryGetReplacement(model, invocation, out var replacement)
             ? new NodeReplacement(invocation, replacement!)
@@ -91,10 +77,12 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
             return false;
         }
 
-        var candidate = invocation
-            .WithExpression(RenameToClear(invocation.Expression))
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(clearArguments)))
-            .WithTriviaFrom(invocation);
+        var candidate = invocation.Update(
+            RenameToClear(invocation.Expression).WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SeparatedList(clearArguments),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         if (!BindsToArrayClear(model, invocation.SpanStart, candidate, arrayType))
         {

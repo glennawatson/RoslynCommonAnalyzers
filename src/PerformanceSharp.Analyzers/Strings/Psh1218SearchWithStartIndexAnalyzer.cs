@@ -55,11 +55,11 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// <summary>The search whose <see cref="string"/> overload taking a string is already ordinal.</summary>
     private const string ContainsMethodName = "Contains";
 
-    /// <summary>The metadata name of the extensions type providing the span slice and the span searches.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
     /// <summary>The simple name of the extensions type providing the span slice and the span searches.</summary>
     private const string MemoryExtensionsTypeName = "MemoryExtensions";
+
+    /// <summary>The metadata name of the type providing span slices and searches.</summary>
+    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.SearchWithStartIndex);
@@ -73,16 +73,11 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions
-                || extensions.GetMembers(AsSpanMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeSearch, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.CreateSynchronized(compilation, HasAsSpan),
+            AnalyzeSearch,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation is a plain <c>x.Substring(i)</c>, before any binding.</summary>
@@ -106,7 +101,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1218 for a substring that exists only to be searched.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeSearch(SyntaxNodeAnalysisContext context)
+    /// <param name="spanSupport">The span API availability resolved on first demand.</param>
+    private static void AnalyzeSearch(in SyntaxNodeAnalysisContext context, LazyCompilationProbe spanSupport)
     {
         var outer = (InvocationExpressionSyntax)context.Node;
         if (!TryGetSearchShape(outer, out var slice, out var searchName))
@@ -120,8 +116,9 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
             || search.IsStatic
             || search.ContainingType.SpecialType != SpecialType.System_String
             || !PreservesComparison(search)
-            || !RewriteBindsToSpanSearch(model, outer, slice!, search, context.CancellationToken)
-            || SpanRewriteGuard.IsInsideExpressionTree(outer, model, context.CancellationToken))
+            || SpanRewriteGuard.IsInsideExpressionTree(outer, model, context.CancellationToken)
+            || !spanSupport.Get()
+            || !RewriteBindsToSpanSearch(model, outer, slice!, search, context.CancellationToken))
         {
             return;
         }
@@ -148,7 +145,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
             && outer.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Expression is InvocationExpressionSyntax candidate
             && IsSearchName(access.Name.Identifier.ValueText)
-            && IsSubstringSliceShape(candidate))
+            && IsSubstringSliceShape(candidate)
+            && !ConditionalAccessSpeculation.ReachedThroughConditionalAccess(outer.Expression))
         {
             slice = candidate;
             searchName = access.Name.Identifier.ValueText;
@@ -241,14 +239,6 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
         // cancellable overload of it, so the token is honoured on the way in instead.
         cancellationToken.ThrowIfCancellationRequested();
 
-        // A call reached through a conditional access cannot be speculatively rebound: detaching the outer call
-        // to test the span rewrite orphans its member or element binding and Roslyn's binder then dereferences
-        // null. The rewrite stays unverified, so the search call keeps its start-index form.
-        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(outer.Expression))
-        {
-            return false;
-        }
-
         var sliceName = ((MemberAccessExpressionSyntax)slice.Expression).Name;
         var rewritten = outer.ReplaceNode(sliceName, SyntaxFactory.IdentifierName(AsSpanMethodName));
         if (model.GetSpeculativeSymbolInfo(outer.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol
@@ -265,4 +255,11 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
                 ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
             };
     }
+
+    /// <summary>Returns whether the span API exists in the compilation.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns><see langword="true"/> when the extensions type declares an AsSpan member.</returns>
+    private static bool HasAsSpan(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+            && !extensions.GetMembers(AsSpanMethodName).IsEmpty;
 }

@@ -13,8 +13,8 @@ namespace SecuritySharp.Analyzers;
 /// with credentials — leaks credentialed cross-origin responses to any site. The predicate body is inspected
 /// only locally (the expression body, or the block's own <c>return</c> statements); no value that flows in
 /// from elsewhere is followed. The rule resolves <c>Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder</c>
-/// once per compilation and registers nothing when it is absent, so a project without ASP.NET Core CORS pays
-/// nothing and never receives a diagnostic it cannot act on. The invoked method is bound to confirm it is
+/// on first demand per compilation, after the call and predicate pass the syntax checks. An absent type
+/// is cached too, and never produces a diagnostic. The invoked method is bound to confirm it is
 /// <c>SetIsOriginAllowed</c> on that type, so a same-named method on an unrelated type is never flagged.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -29,19 +29,6 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AlwaysAllowedCorsOrigin);
 
-    /// <summary>The reportable shapes a <c>SetIsOriginAllowed</c> predicate argument can take.</summary>
-    private enum PredicateShape
-    {
-        /// <summary>Not a reportable predicate shape.</summary>
-        None = 0,
-
-        /// <summary>A lambda or anonymous method already known to always return true.</summary>
-        AlwaysTrueLambda = 1,
-
-        /// <summary>A method group whose referenced method still needs to be inspected.</summary>
-        MethodGroup = 2,
-    }
-
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -51,22 +38,17 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var builderType = start.Compilation.GetTypeByMetadataName(CorsPolicyBuilderMetadataName);
-            if (builderType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, CorsPolicyBuilderMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1502 for a <c>SetIsOriginAllowed</c> call whose predicate always returns true.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The gated <c>CorsPolicyBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    /// <param name="types">The lazily resolved CORS builder type for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -80,8 +62,8 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         // A lambda's always-true shape is decided syntactically here, so an origin-checking predicate is
         // rejected before the semantic model is touched. A method group needs binding to find its declaration.
         var predicate = invocation.ArgumentList.Arguments[0].Expression;
-        var shape = ClassifyPredicate(predicate);
-        if (shape == PredicateShape.None)
+        var shape = AlwaysTrueCallback.Classify(predicate);
+        if (shape == AlwaysTrueCallbackShape.None || types.Get() is not { } builderType)
         {
             return;
         }
@@ -94,7 +76,7 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         }
 
         // A method group is always-true only when its referenced source method is.
-        if (shape == PredicateShape.MethodGroup && !AlwaysTrueCallback.IsAlwaysTrueMethodGroup(context.SemanticModel, predicate, context.CancellationToken))
+        if (shape == AlwaysTrueCallbackShape.MethodGroup && !AlwaysTrueCallback.IsAlwaysTrueMethodGroup(context.SemanticModel, predicate, context.CancellationToken))
         {
             return;
         }
@@ -103,18 +85,5 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
             SecurityRules.AlwaysAllowedCorsOrigin,
             predicate.SyntaxTree,
             predicate.Span));
-    }
-
-    /// <summary>Classifies a predicate argument into the shape that lets it be reported.</summary>
-    /// <param name="predicate">The single argument passed to <c>SetIsOriginAllowed</c>.</param>
-    /// <returns>The predicate shape: an always-true lambda, a bindable method group, or neither.</returns>
-    private static PredicateShape ClassifyPredicate(ExpressionSyntax predicate)
-    {
-        if (predicate is AnonymousFunctionExpressionSyntax function)
-        {
-            return AlwaysTrueCallback.IsAlwaysTrueLambda(function) ? PredicateShape.AlwaysTrueLambda : PredicateShape.None;
-        }
-
-        return predicate is IdentifierNameSyntax or MemberAccessExpressionSyntax ? PredicateShape.MethodGroup : PredicateShape.None;
     }
 }

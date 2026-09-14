@@ -39,7 +39,7 @@ public sealed class Sst2427HidingGeneralOverloadAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNamedType(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Class || type.BaseType is null or { SpecialType: SpecialType.System_Object })
+        if (!ClassInheritance.HasNonObjectBase(type))
         {
             return;
         }
@@ -160,25 +160,7 @@ public sealed class Sst2427HidingGeneralOverloadAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return candidateBase.TypeKind == TypeKind.Interface && ImplementsInterface(derived, candidateBase);
-    }
-
-    /// <summary>Returns whether a type implements a given interface directly or transitively.</summary>
-    /// <param name="type">The implementing type.</param>
-    /// <param name="interfaceType">The interface to look for.</param>
-    /// <returns><see langword="true"/> when the interface is in the type's implemented set.</returns>
-    private static bool ImplementsInterface(ITypeSymbol type, ITypeSymbol interfaceType)
-    {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return candidateBase.TypeKind == TypeKind.Interface && TypeRelations.Implements(derived, candidateBase);
     }
 
     /// <summary>Returns whether any parameter is a <c>params</c> array, whose applicability the rule does not model.</summary>

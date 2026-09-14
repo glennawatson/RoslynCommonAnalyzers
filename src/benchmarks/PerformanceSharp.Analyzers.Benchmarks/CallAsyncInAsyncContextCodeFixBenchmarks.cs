@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -30,8 +31,8 @@ public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
     /// <summary>The semantic model used to resolve the representative blocking call.</summary>
     private SemanticModel _model = null!;
 
-    /// <summary>The representative synchronous call passed to the code fix.</summary>
-    private InvocationExpressionSyntax _blocking = null!;
+    /// <summary>The diagnostic reported on the representative synchronous call.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -50,10 +51,11 @@ public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _blocking = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
+        var blocking = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
             type,
             0,
             static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Load" });
+        _diagnostic = Diagnostic.Create(ConcurrencyRules.CallAsyncInAsyncContext, blocking.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -73,7 +75,7 @@ public class CallAsyncInAsyncContextCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> CallAsyncInAsyncContext_ApplyFixAsync()
     {
-        var updated = Psh1313CallAsyncInAsyncContextCodeFixProvider.Apply(_document, _root, _model, _blocking);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _model, _diagnostic, Psh1313CallAsyncInAsyncContextCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

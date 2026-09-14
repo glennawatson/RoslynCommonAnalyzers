@@ -35,19 +35,12 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var dictionaryType = start.Compilation.GetTypeByMetadataName(ConcurrentDictionaryMetadataName);
-            if (dictionaryType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeForEach(nodeContext, dictionaryType),
-                SyntaxKind.ForEachStatement,
-                SyntaxKind.ForEachVariableStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ConcurrentDictionaryMetadataName),
+            AnalyzeForEach,
+            SyntaxKind.ForEachStatement,
+            SyntaxKind.ForEachVariableStatement);
     }
 
     /// <summary>Returns the snapshot property access when a foreach expression has the <c>x.Keys</c>/<c>x.Values</c> shape.</summary>
@@ -61,11 +54,12 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
 
     /// <summary>Reports PSH1305 for a foreach over a concurrent dictionary's Keys or Values snapshot.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dictionaryType">The concurrent dictionary type definition.</param>
-    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
+    /// <param name="dictionaryTypes">The deferred concurrent dictionary type definition.</param>
+    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, LazyMetadataType dictionaryTypes)
     {
         var statement = (CommonForEachStatementSyntax)context.Node;
-        if (TryGetSnapshotAccess(statement) is not { } access)
+        if (TryGetSnapshotAccess(statement) is not { } access
+            || dictionaryTypes.Get() is not { } dictionaryType)
         {
             return;
         }

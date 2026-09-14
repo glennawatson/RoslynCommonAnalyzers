@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,31 +12,46 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1018RedundantParamsArrayCodeFixProvider))]
 [Shared]
-public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.RedundantParamsArray.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Pass the arguments directly", nameof(Psh1018RedundantParamsArrayCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Pass the arguments directly", nameof(Psh1018RedundantParamsArrayCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Builds the call with the array's elements passed directly.</summary>
+    /// <param name="invocation">The reported call; callers must have validated the shape.</param>
+    /// <returns>The rewritten call.</returns>
+    internal static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
+    {
+        _ = Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out var arrayExpression);
+        var elements = Psh1018RedundantParamsArrayAnalyzer.GetArrayElements(arrayExpression!);
 
-    /// <summary>Replaces one reported call with its unwrapped form.</summary>
-    /// <param name="document">The document being fixed.</param>
+        return invocation
+            .WithArgumentList(Psh1018RedundantParamsArrayAnalyzer.BuildUnwrappedArgumentList(invocation.ArgumentList, elements))
+            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The reported call.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
-        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // The diagnostic sits on the array argument, which is itself an invocation for
+        // Array.Empty<T>(), so the call being fixed is reached through the argument list rather
+        // than by walking up to the nearest invocation.
+        return (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is { Parent: ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation } })
+            && (Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out _));
+    }
 
     /// <summary>Resolves the reported call and builds its unwrapped replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -66,18 +79,4 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
         current is InvocationExpressionSyntax invocation && Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out _)
             ? Rewrite(invocation)
             : current;
-
-    /// <summary>Builds the call with the array's elements passed directly.</summary>
-    /// <param name="invocation">The reported call; callers must have validated the shape.</param>
-    /// <returns>The rewritten call.</returns>
-    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
-    {
-        _ = Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out var arrayExpression);
-        var elements = Psh1018RedundantParamsArrayAnalyzer.GetArrayElements(arrayExpression!);
-
-        return invocation
-            .WithArgumentList(Psh1018RedundantParamsArrayAnalyzer.BuildUnwrappedArgumentList(invocation.ArgumentList, elements))
-            .WithTriviaFrom(invocation)
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
-    }
 }

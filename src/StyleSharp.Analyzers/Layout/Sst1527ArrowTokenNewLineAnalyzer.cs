@@ -47,18 +47,12 @@ public sealed class Sst1527ArrowTokenNewLineAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(clause.SyntaxTree);
-        var wantBreakBefore = LayoutStyleOptions.ReadBreakBefore(options, SpecificKey, GeneralKey, defaultBreakBefore: false);
-        if (wantBreakBefore ? !breakAfter : !breakBefore)
+        if (!LayoutHelpers.IsBreakMisplaced(context, SpecificKey, GeneralKey, defaultBreakBefore: false, breakBefore, breakAfter, out var wantBreakBefore))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(
-            LayoutRules.ArrowTokenNewLine,
-            arrow.GetLocation(),
-            LayoutHelpers.PlacementProperties(wantBreakBefore),
-            wantBreakBefore ? "start" : "end"));
+        LayoutHelpers.ReportMisplacedBreak(context, LayoutRules.ArrowTokenNewLine, arrow, wantBreakBefore);
     }
 
     /// <summary>Returns whether a conditional directive sits between the arrow and the signature.</summary>

@@ -32,21 +32,18 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (DisposableTypes.Create(start.Compilation) is not { } types)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.ReturnStatement, SyntaxKind.YieldReturnStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<DisposableTypes?>(compilation, DisposableTypes.Create),
+            Analyze,
+            SyntaxKind.ReturnStatement,
+            SyntaxKind.YieldReturnStatement);
     }
 
     /// <summary>Analyzes one return or yield-return statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types)
+    /// <param name="types">The lazily resolved disposal types for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DisposableTypes?> types)
     {
         var expression = context.Node switch
         {
@@ -81,12 +78,13 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports when an identifier resolves to a <c>using</c>-owned disposable being returned.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
+    /// <param name="types">The lazily resolved disposal types for this compilation.</param>
     /// <param name="identifier">The returned identifier.</param>
-    private static void CheckIdentifier(in SyntaxNodeAnalysisContext context, in DisposableTypes types, IdentifierNameSyntax identifier)
+    private static void CheckIdentifier(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DisposableTypes?> types, IdentifierNameSyntax identifier)
     {
         if (context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not ILocalSymbol { IsUsing: true } local
-            || !types.ImplementsDisposable(local.Type))
+            || types.Get() is not { } resolved
+            || !resolved.ImplementsDisposable(local.Type))
         {
             return;
         }

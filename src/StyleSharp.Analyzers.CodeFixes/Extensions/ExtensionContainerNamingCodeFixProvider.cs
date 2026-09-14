@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Rename;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Renames an SST1704 extension container to the configured preferred suffix.</summary>
@@ -47,24 +45,9 @@ public sealed class ExtensionContainerNamingCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Rename to '{newName}'",
-                    cancellationToken => RenameAsync(context.Document, declaration, newName, cancellationToken),
+                    cancellationToken => NamingRenameCodeFixProvider.RenameAsync(context.Document, declaration, newName, cancellationToken),
                     equivalenceKey: nameof(ExtensionContainerNamingCodeFixProvider)),
                 diagnostic);
         }
-    }
-
-    /// <summary>Renames the declared class symbol to the preferred container name across the solution.</summary>
-    /// <param name="document">The document containing the declaration.</param>
-    /// <param name="declaration">The class declaration to rename.</param>
-    /// <param name="newName">The replacement name.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated solution.</returns>
-    internal static async Task<Solution> RenameAsync(Document document, ClassDeclarationSyntax declaration, string newName, CancellationToken cancellationToken)
-    {
-        var solution = document.Project.Solution;
-        var model = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
-        return model?.GetDeclaredSymbol(declaration, cancellationToken) is not { } symbol
-            ? solution
-            : await Renamer.RenameSymbolAsync(solution, symbol, default, newName, cancellationToken).ConfigureAwait(false);
     }
 }

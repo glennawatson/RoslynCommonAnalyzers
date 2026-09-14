@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class ArgumentGuardCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative guard clause passed to the code fix.</summary>
-    private IfStatementSyntax _ifStatement = null!;
+    /// <summary>The diagnostic reported on the representative guard clause.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +47,7 @@ public class ArgumentGuardCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ArgumentGuardBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _ifStatement = (IfStatementSyntax)method.Body!.Statements[0];
+        _diagnostic = Diagnostic.Create(ModernizationRules.UseThrowIfNull, method.Body!.Statements[0].GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +67,7 @@ public class ArgumentGuardCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ArgumentGuard_ApplyFixAsync()
     {
-        var updated = ArgumentGuardCodeFixProvider.Apply(_document, _root, _ifStatement, ModernizationRules.UseThrowIfNull.Id);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, ArgumentGuardCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -47,25 +47,31 @@ public sealed class Ses1010HandRolledKeyWrapAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var aes = start.Compilation.GetTypeByMetadataName(AesMetadataName);
-            if (aes is null || aes.GetMembers(EncryptKeyWrapName).IsEmpty)
-            {
-                return;
-            }
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => LazyCompilationProbe.CreateSynchronized(compilation, HasKeyWrap),
+            new(AnalyzeLiteral, [SyntaxKind.NumericLiteralExpression]),
+            new(AnalyzeInitializer, [SyntaxKind.ArrayInitializerExpression]));
+    }
 
-            start.RegisterSyntaxNodeAction(AnalyzeLiteral, SyntaxKind.NumericLiteralExpression);
-            start.RegisterSyntaxNodeAction(AnalyzeInitializer, SyntaxKind.ArrayInitializerExpression);
-        });
+    /// <summary>Checks whether the compilation exposes the platform key-wrap entry point.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>Whether AES provides a key-wrap member.</returns>
+    private static bool HasKeyWrap(Compilation compilation)
+    {
+        var aes = compilation.GetTypeByMetadataName(AesMetadataName);
+        return aes is not null && !aes.GetMembers(EncryptKeyWrapName).IsEmpty;
     }
 
     /// <summary>Reports the integrity check value written as a single constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeLiteral(SyntaxNodeAnalysisContext context)
+    /// <param name="keyWrapAvailable">The platform availability resolved on first demand.</param>
+    private static void AnalyzeLiteral(in SyntaxNodeAnalysisContext context, LazyCompilationProbe keyWrapAvailable)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
-        if (!IsIntegrityCheckValue(context.SemanticModel.GetConstantValue(literal, context.CancellationToken)))
+        if (!IsIntegrityCheckValue(new(literal.Token.Value))
+            || !keyWrapAvailable.Get()
+            || !IsIntegrityCheckValue(context.SemanticModel.GetConstantValue(literal, context.CancellationToken)))
         {
             return;
         }
@@ -75,7 +81,8 @@ public sealed class Ses1010HandRolledKeyWrapAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports the integrity check value written as its eight bytes.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInitializer(SyntaxNodeAnalysisContext context)
+    /// <param name="keyWrapAvailable">The platform availability resolved on first demand.</param>
+    private static void AnalyzeInitializer(in SyntaxNodeAnalysisContext context, LazyCompilationProbe keyWrapAvailable)
     {
         var initializer = (InitializerExpressionSyntax)context.Node;
         if (initializer.Expressions.Count != KeyWrapIntegrityCheckLength)
@@ -90,6 +97,11 @@ public sealed class Ses1010HandRolledKeyWrapAnalyzer : DiagnosticAnalyzer
             {
                 return;
             }
+        }
+
+        if (!keyWrapAvailable.Get())
+        {
+            return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.HandRolledKeyWrap, initializer.GetLocation()));

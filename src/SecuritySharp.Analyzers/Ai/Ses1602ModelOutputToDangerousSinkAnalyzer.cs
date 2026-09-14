@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -19,34 +21,12 @@ namespace SecuritySharp.Analyzers;
 /// Detection is strictly local -- no data-flow or interprocedural tracking. A one-local hop is honoured only when
 /// the declaration is the statement immediately before the sink in the same block, so the local provably still
 /// holds the model text at the sink. Every sink is proven by binding its symbol and containing type, never matched
-/// on identifier text alone. The rule is gated on the AI response types resolving; a project that does not reference
-/// <c>Microsoft.Extensions.AI</c> registers nothing and pays nothing, and each sink family is registered only when
-/// its type is present in the compilation.
+/// on identifier text alone. Source and sink types are resolved only after a syntactic candidate is found, and
+/// each sink family requires its type to be present in the compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the AI chat response type whose <c>Text</c> is the guarded source.</summary>
-    private const string ChatResponseMetadataName = "Microsoft.Extensions.AI.ChatResponse";
-
-    /// <summary>The metadata name of the AI chat message type whose <c>Text</c> is the guarded source.</summary>
-    private const string ChatMessageMetadataName = "Microsoft.Extensions.AI.ChatMessage";
-
-    /// <summary>The metadata name of the process type whose <c>Start</c> call is a sink.</summary>
-    private const string ProcessMetadataName = "System.Diagnostics.Process";
-
-    /// <summary>The metadata name of the process-start descriptor whose members are sinks.</summary>
-    private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
-
-    /// <summary>The metadata name of the file helper whose path arguments are sinks.</summary>
-    private const string FileMetadataName = "System.IO.File";
-
-    /// <summary>The metadata name of the EF Core extension class exposing <c>ExecuteSqlRaw</c>.</summary>
-    private const string EfDatabaseFacadeExtensionsMetadataName = "Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions";
-
-    /// <summary>The metadata name of the EF Core extension class exposing <c>FromSqlRaw</c>.</summary>
-    private const string EfQueryableExtensionsMetadataName = "Microsoft.EntityFrameworkCore.RelationalQueryableExtensions";
-
     /// <summary>The name of the text-bearing property on the guarded AI response types.</summary>
     private const string TextPropertyName = "Text";
 
@@ -127,49 +107,17 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var compilation = start.Compilation;
-
-            // Source gate: without an AI response type there is no model-output source, so the rule is inert.
-            var chatResponseType = compilation.GetTypeByMetadataName(ChatResponseMetadataName);
-            var chatMessageType = compilation.GetTypeByMetadataName(ChatMessageMetadataName);
-            if (chatResponseType is null && chatMessageType is null)
-            {
-                return;
-            }
-
-            var processType = compilation.GetTypeByMetadataName(ProcessMetadataName);
-            var processStartInfoType = compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName);
-            var fileType = compilation.GetTypeByMetadataName(FileMetadataName);
-            var efFacadeExtensionsType = compilation.GetTypeByMetadataName(EfDatabaseFacadeExtensionsMetadataName);
-            var efQueryableExtensionsType = compilation.GetTypeByMetadataName(EfQueryableExtensionsMetadataName);
-
-            var sinks = new ModelOutputSinkContext(
-                chatResponseType,
-                chatMessageType,
-                processType,
-                processStartInfoType,
-                fileType,
-                efFacadeExtensionsType,
-                efQueryableExtensionsType);
-
-            if (processType is not null || fileType is not null || efFacadeExtensionsType is not null || efQueryableExtensionsType is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, sinks), SyntaxKind.InvocationExpression);
-            }
-
-            if (processStartInfoType is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, sinks), SyntaxKind.SimpleAssignmentExpression);
-            }
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyCompilationValue<ModelOutputSinkContext?>(compilation, ModelOutputSinkContext.Resolve),
+            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]),
+            new(AnalyzeAssignment, [SyntaxKind.SimpleAssignmentExpression]));
     }
 
     /// <summary>Reports SES1602 for a sink invocation whose dangerous argument is model output.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ModelOutputSinkContext sinks)
+    /// <param name="types">The source and sink types resolved on demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ModelOutputSinkContext?> types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -180,9 +128,15 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        // Cheap name screen before any binding: only a name that could match a resolved sink family proceeds.
-        var kind = ClassifyInvocationName(memberAccess.Name.Identifier.ValueText, sinks);
-        if (kind == InvocationSinkKind.None)
+        // Cheap name and argument screens before resolving source or sink types.
+        var kind = ClassifyInvocationName(memberAccess.Name.Identifier.ValueText);
+        if (kind == InvocationSinkKind.None || !HasCandidateArgument(invocation.ArgumentList))
+        {
+            return;
+        }
+
+        var sinks = types.Get();
+        if (sinks is null)
         {
             return;
         }
@@ -208,23 +162,45 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
 
     /// <summary>Classifies an invocation's method name into a candidate sink family before any binding.</summary>
     /// <param name="methodName">The invoked member's simple name.</param>
-    /// <param name="sinks">The resolved source and sink types for the compilation.</param>
     /// <returns>The candidate sink family, or <see cref="InvocationSinkKind.None"/>.</returns>
-    private static InvocationSinkKind ClassifyInvocationName(string methodName, ModelOutputSinkContext sinks)
+    private static InvocationSinkKind ClassifyInvocationName(string methodName)
     {
-        if (sinks.ProcessType is not null && methodName == StartMethodName)
+        if (methodName == StartMethodName)
         {
             return InvocationSinkKind.ProcessStart;
         }
 
-        if (sinks.FileType is not null && FileSinkMethodNames.Contains(methodName))
+        if (FileSinkMethodNames.Contains(methodName))
         {
             return InvocationSinkKind.FilePath;
         }
 
-        var hasEfSink = sinks.EfFacadeExtensionsType is not null || sinks.EfQueryableExtensionsType is not null;
-        return hasEfSink && RawSqlMethodNames.Contains(methodName) ? InvocationSinkKind.RawSql : InvocationSinkKind.None;
+        return RawSqlMethodNames.Contains(methodName) ? InvocationSinkKind.RawSql : InvocationSinkKind.None;
     }
+
+    /// <summary>Checks whether any argument has a supported source expression shape.</summary>
+    /// <param name="argumentList">The invocation arguments to inspect.</param>
+    /// <returns>Whether an argument could supply text directly or through a local.</returns>
+    private static bool HasCandidateArgument(ArgumentListSyntax argumentList)
+    {
+        var arguments = argumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (IsCandidateSource(arguments[i].Expression))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks the source shapes accepted by the semantic analysis.</summary>
+    /// <param name="expression">The candidate source expression.</param>
+    /// <returns>Whether the expression is a local candidate or a text member access.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsCandidateSource(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax or MemberAccessExpressionSyntax { Name.Identifier.ValueText: TextPropertyName };
 
     /// <summary>Reports SES1602 for a <c>Process.Start</c> call whose filename or arguments is model output.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -238,8 +214,8 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        ReportIfModelOutput(context, GetArgumentForParameter(invocation.ArgumentList, method, FileNameParameterName), sinks, ProcessFileNameSinkLabel);
-        ReportIfModelOutput(context, GetArgumentForParameter(invocation.ArgumentList, method, ArgumentsParameterName), sinks, ProcessArgumentsSinkLabel);
+        ReportIfModelOutput(context, ArgumentLookup.FindForParameter(invocation.ArgumentList.Arguments, method, FileNameParameterName)?.Expression, sinks, ProcessFileNameSinkLabel);
+        ReportIfModelOutput(context, ArgumentLookup.FindForParameter(invocation.ArgumentList.Arguments, method, ArgumentsParameterName)?.Expression, sinks, ProcessArgumentsSinkLabel);
     }
 
     /// <summary>Reports SES1602 for a <c>System.IO.File</c> call whose leading path argument is model output.</summary>
@@ -257,7 +233,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        ReportIfModelOutput(context, GetLeadingArgument(invocation.ArgumentList, method.Parameters[0].Name), sinks, FilePathSinkLabel);
+        ReportIfModelOutput(context, ArgumentLookup.Find(invocation.ArgumentList.Arguments, method.Parameters[0].Name, 0)?.Expression, sinks, FilePathSinkLabel);
     }
 
     /// <summary>Reports SES1602 for an EF Core raw-SQL call whose <c>sql</c> argument is model output.</summary>
@@ -276,19 +252,25 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
 
         // Called through member access, the extension method is reduced: its first parameter is 'sql', which
         // lines up with the first call-site argument.
-        ReportIfModelOutput(context, GetArgumentForParameter(invocation.ArgumentList, method, SqlParameterName), sinks, RawSqlSinkLabel);
+        ReportIfModelOutput(context, ArgumentLookup.FindForParameter(invocation.ArgumentList.Arguments, method, SqlParameterName)?.Expression, sinks, RawSqlSinkLabel);
     }
 
     /// <summary>Reports SES1602 for a <c>ProcessStartInfo.FileName</c>/<c>.Arguments</c> assignment whose value is model output.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, ModelOutputSinkContext sinks)
+    /// <param name="types">The source and sink types resolved on demand.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ModelOutputSinkContext?> types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a target named 'FileName' or 'Arguments' (a '.Member' write or an initializer 'Member = ...').
         var targetLabel = ClassifyAssignmentTarget(assignment.Left);
-        if (targetLabel is null || !IsModelOutput(context.SemanticModel, assignment.Right, sinks, context.CancellationToken))
+        if (targetLabel is null || !IsCandidateSource(assignment.Right))
+        {
+            return;
+        }
+
+        var sinks = types.Get();
+        if (sinks?.ProcessStartInfoType is null || !IsModelOutput(context.SemanticModel, assignment.Right, sinks, context.CancellationToken))
         {
             return;
         }
@@ -329,22 +311,13 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <summary>Classifies an assignment target as a <c>ProcessStartInfo</c> filename or arguments write.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns>The sink label for the target, or <see langword="null"/> when the target is unrelated.</returns>
-    private static string? ClassifyAssignmentTarget(ExpressionSyntax left)
-    {
-        var name = left switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
-        return name switch
+    private static string? ClassifyAssignmentTarget(ExpressionSyntax left) =>
+        MemberReferenceName.Of(left) switch
         {
             FileNameMemberName => ProcessStartInfoFileNameSinkLabel,
             ArgumentsMemberName => ProcessStartInfoArgumentsSinkLabel,
             _ => null,
         };
-    }
 
     /// <summary>Returns whether an expression is model-output text: inline, or a single immediately-preceding local.</summary>
     /// <param name="model">The semantic model.</param>
@@ -435,61 +408,30 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
         SymbolEqualityComparer.Default.Equals(type, sinks.ChatResponseType)
             || SymbolEqualityComparer.Default.Equals(type, sinks.ChatMessageType);
 
-    /// <summary>Returns the argument bound to a named parameter, honouring an explicit name-colon and positional order.</summary>
-    /// <param name="argumentList">The invocation's argument list.</param>
-    /// <param name="method">The bound invoked method.</param>
-    /// <param name="parameterName">The target parameter name.</param>
-    /// <returns>The argument expression, or <see langword="null"/> when the parameter has no argument.</returns>
-    private static ExpressionSyntax? GetArgumentForParameter(ArgumentListSyntax argumentList, IMethodSymbol method, string parameterName)
-    {
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: { } explicitName } && explicitName == parameterName)
-            {
-                return arguments[i].Expression;
-            }
-        }
-
-        var parameters = method.Parameters;
-        var ordinal = -1;
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (parameters[i].Name != parameterName)
-            {
-                continue;
-            }
-
-            ordinal = i;
-            break;
-        }
-
-        return ordinal >= 0 && ordinal < arguments.Count && arguments[ordinal].NameColon is null
-            ? arguments[ordinal].Expression
-            : null;
-    }
-
-    /// <summary>Returns the leading (path/sql) argument, honouring an explicit name-colon for the first parameter.</summary>
-    /// <param name="argumentList">The invocation's argument list (already known to be non-empty).</param>
-    /// <param name="parameterName">The first parameter's name.</param>
-    /// <returns>The leading argument expression, or <see langword="null"/> when it cannot be identified positionally.</returns>
-    private static ExpressionSyntax? GetLeadingArgument(ArgumentListSyntax argumentList, string parameterName)
-    {
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: { } explicitName } && explicitName == parameterName)
-            {
-                return arguments[i].Expression;
-            }
-        }
-
-        return arguments[0].NameColon is null ? arguments[0].Expression : null;
-    }
-
     /// <summary>Holds the source and sink types resolved once per compilation.</summary>
     private sealed class ModelOutputSinkContext
     {
+        /// <summary>The metadata name of the AI chat response type whose <c>Text</c> is the guarded source.</summary>
+        private const string ChatResponseMetadataName = "Microsoft.Extensions.AI.ChatResponse";
+
+        /// <summary>The metadata name of the AI chat message type whose <c>Text</c> is the guarded source.</summary>
+        private const string ChatMessageMetadataName = "Microsoft.Extensions.AI.ChatMessage";
+
+        /// <summary>The metadata name of the process type whose <c>Start</c> call is a sink.</summary>
+        private const string ProcessMetadataName = "System.Diagnostics.Process";
+
+        /// <summary>The metadata name of the process-start descriptor whose members are sinks.</summary>
+        private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
+
+        /// <summary>The metadata name of the file helper whose path arguments are sinks.</summary>
+        private const string FileMetadataName = "System.IO.File";
+
+        /// <summary>The metadata name of the EF Core extension class exposing <c>ExecuteSqlRaw</c>.</summary>
+        private const string EfDatabaseFacadeExtensionsMetadataName = "Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions";
+
+        /// <summary>The metadata name of the EF Core extension class exposing <c>FromSqlRaw</c>.</summary>
+        private const string EfQueryableExtensionsMetadataName = "Microsoft.EntityFrameworkCore.RelationalQueryableExtensions";
+
         /// <summary>Initializes a new instance of the <see cref="ModelOutputSinkContext"/> class.</summary>
         /// <param name="chatResponseType">The resolved <c>ChatResponse</c> type, or <see langword="null"/>.</param>
         /// <param name="chatMessageType">The resolved <c>ChatMessage</c> type, or <see langword="null"/>.</param>
@@ -536,5 +478,24 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
 
         /// <summary>Gets the resolved EF Core queryable extensions type, or <see langword="null"/>.</summary>
         public INamedTypeSymbol? EfQueryableExtensionsType { get; }
+
+        /// <summary>Resolves the source and sink types when at least one source type is present.</summary>
+        /// <param name="compilation">The compilation whose types are resolved.</param>
+        /// <returns>The resolved context, or null when both source types are absent.</returns>
+        public static ModelOutputSinkContext? Resolve(Compilation compilation)
+        {
+            var chatResponseType = compilation.GetTypeByMetadataName(ChatResponseMetadataName);
+            var chatMessageType = compilation.GetTypeByMetadataName(ChatMessageMetadataName);
+            return chatResponseType is null && chatMessageType is null
+                ? null
+                : new(
+                    chatResponseType,
+                    chatMessageType,
+                    compilation.GetTypeByMetadataName(ProcessMetadataName),
+                    compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName),
+                    compilation.GetTypeByMetadataName(FileMetadataName),
+                    compilation.GetTypeByMetadataName(EfDatabaseFacadeExtensionsMetadataName),
+                    compilation.GetTypeByMetadataName(EfQueryableExtensionsMetadataName));
+        }
     }
 }

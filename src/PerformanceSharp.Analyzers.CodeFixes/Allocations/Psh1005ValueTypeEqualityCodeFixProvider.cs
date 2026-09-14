@@ -72,7 +72,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         SyntaxNode root,
         SemanticModel model,
         StructDeclarationSyntax declaration,
-        ImmutableArray<(string Type, string Name)> members,
+        ImmutableArray<StructDataMember> members,
         Diagnostic diagnostic)
     {
         var immutable = Psh1014ReadonlyStructAnalyzer.HasImmutableInstanceState(declaration);
@@ -143,9 +143,9 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <summary>Collects the struct's instance data members, or <see langword="null"/> when generation cannot represent them.</summary>
     /// <param name="declaration">The struct declaration.</param>
     /// <returns>The type-and-name pairs, or <see langword="null"/> for pointer or fixed-buffer state.</returns>
-    private static ImmutableArray<(string Type, string Name)>? TryGetDataMembers(StructDeclarationSyntax declaration)
+    private static ImmutableArray<StructDataMember>? TryGetDataMembers(StructDeclarationSyntax declaration)
     {
-        var members = ImmutableArray.CreateBuilder<(string Type, string Name)>();
+        var members = ImmutableArray.CreateBuilder<StructDataMember>();
         foreach (var member in declaration.Members)
         {
             var representable = member switch
@@ -168,7 +168,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <param name="field">The field declaration.</param>
     /// <param name="members">The data member list.</param>
     /// <returns><see langword="false"/> when the field cannot be represented in generated equality.</returns>
-    private static bool TryAddFieldMembers(FieldDeclarationSyntax field, ImmutableArray<(string Type, string Name)>.Builder members)
+    private static bool TryAddFieldMembers(FieldDeclarationSyntax field, ImmutableArray<StructDataMember>.Builder members)
     {
         if (field.Modifiers.Any(SyntaxKind.StaticKeyword) || field.Modifiers.Any(SyntaxKind.ConstKeyword))
         {
@@ -182,7 +182,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
 
         foreach (var variable in field.Declaration.Variables)
         {
-            members.Add((field.Declaration.Type.ToString(), variable.Identifier.ValueText));
+            members.Add(new(field.Declaration.Type.ToString(), variable.Identifier.ValueText));
         }
 
         return true;
@@ -192,7 +192,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <param name="property">The property declaration.</param>
     /// <param name="members">The data member list.</param>
     /// <returns><see langword="false"/> when the property cannot be represented in generated equality.</returns>
-    private static bool TryAddPropertyMember(PropertyDeclarationSyntax property, ImmutableArray<(string Type, string Name)>.Builder members)
+    private static bool TryAddPropertyMember(PropertyDeclarationSyntax property, ImmutableArray<StructDataMember>.Builder members)
     {
         if (!IsInstanceAutoProperty(property))
         {
@@ -204,7 +204,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
             return false;
         }
 
-        members.Add((property.Type.ToString(), property.Identifier.ValueText));
+        members.Add(new(property.Type.ToString(), property.Identifier.ValueText));
         return true;
     }
 
@@ -240,9 +240,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
             SyntaxKind.RecordStructDeclaration,
             declaration.AttributeLists,
             declaration.Modifiers,
-            SyntaxFactory.Token(SyntaxKind.RecordKeyword)
-                .WithLeadingTrivia(structKeyword.LeadingTrivia)
-                .WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(structKeyword.LeadingTrivia, SyntaxKind.RecordKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             structKeyword.WithLeadingTrivia(),
             declaration.Identifier,
             declaration.TypeParameterList,
@@ -267,19 +265,19 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     private static StructDeclarationSyntax ImplementEquatable(
         SemanticModel model,
         StructDeclarationSyntax declaration,
-        ImmutableArray<(string Type, string Name)> members)
+        ImmutableArray<StructDataMember> members)
     {
         var selfType = declaration.Identifier.ValueText + declaration.TypeParameterList;
         var position = declaration.SpanStart;
-        var equatable = ResolvesInSystem(model, position, "IEquatable") ? "IEquatable" : "global::System.IEquatable";
+        var equatable = SpanRewriteGuard.ResolvesInSystem(model, position, "IEquatable") ? "IEquatable" : "global::System.IEquatable";
         var comparer = ResolvesGenericCollections(model, position)
             ? "EqualityComparer"
             : "global::System.Collections.Generic.EqualityComparer";
-        var hashCode = ResolvesInSystem(model, position, "HashCode") ? "HashCode" : "global::System.HashCode";
+        var hashCode = SpanRewriteGuard.ResolvesInSystem(model, position, "HashCode") ? "HashCode" : "global::System.HashCode";
         var objectParameterType = model.GetNullableContext(position).AnnotationsEnabled() ? "object?" : "object";
 
         var baseType = SyntaxFactory.SimpleBaseType(SyntaxFactory.ParseTypeName($"{equatable}<{selfType}>"));
-        var indentation = GetMemberIndentation(declaration);
+        var indentation = MemberIndentation.Of(declaration);
         var lineBreak = LineEndingHelper.GetLineBreak(declaration);
         return AddEquatableBase(declaration, baseType).AddMembers(
             ParseMember($"public bool Equals({selfType} other) => {BuildEqualsExpression(members, comparer)};", indentation, lineBreak),
@@ -287,18 +285,6 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
             ParseMember($"public override int GetHashCode() => {BuildHashExpression(members, hashCode)};", indentation, lineBreak),
             ParseMember($"public static bool operator ==({selfType} left, {selfType} right) => left.Equals(right);", indentation, lineBreak),
             ParseMember($"public static bool operator !=({selfType} left, {selfType} right) => !left.Equals(right);", indentation, lineBreak));
-    }
-
-    /// <summary>Returns the indentation for generated members: the struct's own indent plus one level.</summary>
-    /// <param name="declaration">The struct declaration.</param>
-    /// <returns>The member indentation whitespace.</returns>
-    private static string GetMemberIndentation(StructDeclarationSyntax declaration)
-    {
-        var leading = declaration.GetLeadingTrivia();
-        var structIndent = leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
-            ? leading[leading.Count - 1].ToString()
-            : string.Empty;
-        return $"{structIndent}    ";
     }
 
     /// <summary>Appends the equatable base type to the struct's base list, creating one when absent.</summary>
@@ -313,12 +299,21 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         }
 
         var identifier = declaration.TypeParameterList is null ? declaration.Identifier.WithoutTrivia() : declaration.Identifier;
-        return declaration
-            .WithIdentifier(identifier)
-            .WithTypeParameterList(declaration.TypeParameterList?.WithoutTrailingTrivia())
-            .WithBaseList(SyntaxFactory.BaseList(SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(baseType))
-                .WithLeadingTrivia(SyntaxFactory.Space)
-                .WithTrailingTrivia(GetNameTrailingTrivia(declaration)));
+        return declaration.Update(
+            declaration.AttributeLists,
+            declaration.Modifiers,
+            declaration.Keyword,
+            identifier,
+            declaration.TypeParameterList?.WithoutTrailingTrivia(),
+            declaration.ParameterList,
+            SyntaxFactory.BaseList(
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(baseType.WithTrailingTrivia(GetNameTrailingTrivia(declaration)))),
+            declaration.ConstraintClauses,
+            declaration.OpenBraceToken,
+            declaration.Members,
+            declaration.CloseBraceToken,
+            declaration.SemicolonToken);
     }
 
     /// <summary>Returns the trivia that followed the struct name, to carry after a new base list.</summary>
@@ -335,23 +330,65 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <param name="lineBreak">The file's line-break trivia.</param>
     /// <returns>The parsed member.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static MemberDeclarationSyntax ParseMember(string text, string indentation, in SyntaxTrivia lineBreak) =>
-        SyntaxFactory.ParseMemberDeclaration(text)!
-            .WithLeadingTrivia(lineBreak, SyntaxFactory.Whitespace(indentation))
-            .WithTrailingTrivia(lineBreak);
+    private static MemberDeclarationSyntax ParseMember(string text, string indentation, in SyntaxTrivia lineBreak)
+    {
+        var member = SyntaxFactory.ParseMemberDeclaration(text)!;
+        var modifiers = member.Modifiers;
+        modifiers = modifiers.Replace(
+            modifiers[0],
+            modifiers[0].WithLeadingTrivia(lineBreak, SyntaxFactory.Whitespace(indentation)));
+
+        if (member is MethodDeclarationSyntax method)
+        {
+            return method.Update(
+                method.AttributeLists,
+                modifiers,
+                method.ReturnType,
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                method.TypeParameterList,
+                method.ParameterList,
+                method.ConstraintClauses,
+                method.Body,
+                method.ExpressionBody,
+                method.SemicolonToken.WithTrailingTrivia(lineBreak));
+        }
+
+        var @operator = (OperatorDeclarationSyntax)member;
+        return @operator.Update(
+            @operator.AttributeLists,
+            modifiers,
+            @operator.ReturnType,
+            @operator.ExplicitInterfaceSpecifier,
+            @operator.OperatorKeyword,
+            @operator.CheckedKeyword,
+            @operator.OperatorToken,
+            @operator.ParameterList,
+            @operator.Body,
+            @operator.ExpressionBody,
+            @operator.SemicolonToken.WithTrailingTrivia(lineBreak));
+    }
 
     /// <summary>Builds the strongly typed Equals body comparing every data member.</summary>
     /// <param name="members">The instance data members.</param>
     /// <param name="comparer">The comparer type spelling.</param>
     /// <returns>The comparison expression text.</returns>
-    private static string BuildEqualsExpression(ImmutableArray<(string Type, string Name)> members, string comparer)
+    private static string BuildEqualsExpression(ImmutableArray<StructDataMember> members, string comparer)
     {
         if (members.IsEmpty)
         {
             return "true";
         }
 
-        var builder = new StringBuilder();
+        const int memberNameOccurrences = 2;
+        var capacity = (members.Length - 1) * " && ".Length;
+        for (var i = 0; i < members.Length; i++)
+        {
+            capacity += comparer.Length + 1 + members[i].Type.Length + ">.Default.Equals(".Length
+                + (members[i].Name.Length * memberNameOccurrences) + ", other.".Length + 1;
+        }
+
+        var builder = new StringBuilder(capacity);
         for (var i = 0; i < members.Length; i++)
         {
             if (i > 0)
@@ -370,7 +407,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <param name="members">The instance data members.</param>
     /// <param name="hashCode">The hash combiner type spelling.</param>
     /// <returns>The hash expression text.</returns>
-    private static string BuildHashExpression(ImmutableArray<(string Type, string Name)> members, string hashCode)
+    private static string BuildHashExpression(ImmutableArray<StructDataMember> members, string hashCode)
     {
         if (members.IsEmpty)
         {
@@ -389,24 +426,6 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         }
 
         return builder.Append(')').ToString();
-    }
-
-    /// <summary>Returns whether a simple name resolves to a type in the System namespace at a position.</summary>
-    /// <param name="model">The semantic model for the document.</param>
-    /// <param name="position">The lookup position.</param>
-    /// <param name="name">The simple type name.</param>
-    /// <returns><see langword="true"/> when the simple spelling binds.</returns>
-    private static bool ResolvesInSystem(SemanticModel model, int position, string name)
-    {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: name))
-        {
-            if (candidate is INamedTypeSymbol { ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } })
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether the generic comparer resolves by simple name at a position.</summary>

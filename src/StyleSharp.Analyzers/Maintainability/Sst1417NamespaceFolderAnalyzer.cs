@@ -76,57 +76,84 @@ public sealed class Sst1417NamespaceFolderAnalyzer : DiagnosticAnalyzer
     /// <summary>Extracts the folder path of a file relative to the project directory.</summary>
     /// <param name="projectDirectory">The project directory.</param>
     /// <param name="filePath">The file path.</param>
-    /// <param name="relativeDirectory">The folder portion (forward-slash separated) when the file is under the project.</param>
+    /// <param name="relativeDirectory">The folder portion when the file is under the project.</param>
     /// <returns><see langword="true"/> when the file lies under the project directory.</returns>
-    private static bool TryGetRelativeDirectory(string projectDirectory, string filePath, out string relativeDirectory)
+    private static bool TryGetRelativeDirectory(string projectDirectory, string filePath, out ReadOnlySpan<char> relativeDirectory)
     {
-        relativeDirectory = string.Empty;
-        var normalizedDirectory = projectDirectory.Replace('\\', '/');
-        if (!normalizedDirectory.EndsWith("/", StringComparison.Ordinal))
-        {
-            normalizedDirectory += "/";
-        }
-
-        var normalizedPath = filePath.Replace('\\', '/');
-        if (!normalizedPath.StartsWith(normalizedDirectory, StringComparison.Ordinal))
+        relativeDirectory = default;
+        var directoryLength = projectDirectory.Length;
+        var prefixLength = projectDirectory[directoryLength - 1] is '/' or '\\' ? directoryLength : directoryLength + 1;
+        if (filePath.Length < prefixLength || !HasDirectoryPrefix(projectDirectory, filePath))
         {
             return false;
         }
 
-        var relative = normalizedPath[normalizedDirectory.Length..];
-        var lastSlash = relative.LastIndexOf('/');
-        relativeDirectory = lastSlash < 0 ? string.Empty : relative[..lastSlash];
+        if (prefixLength > directoryLength && filePath[directoryLength] is not ('/' or '\\'))
+        {
+            return false;
+        }
+
+        var relative = filePath.AsSpan(prefixLength);
+        var lastSlash = Math.Max(relative.LastIndexOf('/'), relative.LastIndexOf('\\'));
+        relativeDirectory = lastSlash < 0 ? default : relative.Slice(0, lastSlash);
+        return true;
+    }
+
+    /// <summary>Compares the directory prefix while treating both directory separators alike.</summary>
+    /// <param name="projectDirectory">The project directory.</param>
+    /// <param name="filePath">A file path at least as long as the directory.</param>
+    /// <returns>Whether the file path starts with the directory text.</returns>
+    private static bool HasDirectoryPrefix(string projectDirectory, string filePath)
+    {
+        for (var i = 0; i < projectDirectory.Length; i++)
+        {
+            var directoryCharacter = projectDirectory[i] == '\\' ? '/' : projectDirectory[i];
+            var pathCharacter = filePath[i] == '\\' ? '/' : filePath[i];
+            if (directoryCharacter != pathCharacter)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
     /// <summary>Builds the expected namespace from the root namespace and the relative folders.</summary>
     /// <param name="root">The root namespace (may be empty).</param>
-    /// <param name="relativeDirectory">The folder path, forward-slash separated.</param>
+    /// <param name="relativeDirectory">The folder path, using either directory separator.</param>
     /// <returns>The expected namespace, or <see langword="null"/> when it cannot be formed.</returns>
-    private static string? BuildExpectedNamespace(string root, string relativeDirectory)
+    private static string? BuildExpectedNamespace(string root, ReadOnlySpan<char> relativeDirectory)
     {
         var builder = new StringBuilder(root);
-        if (relativeDirectory.Length > 0)
+        var start = 0;
+        while (start < relativeDirectory.Length)
         {
-            var segments = relativeDirectory.Split('/');
-            for (var i = 0; i < segments.Length; i++)
+            var length = relativeDirectory.Slice(start).IndexOfAny('/', '\\');
+            if (length < 0)
             {
-                if (segments[i].Length == 0)
-                {
-                    continue;
-                }
+                length = relativeDirectory.Length - start;
+            }
 
-                if (!IsValidIdentifier(segments[i]))
-                {
-                    return null;
-                }
+            var segment = relativeDirectory.Slice(start, length);
+            start += length + 1;
+            if (segment.IsEmpty)
+            {
+                continue;
+            }
 
-                if (builder.Length > 0)
-                {
-                    _ = builder.Append('.');
-                }
+            if (!IsValidIdentifier(segment))
+            {
+                return null;
+            }
 
-                _ = builder.Append(segments[i]);
+            if (builder.Length > 0)
+            {
+                _ = builder.Append('.');
+            }
+
+            foreach (var character in segment)
+            {
+                _ = builder.Append(character);
             }
         }
 
@@ -156,7 +183,7 @@ public sealed class Sst1417NamespaceFolderAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a folder name is a valid C# identifier (and so usable as a namespace part).</summary>
     /// <param name="segment">The folder name.</param>
     /// <returns><see langword="true"/> when the segment is a valid identifier.</returns>
-    private static bool IsValidIdentifier(string segment)
+    private static bool IsValidIdentifier(ReadOnlySpan<char> segment)
     {
         if (!char.IsLetter(segment[0]) && segment[0] != '_')
         {

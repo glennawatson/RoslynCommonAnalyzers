@@ -11,62 +11,35 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1106EmptyStatementCodeFixProvider))]
 [Shared]
-public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1106EmptyStatementCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TrySelect);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.EmptyStatement.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(context, "Remove empty statement", nameof(Sst1106EmptyStatementCodeFixProvider), TrySelect);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not EmptyStatementSyntax { Parent: BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax } statement)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove empty statement",
-                    _ => RemoveAsync(context.Document, root, statement),
-                    equivalenceKey: nameof(Sst1106EmptyStatementCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not EmptyStatementSyntax { Parent: BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax } statement)
-        {
-            return;
-        }
-
-        // A top-level statement is wrapped in a GlobalStatementSyntax; remove the wrapper too.
-        var toRemove = statement.Parent is GlobalStatementSyntax global ? global : (SyntaxNode)statement;
-        editor.RemoveNode(toRemove, SyntaxRemoveOptions.KeepUnbalancedDirectives);
-    }
-
-    /// <summary>Removes the empty statement and its surrounding trivia.</summary>
-    /// <param name="document">The document to fix.</param>
+    /// <summary>Resolves the reported empty statement when deleting it cannot change control flow.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="statement">The empty statement to remove.</param>
-    /// <returns>The updated document.</returns>
-    internal static Task<Document> RemoveAsync(Document document, SyntaxNode root, SyntaxNode statement)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The node to remove, or <see langword="null"/> when the semicolon is an embedded statement.</returns>
+    private static NodeRemoval? TrySelect(SyntaxNode root, Diagnostic diagnostic)
     {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not EmptyStatementSyntax { Parent: BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax } statement)
+        {
+            return null;
+        }
+
         // A top-level statement is wrapped in a GlobalStatementSyntax; remove the wrapper too.
-        var toRemove = statement.Parent is GlobalStatementSyntax global ? global : statement;
-        var updated = root.RemoveNode(toRemove, SyntaxRemoveOptions.KeepUnbalancedDirectives);
-        return Task.FromResult(updated is null ? document : document.WithSyntaxRoot(updated));
+        return statement.Parent is GlobalStatementSyntax global
+            ? new NodeRemoval(global)
+            : new NodeRemoval(statement);
     }
 }

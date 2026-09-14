@@ -39,7 +39,7 @@ public class Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCod
     [Benchmark]
     public async Task<int> Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1159ParenthesizedLambdaExpressionParameterMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

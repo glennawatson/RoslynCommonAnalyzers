@@ -37,16 +37,11 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var overloads = ConcatOverloads.Resolve(start.Compilation);
-            if (!overloads.HasAny)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, overloads), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<ConcatOverloads>(compilation, ConcatOverloads.Resolve),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Runs the syntax-only checks: a <c>string.Join</c>/<c>String.Join</c> member access whose first argument looks like the empty string.</summary>
@@ -74,14 +69,14 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
         }
 
         var expression = arguments[0].Expression;
-        if (IsEmptyStringLiteral(expression))
+        if (EmptyStringExpressions.IsEmptyStringLiteral(expression))
         {
             separator = expression;
             separatorIsLiteral = true;
             return true;
         }
 
-        if (!IsEmptyMemberAccess(expression))
+        if (!EmptyStringExpressions.IsEmptyMemberAccess(expression))
         {
             return false;
         }
@@ -92,8 +87,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1215 for an empty-separator Join call whose values have a Concat overload.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="overloads">The Concat overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ConcatOverloads overloads)
+    /// <param name="resolver">The compilation's lazily resolved Concat overloads.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ConcatOverloads> resolver)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsCandidate(invocation, out var separator, out var separatorIsLiteral))
@@ -101,8 +96,14 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var overloads = resolver.Get();
+        if (!overloads.HasAny)
+        {
+            return;
+        }
+
         var model = context.SemanticModel;
-        if ((!separatorIsLiteral && !IsStringEmptyField(model, separator!, context.CancellationToken))
+        if ((!separatorIsLiteral && !EmptyStringExpressions.IsStringEmptyField(model, separator!, context.CancellationToken))
             || !IsReportableJoin(model, invocation, overloads, context.CancellationToken))
         {
             return;
@@ -119,34 +120,6 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a <c>string.Join</c> or <c>String.Join</c> spelling.</returns>
     private static bool IsStringReceiver(ExpressionSyntax expression) =>
         expression is PredefinedTypeSyntax predefined ? predefined.Keyword.IsKind(SyntaxKind.StringKeyword) : expression is IdentifierNameSyntax { Identifier.ValueText: "String" };
-
-    /// <summary>Returns whether an expression is the literal <c>""</c>.</summary>
-    /// <param name="expression">The candidate separator expression.</param>
-    /// <returns><see langword="true"/> for a string literal whose value is empty.</returns>
-    private static bool IsEmptyStringLiteral(ExpressionSyntax expression) =>
-        expression is LiteralExpressionSyntax literal
-            && literal.IsKind(SyntaxKind.StringLiteralExpression)
-            && literal.Token.ValueText.Length == 0;
-
-    /// <summary>Returns whether an expression is a member access ending in <c>.Empty</c>, syntactically.</summary>
-    /// <param name="expression">The candidate separator expression.</param>
-    /// <returns><see langword="true"/> for a simple member access named <c>Empty</c>.</returns>
-    private static bool IsEmptyMemberAccess(ExpressionSyntax expression) =>
-        expression is MemberAccessExpressionSyntax access
-            && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
-            && access.Name is IdentifierNameSyntax { Identifier.ValueText: "Empty" };
-
-    /// <summary>Returns whether a <c>.Empty</c> access binds to the <see cref="string.Empty"/> field.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="separator">The <c>.Empty</c> member access to bind.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the access is the static <c>Empty</c> field on <see cref="string"/>.</returns>
-    private static bool IsStringEmptyField(SemanticModel model, ExpressionSyntax separator, CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(separator, cancellationToken).Symbol is IFieldSymbol
-        {
-            IsStatic: true,
-            ContainingType.SpecialType: SpecialType.System_String
-        };
 
     /// <summary>Runs the semantic checks: the invocation binds to a two-parameter static <c>string.Join</c> with a gated Concat equivalent.</summary>
     /// <param name="model">The semantic model.</param>

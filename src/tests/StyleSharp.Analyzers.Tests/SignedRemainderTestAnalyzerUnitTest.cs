@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2416SignedRemainderTestAnalyzer,
     StyleSharp.Analyzers.Sst2416SignedRemainderTestCodeFixProvider>;
@@ -21,6 +22,18 @@ public class SignedRemainderTestAnalyzerUnitTest
                                                    public bool M(int n) => {|SST2416:n % 2 == 1|};
                                                }
                                                """;
+
+    /// <summary>Verifies the even test uses a zero comparison on frameworks without parity helpers.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ReversedEvenTestFallsBackWhereHelperIsAbsentAsync() =>
+        new VerifyFix.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.NetStandard20,
+            TestCode = "class C { bool M(int n) => {|SST2416:1 != n % 2|}; }",
+            FixedCode = "class C { bool M(int n) => n % 2 == 0; }",
+        }.RunAsync(CancellationToken.None);
 
     /// <summary>Verifies the odd test on a signed int is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -95,6 +108,88 @@ public class SignedRemainderTestAnalyzerUnitTest
             {
                 public bool M(int n) => Math.Abs(n) % 2 == 1;
             }
+            """);
+
+    /// <summary>Verifies reversed comparisons and every supported signed numeric type are reported.</summary>
+    /// <param name="type">The dividend type.</param>
+    /// <param name="divisor">The nonzero integral divisor.</param>
+    /// <param name="remainder">The nonzero integral comparison value.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("sbyte", "(sbyte)2", "(byte)1")]
+    [Arguments("short", "(short)2", "(ushort)1")]
+    [Arguments("int", "2", "1")]
+    [Arguments("long", "2L", "1U")]
+    [Arguments("nint", "2", "1")]
+    [Arguments("decimal", "2UL", "1")]
+    public Task ReversedSignedComparisonsAreReportedAsync(string type, string divisor, string remainder) =>
+        new VerifyRemainder.Test { ReferenceAssemblies = AnalyzerFrameworks.Net80, TestCode = $$"""class C { bool M({{type}} n) => {|SST2416:{{remainder}} == n % {{divisor}}|}; }""" }
+            .RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies comparisons outside the signed, integral, nonzero-constant shape are ignored.</summary>
+    /// <param name="expression">The near-miss comparison.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("n == 1")]
+    [Arguments("n != 1")]
+    [Arguments("n % divisor == 1")]
+    [Arguments("n % 0 == 1")]
+    [Arguments("n % 2 == divisor")]
+    [Arguments("n % 2 == null")]
+    [Arguments("n % 2.0 == 1")]
+    [Arguments("n % 2 == 1.0")]
+    [Arguments("((double)n) % 2 == 1")]
+    [Arguments("((int?)n) % 2 == 1")]
+    [Arguments("((ulong)n) % 2 == 1")]
+    [Arguments("text.Length % 2 == 1")]
+    [Arguments("(n % 2) == 1")]
+    [Arguments("null % 2 == 1")]
+    public Task NonmatchingComparisonsAreCleanAsync(string expression) =>
+        new VerifyRemainder.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net80,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = $$"""class C { bool M(int n, int divisor, string text) => {{expression}}; }""",
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies ordinary members and non-absolute-value calls can still yield negative dividends.</summary>
+    /// <param name="expression">The signed dividend.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("this.Value")]
+    [Arguments("System.Math.Sign(n)")]
+    [Arguments("Read(n)")]
+    public Task PotentiallyNegativeMemberAndCallResultsAreReportedAsync(string expression) =>
+        VerifyRemainder.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                int Value => -1;
+                static int Read(int n) => n;
+                bool M(int n) => {|SST2416:{{expression}} % 2 == 1|};
+            }
+            """);
+
+    /// <summary>Verifies only the numerics namespace gives a BigInteger-shaped operand signed semantics.</summary>
+    /// <param name="typeNamespace">The namespace defining the operator stub.</param>
+    /// <param name="comparison">The expected analyzer markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("System.Numerics", "{|SST2416:n % 2 == 1|}")]
+    [Arguments("Other", "n % 2 == 1")]
+    public Task BigIntegerMustBelongToNumericsAsync(string typeNamespace, string comparison) =>
+        VerifyRemainder.VerifyAnalyzerAsync($$"""
+            namespace {{typeNamespace}}
+            {
+                public struct BigInteger
+                {
+                    public static int operator %(BigInteger value, int divisor) => 0;
+                }
+            }
+            class C { bool M({{typeNamespace}}.BigInteger n) => {{comparison}}; }
             """);
 
     /// <summary>Verifies the fix promotes the generic-math helper where it exists.</summary>

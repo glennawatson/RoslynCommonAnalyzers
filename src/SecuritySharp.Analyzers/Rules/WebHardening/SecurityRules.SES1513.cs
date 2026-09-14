@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1513 — an <c>IAuthorizationService.AuthorizeAsync</c> result is discarded instead of checked.</summary>
-    public static readonly DiagnosticDescriptor DiscardedAuthorizationResult = Create(
+    public static readonly DiagnosticDescriptor DiscardedAuthorizationResult = DescriptorFactory.Create(
         "SES1513",
         "An authorization result must be checked, not discarded",
         "The 'AuthorizationResult' from 'IAuthorizationService.AuthorizeAsync' is discarded; nothing reads its 'Succeeded', so execution continues whether or not authorization passed",

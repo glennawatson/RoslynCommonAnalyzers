@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
 using VerifyIncrement = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2015IsolateIncrementAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -10,6 +11,40 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2015 (do not bury an increment inside a larger expression).</summary>
 public class IsolateIncrementAnalyzerUnitTest
 {
+    /// <summary>Verifies parentheses preserve whether an increment is the whole value or part of an expression.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ParenthesizedValuesAndLambdaBodiesKeepTheirContextAsync() =>
+        VerifyIncrement.VerifyAnalyzerAsync(
+            """
+            using System;
+            class C
+            {
+                int next;
+                int Take() => ((next++));
+                void M(int[] values)
+                {
+                    var value = ((next++));
+                    next = ((value++));
+                    Func<int> take = () => ((next++));
+                    Func<int, int> decrement = value => --value;
+                    values[({|SST2015:--next|})] = 1;
+                    var sum = (({|SST2015:next++|})) + 1;
+                    var assigned = next = {|SST2015:value++|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies a detached increment has no surrounding expression that consumes its value.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DetachedIncrementIsNotBuriedAsync()
+    {
+        var expression = SyntaxFactory.ParseExpression("next++");
+        await Assert.That(Sst2015IsolateIncrementAnalyzer.IsBuried(expression)).IsFalse();
+    }
+
     /// <summary>Verifies an increment whose value a larger expression reads is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

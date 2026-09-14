@@ -12,6 +12,15 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the using-directive-qualified rule (SST1135).</summary>
 public class UsingDirectiveQualifiedAnalyzerUnitTest
 {
+    /// <summary>Verifies named types in static using directives are qualified by single and batch fixes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task RelativeStaticUsingTypesAreQualifiedAsync() =>
+        VerifyUsingQualified.VerifyCodeFixAsync(
+            "namespace N { using static {|SST1135:First|}; using static {|SST1135:Second|}; class First { } class Second { } }",
+            "namespace N { using static N.First; using static N.Second; class First { } class Second { } }");
+
     /// <summary>Verifies a context-relative using is reported (SST1135) and fully qualified.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

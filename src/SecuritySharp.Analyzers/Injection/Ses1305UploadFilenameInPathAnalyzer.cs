@@ -15,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// containing type must be <c>IFormFile</c> itself, so a same-named property on another type is ignored.
 /// This is a purely local, syntactic shape (no data-flow); a value sanitized with
 /// <c>Path.GetFileName(file.FileName)</c> is not flagged because <c>.FileName</c> is then a direct
-/// argument to <c>GetFileName</c>, not to the path sink. The <c>IFormFile</c> marker is probed once per
-/// compilation; a project without ASP.NET Core registers nothing and pays nothing.
+/// argument to <c>GetFileName</c>, not to the path sink. The <c>IFormFile</c> marker and sink types are
+/// resolved only after a <c>.FileName</c> access passes the syntactic sink checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
@@ -54,6 +54,9 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of <c>System.IO.FileStream</c>.</summary>
     private const string FileStreamMetadataName = "System.IO.FileStream";
 
+    /// <summary>The upload marker and path-sink metadata names, in slot order.</summary>
+    private static readonly string[] SinkMetadataNames = [FormFileMetadataName, PathMetadataName, FileMetadataName, FileStreamMetadataName];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UploadFilenameInPath);
 
@@ -66,22 +69,17 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var sinkTypes = GetSinkTypes(start.Compilation);
-            if (sinkTypes is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, sinkTypes), SyntaxKind.SimpleMemberAccessExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, SinkMetadataNames),
+            AnalyzeMemberAccess,
+            SyntaxKind.SimpleMemberAccessExpression);
     }
 
     /// <summary>Reports SES1305 for an <c>IFormFile.FileName</c> read that flows straight into a path sink.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="sinkTypes">The gated marker and path-sink types resolved for the compilation.</param>
-    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, SinkTypes sinkTypes)
+    /// <param name="types">The compilation-scoped upload marker and path-sink type cache.</param>
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -100,15 +98,20 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (types.Get() is not [{ } formFile, var path, var file, var fileStream])
+        {
+            return;
+        }
+
         // Bind '.FileName' and confirm the read is 'IFormFile.FileName' (the high-signal, rare condition).
         if (context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is not IPropertySymbol { Name: FileNamePropertyName } property
-            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, sinkTypes.FormFile))
+            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, formFile))
         {
             return;
         }
 
         // For the call sinks, bind the enclosing invocation/construction to confirm the framework member.
-        if (sinkCall is not null && !IsConfirmedSinkCall(context.SemanticModel, sinkCall, sinkTypes, context.CancellationToken))
+        if (sinkCall is not null && !IsConfirmedSinkCall(context.SemanticModel, sinkCall, new(path, file, fileStream), context.CancellationToken))
         {
             return;
         }
@@ -160,7 +163,7 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <param name="sinkTypes">The gated path-sink types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the call is a gated <c>Path</c>/<c>File</c>/<c>FileStream</c> sink.</returns>
-    private static bool IsConfirmedSinkCall(SemanticModel model, SyntaxNode call, SinkTypes sinkTypes, CancellationToken cancellationToken)
+    private static bool IsConfirmedSinkCall(SemanticModel model, SyntaxNode call, in PathSinkTypes sinkTypes, CancellationToken cancellationToken)
     {
         if (model.GetSymbolInfo(call, cancellationToken).Symbol is not IMethodSymbol method)
         {
@@ -253,43 +256,9 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Resolves the upload marker and path-sink types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>The resolved sink types, or <see langword="null"/> when the <c>IFormFile</c> marker is absent.</returns>
-    private static SinkTypes? GetSinkTypes(Compilation compilation) => compilation.GetTypeByMetadataName(FormFileMetadataName) is not { } formFile
-        ? null
-        : new SinkTypes(
-            formFile,
-            compilation.GetTypeByMetadataName(PathMetadataName),
-            compilation.GetTypeByMetadataName(FileMetadataName),
-            compilation.GetTypeByMetadataName(FileStreamMetadataName));
-
-    /// <summary>The marker and path-sink types resolved once per compilation.</summary>
-    private sealed class SinkTypes
-    {
-        /// <summary>Initializes a new instance of the <see cref="SinkTypes"/> class.</summary>
-        /// <param name="formFile">The resolved <c>IFormFile</c> marker type.</param>
-        /// <param name="path">The resolved <c>System.IO.Path</c> type, if present.</param>
-        /// <param name="file">The resolved <c>System.IO.File</c> type, if present.</param>
-        /// <param name="fileStream">The resolved <c>System.IO.FileStream</c> type, if present.</param>
-        public SinkTypes(INamedTypeSymbol formFile, INamedTypeSymbol? path, INamedTypeSymbol? file, INamedTypeSymbol? fileStream)
-        {
-            FormFile = formFile;
-            Path = path;
-            File = file;
-            FileStream = fileStream;
-        }
-
-        /// <summary>Gets the resolved <c>IFormFile</c> marker type.</summary>
-        public INamedTypeSymbol FormFile { get; }
-
-        /// <summary>Gets the resolved <c>System.IO.Path</c> type, or <see langword="null"/> when absent.</summary>
-        public INamedTypeSymbol? Path { get; }
-
-        /// <summary>Gets the resolved <c>System.IO.File</c> type, or <see langword="null"/> when absent.</summary>
-        public INamedTypeSymbol? File { get; }
-
-        /// <summary>Gets the resolved <c>System.IO.FileStream</c> type, or <see langword="null"/> when absent.</summary>
-        public INamedTypeSymbol? FileStream { get; }
-    }
+    /// <summary>The path-sink types a confirmed call must bind to.</summary>
+    /// <param name="Path">The resolved <c>System.IO.Path</c> type, or <see langword="null"/> when absent.</param>
+    /// <param name="File">The resolved <c>System.IO.File</c> type, or <see langword="null"/> when absent.</param>
+    /// <param name="FileStream">The resolved <c>System.IO.FileStream</c> type, or <see langword="null"/> when absent.</param>
+    private readonly record struct PathSinkTypes(INamedTypeSymbol? Path, INamedTypeSymbol? File, INamedTypeSymbol? FileStream);
 }

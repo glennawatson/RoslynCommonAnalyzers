@@ -31,7 +31,7 @@ namespace StyleSharp.Analyzers.Tests;
     "Correctness",
     "SST2473:A shared export part should be obtained from the container, not constructed with 'new'",
     Justification = "The code-fix provider is the subject of the test, so it has to be constructed directly to be exercised.")]
-public class ModernSyntaxValueAnalyzerUnitTest
+public partial class ModernSyntaxValueAnalyzerUnitTest
 {
     /// <summary>The id of the rule that makes an ignored expression value explicit.</summary>
     private const string IgnoredExpressionValueRuleId = "SST2221";
@@ -226,8 +226,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
         var second = Diagnostic.Create(descriptor, Location.Create(TestDocumentName, memberAccess.Name.Span, default));
 
         var diagnostics = ImmutableArray.Create(first, second);
-        var fix = (IBatchFixableCodeFix)new ModernSyntaxValueCodeFixProvider();
-        var unique = BatchEditFixAllProvider.UniqueDiagnostics(root, fix, diagnostics).ToArray();
+        var provider = new BatchEditFixAllProvider(ModernSyntaxValueCodeFixProvider.RegisterBatchEdits, ModernSyntaxValueCodeFixProvider.TryGetBatchEditSpan);
+        var unique = provider.CollectUniqueDiagnostics(root, diagnostics);
 
         await Assert.That(unique).Count().IsEqualTo(1);
         await Assert.That(unique[0]).IsSameReferenceAs(first);
@@ -243,9 +243,10 @@ public class ModernSyntaxValueAnalyzerUnitTest
         var document = project.AddDocument(TestDocumentName, SourceText.From("public sealed class C { }"));
         var editor = await DocumentEditor.CreateAsync(document, CancellationToken.None);
         var diagnostic = Diagnostic.Create(ModernSyntaxRules.MakeIgnoredExpressionValueExplicit, Location.None);
-        var fix = new ThrowingBatchFix("GetCurrentNode returned null with the following node: received.TrySetResult();");
+        var provider = new BatchEditFixAllProvider(
+            static (DocumentEditor _, Diagnostic _) => throw new InvalidOperationException("GetCurrentNode returned null with the following node: received.TrySetResult();"));
 
-        BatchEditFixAllProvider.RegisterBatchEdit(editor, fix, diagnostic);
+        provider.RegisterBatchEdit(editor, diagnostic);
 
         await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo("public sealed class C { }");
     }
@@ -760,13 +761,5 @@ public class ModernSyntaxValueAnalyzerUnitTest
                        """;
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
         test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-    }
-
-    /// <summary>A batch fix that throws a supplied exception message.</summary>
-    /// <param name="message">The exception message.</param>
-    private sealed class ThrowingBatchFix(string message) : IBatchFixableCodeFix
-    {
-        /// <inheritdoc/>
-        void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) => throw new InvalidOperationException(message);
     }
 }

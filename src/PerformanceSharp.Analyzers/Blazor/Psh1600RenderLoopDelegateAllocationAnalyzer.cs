@@ -14,12 +14,11 @@ namespace PerformanceSharp.Analyzers;
 /// and delegate for each row, and the whole set is rebuilt on every render.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on
-/// <c>Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder</c> resolving; a project that does not
-/// reference Blazor registers no syntax action. On the clean path a candidate anonymous function fails
+/// The rule resolves <c>Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder</c> on first demand,
+/// caching the result per compilation even when the type is absent. On the clean path a candidate anonymous function fails
 /// fast on syntax: it is discarded unless its nearest enclosing statement (with no intervening anonymous
 /// function) is a <c>for</c>/<c>foreach</c> whose containing method is named <c>BuildRenderTree</c> and
-/// takes a single parameter, all checked before the semantic model is consulted. The render-method
+/// takes a single parameter, all checked before type resolution or the semantic model is consulted. The render-method
 /// parameter type and the loop-variable capture are bound only once those syntactic gates pass, so a
 /// loop-invariant delegate, a method group, and a delegate hoisted out of the loop are never reported.
 /// Generated code is analyzed because a <c>.razor</c> component's <c>@foreach</c>/<c>@for</c> render body
@@ -28,11 +27,11 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1600RenderLoopDelegateAllocationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the render-tree builder whose presence proves a Blazor project.</summary>
-    private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
-
     /// <summary>The name of the component render method whose body holds the render loops.</summary>
     private const string BuildRenderTreeMethodName = "BuildRenderTree";
+
+    /// <summary>The metadata name of the render-tree builder whose presence proves a Blazor project.</summary>
+    private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(BlazorRules.RenderLoopDelegateAllocation);
@@ -48,36 +47,29 @@ public sealed class Psh1600RenderLoopDelegateAllocationAnalyzer : DiagnosticAnal
         // A .razor component's render body is generated code, so the rule must both analyze it and report there.
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze | GeneratedCodeAnalysisFlags.ReportDiagnostics);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var renderTreeBuilder = start.Compilation.GetTypeByMetadataName(RenderTreeBuilderMetadataName);
-            if (renderTreeBuilder is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAnonymousFunction(nodeContext, renderTreeBuilder),
-                SyntaxKind.SimpleLambdaExpression,
-                SyntaxKind.ParenthesizedLambdaExpression,
-                SyntaxKind.AnonymousMethodExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, RenderTreeBuilderMetadataName),
+            AnalyzeAnonymousFunction,
+            SyntaxKind.SimpleLambdaExpression,
+            SyntaxKind.ParenthesizedLambdaExpression,
+            SyntaxKind.AnonymousMethodExpression);
     }
 
     /// <summary>Reports PSH1600 when an anonymous function inside a render loop captures a loop-declared variable.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="renderTreeBuilder">The resolved render-tree builder type gating the rule.</param>
-    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
+    /// <param name="types">The lazily resolved render-tree builder type gating the rule.</param>
+    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var anonymousFunction = (AnonymousFunctionExpressionSyntax)context.Node;
 
-        var loop = FindEnclosingRenderLoop(anonymousFunction);
+        var loop = RenderLoopSyntax.FindEnclosingLoop(anonymousFunction);
         if (loop is null)
         {
             return;
         }
 
-        if (!IsInsideRenderTreeMethod(loop, context.SemanticModel, renderTreeBuilder, context.CancellationToken))
+        if (!IsInsideRenderTreeMethod(loop, context.SemanticModel, types, context.CancellationToken))
         {
             return;
         }
@@ -93,41 +85,15 @@ public sealed class Psh1600RenderLoopDelegateAllocationAnalyzer : DiagnosticAnal
             anonymousFunction.Span));
     }
 
-    /// <summary>Returns the nearest enclosing <c>for</c>/<c>foreach</c> reached without crossing another function.</summary>
-    /// <param name="anonymousFunction">The candidate anonymous function.</param>
-    /// <returns>
-    /// The enclosing loop when the anonymous function sits directly in a loop body; <see langword="null"/> when a
-    /// nested function is crossed first (the outer function owns the per-iteration cost) or no loop encloses it.
-    /// </returns>
-    private static SyntaxNode? FindEnclosingRenderLoop(AnonymousFunctionExpressionSyntax anonymousFunction)
-    {
-        for (var current = anonymousFunction.Parent; current is not null; current = current.Parent)
-        {
-            switch (current)
-            {
-                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
-                    return null;
-
-                case ForStatementSyntax or CommonForEachStatementSyntax:
-                    return current;
-
-                case MemberDeclarationSyntax:
-                    return null;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Returns whether a loop's containing method is a component <c>BuildRenderTree</c> override.</summary>
     /// <param name="loop">The enclosing loop.</param>
     /// <param name="semanticModel">The semantic model.</param>
-    /// <param name="renderTreeBuilder">The resolved render-tree builder type.</param>
+    /// <param name="types">The lazily resolved render-tree builder type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the loop runs inside a <c>BuildRenderTree(RenderTreeBuilder)</c> method.</returns>
-    private static bool IsInsideRenderTreeMethod(SyntaxNode loop, SemanticModel semanticModel, INamedTypeSymbol renderTreeBuilder, CancellationToken cancellationToken)
+    private static bool IsInsideRenderTreeMethod(SyntaxNode loop, SemanticModel semanticModel, LazyMetadataType types, CancellationToken cancellationToken)
     {
-        var method = FindContainingMethod(loop);
+        var method = RenderLoopSyntax.FindContainingMethod(loop);
         if (method is null
             || method.Identifier.ValueText != BuildRenderTreeMethodName
             || method.ParameterList.Parameters.Count != 1)
@@ -135,28 +101,9 @@ public sealed class Psh1600RenderLoopDelegateAllocationAnalyzer : DiagnosticAnal
             return false;
         }
 
-        return semanticModel.GetDeclaredSymbol(method, cancellationToken) is IMethodSymbol { Parameters.Length: 1 } symbol
+        return types.Get() is { } renderTreeBuilder
+            && semanticModel.GetDeclaredSymbol(method, cancellationToken) is IMethodSymbol { Parameters.Length: 1 } symbol
             && SymbolEqualityComparer.Default.Equals(symbol.Parameters[0].Type, renderTreeBuilder);
-    }
-
-    /// <summary>Returns the nearest enclosing method declaration, walking through any nested functions.</summary>
-    /// <param name="node">The node to search up from.</param>
-    /// <returns>The containing method declaration, or <see langword="null"/> when the node is not inside a method.</returns>
-    private static MethodDeclarationSyntax? FindContainingMethod(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            switch (current)
-            {
-                case MethodDeclarationSyntax method:
-                    return method;
-
-                case BaseTypeDeclarationSyntax:
-                    return null;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>Returns whether the anonymous function reads a variable declared inside the loop.</summary>

@@ -7,6 +7,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -70,7 +71,7 @@ public class StringBuilderAppendCharCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> StringBuilderAppendChar_ApplyFixAsync()
     {
-        var updated = Psh1202StringBuilderAppendCharCodeFixProvider.Apply(_document, _root, _literal);
+        var updated = TargetCodeFix.Apply(_document, _root, _literal, SingleCharacterLiteralFix.ToCharacterLiteral);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

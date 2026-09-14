@@ -39,7 +39,7 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericAnalyzer : Diagno
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
-        if (GetOperandComparedToNull(binary) is not { } operand)
+        if (ExpressionShapes.OperandComparedToNull(binary) is not { } operand)
         {
             return;
         }
@@ -61,19 +61,6 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericAnalyzer : Diagno
             typeParameter.Name,
             written,
             suggested));
-    }
-
-    /// <summary>Returns the non-null operand of an equality whose other operand is the null literal.</summary>
-    /// <param name="binary">The equality expression.</param>
-    /// <returns>The non-null operand, or <see langword="null"/> when neither operand is the null literal.</returns>
-    private static ExpressionSyntax? GetOperandComparedToNull(BinaryExpressionSyntax binary)
-    {
-        if (binary.Right.IsKind(SyntaxKind.NullLiteralExpression))
-        {
-            return binary.Left;
-        }
-
-        return binary.Left.IsKind(SyntaxKind.NullLiteralExpression) ? binary.Right : null;
     }
 
     /// <summary>Returns whether a type parameter could be substituted with a value type.</summary>

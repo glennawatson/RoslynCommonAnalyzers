@@ -2,7 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyNamedArgumentOrder = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1220NamedArgumentOrderAnalyzer,
     StyleSharp.Analyzers.Sst1220NamedArgumentOrderCodeFixProvider>;
@@ -12,6 +19,34 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the named-argument order rule (SST1220) and its reorder fix.</summary>
 public class NamedArgumentOrderAnalyzerUnitTest
 {
+    /// <summary>Verifies stale diagnostics cannot reorder missing, partial, or unresolved argument lists.</summary>
+    /// <param name="expression">The expression at the diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("42")]
+    [Arguments("M(a: 1)")]
+    [Arguments("Missing(a: 1, b: 2)")]
+    [Arguments("M(1, b: 2)")]
+    [Arguments("M(a: 1, missing: 2)")]
+    public async Task UnsortableArgumentsHaveNoRewriteAsync(string expression)
+    {
+        var source = $"class C {{ int M(int a, int b = 0) => a + b; int Use() => {expression}; }}";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var expressionNode = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Last().ExpressionBody!.Expression;
+        SyntaxNode target = expressionNode is InvocationExpressionSyntax invocation ? invocation.ArgumentList : expressionNode;
+        var diagnostic = Diagnostic.Create(OrderingRules.NamedArgumentOrder, target.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst1220NamedArgumentOrderCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        BatchEditRegistration.Register<Sst1220NamedArgumentOrderCodeFixProvider>(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
+
     /// <summary>Verifies an out-of-order all-named call is reported and reordered.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

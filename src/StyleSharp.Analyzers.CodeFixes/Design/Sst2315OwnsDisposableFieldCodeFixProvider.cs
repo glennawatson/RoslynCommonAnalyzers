@@ -16,55 +16,31 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2315OwnsDisposableFieldCodeFixProvider))]
 [Shared]
-public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = TypeDeclarationValueCodeFix.CreateFixAll(Resolve, MakeDisposable);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DesignRules.OwnsDisposableField.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not var (declaration, members))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Implement IDisposable and dispose the owned members",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, MakeDisposable(declaration, members)))),
-                    equivalenceKey: nameof(Sst2315OwnsDisposableFieldCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not var (declaration, members))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, (current, _) => MakeDisposable((TypeDeclarationSyntax)current, members));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TypeDeclarationValueCodeFix.RegisterAsync(
+            context,
+            static _ => "Implement IDisposable and dispose the owned members",
+            nameof(Sst2315OwnsDisposableFieldCodeFixProvider),
+            Resolve,
+            MakeDisposable);
 
     /// <summary>Resolves the reported type declaration and the members its <c>Dispose()</c> should release.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The type declaration and member names, or <see langword="null"/> when no fix is offered.</returns>
-    private static (TypeDeclarationSyntax Declaration, string[] Members)? Resolve(SyntaxNode root, Diagnostic diagnostic)
+    private static TypeDeclarationFix? Resolve(SyntaxNode root, Diagnostic diagnostic)
     {
         // The member is appended after the last one and before the closing brace, which is where the
         // directive closing a region over the tail sits — so the new member would land inside it.
@@ -73,26 +49,57 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
             || !diagnostic.Properties.TryGetValue(Sst2315OwnsDisposableFieldAnalyzer.MembersToDisposeKey, out var members)
             || string.IsNullOrEmpty(members)
             ? null
-            : (declaration, members!.Split(','));
+            : new TypeDeclarationFix(declaration, members!);
     }
 
     /// <summary>Adds <c>IDisposable</c> and a <c>Dispose()</c> that releases each owned member.</summary>
     /// <param name="declaration">The type declaration.</param>
     /// <param name="members">The members to release.</param>
     /// <returns>The updated declaration.</returns>
-    private static TypeDeclarationSyntax MakeDisposable(TypeDeclarationSyntax declaration, string[] members)
+    private static TypeDeclarationSyntax MakeDisposable(TypeDeclarationSyntax declaration, string members)
     {
-        var statements = new List<StatementSyntax>(members.Length);
-        for (var i = 0; i < members.Length; i++)
+        const string DisposeCall = ".Dispose();";
+        var memberCount = 1;
+        foreach (var character in members)
         {
-            statements.Add(SyntaxFactory.ParseStatement($"{members[i]}.Dispose();"));
+            if (character == ',')
+            {
+                memberCount++;
+            }
+        }
+
+        var statements = new List<StatementSyntax>(memberCount);
+        if (memberCount == 1)
+        {
+            statements.Add(SyntaxFactory.ParseStatement(members + DisposeCall));
+        }
+        else
+        {
+            var buffer = new char[members.Length + DisposeCall.Length];
+            var start = 0;
+            for (var i = 0; i < memberCount; i++)
+            {
+                var end = members.IndexOf(',', start);
+                var length = (end < 0 ? members.Length : end) - start;
+                members.CopyTo(start, buffer, 0, length);
+                DisposeCall.CopyTo(0, buffer, length, DisposeCall.Length);
+                statements.Add(SyntaxFactory.ParseStatement(new(buffer, 0, length + DisposeCall.Length)));
+                start += length + 1;
+            }
         }
 
         var dispose = SyntaxFactory.MethodDeclaration(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
-                "Dispose")
-            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-            .WithBody(SyntaxFactory.Block(statements));
+            attributeLists: default,
+            SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)),
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+            explicitInterfaceSpecifier: null,
+            SyntaxFactory.Identifier("Dispose"),
+            typeParameterList: null,
+            SyntaxFactory.ParameterList(),
+            constraintClauses: default,
+            SyntaxFactory.Block(statements),
+            expressionBody: null,
+            semicolonToken: default);
 
         var baseType = SyntaxFactory.SimpleBaseType(SyntaxFactory.ParseTypeName("global::System.IDisposable"))
             .WithAdditionalAnnotations(Simplifier.Annotation);

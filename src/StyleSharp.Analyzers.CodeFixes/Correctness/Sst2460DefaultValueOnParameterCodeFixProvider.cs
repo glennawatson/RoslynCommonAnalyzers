@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,7 +18,7 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2460DefaultValueOnParameterCodeFixProvider))]
 [Shared]
-public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvider
 {
     /// <summary>The namespace that owns the interop parameter-default attribute.</summary>
     private const string InteropNamespace = "System.Runtime.InteropServices";
@@ -34,12 +32,15 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
     /// <summary>The suffix an attribute name carries when it is spelled in full.</summary>
     private const string AttributeSuffix = "Attribute";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(CorrectnessRules.DefaultValueOnParameter.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -47,12 +48,29 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
             context,
             "Use [DefaultParameterValue]",
             nameof(Sst2460DefaultValueOnParameterCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<AttributeSyntax>()is not { } attribute
+            || attribute.ArgumentList is not { Arguments.Count: 1 } argumentList)
+        {
+            return false;
+        }
+
+        var argument = argumentList.Arguments[0];
+        return argument is { NameEquals: null, NameColon: null }
+            && model.Compilation.GetTypeByMetadataName(Sst2460DefaultValueOnParameterAnalyzer.DefaultParameterValueMetadataName)is { }
+            && attribute.FirstAncestorOrSelf<ParameterSyntax>()is { } parameter
+            && model.GetDeclaredSymbol(parameter)is IParameterSymbol parameterSymbol
+            && model.ClassifyConversion(argument.Expression, parameterSymbol.Type).IsImplicit;
+    }
 
     /// <summary>Resolves the reported attribute and rewrites it to the interop attribute.</summary>
     /// <param name="root">The syntax root.</param>
@@ -89,7 +107,7 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
     /// <returns>The replacement name syntax.</returns>
     private static NameSyntax BuildName(NameSyntax originalName, INamedTypeSymbol interopAttribute, SemanticModel model, int position)
     {
-        var suffixed = SimpleName(originalName)?.EndsWith(AttributeSuffix, StringComparison.Ordinal) == true;
+        var suffixed = SyntaxNames.GetIdentifierName(originalName)?.EndsWith(AttributeSuffix, StringComparison.Ordinal) == true;
         var baseName = suffixed ? DefaultParameterValueSuffixedName : DefaultParameterValueName;
 
         // ToMinimalDisplayString drops the namespace only when it is already imported; a remaining dot means
@@ -100,15 +118,4 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
 
         return SyntaxFactory.ParseName(text).WithTriviaFrom(originalName);
     }
-
-    /// <summary>Reduces an attribute name to its rightmost identifier text.</summary>
-    /// <param name="name">The attribute name syntax.</param>
-    /// <returns>The simple identifier text, or <see langword="null"/> for an unexpected shape.</returns>
-    private static string? SimpleName(NameSyntax name) => name switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-        _ => null,
-    };
 }

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class EqualsOverCompareCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative comparison expression passed to the code fix.</summary>
-    private BinaryExpressionSyntax _comparison = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +47,7 @@ public class EqualsOverCompareCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, EqualsOverCompareBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _comparison = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<BinaryExpressionSyntax>(type, 0, static _ => true);
+        _diagnostic = Diagnostic.Create(StringRules.UseEqualsOverCompare, CodeFixBenchmarkSyntaxLookup.GetNthDescendant<BinaryExpressionSyntax>(type, 0, static _ => true).GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +67,7 @@ public class EqualsOverCompareCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> EqualsOverCompare_ApplyFixAsync()
     {
-        var updated = Psh1216UseEqualsOverCompareCodeFixProvider.Apply(_document, _root, _comparison);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1216UseEqualsOverCompareCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

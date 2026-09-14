@@ -5,6 +5,8 @@
 using System.Globalization;
 using System.Text;
 
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -98,7 +100,7 @@ internal static class InterpolatedStringConversion
     /// <returns>The interpolated string, or <see langword="null"/> when the call must be left alone.</returns>
     internal static InterpolatedStringExpressionSyntax? TryConvertFormat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
     {
-        if (!IsFormatShape(invocation) || HasNonPositionalArgument(invocation) || BindStringFormat(model, invocation, cancellationToken) is not { } method)
+        if (!IsFormatShape(invocation) || ArgumentListFacts.HasNonPositionalArgument(invocation) || BindStringFormat(model, invocation, cancellationToken) is not { } method)
         {
             return null;
         }
@@ -118,7 +120,7 @@ internal static class InterpolatedStringConversion
             return null;
         }
 
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(top.Span.Length);
         var hasLiteral = false;
         var hasValue = false;
         for (var i = 0; i < operands.Count; i++)
@@ -186,7 +188,7 @@ internal static class InterpolatedStringConversion
     internal static InterpolatedStringExpressionSyntax? TryConvertConcat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
     {
         if (!IsConcatShape(invocation)
-            || HasNonPositionalArgument(invocation)
+            || ArgumentListFacts.HasNonPositionalArgument(invocation)
             || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol method
             || !IsAllStringConcat(method))
         {
@@ -194,7 +196,7 @@ internal static class InterpolatedStringConversion
         }
 
         var arguments = invocation.ArgumentList.Arguments;
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(invocation.ArgumentList.Span.Length);
         for (var i = 0; i < arguments.Count; i++)
         {
             var operand = arguments[i].Expression;
@@ -293,23 +295,6 @@ internal static class InterpolatedStringConversion
             _ => false
         };
 
-    /// <summary>Returns whether any argument is named or passed by reference.</summary>
-    /// <param name="invocation">The invocation to inspect.</param>
-    /// <returns><see langword="true"/> when an argument is not a plain positional value.</returns>
-    private static bool HasNonPositionalArgument(InvocationExpressionSyntax invocation)
-    {
-        var arguments = invocation.ArgumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is not null || !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.None))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Binds a call and keeps it only when it is the framework's own <c>string.Format</c>.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The invocation to bind.</param>
@@ -373,10 +358,17 @@ internal static class InterpolatedStringConversion
     private static bool TryFlattenStringConcatenation(SemanticModel model, BinaryExpressionSyntax top, CancellationToken cancellationToken, out List<ExpressionSyntax> operands)
     {
         operands = null!;
-        var rights = new List<ExpressionSyntax>();
+        const int InitialOperandCapacity = 4;
+        var rights = new List<ExpressionSyntax>(InitialOperandCapacity);
         var current = (ExpressionSyntax)top;
         while (current is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression } add)
         {
+            if (add.Left is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression or (int)SyntaxKind.CharacterLiteralExpression }
+                && add.Right is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression or (int)SyntaxKind.CharacterLiteralExpression })
+            {
+                return false;
+            }
+
             if (model.GetSymbolInfo(add, cancellationToken).Symbol is not IMethodSymbol { ContainingType.SpecialType: SpecialType.System_String })
             {
                 return false;
@@ -395,6 +387,21 @@ internal static class InterpolatedStringConversion
         return true;
     }
 
+    /// <summary>Estimates the body capacity from the format text and the value expressions inserted into it.</summary>
+    /// <param name="format">The format string's runtime value.</param>
+    /// <param name="values">The value expressions inserted into the placeholders.</param>
+    /// <returns>The combined source lengths before escaping.</returns>
+    private static int FormatBodyCapacity(string format, List<ExpressionSyntax> values)
+    {
+        var capacity = format.Length;
+        for (var i = 0; i < values.Count; i++)
+        {
+            capacity += values[i].Span.Length;
+        }
+
+        return capacity;
+    }
+
     /// <summary>Builds the interpolated-string body for a composite format string, mapping each placeholder to its value.</summary>
     /// <param name="format">The format string's runtime value.</param>
     /// <param name="values">The value expressions the placeholders reference.</param>
@@ -403,7 +410,7 @@ internal static class InterpolatedStringConversion
     private static bool TryBuildFormatInnerText(string format, List<ExpressionSyntax> values, out string inner)
     {
         inner = null!;
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(FormatBodyCapacity(format, values));
         var used = new bool[values.Count];
         var usedCount = 0;
         var index = 0;
@@ -465,13 +472,13 @@ internal static class InterpolatedStringConversion
         }
 
         SkipSpaces(format, ref position);
-        var alignment = string.Empty;
+        var alignment = default(TextSpan);
         if (position < format.Length && format[position] == ',' && !TryReadAlignment(format, ref position, out alignment))
         {
             return false;
         }
 
-        var formatSpecifier = string.Empty;
+        var formatSpecifier = default(TextSpan);
         if (position < format.Length && format[position] == ':' && !TryReadFormatSpecifier(format, ref position, out formatSpecifier))
         {
             return false;
@@ -484,9 +491,25 @@ internal static class InterpolatedStringConversion
 
         used[reference] = true;
         usedCount++;
-        _ = builder.Append('{').Append(HoleText(values[reference])).Append(alignment).Append(formatSpecifier).Append('}');
+        _ = builder.Append('{').Append(HoleText(values[reference]));
+        AppendFormatClauses(builder, format, alignment, formatSpecifier);
         index = position + 1;
         return true;
+    }
+
+    /// <summary>Appends validated clause ranges without allocating temporary strings.</summary>
+    /// <param name="builder">The interpolated-string body under construction.</param>
+    /// <param name="format">The original composite format string.</param>
+    /// <param name="alignment">The signed alignment digits, or an empty span when absent.</param>
+    /// <param name="formatSpecifier">The format clause including its colon, or an empty span when absent.</param>
+    private static void AppendFormatClauses(StringBuilder builder, string format, TextSpan alignment, TextSpan formatSpecifier)
+    {
+        if (!alignment.IsEmpty)
+        {
+            _ = builder.Append(',').Append(format, alignment.Start, alignment.Length);
+        }
+
+        _ = builder.Append(format, formatSpecifier.Start, formatSpecifier.Length).Append('}');
     }
 
     /// <summary>Reads a placeholder's numeric index and confirms it references an unused value.</summary>
@@ -498,6 +521,8 @@ internal static class InterpolatedStringConversion
     /// <returns><see langword="true"/> when a fresh, in-range index was read.</returns>
     private static bool TryReadReference(string format, ref int position, int valueCount, bool[] used, out int reference)
     {
+        const int DecimalRadix = 10;
+
         reference = 0;
         var start = position;
         while (position < format.Length && format[position] >= '0' && format[position] <= '9')
@@ -505,23 +530,31 @@ internal static class InterpolatedStringConversion
             position++;
         }
 
-        return position != start
-            && int.TryParse(format.Substring(start, position - start), out reference)
-            && reference >= 0
-            && reference < valueCount
-            && !used[reference];
+        for (var i = start; i < position; i++)
+        {
+            var digit = format[i] - '0';
+            if (reference > (int.MaxValue - digit) / DecimalRadix)
+            {
+                return false;
+            }
+
+            reference = (reference * DecimalRadix) + digit;
+        }
+
+        return position != start && reference < valueCount && !used[reference];
     }
 
-    /// <summary>Reads a <c>,[-]digits</c> alignment clause into its canonical spelling.</summary>
+    /// <summary>Reads the signed digits of an alignment clause without copying its text.</summary>
     /// <param name="format">The format string.</param>
     /// <param name="position">The scan position, standing on the comma and advanced past the clause.</param>
-    /// <param name="alignment">The canonical alignment, such as <c>,-5</c>.</param>
+    /// <param name="alignment">The signed digits, excluding the comma and surrounding spaces.</param>
     /// <returns><see langword="true"/> when a well-formed alignment was read.</returns>
-    private static bool TryReadAlignment(string format, ref int position, out string alignment)
+    private static bool TryReadAlignment(string format, ref int position, out TextSpan alignment)
     {
-        alignment = null!;
+        alignment = default;
         position++;
         SkipSpaces(format, ref position);
+        var alignmentStart = position;
         var negative = position < format.Length && format[position] == '-';
         if (negative)
         {
@@ -539,22 +572,21 @@ internal static class InterpolatedStringConversion
             return false;
         }
 
-        var digits = format.Substring(start, position - start);
+        alignment = TextSpan.FromBounds(alignmentStart, position);
         SkipSpaces(format, ref position);
-        alignment = negative ? $",-{digits}" : $",{digits}";
         return true;
     }
 
     /// <summary>Reads a <c>:format</c> clause, refusing anything a plain interpolated string could not carry verbatim.</summary>
     /// <param name="format">The format string.</param>
     /// <param name="position">The scan position, standing on the colon and advanced to the closing brace.</param>
-    /// <param name="formatSpecifier">The clause, such as <c>:X2</c>.</param>
+    /// <param name="formatSpecifier">The range of the clause, including its colon.</param>
     /// <returns><see langword="true"/> when the clause holds only characters valid inside a hole.</returns>
-    private static bool TryReadFormatSpecifier(string format, ref int position, out string formatSpecifier)
+    private static bool TryReadFormatSpecifier(string format, ref int position, out TextSpan formatSpecifier)
     {
-        formatSpecifier = null!;
-        position++;
+        formatSpecifier = default;
         var start = position;
+        position++;
         while (position < format.Length && format[position] != '}')
         {
             var current = format[position];
@@ -571,7 +603,7 @@ internal static class InterpolatedStringConversion
             return false;
         }
 
-        formatSpecifier = $":{format.Substring(start, position - start)}";
+        formatSpecifier = TextSpan.FromBounds(start, position);
         return true;
     }
 

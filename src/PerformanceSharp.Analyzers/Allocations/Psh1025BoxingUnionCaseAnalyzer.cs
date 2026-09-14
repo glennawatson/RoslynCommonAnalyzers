@@ -33,13 +33,11 @@ public sealed class Psh1025BoxingUnionCaseAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
 #if ROSLYN_5_9_OR_GREATER
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var reported = new ConcurrentDictionary<(SyntaxTree Tree, TextSpan Span), byte>();
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeUnionDeclaration(nodeContext, reported),
-                SyntaxKind.UnionDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static _ => new ConcurrentDictionary<(SyntaxTree Tree, TextSpan Span), byte>(),
+            AnalyzeUnionDeclaration,
+            SyntaxKind.UnionDeclaration);
 #endif
     }
 

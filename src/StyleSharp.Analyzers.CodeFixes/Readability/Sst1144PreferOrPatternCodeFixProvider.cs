@@ -2,52 +2,30 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Merges stacked case labels into a single <c>case A or B:</c> pattern label (SST1144).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1144PreferOrPatternCodeFixProvider))]
 [Shared]
-public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(ReportedNode.Ancestor<SwitchSectionSyntax>, static (current, _) => Merge((SwitchSectionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.PreferOrPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Combine into an 'or' pattern", nameof(Sst1144PreferOrPatternCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the switch section with its combined <c>or</c>-pattern form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="section">The switch section to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, SwitchSectionSyntax section) =>
-        document.WithSyntaxRoot(root.ReplaceNode(section, Merge(section)));
-
-    /// <summary>Resolves the reported switch section and builds its combined <c>or</c>-pattern form.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>() is { } section
-            ? new NodeReplacement(section, Merge(section))
-            : null;
+        TargetCodeFix.RegisterAsync(context, "Combine into an 'or' pattern", nameof(Sst1144PreferOrPatternCodeFixProvider), ReportedNode.Ancestor<SwitchSectionSyntax>, Merge);
 
     /// <summary>Builds the section with its labels merged into one <c>or</c>-pattern label.</summary>
     /// <param name="section">The switch section to rewrite.</param>
     /// <returns>The rewritten section.</returns>
-    private static SwitchSectionSyntax Merge(SwitchSectionSyntax section)
+    internal static SwitchSectionSyntax Merge(SwitchSectionSyntax section)
     {
         var labels = section.Labels;
         var combined = LabelPattern(labels[0]);

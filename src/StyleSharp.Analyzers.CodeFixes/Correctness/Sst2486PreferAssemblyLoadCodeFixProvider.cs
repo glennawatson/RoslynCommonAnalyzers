@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,7 +13,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2486PreferAssemblyLoadCodeFixProvider))]
 [Shared]
-public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider
 {
     /// <summary>The deprecated partial-name API this fix replaces.</summary>
     private const string LoadWithPartialNameName = "LoadWithPartialName";
@@ -23,11 +21,14 @@ public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, 
     /// <summary>The recommended API the call is swapped to.</summary>
     private const string LoadName = "Load";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.PreferAssemblyLoad.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -35,12 +36,16 @@ public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, 
             context,
             "Replace LoadWithPartialName with Assembly.Load",
             nameof(Sst2486PreferAssemblyLoadCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
+            && invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: LoadWithPartialNameName }, };
 
     /// <summary>Resolves a reported LoadWithPartialName call and renames it to Load.</summary>
     /// <param name="root">The syntax root.</param>
@@ -57,7 +62,7 @@ public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, 
             return null;
         }
 
-        var replacement = name.WithIdentifier(SyntaxFactory.Identifier(LoadName).WithTriviaFrom(name.Identifier));
+        var replacement = name.WithIdentifier(SyntaxFactory.Identifier(name.Identifier.LeadingTrivia, LoadName, name.Identifier.TrailingTrivia));
         return new NodeReplacement(name, replacement);
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -21,24 +23,8 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type whose insecure temp-file factory is guarded.</summary>
-    private const string PathMetadataName = "System.IO.Path";
-
-    /// <summary>The metadata name of the type carrying the isolated-directory replacement.</summary>
-    private const string DirectoryMetadataName = "System.IO.Directory";
-
     /// <summary>The name of the insecure temp-file method that is reported.</summary>
     private const string GetTempFileNameMethodName = "GetTempFileName";
-
-    /// <summary>The name of the .NET 7+ isolated-directory replacement method.</summary>
-    private const string CreateTempSubdirectoryMethodName = "CreateTempSubdirectory";
-
-    /// <summary>The replacement suggestion when the isolated-directory API is unavailable.</summary>
-    private const string RandomNameSuggestion = "'Path.GetRandomFileName()' for an unpredictable name";
-
-    /// <summary>The replacement suggestion when the isolated-directory API resolves (.NET 7+).</summary>
-    private const string RandomNameOrSubdirectorySuggestion =
-        "'Path.GetRandomFileName()' for an unpredictable name, or 'Directory.CreateTempSubdirectory()' for an isolated directory";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.InsecureTempFile);
@@ -52,37 +38,31 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var pathType = start.Compilation.GetTypeByMetadataName(PathMetadataName);
-            if (pathType is null)
-            {
-                return;
-            }
-
-            var suggestion = BuildSuggestion(start.Compilation);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, pathType, suggestion), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new TempFileTypes(compilation),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1307 for a bound, parameterless <c>Path.GetTempFileName()</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="pathType">The resolved <c>System.IO.Path</c> type gating the containing-type check.</param>
-    /// <param name="suggestion">The replacement guidance resolved once for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol pathType, string suggestion)
+    /// <param name="types">The path type and replacement guidance, each resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, TempFileTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a '...GetTempFileName()' call with no arguments, whether written as a
         // member access ('Path.GetTempFileName()') or as an identifier under 'using static System.IO.Path'.
         if (invocation.ArgumentList.Arguments.Count != 0
-            || GetInvokedName(invocation.Expression) is not GetTempFileNameMethodName)
+            || MemberReferenceName.Of(invocation.Expression) is not GetTempFileNameMethodName)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: GetTempFileNameMethodName, IsStatic: true } method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, pathType))
+        if (types.GetPathType() is not { } resolvedType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: GetTempFileNameMethodName, IsStatic: true } method
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedType))
         {
             return;
         }
@@ -91,42 +71,93 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
             SecurityRules.InsecureTempFile,
             invocation.SyntaxTree,
             invocation.Span,
-            suggestion));
+            types.GetSuggestion()));
     }
 
-    /// <summary>Returns the simple invoked name from a member access or bare identifier expression.</summary>
-    /// <param name="expression">The invocation's callee expression.</param>
-    /// <returns>The simple method name, or <see langword="null"/> when the callee is neither a member access nor an identifier.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression) =>
-        expression switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
-    /// <summary>Chooses the replacement guidance, naming the isolated-directory API only when it resolves.</summary>
-    /// <param name="compilation">The compilation to probe for the .NET 7+ replacement.</param>
-    /// <returns>The suggestion text embedded in the diagnostic message.</returns>
-    private static string BuildSuggestion(Compilation compilation) =>
-        compilation.GetTypeByMetadataName(DirectoryMetadataName) is { } directoryType && HasCreateTempSubdirectory(directoryType)
-            ? RandomNameOrSubdirectorySuggestion
-            : RandomNameSuggestion;
-
-    /// <summary>Returns whether a type declares the static <c>CreateTempSubdirectory</c> replacement.</summary>
-    /// <param name="directoryType">The resolved <c>System.IO.Directory</c> type.</param>
-    /// <returns><see langword="true"/> when the isolated-directory factory is available.</returns>
-    private static bool HasCreateTempSubdirectory(INamedTypeSymbol directoryType)
+    /// <summary>Resolves the path type and diagnostic guidance independently, once per compilation.</summary>
+    /// <param name="compilation">The compilation whose filesystem APIs are inspected.</param>
+    private sealed class TempFileTypes(Compilation compilation)
     {
-        var members = directoryType.GetMembers(CreateTempSubdirectoryMethodName);
-        for (var i = 0; i < members.Length; i++)
+        /// <summary>The metadata name of the type whose insecure temp-file factory is guarded.</summary>
+        private const string PathMetadataName = "System.IO.Path";
+
+        /// <summary>The metadata name of the type carrying the isolated-directory replacement.</summary>
+        private const string DirectoryMetadataName = "System.IO.Directory";
+
+        /// <summary>The name of the .NET 7+ isolated-directory replacement method.</summary>
+        private const string CreateTempSubdirectoryMethodName = "CreateTempSubdirectory";
+
+        /// <summary>The replacement suggestion when the isolated-directory API is unavailable.</summary>
+        private const string RandomNameSuggestion = "'Path.GetRandomFileName()' for an unpredictable name";
+
+        /// <summary>The replacement suggestion when the isolated-directory API resolves (.NET 7+).</summary>
+        private const string RandomNameOrSubdirectorySuggestion =
+            "'Path.GetRandomFileName()' for an unpredictable name, or 'Directory.CreateTempSubdirectory()' for an isolated directory";
+
+        /// <summary>Serializes the initial metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The path type, or null when it is absent.</summary>
+        private INamedTypeSymbol? _pathType;
+
+        /// <summary>The guidance, populated only when a diagnostic is reported.</summary>
+        private string? _suggestion;
+
+        /// <summary>Publishes completion of the path lookup, including a missing type.</summary>
+        private bool _pathResolved;
+
+        /// <summary>Gets the path type after a call passes the syntax filter.</summary>
+        /// <returns>The path type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetPathType() => Volatile.Read(ref _pathResolved) ? _pathType : ResolvePathType();
+
+        /// <summary>Gets the replacement guidance when a diagnostic needs it.</summary>
+        /// <returns>The cached diagnostic suggestion.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string GetSuggestion() => Volatile.Read(ref _suggestion) ?? ResolveSuggestion();
+
+        /// <summary>Chooses the replacement guidance, naming the isolated-directory API only when it resolves.</summary>
+        /// <param name="compilation">The compilation to probe for the .NET 7+ replacement.</param>
+        /// <returns>The suggestion text embedded in the diagnostic message.</returns>
+        private static string BuildSuggestion(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(DirectoryMetadataName) is { } directoryType
+                && SymbolFacts.HasStaticMethod(directoryType, CreateTempSubdirectoryMethodName)
+                ? RandomNameOrSubdirectorySuggestion
+                : RandomNameSuggestion;
+
+        /// <summary>Resolves and publishes the path type once.</summary>
+        /// <returns>The path type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? ResolvePathType()
         {
-            if (members[i] is IMethodSymbol { IsStatic: true })
+            lock (_gate)
             {
-                return true;
+                if (!_pathResolved)
+                {
+                    _pathType = compilation.GetTypeByMetadataName(PathMetadataName);
+                    Volatile.Write(ref _pathResolved, true);
+                }
+
+                return _pathType;
             }
         }
 
-        return false;
+        /// <summary>Resolves and publishes the replacement guidance once.</summary>
+        /// <returns>The cached diagnostic suggestion.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private string ResolveSuggestion()
+        {
+            lock (_gate)
+            {
+                var suggestion = _suggestion;
+                if (suggestion is null)
+                {
+                    suggestion = BuildSuggestion(compilation);
+                    Volatile.Write(ref _suggestion, suggestion);
+                }
+
+                return suggestion;
+            }
+        }
     }
 }

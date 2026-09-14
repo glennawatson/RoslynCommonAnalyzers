@@ -4,7 +4,9 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyTryGetValue = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1104UseTryGetValueAnalyzer,
@@ -130,6 +132,134 @@ public class UseTryGetValueAnalyzerUnitTest
             }
         }
         """;
+
+    /// <summary>Verifies mutations through the indexer prevent replacing its reads with a snapshot.</summary>
+    /// <param name="statement">The statement that writes the guarded element.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("++map[key];")]
+    [Arguments("--map[key];")]
+    [Arguments("map[key]--;")]
+    [Arguments("map[key] += 1;")]
+    [Arguments("_ = map[key]; map[key] = 1;")]
+    [Arguments("Write(ref map[key]);")]
+    [Arguments("Output(out map[key]);")]
+    [Arguments("ref int alias = ref map[key];")]
+    [Arguments("(map[key], other) = (1, 2);")]
+    [Arguments("((map[key], other), other) = ((1, 2), 3);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GuardedWritesPreventDiagnosticAsync(string statement) =>
+        VerifyLookupAsync($"if (map.ContainsKey(key)) {{ {statement} return map[key]; }} return 0;");
+
+    /// <summary>Verifies read-only uses inside assignments, unary expressions, and tuples remain eligible.</summary>
+    /// <param name="expression">The read expression in the guarded return.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("other = map[key]")]
+    [Arguments("-map[key]")]
+    [Arguments("map[key]!")]
+    [Arguments("Read(in map[key])")]
+    [Arguments("(map[key], other).Item1")]
+    [Arguments("((map[key], other), other).Item1.Item1")]
+    [Arguments("(other, other) = (map[key], 0)")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GuardedReadExpressionsAreReportedAsync(string expression) =>
+        VerifyLookupAsync($"if (map.{{|PSH1104:ContainsKey|}}(key)) {{ _ = {expression}; return map[key]; }} return 0;");
+
+    /// <summary>Verifies unsupported guard locations and argument shapes stay silent.</summary>
+    /// <param name="body">The method body containing the candidate guard.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("if (other > 0 && map.ContainsKey(key)) return map[key]; return 0;")]
+    [Arguments("if (map.ContainsKey(key) || other > 0) return map[key]; return 0;")]
+    [Arguments("if (map.ContainsKey(key)) return map[other]; return 0;")]
+    [Arguments("if (map.ContainsKey(key)) return alternate[key]; return 0;")]
+    [Arguments("if (map.ContainsKey(key)) return map[key, other]; return 0;")]
+    [Arguments("if (map.ContainsKey(key)) return 1; return 0;")]
+    [Arguments("if (map.ContainsKey(key: key)) return map[key]; return 0;")]
+    [Arguments("if (map.ContainsKey(key + 1)) return map[key + 1]; return 0;")]
+    [Arguments("if (GetMap().ContainsKey(key)) return GetMap()[key]; return 0;")]
+    [Arguments("return map.ContainsKey(key) && other > 0 ? map[key] : 0;")]
+    [Arguments("if (other > 0 ? map.ContainsKey(key) : true) return map[key]; return 0;")]
+    [Arguments("return other > 0 ? map.ContainsKey(key) ? 1 : 0 : map[key];")]
+    [Arguments("if (map.ContainsKey(key) && ++map[key] > 0) return map[key]; return 0;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsupportedGuardShapesAreCleanAsync(string body) => VerifyLookupAsync(body);
+
+    /// <summary>Verifies syntactically plausible calls with no usable method binding stay silent.</summary>
+    /// <param name="receiverType">The receiver's declared type.</param>
+    /// <param name="guard">The candidate invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Missing", "map.ContainsKey(key)")]
+    [Arguments("dynamic", "map.ContainsKey(key)")]
+    [Arguments("Map", "map.ContainsKey()")]
+    [Arguments("Map", "map.ContainsKey(key, key)")]
+    [Arguments("Map", "map.ContainsKey(ref key)")]
+    public Task UnresolvedGuardIsCleanAsync(string receiverType, string guard)
+    {
+        var test = new CSharpAnalyzerVerifier<Psh1104UseTryGetValueAnalyzer>.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = $$"""
+                class Map
+                {
+                    public int this[int key] => 0;
+                    public bool TryGetValue(int key, out int value) { value = 0; return true; }
+                }
+                class C { int M({{receiverType}} map, int key) { if ({{guard}}) return map[key]; return 0; } }
+                """,
+        };
+        return test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the replacement requires an accessible Boolean method with an out parameter.</summary>
+    /// <param name="containsKey">The guard method declaration.</param>
+    /// <param name="tryGetValue">The proposed replacement method declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public bool ContainsKey(int key, int optional = 0) => true;", "public bool TryGetValue(int key, out int value) { value = 0; return true; }")]
+    [Arguments("public bool ContainsKey(int key) => true;", "private bool TryGetValue(int key, out int value) { value = 0; return true; }")]
+    [Arguments("public bool ContainsKey(int key) => true;", "public int TryGetValue(int key, out int value) { value = 0; return 0; }")]
+    [Arguments("public bool ContainsKey(int key) => true;", "public bool TryGetValue(int key, ref int value) => true;")]
+    public Task UnusableReplacementMethodIsCleanAsync(string containsKey, string tryGetValue)
+    {
+        var test = new CSharpAnalyzerVerifier<Psh1104UseTryGetValueAnalyzer>.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                class Map { public int this[int key] => 0; {{containsKey}} {{tryGetValue}} }
+                class C { int M(Map map, int key) { if (map.ContainsKey(key)) return map[key]; return 0; } }
+                """,
+        };
+        return test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies direct syntax validation rejects invocations outside the supported member-call shape.</summary>
+    /// <param name="expression">The invocation syntax to inspect.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("ContainsKey(key)")]
+    [Arguments("map.Other(key)")]
+    [Arguments("map->ContainsKey(key)")]
+    [Arguments("map.ContainsKey(ref key)")]
+    public async Task UnsupportedInvocationSyntaxIsRejectedAsync(string expression)
+    {
+        var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(expression);
+        await Assert.That(Psh1104UseTryGetValueAnalyzer.TryGetGuardShape(invocation, out _)).IsFalse();
+    }
+
+    /// <summary>Verifies a region consisting of a write target stops scanning immediately.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task RootElementWriteDisqualifiesGuardAsync()
+    {
+        var assignment = (AssignmentExpressionSyntax)SyntaxFactory.ParseExpression("map[key] = 1");
+        var element = (ElementAccessExpressionSyntax)assignment.Left;
+        var shape = new Psh1104UseTryGetValueAnalyzer.GuardShape(element.Expression, element.ArgumentList.Arguments[0].Expression, element, null);
+        await Assert.That(Psh1104UseTryGetValueAnalyzer.HasOnlyGuardedReads(shape)).IsFalse();
+    }
 
     /// <summary>Verifies an if guard with a single indexer read is reported (PSH1104) and rewritten to TryGetValue.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -492,6 +622,36 @@ public class UseTryGetValueAnalyzerUnitTest
         });
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Runs a lookup scenario against a minimal map with a ref-returning indexer.</summary>
+    /// <param name="body">The method body under analysis.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    private static Task VerifyLookupAsync(string body)
+    {
+        var test = new CSharpAnalyzerVerifier<Psh1104UseTryGetValueAnalyzer>.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                class Map
+                {
+                    private int _value;
+                    public ref int this[int key] => ref _value;
+                    public int this[int key, int other] => 0;
+                    public bool ContainsKey(int key) => true;
+                    public bool TryGetValue(int key, out int value) { value = 0; return true; }
+                }
+                class C
+                {
+                    static Map GetMap() => new Map();
+                    static void Write(ref int value) { }
+                    static void Output(out int value) { value = 0; }
+                    static int Read(in int value) => value;
+                    int M(Map map, Map alternate, int key, int other) { {{body}} }
+                }
+                """,
+        };
+        return test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>

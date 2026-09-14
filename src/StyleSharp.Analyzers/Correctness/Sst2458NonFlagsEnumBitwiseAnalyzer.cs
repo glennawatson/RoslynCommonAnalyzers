@@ -34,9 +34,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The attribute marking an enum as a flag set.</summary>
-    private const string FlagsAttributeName = "FlagsAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.NonFlagsEnumBitwise);
 
@@ -138,7 +135,7 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
             var leftType = context.SemanticModel.GetTypeInfo(left, context.CancellationToken).Type;
             if (GetEnumType(leftType) is { } leftEnum)
             {
-                return HasFlagsAttribute(leftEnum) ? null : leftEnum;
+                return EnumFlagValues.HasFlagsAttribute(leftEnum) ? null : leftEnum;
             }
 
             if (leftType is not null && leftType.TypeKind != TypeKind.Error)
@@ -156,7 +153,7 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
     /// <returns>The non-flags enum type, or <see langword="null"/> for every other type.</returns>
     private static INamedTypeSymbol? ResolveNonFlagsEnum(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
         GetEnumType(context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type) is { } enumType
-            && !HasFlagsAttribute(enumType)
+            && !EnumFlagValues.HasFlagsAttribute(enumType)
             ? enumType
             : null;
 
@@ -171,24 +168,6 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
             && named.TypeArguments[0] is INamedTypeSymbol { TypeKind: TypeKind.Enum } lifted => lifted,
         _ => null,
     };
-
-    /// <summary>Returns whether an enum is declared as a flag set.</summary>
-    /// <param name="enumType">The enum type.</param>
-    /// <returns><see langword="true"/> when the enum carries <c>System.FlagsAttribute</c>.</returns>
-    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
-    {
-        var attributes = enumType.GetAttributes();
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (attributes[i].AttributeClass is { Name: FlagsAttributeName } attribute
-                && attribute.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether an operation is itself an operand of a larger bitwise operation.</summary>
     /// <param name="node">The operation being analyzed.</param>

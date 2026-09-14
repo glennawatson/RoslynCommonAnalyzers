@@ -67,13 +67,7 @@ public sealed class Sst2267InfiniteLoopStyleAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var style = ModernSyntaxStyleOptions.ReadInfiniteLoopStyle(context.Options.AnalyzerConfigOptionsProvider.GetOptions(statement.SyntaxTree));
-        if (style != InfiniteLoopStyle.While)
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.NormalizeInfiniteLoopStyle, statement.ForKeyword.GetLocation(), WhileTarget));
+        ReportWhenStyleIs(context, InfiniteLoopStyle.While, statement.ForKeyword, WhileTarget);
     }
 
     /// <summary>Reports a <c>while (true)</c> loop when the codebase prefers <c>for (;;)</c>.</summary>
@@ -86,12 +80,22 @@ public sealed class Sst2267InfiniteLoopStyleAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var style = ModernSyntaxStyleOptions.ReadInfiniteLoopStyle(context.Options.AnalyzerConfigOptionsProvider.GetOptions(statement.SyntaxTree));
-        if (style != InfiniteLoopStyle.For)
+        ReportWhenStyleIs(context, InfiniteLoopStyle.For, statement.WhileKeyword, ForTarget);
+    }
+
+    /// <summary>Reports an infinite loop's keyword when the configured style is the one that asks for the other form.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="reportedUnder">The configured style under which the loop is reported.</param>
+    /// <param name="keyword">The loop keyword the diagnostic points at.</param>
+    /// <param name="target">The loop form the diagnostic suggests.</param>
+    private static void ReportWhenStyleIs(in SyntaxNodeAnalysisContext context, InfiniteLoopStyle reportedUnder, SyntaxToken keyword, string target)
+    {
+        var style = ModernSyntaxStyleOptions.ReadInfiniteLoopStyle(context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree));
+        if (style != reportedUnder)
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.NormalizeInfiniteLoopStyle, statement.WhileKeyword.GetLocation(), ForTarget));
+        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.NormalizeInfiniteLoopStyle, keyword.GetLocation(), target));
     }
 }

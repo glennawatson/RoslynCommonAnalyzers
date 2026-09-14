@@ -3,20 +3,22 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reorders an all-named argument list to match the parameter declaration order (SST1220).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1220NamedArgumentOrderCodeFixProvider))]
 [Shared]
-public sealed class Sst1220NamedArgumentOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1220NamedArgumentOrderCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(OrderingRules.NamedArgumentOrder.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -24,12 +26,34 @@ public sealed class Sst1220NamedArgumentOrderCodeFixProvider : CodeFixProvider, 
             context,
             "Order the named arguments by declaration",
             nameof(Sst1220NamedArgumentOrderCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ArgumentListSyntax>()is not { Parent: { } call } list
+            || list.Arguments.Count < 2
+            || model.GetSymbolInfo(call).Symbol is not IMethodSymbol method)
+        {
+            return false;
+        }
+
+        foreach (var argument in list.Arguments)
+        {
+            if (argument.NameColon is not { Name.Identifier.ValueText: var name }
+                || Sst1220NamedArgumentOrderAnalyzer.ParameterPosition(method, name) < 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Resolves the reported argument list and reorders it to declaration order.</summary>
     /// <param name="root">The syntax root.</param>
@@ -82,9 +106,10 @@ public sealed class Sst1220NamedArgumentOrderCodeFixProvider : CodeFixProvider, 
         for (var slot = 0; slot < count; slot++)
         {
             var moved = arguments[order[slot]];
-            rebuilt[slot] = moved
-                .WithLeadingTrivia(arguments[slot].GetLeadingTrivia())
-                .WithTrailingTrivia(arguments[slot].GetTrailingTrivia());
+            rebuilt[slot] = moved.Update(
+                moved.NameColon!.WithLeadingTrivia(arguments[slot].GetLeadingTrivia()),
+                moved.RefKindKeyword,
+                moved.Expression.WithTrailingTrivia(arguments[slot].GetTrailingTrivia()));
         }
 
         return argumentList.WithArguments(SyntaxFactory.SeparatedList(rebuilt, arguments.GetSeparators()));

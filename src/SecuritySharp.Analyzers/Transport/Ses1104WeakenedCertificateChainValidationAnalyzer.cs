@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -12,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>VerificationFlags</c> assigned an <c>X509VerificationFlags</c> value that names
 /// <c>AllowUnknownCertificateAuthority</c> or <c>AllFlags</c> (untrusted-authority errors ignored),
 /// including inside an OR-combination where any operand names one of those. The rule resolves
-/// <c>X509ChainPolicy</c> once per compilation and registers nothing when it is absent, so a target
-/// framework without the type pays nothing and never receives a diagnostic it cannot act on. Detection
+/// <c>X509ChainPolicy</c> once per compilation after an assignment passes the syntactic filter and reports
+/// nothing when it is absent, so a target framework without the type receives no diagnostic. Detection
 /// is local to the assignment: only the value written at the site is inspected, never a value that flows
 /// in from elsewhere.
 /// </summary>
@@ -50,35 +52,32 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var chainPolicyType = start.Compilation.GetTypeByMetadataName(ChainPolicyMetadataName);
-            if (chainPolicyType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, chainPolicyType), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveChainPolicyType, runOnce: true),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1104 when an assignment weakens an <c>X509ChainPolicy</c> chain check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="chainPolicyType">The resolved <c>X509ChainPolicy</c> type gating the rule.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol chainPolicyType)
+    /// <param name="chainPolicyType">The lazily resolved <c>X509ChainPolicy</c> type gating the rule.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> chainPolicyType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a set of a member spelled 'RevocationMode' or 'VerificationFlags',
         // reached either as 'target.Member =' or as an object-initializer 'Member ='.
-        if (GetAssignedMemberName(assignment.Left) is not { } memberName
+        if (MemberReferenceName.Of(assignment.Left) is not { } memberName
             || (memberName != RevocationModeMemberName && memberName != VerificationFlagsMemberName))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
-            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, chainPolicyType))
+        if (!CouldWeakenChain(assignment.Right, memberName == VerificationFlagsMemberName)
+            || chainPolicyType.Get() is not { } resolvedChainPolicyType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
+            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, resolvedChainPolicyType))
         {
             return;
         }
@@ -100,16 +99,28 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
             memberName));
     }
 
-    /// <summary>Returns the member name being assigned, for a member-access or initializer target.</summary>
-    /// <param name="left">The assignment's left-hand side.</param>
-    /// <returns>The member name, or <see langword="null"/> when the target is not a simple member set.</returns>
-    private static string? GetAssignedMemberName(ExpressionSyntax left) =>
-        left switch
+    /// <summary>Excludes values naming safe fields before resolving the policy type or binding.</summary>
+    /// <param name="value">The assigned value or one operand of its flags combination.</param>
+    /// <param name="verificationFlags">Whether the assignment targets verification flags.</param>
+    /// <returns>Whether the value still needs semantic checks for a weakening field.</returns>
+    private static bool CouldWeakenChain(ExpressionSyntax value, bool verificationFlags)
+    {
+        while (value is ParenthesizedExpressionSyntax parenthesized)
         {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
+            value = parenthesized.Expression;
+        }
+
+        if (verificationFlags && value is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.BitwiseOrExpression))
+        {
+            return CouldWeakenChain(binary.Left, verificationFlags) || CouldWeakenChain(binary.Right, verificationFlags);
+        }
+
+        // Keep unfamiliar expression shapes on the binding path so their symbol behavior is unchanged.
+        return MemberReferenceName.Of(value) is not { } name
+            || (verificationFlags
+                ? name is AllowUnknownCertificateAuthorityFieldName or AllFlagsFieldName
+                : name == NoCheckFieldName);
+    }
 
     /// <summary>Returns whether the assigned revocation mode is <c>NoCheck</c>.</summary>
     /// <param name="model">The semantic model.</param>
@@ -144,4 +155,11 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
             && SymbolEqualityComparer.Default.Equals(field.ContainingType, verificationFlagsType)
             && (field.Name == AllowUnknownCertificateAuthorityFieldName || field.Name == AllFlagsFieldName);
     }
+
+    /// <summary>Resolves the chain-policy type for a compilation.</summary>
+    /// <param name="compilation">The compilation whose policy type is resolved.</param>
+    /// <returns>The policy type, or <see langword="null"/> when it is absent.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static INamedTypeSymbol? ResolveChainPolicyType(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(ChainPolicyMetadataName);
 }

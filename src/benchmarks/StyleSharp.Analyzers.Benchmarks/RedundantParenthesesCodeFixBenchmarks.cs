@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class RedundantParenthesesCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative empty parenthesis list target passed to the code fix.</summary>
-    private SyntaxNode _target = null!;
+    /// <summary>The diagnostic reported on the representative empty parenthesis list.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -51,9 +52,13 @@ public class RedundantParenthesesCodeFixBenchmarks : IDisposable
             _workspace,
             ModernizationCodeFixBenchmarkSource.GenerateRedundantParentheses(Nodes, AttributeShape));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _target = AttributeShape
-            ? CodeFixBenchmarkSyntaxLookup.GetNthDescendant<AttributeSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true)
-            : CodeFixBenchmarkSyntaxLookup.GetNthDescendant<AnonymousMethodExpressionSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true);
+        _diagnostic = AttributeShape
+            ? Diagnostic.Create(
+                MaintainabilityRules.RemoveAttributeParentheses,
+                CodeFixBenchmarkSyntaxLookup.GetNthDescendant<AttributeSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true).GetLocation())
+            : Diagnostic.Create(
+                MaintainabilityRules.RemoveDelegateParentheses,
+                CodeFixBenchmarkSyntaxLookup.GetNthDescendant<AnonymousMethodExpressionSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true).GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -73,7 +78,7 @@ public class RedundantParenthesesCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> RedundantParentheses_ApplyFixAsync()
     {
-        var updated = RedundantParenthesesCodeFixProvider.Apply(_document, _root, _target);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, RedundantParenthesesCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

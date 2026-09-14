@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -14,8 +16,8 @@ namespace SecuritySharp.Analyzers;
 /// (<c>new KestrelServerLimits { MaxRequestBodySize = null }</c>), when the assigned member's containing type
 /// is <c>Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerLimits</c> or
 /// <c>Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature</c>. The attribute type and the limits
-/// types are probed once per compilation and each check is registered only when its type resolves, so a project
-/// that references neither surface registers nothing and pays no analysis cost.
+/// types are resolved independently on first demand per compilation, after the corresponding syntax
+/// filter passes, so a project without candidates pays no metadata resolution cost.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnalyzer
@@ -35,16 +37,6 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
     /// <summary>The long attribute-name spelling used by the syntactic prefilter.</summary>
     private const string DisableAttributeLongName = "DisableRequestSizeLimitAttribute";
 
-    /// <summary>The metadata name of the attribute whose application removes the limit.</summary>
-    private const string DisableAttributeMetadataName = "Microsoft.AspNetCore.Mvc.DisableRequestSizeLimitAttribute";
-
-    /// <summary>The metadata names of the types whose <c>MaxRequestBodySize</c> member is guarded.</summary>
-    private static readonly string[] LimitsMetadataNames =
-    [
-        "Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerLimits",
-        "Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature"
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.RequestBodySizeLimitRemoval);
 
@@ -57,35 +49,28 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(DisableAttributeMetadataName) is { } attributeType)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, attributeType), SyntaxKind.Attribute);
-            }
-
-            var limitsTypes = GetLimitsTypes(start.Compilation);
-            if (limitsTypes is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, limitsTypes), SyntaxKind.SimpleAssignmentExpression);
-            }
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new RequestLimitTypes(compilation),
+            new(AnalyzeAttribute, [SyntaxKind.Attribute]),
+            new(AnalyzeAssignment, [SyntaxKind.SimpleAssignmentExpression]));
     }
 
     /// <summary>Reports SES1505 for a <c>[DisableRequestSizeLimit]</c> application.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="attributeType">The gated <c>DisableRequestSizeLimitAttribute</c> type.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="markers">The request-limit types resolved on first demand.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, RequestLimitTypes markers)
     {
         var attribute = (AttributeSyntax)context.Node;
 
         // Syntactic prefilter: the attribute is spelled 'DisableRequestSizeLimit' or 'DisableRequestSizeLimitAttribute'.
-        if (GetAttributeSimpleName(attribute.Name) is not (DisableAttributeShortName or DisableAttributeLongName))
+        if (SyntaxNames.GetSimpleName(attribute.Name) is not (DisableAttributeShortName or DisableAttributeLongName))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
+        if (markers.GetAttribute() is not { } attributeType
+            || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, attributeType))
         {
             return;
@@ -100,8 +85,8 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports SES1505 for a <c>MaxRequestBodySize = null</c> assignment on a gated limits type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="limitsTypes">The gated body-size-limit types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] limitsTypes)
+    /// <param name="markers">The request-limit types resolved on first demand.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, RequestLimitTypes markers)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -112,8 +97,10 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: MaxRequestBodySizePropertyName } property
-            || !IsGatedLimitsType(property.ContainingType, limitsTypes))
+        var limitsTypes = markers.GetLimits();
+        if (limitsTypes.Length == 0
+            || context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: MaxRequestBodySizePropertyName } property
+            || !TypeRelations.IsOneOf(property.ContainingType, limitsTypes))
         {
             return;
         }
@@ -124,18 +111,6 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
             assignment.Span,
             NullAssignmentDisplay));
     }
-
-    /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
-    /// <param name="name">The attribute's name syntax.</param>
-    /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name) =>
-        name switch
-        {
-            SimpleNameSyntax simple => simple.Identifier.ValueText,
-            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-            AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Returns the assignment's left expression when it names <c>MaxRequestBodySize</c>.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
@@ -149,40 +124,34 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
             _ => null,
         };
 
-    /// <summary>Returns whether a property's containing type is one of the gated limits types.</summary>
-    /// <param name="containingType">The bound property's containing type.</param>
-    /// <param name="limitsTypes">The gated body-size-limit types resolved for the compilation.</param>
-    /// <returns><see langword="true"/> when the container is a gated limits type.</returns>
-    private static bool IsGatedLimitsType(INamedTypeSymbol containingType, INamedTypeSymbol?[] limitsTypes)
+    /// <summary>Resolves each request-limit surface only when its syntax filter passes.</summary>
+    /// <param name="compilation">The compilation whose request-limit types are resolved.</param>
+    private sealed class RequestLimitTypes(Compilation compilation)
     {
-        for (var i = 0; i < limitsTypes.Length; i++)
-        {
-            if (limitsTypes[i] is { } limitsType && SymbolEqualityComparer.Default.Equals(limitsType, containingType))
-            {
-                return true;
-            }
-        }
+        /// <summary>The metadata name of the attribute whose application removes the limit.</summary>
+        private const string DisableAttributeMetadataName = "Microsoft.AspNetCore.Mvc.DisableRequestSizeLimitAttribute";
 
-        return false;
-    }
+        /// <summary>The metadata names of the types whose <c>MaxRequestBodySize</c> member is guarded.</summary>
+        private static readonly string[] LimitsMetadataNames =
+        [
+            "Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerLimits",
+            "Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature"
+        ];
 
-    /// <summary>Resolves the body-size-limit types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved limits type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetLimitsTypes(Compilation compilation)
-    {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < LimitsMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(LimitsMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
+        /// <summary>The cached attribute type, including a null slot when it is absent.</summary>
+        private INamedTypeSymbol?[]? _attribute;
 
-            types ??= new INamedTypeSymbol?[LimitsMetadataNames.Length];
-            types[i] = type;
-        }
+        /// <summary>The cached limits types the compilation can see, including an empty result.</summary>
+        private INamedTypeSymbol[]? _limits;
 
-        return types;
+        /// <summary>Gets the request-limit attribute, caching its absence too.</summary>
+        /// <returns>The attribute type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetAttribute() => (_attribute ??= [compilation.GetTypeByMetadataName(DisableAttributeMetadataName)])[0];
+
+        /// <summary>Gets the limits types, caching an empty result too.</summary>
+        /// <returns>The limits types the compilation can see, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] GetLimits() => _limits ??= MetadataTypeLookup.ResolveAll(compilation, LimitsMetadataNames);
     }
 }

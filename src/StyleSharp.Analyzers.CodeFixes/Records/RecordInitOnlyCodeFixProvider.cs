@@ -12,51 +12,25 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RecordInitOnlyCodeFixProvider))]
 [Shared]
-public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindSetAccessor, static (current, _) => ToInitAccessor((AccessorDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(RecordRules.InitOnlyProperty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not AccessorDeclarationSyntax accessor)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use 'init' accessor",
-                    cancellationToken => ConvertAsync(context.Document, accessor, cancellationToken),
-                    equivalenceKey: nameof(RecordInitOnlyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not AccessorDeclarationSyntax accessor)
-        {
-            return;
-        }
-
-        var initAccessor = ToInitAccessor(accessor);
-
-        editor.ReplaceNode(accessor, initAccessor);
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use 'init' accessor",
+            nameof(RecordInitOnlyCodeFixProvider),
+            FindSetAccessor,
+            ConvertAsync);
 
     /// <summary>Replaces the set accessor with an equivalent init accessor.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -71,6 +45,14 @@ public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider, IBatchFixab
 
         return document.WithSyntaxRoot(root!.ReplaceNode(accessor, initAccessor));
     }
+
+    /// <summary>Resolves a diagnostic to the set accessor it was reported on.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The accessor, or <see langword="null"/> when the shape no longer matches.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static AccessorDeclarationSyntax? FindSetAccessor(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent as AccessorDeclarationSyntax;
 
     /// <summary>Builds the init accessor that replaces a set accessor, keeping everything else it had.</summary>
     /// <param name="accessor">The set accessor to convert.</param>

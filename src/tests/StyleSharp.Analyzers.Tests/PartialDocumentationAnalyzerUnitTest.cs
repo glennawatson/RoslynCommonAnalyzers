@@ -107,4 +107,102 @@ public class PartialDocumentationAnalyzerUnitTest
             {
             }
             """);
+
+    /// <summary>Verifies declarations without a partial modifier are outside this analyzer's scope.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NonPartialDeclarationsAreIgnoredAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync("public class C { public void M() { } } public struct S { } public interface I { } public record R; public record struct RS;");
+
+    /// <summary>Verifies inherited documentation satisfies a partial declaration without further checks.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InheritedPartialDocumentationIsAcceptedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <inheritdoc/>
+            public partial class C<T> { }
+            """);
+
+    /// <summary>Verifies a type parameter may be documented on either sibling declaration.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SiblingTypeParameterDocumentationIsAcceptedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public partial class C<T> { }
+            /// <content>Additional members.</content>
+            /// <typeparam name="T">The item.</typeparam>
+            public partial class C<T> { }
+            /// <content>More members.</content>
+            public partial class C<T> { }
+            """);
+
+    /// <summary>Verifies a sibling without documentation cannot supply the missing type parameter.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UndocumentedSiblingDoesNotSupplyTypeParameterAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public partial class C<{|SST1619:T|}> { }
+            public partial class {|SST1601:C|}<T> { }
+            """);
+
+    /// <summary>Verifies sibling prose does not replace a missing typeparam element.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SiblingSummaryDoesNotSupplyTypeParameterAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public partial class C<{|SST1619:T|}> { }
+            /// <content>Additional members.</content>
+            public partial class C<{|SST1619:T|}> { }
+            """);
+
+    /// <summary>Verifies partial methods accept summaries without type-level parameter checks.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DocumentedPartialMethodsAreAcceptedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public partial class C
+            {
+                /// <summary>Performs work.</summary>
+                partial void M<T>();
+            }
+            """);
+
+    /// <summary>Verifies documentation scope options include and exclude the corresponding partial declarations.</summary>
+    /// <param name="declaration">The declaration with expected diagnostic markup.</param>
+    /// <param name="setting">The documentation option.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public partial class {|SST1601:C|} { }", "document_exposed_elements = true")]
+    [Arguments("public partial class C { }", "document_exposed_elements = false")]
+    [Arguments("internal partial struct {|SST1601:C|} { }", "document_internal_elements = true")]
+    [Arguments("internal partial struct C { }", "document_internal_elements = false")]
+    [Arguments("class Outer { private partial class {|SST1601:C|} { } }", "document_private_elements = true")]
+    [Arguments("class Outer { private partial class C { } }", "document_private_elements = false")]
+    [Arguments("internal partial interface {|SST1601:I|} { }", "document_interfaces = all")]
+    [Arguments("internal partial interface I { }", "document_interfaces = exposed")]
+    [Arguments("public partial interface {|SST1601:I|} { }", "document_interfaces = exposed")]
+    [Arguments("public partial interface I { }", "document_interfaces = none")]
+    [Arguments("public partial class {|SST1601:C|} { private int value; }", "document_private_fields = true")]
+    [Arguments("public partial class {|SST1601:C|} { private int value; }", "document_private_fields = false")]
+    public async Task DocumentationOptionsControlPartialScopeAsync(string declaration, string setting)
+    {
+        var test = new VerifyPartial.Test { TestCode = declaration };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", $"root = true\n[*.cs]\nstylesharp.{setting}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
 }

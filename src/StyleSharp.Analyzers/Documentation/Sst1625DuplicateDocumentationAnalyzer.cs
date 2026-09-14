@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections.Generic;
+using System.Buffers;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -24,6 +24,9 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The multiplier for the key hash.</summary>
     private const int HashFactor = 31;
+
+    /// <summary>The minimum number of elements that can duplicate one another.</summary>
+    private const int MinimumComparableElements = 2;
 
     /// <summary>The documentation-comment node kinds the rule inspects.</summary>
     private static readonly ImmutableArray<SyntaxKind> HandledKinds = ImmutableArrays.Of(
@@ -50,60 +53,68 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var documentation = (DocumentationCommentTriviaSyntax)context.Node;
-
-        // The buffer is built once and cleared per element. Only the hash of each key is kept, so a
-        // comment whose elements all differ - which is nearly all of them - never materialises a key
-        // string at all. Two elements hashing alike are then compared in full, because a hash match
-        // alone would report a duplicate that is not one.
-        StringBuilder? builder = null;
-        List<ElementKey>? seen = null;
-
+        var elementCount = 0;
         foreach (var node in documentation.Content)
         {
-            if (node is not XmlElementSyntax element)
+            if (node is XmlElementSyntax)
             {
-                continue;
+                elementCount++;
             }
+        }
 
-            builder ??= new StringBuilder();
-            _ = builder.Clear();
-            XmlDocumentationHelper.AppendDuplicateComparisonKey(element, builder);
-            if (builder.Length == 0)
+        if (elementCount < MinimumComparableElements)
+        {
+            return;
+        }
+
+        // Each callback owns its rental; returning it clears syntax references to the compilation.
+        var seen = ArrayPool<ElementKey>.Shared.Rent(elementCount);
+        try
+        {
+            StringBuilder? builder = null;
+            var seenCount = 0;
+            foreach (var node in documentation.Content)
             {
-                continue;
-            }
+                if (node is not XmlElementSyntax element)
+                {
+                    continue;
+                }
 
-            var hash = KeyHash(builder);
-            if (seen is null)
-            {
-                seen = [new ElementKey(hash, element)];
-                continue;
-            }
+                builder ??= new StringBuilder(element.Span.Length);
+                _ = builder.Clear();
+                XmlDocumentationHelper.AppendDuplicateComparisonKey(element, builder);
+                if (builder.Length == 0)
+                {
+                    continue;
+                }
 
-            if (!IsDuplicate(seen, hash, builder))
-            {
-                seen.Add(new(hash, element));
-                continue;
-            }
+                var hash = KeyHash(builder);
+                if (!IsDuplicate(seen, seenCount, hash, builder))
+                {
+                    seen[seenCount] = new(hash, element);
+                    seenCount++;
+                    continue;
+                }
 
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.NoDuplicateDocumentation, element.GetLocation()));
+                context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.NoDuplicateDocumentation, element.GetLocation()));
+            }
+        }
+        finally
+        {
+            ArrayPool<ElementKey>.Shared.Return(seen, clearArray: true);
         }
     }
 
     /// <summary>Returns whether an element's key repeats one already seen.</summary>
-    /// <param name="seen">The elements seen so far, with their key hashes.</param>
+    /// <param name="seen">The pooled buffer holding previous elements and their key hashes.</param>
+    /// <param name="seenCount">The number of populated entries in the buffer.</param>
     /// <param name="hash">The candidate element's key hash.</param>
     /// <param name="builder">The buffer holding the candidate's key.</param>
-    /// <returns><see langword="true"/> when an earlier element has the same key text.</returns>
-    /// <remarks>
-    /// Reached only when two hashes match, so the strings this compares are built for that pair rather
-    /// than for every element in every comment. The buffer is left holding the earlier element's key,
-    /// which the caller has finished with by this point.
-    /// </remarks>
-    private static bool IsDuplicate(List<ElementKey> seen, int hash, StringBuilder builder)
+    /// <returns>Whether an earlier element has the same key text.</returns>
+    private static bool IsDuplicate(ElementKey[] seen, int seenCount, int hash, StringBuilder builder)
     {
         string? candidate = null;
-        for (var index = 0; index < seen.Count; index++)
+        for (var index = 0; index < seenCount; index++)
         {
             if (seen[index].Hash != hash)
             {

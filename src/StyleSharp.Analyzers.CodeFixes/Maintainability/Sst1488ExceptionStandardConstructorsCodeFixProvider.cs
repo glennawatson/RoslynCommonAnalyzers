@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Globalization;
-using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -18,41 +16,29 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1488ExceptionStandardConstructorsCodeFixProvider))]
 [Shared]
-public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.ExceptionStandardConstructors.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => TryGetTarget(root, diagnostic, out _, out _) ? "Add the standard exception constructors" : null,
+            static _ => nameof(Sst1488ExceptionStandardConstructorsCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetTarget(root, diagnostic, out var declaration, out var missing))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add the standard exception constructors",
-                    _ => Task.FromResult(Apply(context.Document, root, declaration!, missing)),
-                    equivalenceKey: nameof(Sst1488ExceptionStandardConstructorsCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (!TryGetTarget(editor.OriginalRoot, diagnostic, out var declaration, out var missing))
         {
@@ -61,16 +47,6 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
 
         editor.ReplaceNode(declaration!, (current, _) => current is ClassDeclarationSyntax target ? AddConstructors(target, missing) : current);
     }
-
-    /// <summary>Applies the fix for one exception type.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="declaration">The exception type declaration.</param>
-    /// <param name="missing">The constructors to add.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration, int missing) =>
-        document.WithSyntaxRoot(root.ReplaceNode(declaration, AddConstructors(declaration, missing)));
 
     /// <summary>Resolves the diagnostic to its type declaration and the set of constructors to add.</summary>
     /// <param name="root">The syntax root.</param>
@@ -82,15 +58,19 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
     {
         missing = 0;
         declaration = root.FindNode(diagnostic.Location.SourceSpan) as ClassDeclarationSyntax;
-        if (declaration is null
-            || !diagnostic.Properties.TryGetValue(ExceptionConstructorAnalyzer.MissingConstructorsKey, out var value)
-            || !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out missing))
-        {
-            return false;
-        }
-
-        return missing != 0;
+        return declaration is not null
+            && DiagnosticPropertyReader.TryGetInt32(diagnostic, ExceptionConstructorAnalyzer.MissingConstructorsKey, out missing)
+            && missing != 0;
     }
+
+    /// <summary>Resolves the reported exception type and builds it with the missing standard constructors.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the type no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetTarget(root, diagnostic, out var declaration, out var missing)
+            ? new NodeReplacement(declaration!, AddConstructors(declaration!, missing))
+            : null;
 
     /// <summary>Adds the missing constructors to the declaration, ahead of its other members.</summary>
     /// <param name="declaration">The exception type declaration.</param>
@@ -202,21 +182,40 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
     /// </remarks>
     private static ConstructorDeclarationSyntax BuildConstructor(string name, SyntaxKind accessibility, string newLine, bool withMessage, bool withInner)
     {
+        const string SummaryPrefix = "/// <summary>Initializes a new instance of the <see cref=\"";
+        const string SummarySuffix = "\"/> class.</summary>";
+        const string MessageDocumentation = "/// <param name=\"message\">The message that describes the error.</param>";
+        const string InnerDocumentation = "/// <param name=\"innerException\">The exception that is the cause of this exception.</param>";
+        const int BaseLineCount = 4;
+        const int MessageLineCount = 2;
         var keyword = SyntaxFactory.Token(accessibility).ValueText;
-        var builder = new System.Text.StringBuilder();
-        _ = builder.Append("/// <summary>Initializes a new instance of the <see cref=\"")
-            .Append(name)
-            .Append("\"/> class.</summary>")
-            .Append(newLine);
-
+        var capacity = SummaryPrefix.Length + name.Length + SummarySuffix.Length
+            + keyword.Length + name.Length + " (){}".Length + (newLine.Length * BaseLineCount);
         if (withMessage)
         {
-            _ = builder.Append("/// <param name=\"message\">The message that describes the error.</param>").Append(newLine);
+            capacity += MessageDocumentation.Length + "string message".Length + "    : base(message)".Length + (newLine.Length * MessageLineCount);
         }
 
         if (withInner)
         {
-            _ = builder.Append("/// <param name=\"innerException\">The exception that is the cause of this exception.</param>").Append(newLine);
+            capacity += InnerDocumentation.Length + ", System.Exception innerException".Length
+                + newLine.Length + (withMessage ? ", innerException".Length : 0);
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
+        _ = builder.Append(SummaryPrefix)
+            .Append(name)
+            .Append(SummarySuffix)
+            .Append(newLine);
+
+        if (withMessage)
+        {
+            _ = builder.Append(MessageDocumentation).Append(newLine);
+        }
+
+        if (withInner)
+        {
+            _ = builder.Append(InnerDocumentation).Append(newLine);
         }
 
         _ = builder.Append(keyword).Append(' ').Append(name).Append('(');
@@ -246,8 +245,8 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
         _ = builder.Append('{').Append(newLine).Append('}').Append(newLine);
 
         var constructor = (ConstructorDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(builder.ToString())!;
-        return constructor
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Simplification.Simplifier.Annotation)
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
+        return constructor.WithAdditionalAnnotations(
+            Microsoft.CodeAnalysis.Simplification.Simplifier.Annotation,
+            Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 }

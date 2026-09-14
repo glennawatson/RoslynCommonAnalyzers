@@ -13,6 +13,55 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1304UsePeriodicTimerAnalyzer"/> (PSH1304 delay-paced polling loops).</summary>
 public class UsePeriodicTimerAnalyzerUnitTest
 {
+    /// <summary>Checks loop shape, bounded conditions, and writes affecting the delay.</summary>
+    /// <param name="body">The asynchronous method body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("do { {|PSH1304:await Task.Delay(1)|}; } while (flag);")]
+    [Arguments("do {|PSH1304:await Task.Delay(1)|}; while (flag);")]
+    [Arguments("while (flag) {|PSH1304:await System.Threading.Tasks.Task.Delay(1)|};")]
+    [Arguments("do { await Task.Delay(1); } while (delay <= 10);")]
+    [Arguments("while (delay > 0) await Task.Delay(1);")]
+    [Arguments("while (flag && delay >= 0) await Task.Delay(1);")]
+    [Arguments("while ((flag == true) && (delay < 10)) await Task.Delay(1);")]
+    [Arguments("while (flag == true) { delay++; {|PSH1304:await Task.Delay(1)|}; }")]
+    [Arguments("while (flag) { other = delay; {|PSH1304:await Task.Delay(delay)|}; }")]
+    [Arguments("while (flag) { delay++; await Task.Delay(delay); }")]
+    [Arguments("while (flag) { --delay; await Task.Delay(delay); }")]
+    [Arguments("while (flag) { Change(ref delay); await Task.Delay(delay); }")]
+    [Arguments("while (flag) { {|PSH1304:await Task.Delay(Math.Abs(delay))|}; other++; }")]
+    [Arguments("while (flag) { if (flag) await Task.Delay(1); }")]
+    [Arguments("while (flag) { await Task.Yield(); }")]
+    [Arguments("while (flag) { await pending; }")]
+    [Arguments("while (flag) { await Delay(1); }")]
+    [Arguments("while (flag) { await Task<int>.Delay(1); }")]
+    [Arguments("while (flag) { Func<Task> work = async () => await Task.Delay(1); await work(); }")]
+    public Task PacingRequiresUnboundedUnconditionalStableDelayAsync(string body) =>
+        VerifyNet90Async($$"""
+            using System;
+            using System.Threading.Tasks;
+            using static System.Threading.Tasks.Task;
+            class C
+            {
+                async Task M(bool flag, int delay, int other, Task pending) { {{body}} }
+                static void Change(ref int value) {}
+            }
+            """);
+
+    /// <summary>Checks a Task-shaped receiver from another type is rejected semantically.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task LookalikeTaskDelayIsCleanAsync() => VerifyNet90Async(
+        """
+        class Task
+        {
+            public static System.Threading.Tasks.Task Delay(int value) => System.Threading.Tasks.Task.CompletedTask;
+            async System.Threading.Tasks.Task M() { while (true) { await Task.Delay(1); } }
+        }
+        """);
+
     /// <summary>Verifies a delay pacing a while loop's tail is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

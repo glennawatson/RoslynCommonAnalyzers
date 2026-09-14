@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1104UseTryGetValueCodeFixProvider))]
 [Shared]
-public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider
 {
     /// <summary>The preferred out-variable name.</summary>
     private const string DefaultValueName = "value";
@@ -31,45 +33,30 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     /// <summary>A <c>var</c> type name followed by one space, reused across fixes.</summary>
     private static readonly IdentifierNameSyntax VarTypeName = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(default, "var", SyntaxFactory.TriviaList(SyntaxFactory.Space)));
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.UseTryGetValue.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use TryGetValue",
+            nameof(Psh1104UseTryGetValueCodeFixProvider),
+            static (root, diagnostic) => FindGuard(root, diagnostic, out _),
+            Apply);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            // The shape is re-checked here, not only inside Apply: without it a stale diagnostic offers a
-            // fix that then does nothing, where the fix-all path correctly skips it.
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation
-                || !Psh1104UseTryGetValueAnalyzer.TryGetGuardShape(invocation, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use TryGetValue",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation)),
-                    equivalenceKey: nameof(Psh1104UseTryGetValueCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation
-            || !Psh1104UseTryGetValueAnalyzer.TryGetGuardShape(invocation, out var shape))
+        if (FindGuard(editor.OriginalRoot, diagnostic, out var shape) is not { } invocation)
         {
             return;
         }
@@ -79,7 +66,7 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
         var reads = CollectGuardedReads(shape);
         for (var i = 0; i < reads.Count; i++)
         {
-            editor.ReplaceNode(reads[i], SyntaxFactory.IdentifierName(valueName).WithTriviaFrom(reads[i]));
+            editor.ReplaceNode(reads[i], CreateValueReference(reads[i], valueName));
         }
     }
 
@@ -116,7 +103,32 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     private static SyntaxNode CreateReplacementNode(SyntaxNode original, InvocationExpressionSyntax invocation, string valueName) =>
         original == invocation
             ? CreateTryGetValueInvocation(invocation, valueName)
-            : SyntaxFactory.IdentifierName(valueName).WithTriviaFrom(original);
+            : CreateValueReference(original, valueName);
+
+    /// <summary>Builds the out-variable reference that replaces one guarded indexer read.</summary>
+    /// <param name="read">The guarded read being replaced.</param>
+    /// <param name="valueName">The chosen out-variable name.</param>
+    /// <returns>The variable name carrying the read's surrounding trivia.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IdentifierNameSyntax CreateValueReference(SyntaxNode read, string valueName) =>
+        SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(read.GetLeadingTrivia(), valueName, read.GetTrailingTrivia()));
+
+    /// <summary>Resolves the reported ContainsKey guard and its validated shape.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="shape">The validated guard shape when found.</param>
+    /// <returns>The reported ContainsKey invocation, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static InvocationExpressionSyntax? FindGuard(SyntaxNode root, Diagnostic diagnostic, out Psh1104UseTryGetValueAnalyzer.GuardShape shape)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>() is { } invocation
+            && Psh1104UseTryGetValueAnalyzer.TryGetGuardShape(invocation, out shape))
+        {
+            return invocation;
+        }
+
+        shape = default;
+        return null;
+    }
 
     /// <summary>Builds the <c>receiver.TryGetValue(key, out var name)</c> replacement for the guard.</summary>
     /// <param name="invocation">The reported ContainsKey invocation.</param>
@@ -125,7 +137,10 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     private static InvocationExpressionSyntax CreateTryGetValueInvocation(InvocationExpressionSyntax invocation, string valueName)
     {
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-        var tryGetValueName = SyntaxFactory.IdentifierName(Psh1104UseTryGetValueAnalyzer.TryGetValueMethodName).WithTriviaFrom(memberAccess.Name);
+        var tryGetValueName = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            memberAccess.Name.GetLeadingTrivia(),
+            Psh1104UseTryGetValueAnalyzer.TryGetValueMethodName,
+            memberAccess.Name.GetTrailingTrivia()));
         var outArgument = SyntaxFactory.Argument(
             nameColon: null,
             refKindKeyword: OutKeywordToken,
@@ -137,9 +152,9 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
             [invocation.ArgumentList.Arguments[0], outArgument],
             [CommaWithSpaceToken]);
 
-        return invocation
-            .WithExpression(memberAccess.WithName(tryGetValueName))
-            .WithArgumentList(invocation.ArgumentList.WithArguments(arguments));
+        return invocation.Update(
+            memberAccess.WithName(tryGetValueName),
+            invocation.ArgumentList.WithArguments(arguments));
     }
 
     /// <summary>Collects every guarded indexer read matching the guard's receiver and key.</summary>

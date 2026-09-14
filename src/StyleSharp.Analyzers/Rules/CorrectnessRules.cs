@@ -32,14 +32,12 @@ internal static partial class CorrectnessRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
-        new(
+        DescriptorFactory.CreateInfo(
             id,
             title,
             messageFormat,
             "Correctness",
-            DiagnosticSeverity.Info,
-            isEnabledByDefault: true,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+            description);
 }

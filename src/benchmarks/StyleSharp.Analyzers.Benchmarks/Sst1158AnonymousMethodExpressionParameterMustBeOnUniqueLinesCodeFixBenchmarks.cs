@@ -39,7 +39,7 @@ public class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFix
     [Benchmark]
     public async Task<int> Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

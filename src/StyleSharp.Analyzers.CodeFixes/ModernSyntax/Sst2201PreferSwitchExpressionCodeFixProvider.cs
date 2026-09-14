@@ -7,80 +7,36 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a return-only switch statement as a switch expression (SST2201).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2201PreferSwitchExpressionCodeFixProvider))]
 [Shared]
-public sealed class Sst2201PreferSwitchExpressionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2201PreferSwitchExpressionCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.PreferSwitchExpression.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Rewrite switch as an expression",
+            nameof(Sst2201PreferSwitchExpressionCodeFixProvider),
+            static (root, diagnostic) => DiagnosticAncestor.Find<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan) is not null,
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindSwitch(root, diagnostic.Location.SourceSpan) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Rewrite switch as an expression",
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: nameof(Sst2201PreferSwitchExpressionCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!CreateReplacement(editor.OriginalRoot, diagnostic, out var switchStatement, out var replacement)
-            || switchStatement is null
-            || replacement is null)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(switchStatement, replacement);
-    }
-
-    /// <summary>Applies one switch-expression fix.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported switch statement and builds the switch-expression return statement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) => !CreateReplacement(root, diagnostic, out var switchStatement, out var replacement)
-            || switchStatement is null
-            || replacement is null
-        ? document
-        : document.WithSyntaxRoot(root.ReplaceNode(switchStatement, replacement));
-
-    /// <summary>Builds the switch-expression return statement.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="switchStatement">The switch statement to replace.</param>
-    /// <param name="replacement">The replacement return statement.</param>
-    /// <returns><see langword="true"/> when the switch can be rewritten.</returns>
-    private static bool CreateReplacement(
-        SyntaxNode root,
-        Diagnostic diagnostic,
-        out SwitchStatementSyntax? switchStatement,
-        out ReturnStatementSyntax? replacement)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the switch cannot be rewritten.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        switchStatement = FindSwitch(root, diagnostic.Location.SourceSpan);
-        replacement = null;
+        var switchStatement = DiagnosticAncestor.Find<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
         if (switchStatement is null || !Sst2201PreferSwitchExpressionAnalyzer.IsReturnOnlySwitchExpressionCandidate(switchStatement))
         {
-            return false;
+            return null;
         }
 
         SeparatedSyntaxList<SwitchExpressionArmSyntax> arms = default;
@@ -89,15 +45,20 @@ public sealed class Sst2201PreferSwitchExpressionCodeFixProvider : CodeFixProvid
         {
             if (!TryCreateArm(sections[i], out var arm))
             {
-                return false;
+                return null;
             }
 
             arms = arms.Add(arm);
         }
 
         var switchExpression = SyntaxFactory.SwitchExpression(switchStatement.Expression.WithoutTrivia(), arms);
-        replacement = SyntaxFactory.ReturnStatement(switchExpression).WithTriviaFrom(switchStatement);
-        return true;
+        return new NodeReplacement(
+            switchStatement,
+            SyntaxFactory.ReturnStatement(
+                default,
+                SyntaxFactory.Token(switchStatement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                switchExpression,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, switchStatement.GetTrailingTrivia())));
     }
 
     /// <summary>Creates a switch expression arm from a switch section.</summary>
@@ -129,25 +90,5 @@ public sealed class Sst2201PreferSwitchExpressionCodeFixProvider : CodeFixProvid
 
         arm = SyntaxFactory.SwitchExpressionArm(pattern, expression.WithoutTrivia());
         return true;
-    }
-
-    /// <summary>Finds the containing switch statement.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic source span.</param>
-    /// <returns>The containing switch statement, or <see langword="null"/>.</returns>
-    private static SwitchStatementSyntax? FindSwitch(SyntaxNode root, TextSpan span)
-    {
-        var node = root.FindToken(span.Start).Parent;
-        while (node is not null)
-        {
-            if (node is SwitchStatementSyntax switchStatement)
-            {
-                return switchStatement;
-            }
-
-            node = node.Parent;
-        }
-
-        return null;
     }
 }

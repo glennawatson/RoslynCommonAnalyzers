@@ -61,8 +61,7 @@ public sealed class Sst1526BinaryOperatorNewLineAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var binary = (BinaryExpressionSyntax)context.Node;
-        var op = binary.OperatorToken;
+        var op = ((BinaryExpressionSyntax)context.Node).OperatorToken;
         var breakBefore = LayoutHelpers.HasLineBreakBefore(op);
         var breakAfter = LayoutHelpers.HasLineBreakAfter(op);
         if (!breakBefore && !breakAfter)
@@ -70,18 +69,11 @@ public sealed class Sst1526BinaryOperatorNewLineAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(binary.SyntaxTree);
-        var wantBreakBefore = LayoutStyleOptions.ReadBreakBefore(options, SpecificKey, GeneralKey, defaultBreakBefore: true);
-        if (wantBreakBefore ? !breakAfter : !breakBefore)
+        if (!LayoutHelpers.IsBreakMisplaced(context, SpecificKey, GeneralKey, defaultBreakBefore: true, breakBefore, breakAfter, out var wantBreakBefore))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(
-            LayoutRules.BinaryOperatorNewLine,
-            op.GetLocation(),
-            LayoutHelpers.PlacementProperties(wantBreakBefore),
-            op.Text,
-            wantBreakBefore ? "start" : "end"));
+        LayoutHelpers.ReportMisplacedBreak(context, LayoutRules.BinaryOperatorNewLine, op, op.Text, wantBreakBefore);
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -155,22 +157,14 @@ internal static class NamingHelper
     /// <summary>Suggests a PascalCase form of <paramref name="name"/> (leading underscores and a known field prefix stripped).</summary>
     /// <param name="name">The identifier text.</param>
     /// <returns>The suggested PascalCase name.</returns>
-    internal static string SuggestPascalCase(string name)
-    {
-        var start = SignificantStart(name);
-        return start >= name.Length || (start == 0 && char.IsUpper(name[0])) ? name : char.ToUpperInvariant(name[start]) + name[(start + 1)..];
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string SuggestPascalCase(string name) => SuggestLeadingCase(name, upper: true);
 
     /// <summary>Suggests a camelCase form of <paramref name="name"/> (leading underscores and a known field prefix stripped).</summary>
     /// <param name="name">The identifier text.</param>
     /// <returns>The suggested camelCase name.</returns>
-    internal static string SuggestCamelCase(string name)
-    {
-        var start = SignificantStart(name);
-        return start >= name.Length || (start == 0 && char.IsLower(name[0]))
-            ? name
-            : char.ToLowerInvariant(name[start]) + name[(start + 1)..];
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string SuggestCamelCase(string name) => SuggestLeadingCase(name, upper: false);
 
     /// <summary>Suggests the runtime private-field form <c>_camelCase</c> for <paramref name="name"/>.</summary>
     /// <param name="name">The identifier text.</param>
@@ -282,5 +276,21 @@ internal static class NamingHelper
         }
 
         return i;
+    }
+
+    /// <summary>Suggests <paramref name="name"/> with its first significant character in upper or lower case.</summary>
+    /// <param name="name">The identifier text.</param>
+    /// <param name="upper">Whether the first significant character is upper-cased rather than lower-cased.</param>
+    /// <returns>The name unchanged when it already starts in that case, otherwise the recased name without its leading prefix.</returns>
+    private static string SuggestLeadingCase(string name, bool upper)
+    {
+        var start = SignificantStart(name);
+        if (start >= name.Length || (start == 0 && (upper ? char.IsUpper(name[0]) : char.IsLower(name[0]))))
+        {
+            return name;
+        }
+
+        var leading = upper ? char.ToUpperInvariant(name[start]) : char.ToLowerInvariant(name[start]);
+        return leading + name[(start + 1)..];
     }
 }

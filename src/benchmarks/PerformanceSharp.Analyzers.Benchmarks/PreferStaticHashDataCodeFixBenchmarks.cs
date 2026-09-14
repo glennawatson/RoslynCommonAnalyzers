@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -67,7 +68,7 @@ public class PreferStaticHashDataCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PreferStaticHashData_ApplyFixAsync()
     {
-        var updated = Psh1400PreferStaticHashDataCodeFixProvider.Apply(_document, _root, _invocation);
+        var updated = TargetCodeFix.Apply(_document, _root, _invocation, Psh1400PreferStaticHashDataCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

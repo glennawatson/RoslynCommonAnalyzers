@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1301 — a process command line is composed from a non-constant formatted or concatenated string.</summary>
-    public static readonly DiagnosticDescriptor ProcessArgumentsComposition = Create(
+    public static readonly DiagnosticDescriptor ProcessArgumentsComposition = DescriptorFactory.Create(
         "SES1301",
         "Do not build a process command line from non-constant string parts",
         "'{0}' is set from a formatted or concatenated string; add each value to 'ArgumentList' so the runtime escapes it, instead of composing one command-line string",

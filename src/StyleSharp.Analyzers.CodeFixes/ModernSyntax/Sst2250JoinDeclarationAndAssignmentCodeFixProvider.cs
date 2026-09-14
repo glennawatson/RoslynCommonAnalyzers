@@ -13,48 +13,37 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2250JoinDeclarationAndAssignmentCodeFixProvider))]
 [Shared]
-public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.JoinDeclarationAndAssignment.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<JoinEdit>(
+            context,
+            "Join the declaration with its assignment",
+            nameof(Sst2250JoinDeclarationAndAssignmentCodeFixProvider),
+            TryResolve,
+            Apply);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
+        if (!TryResolve(editor.OriginalRoot, diagnostic, out var edit))
         {
             return;
         }
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not { } edit)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Join the declaration with its assignment",
-                    _ => Task.FromResult(Apply(context.Document, root, edit)),
-                    equivalenceKey: nameof(Sst2250JoinDeclarationAndAssignmentCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not { } edit)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(edit.Local, edit.Merged);
+        editor.ReplaceNode(edit.Local, BuildMerged(edit.Local, edit.Variable, edit.Assignment));
         editor.RemoveNode(edit.Assignment);
     }
 
@@ -66,24 +55,31 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
     internal static Document Apply(Document document, SyntaxNode root, JoinEdit edit)
     {
         var block = (BlockSyntax)edit.Local.Parent!;
-        var statements = block.Statements.Replace(edit.Local, edit.Merged);
+        var statements = block.Statements.Replace(edit.Local, BuildMerged(edit.Local, edit.Variable, edit.Assignment));
         statements = statements.RemoveAt(block.Statements.IndexOf(edit.Assignment));
-        return document.WithSyntaxRoot(root.ReplaceNode(block, block.WithStatements(statements)));
+        return document.WithSyntaxRoot(root.ReplaceNode(block, block.Update(block.AttributeLists, block.OpenBraceToken, statements, block.CloseBraceToken)));
     }
 
     /// <summary>Resolves the reported declaration into the nodes the fix swaps.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The edit, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static JoinEdit? Resolve(SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="edit">The resolved edit.</param>
+    /// <returns><see langword="true"/> when the shape still matches.</returns>
+    private static bool TryResolve(SyntaxNode root, Diagnostic diagnostic, out JoinEdit edit)
     {
+        edit = default;
+
         // Joining deletes the assignment statement and folds its value into the declaration. A directive
         // between them travels with the statement that goes and leaves the other half behind.
-        return root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is not { } local
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is not { } local
             || !Sst2250JoinDeclarationAndAssignmentAnalyzer.TryGetJoinCandidate(local, out var variable, out var assignment)
-            || DirectiveBoundaries.Separate(local, assignment)
-            ? null
-            : new JoinEdit(local, assignment, BuildMerged(local, variable, assignment));
+            || DirectiveBoundaries.Separate(local, assignment))
+        {
+            return false;
+        }
+
+        edit = new(local, assignment, variable);
+        return true;
     }
 
     /// <summary>Builds the merged declaration carrying the assignment's value as its initializer.</summary>
@@ -98,16 +94,16 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
     {
         var value = ((AssignmentExpressionSyntax)assignment.Expression).Right;
         var equalsToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        var initialized = variable.WithInitializer(SyntaxFactory.EqualsValueClause(equalsToken, value.WithoutTrivia()));
+        var initialized = variable.Update(variable.Identifier, variable.ArgumentList, SyntaxFactory.EqualsValueClause(equalsToken, value.WithoutTrivia()));
         return local.ReplaceNode(variable, initialized);
     }
 
-    /// <summary>The declaration, the assignment to drop, and the merged declaration replacing the former.</summary>
+    /// <summary>The original nodes needed to build a join only when the fix is applied.</summary>
     /// <param name="Local">The bare local declaration being replaced.</param>
     /// <param name="Assignment">The following assignment statement being removed.</param>
-    /// <param name="Merged">The declaration carrying the joined initializer.</param>
+    /// <param name="Variable">The declarator that receives the initializer.</param>
     internal readonly record struct JoinEdit(
         LocalDeclarationStatementSyntax Local,
         ExpressionStatementSyntax Assignment,
-        LocalDeclarationStatementSyntax Merged);
+        VariableDeclaratorSyntax Variable);
 }

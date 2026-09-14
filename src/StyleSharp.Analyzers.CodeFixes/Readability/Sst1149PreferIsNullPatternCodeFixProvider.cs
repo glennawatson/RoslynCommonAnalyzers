@@ -43,29 +43,13 @@ public sealed class Sst1149PreferIsNullPatternCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => PreferIsNullFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax binary)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use '{Sst1149PreferIsNullPatternAnalyzer.PatternText(binary.Kind())}'",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, binary)),
-                    equivalenceKey: nameof(Sst1149PreferIsNullPatternCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static binary => $"Use '{Sst1149PreferIsNullPatternAnalyzer.PatternText(binary.Kind())}'",
+            nameof(Sst1149PreferIsNullPatternCodeFixProvider),
+            static (root, diagnostic) => root.FindNode(diagnostic.Location.SourceSpan) as BinaryExpressionSyntax,
+            Apply);
 
     /// <summary>Replaces the null comparison with the equivalent pattern expression.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -128,7 +112,7 @@ public sealed class Sst1149PreferIsNullPatternCodeFixProvider : CodeFixProvider
                 return document;
             }
 
-            var rewrites = new Dictionary<SyntaxNode, SyntaxNode>();
+            var rewrites = new Dictionary<SyntaxNode, SyntaxNode>(diagnostics.Length);
             foreach (var diagnostic in diagnostics)
             {
                 if (root.FindNode(diagnostic.Location.SourceSpan) is BinaryExpressionSyntax binary && !rewrites.ContainsKey(binary))

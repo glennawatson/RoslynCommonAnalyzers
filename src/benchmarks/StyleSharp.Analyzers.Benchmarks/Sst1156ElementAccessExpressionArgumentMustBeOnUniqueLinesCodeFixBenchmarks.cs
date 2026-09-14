@@ -39,7 +39,7 @@ public class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixBen
     [Benchmark]
     public async Task<int> Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

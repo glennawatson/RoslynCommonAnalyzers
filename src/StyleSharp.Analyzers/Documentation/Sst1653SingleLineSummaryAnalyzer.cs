@@ -122,41 +122,56 @@ public sealed class Sst1653SingleLineSummaryAnalyzer : DiagnosticAnalyzer
     /// <returns>The normalized text length.</returns>
     private static int NormalizedTextLength(XmlElementSyntax summary)
     {
-        var length = 0;
-        var started = false;
-        var pendingSpace = false;
-
-        foreach (var token in summary.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        var state = default(NormalizedTextState);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            summary,
+            ref state,
+            static (in SyntaxToken token, ref NormalizedTextState scan) =>
             {
-                if (token.IsKind(SyntaxKind.XmlTextLiteralNewLineToken) && started)
+                if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
                 {
-                    pendingSpace = true;
+                    if (token.IsKind(SyntaxKind.XmlTextLiteralNewLineToken) && scan.Started)
+                    {
+                        scan.PendingSpace = true;
+                    }
+
+                    return true;
                 }
 
-                continue;
-            }
-
-            foreach (var character in token.ValueText)
-            {
-                if (char.IsWhiteSpace(character))
+                foreach (var character in token.ValueText)
                 {
-                    pendingSpace = started;
-                    continue;
+                    if (char.IsWhiteSpace(character))
+                    {
+                        scan.PendingSpace = scan.Started;
+                        continue;
+                    }
+
+                    if (scan.PendingSpace)
+                    {
+                        scan.Length++;
+                        scan.PendingSpace = false;
+                    }
+
+                    scan.Length++;
+                    scan.Started = true;
                 }
 
-                if (pendingSpace)
-                {
-                    length++;
-                    pendingSpace = false;
-                }
+                return true;
+            });
 
-                length++;
-                started = true;
-            }
-        }
+        return state.Length;
+    }
 
-        return length;
+    /// <summary>Tracks visible text and whitespace across adjacent XML tokens.</summary>
+    private record struct NormalizedTextState
+    {
+        /// <summary>Gets or sets the normalized character count.</summary>
+        public int Length { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether visible text has begun.</summary>
+        public bool Started { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether the next visible character needs a separating space.</summary>
+        public bool PendingSpace { get; set; }
     }
 }

@@ -42,6 +42,9 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseEncodingGetString);
 
+    /// <summary>The creation syntax kinds shared by every compilation registration.</summary>
+    private static readonly SyntaxKind[] SyntaxKinds = [SyntaxKind.ObjectCreationExpression];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -51,17 +54,11 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EncodingMetadataName) is not { } encoding)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeStringCreation(nodeContext, encoding),
-                SyntaxKind.ObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EncodingMetadataName),
+            AnalyzeStringCreation,
+            SyntaxKinds);
     }
 
     /// <summary>Returns the <c>GetChars</c> call a <c>new string(...)</c> is built from, syntactically.</summary>
@@ -84,9 +81,12 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     internal static InvocationExpressionSyntax BuildGetString(InvocationExpressionSyntax decode)
     {
         var access = (MemberAccessExpressionSyntax)decode.Expression;
-        return decode
-            .WithExpression(access.WithName(SyntaxFactory.IdentifierName(GetStringMethodName)))
-            .WithoutTrivia();
+        return decode.Update(
+            access.Update(
+                access.Expression.WithoutLeadingTrivia(),
+                access.OperatorToken,
+                SyntaxFactory.IdentifierName(GetStringMethodName)),
+            decode.ArgumentList.WithoutTrailingTrivia());
     }
 
     /// <summary>Confirms the rewrite binds to a <c>GetString</c> on the same encoding, returning a string.</summary>
@@ -109,11 +109,12 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1225 for a decode-then-copy that <c>GetString</c> does in one step.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="encoding">The encoding base type.</param>
-    private static void AnalyzeStringCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encoding)
+    /// <param name="types">The compilation's lazily resolved encoding type.</param>
+    private static void AnalyzeStringCreation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
-        if (TryGetDecodeCall(creation) is not { } decodeCall)
+        if (TryGetDecodeCall(creation) is not { } decodeCall
+            || types.Get() is not { } encoding)
         {
             return;
         }
@@ -121,6 +122,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
         var model = context.SemanticModel;
         var cancellationToken = context.CancellationToken;
         if (BindDecode(model, decodeCall, encoding, cancellationToken) is not { } decode
+            || !HasGetStringSibling(decode)
             || !BuildsAString(model, creation, cancellationToken)
             || SpanRewriteGuard.IsInsideExpressionTree(creation, model, cancellationToken)
             || !RewriteBindsToGetString(model, creation.SpanStart, BuildGetString(decodeCall), decode))
@@ -156,24 +158,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        return DerivesFrom(decode.ContainingType, encoding) ? decode : null;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the encoding base type.</summary>
-    /// <param name="type">The candidate receiver type.</param>
-    /// <param name="encoding">The encoding base type.</param>
-    /// <returns><see langword="true"/> when the type is an encoding.</returns>
-    private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol encoding)
-    {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, encoding))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return TypeRelations.IsOrDerivesFrom(decode.ContainingType, encoding) ? decode : null;
     }
 
     /// <summary>Returns whether the creation really is the <c>string(char[])</c> constructor.</summary>
@@ -188,6 +173,25 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
             ContainingType.SpecialType: SpecialType.System_String,
             Parameters: [{ Type: IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Char } }],
         };
+
+    /// <summary>Rejects decoders without a matching sibling before constructing or binding a rewrite.</summary>
+    /// <param name="decode">The bound decoding method.</param>
+    /// <returns>Whether the declaring type has a potentially matching string decoder.</returns>
+    private static bool HasGetStringSibling(IMethodSymbol decode)
+    {
+        var members = decode.ContainingType.GetMembers(GetStringMethodName);
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is IMethodSymbol { IsStatic: false } candidate
+                && (candidate.IsGenericMethod
+                    || (candidate.ReturnType.SpecialType == SpecialType.System_String && HasSameParameters(candidate, decode))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Returns whether two methods take exactly the same parameter types.</summary>
     /// <param name="first">The first method.</param>

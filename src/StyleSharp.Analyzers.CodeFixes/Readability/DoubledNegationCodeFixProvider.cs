@@ -2,29 +2,32 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Collapses a run of doubled prefix-negation operators (SST1190).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(DoubledNegationCodeFixProvider))]
 [Shared]
-public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class DoubledNegationCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoDoubledNegation.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the doubled operator", nameof(DoubledNegationCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the doubled operator", nameof(DoubledNegationCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is PrefixUnaryExpressionSyntax;
 
     /// <summary>Resolves the reported node and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -39,7 +42,7 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
 
         var count = 0;
         ExpressionSyntax current = unary;
-        while (ExpressionSimplificationAnalyzer.Unwrap(current) is PrefixUnaryExpressionSyntax peeled && peeled.IsKind(unary.Kind()))
+        while (ExpressionShapes.WalkDownParentheses(current) is PrefixUnaryExpressionSyntax peeled && peeled.IsKind(unary.Kind()))
         {
             count++;
             current = peeled.Operand;
@@ -48,7 +51,7 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
         // Negations cancel in pairs, so only an odd count leaves one behind.
         const int NegationsPerCancellingPair = 2;
 
-        var operand = ExpressionSimplificationAnalyzer.Unwrap(current).WithoutTrivia();
+        var operand = ExpressionShapes.WalkDownParentheses(current).WithoutTrivia();
         var replacement = count % NegationsPerCancellingPair == 0
             ? operand
             : SyntaxFactory.PrefixUnaryExpression(unary.Kind(), operand);

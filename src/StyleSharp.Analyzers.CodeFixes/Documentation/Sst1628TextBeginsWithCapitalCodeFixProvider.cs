@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,22 +11,20 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1628TextBeginsWithCapitalCodeFixProvider))]
 [Shared]
-public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.TextBeginsWithCapital.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Begin the summary with a capital letter", nameof(Sst1628TextBeginsWithCapitalCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Begin the summary with a capital letter", nameof(Sst1628TextBeginsWithCapitalCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Gets the first content node that carries a visible character.</summary>
     /// <param name="summary">The summary element.</param>
@@ -84,6 +80,27 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
         return -1;
     }
 
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // A documentation comment is trivia, so the lookup has to descend into it to reach the element.
+        if (root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true)is not XmlElementSyntax summary
+            || LeadingText(summary)is not { } text)
+        {
+            return false;
+        }
+
+        var tokens = text.TextTokens;
+        var index = FirstVisibleToken(text);
+        var token = tokens[index];
+        var value = token.ValueText;
+        var at = FirstVisibleCharacter(value);
+        return char.IsLower(value[at]);
+    }
+
     /// <summary>Resolves the reported summary and builds it with a capitalized first letter.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
@@ -107,7 +124,9 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
             return null;
         }
 
-        var capitalized = value[0..(0 + at)] + char.ToUpperInvariant(value[at]) + value.Substring(at + 1);
+        var characters = value.ToCharArray();
+        characters[at] = char.ToUpperInvariant(characters[at]);
+        var capitalized = new string(characters);
         var replacement = SyntaxFactory.XmlTextLiteral(token.LeadingTrivia, capitalized, capitalized, token.TrailingTrivia);
         return new NodeReplacement(text, text.WithTextTokens(tokens.Replace(token, replacement)));
     }

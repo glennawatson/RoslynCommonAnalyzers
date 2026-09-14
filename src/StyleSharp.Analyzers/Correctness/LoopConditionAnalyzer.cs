@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -231,7 +232,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < variables.Count; i++)
         {
             var name = variables[i].Identifier.ValueText;
-            if (Mentions(condition, name))
+            if (IdentifierReferences.MentionsName(condition, name))
             {
                 return name;
             }
@@ -306,7 +307,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         {
             if (variables[i].Identifier.ValueText == name)
             {
-                return Mentions(condition, name);
+                return IdentifierReferences.MentionsName(condition, name);
             }
         }
 
@@ -384,13 +385,13 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (Mentions(counterLeft ? binary.Right : binary.Left, counter))
+        if (IdentifierReferences.MentionsName(counterLeft ? binary.Right : binary.Left, counter))
         {
             return false;
         }
 
         comparison = binary;
-        canonical = counterLeft ? binary.Kind() : Mirror(binary.Kind());
+        canonical = counterLeft ? binary.Kind() : ComparisonKinds.Mirror(binary.Kind());
         return true;
     }
 
@@ -472,45 +473,16 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="forStatement">The for statement.</param>
     /// <param name="counter">The counter's name.</param>
     /// <returns><see langword="true"/> when the body could re-step the counter.</returns>
-    private static bool BodyWritesCounter(ForStatementSyntax forStatement, string counter)
-    {
-        if (forStatement.Statement is not { } body)
-        {
-            return false;
-        }
+    private static bool BodyWritesCounter(ForStatementSyntax forStatement, string counter) =>
+        forStatement.Statement is { } body
+            && (!VisitCounterWrite(body, ref counter)
+                || !DescendantTraversalHelper.VisitDescendants<SyntaxNode, string>(body, ref counter, VisitCounterWrite));
 
-        var scan = new CounterWriteScan(counter);
-        WalkCounterWrites(body, ref scan);
-        return scan.Written;
-    }
-
-    /// <summary>Walks a node for a write to the counter.</summary>
-    /// <param name="node">The node to walk.</param>
-    /// <param name="scan">The scan state.</param>
-    private static void WalkCounterWrites(SyntaxNode node, ref CounterWriteScan scan)
-    {
-        if (scan.Written || !VisitCounterWrite(node, ref scan))
-        {
-            return;
-        }
-
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, CounterWriteScan>(node, ref scan, VisitCounterWrite);
-    }
-
-    /// <summary>Records whether a node writes the counter.</summary>
+    /// <summary>Continues the walk past a node that does not write the counter.</summary>
     /// <param name="node">The node being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once a write is found.</returns>
-    private static bool VisitCounterWrite(SyntaxNode node, ref CounterWriteScan scan)
-    {
-        if (GetWrittenName(node) != scan.Counter)
-        {
-            return true;
-        }
-
-        scan.Written = true;
-        return false;
-    }
+    /// <param name="counter">The counter's name.</param>
+    /// <returns><see langword="false"/> at a write, which stops the walk.</returns>
+    private static bool VisitCounterWrite(SyntaxNode node, ref string counter) => GetWrittenName(node) != counter;
 
     /// <summary>Returns whether a syntax kind is a relational comparison.</summary>
     /// <param name="kind">The syntax kind.</param>
@@ -521,73 +493,43 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             or SyntaxKind.GreaterThanExpression
             or SyntaxKind.GreaterThanOrEqualExpression;
 
-    /// <summary>Mirrors a relational comparison as if its operands were swapped.</summary>
-    /// <param name="kind">The comparison kind.</param>
-    /// <returns>The mirrored comparison kind.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind,
-    };
-
     /// <summary>Returns whether anything in the loop can change what the condition reads, or leave early.</summary>
     /// <param name="loop">The loop statement.</param>
     /// <param name="condition">The loop's condition.</param>
     /// <returns><see langword="true"/> when the loop is not provably invariant.</returns>
     private static bool LoopChangesCondition(SyntaxNode loop, ExpressionSyntax condition)
     {
-        var scan = new BodyScan(condition);
         if (loop is ForStatementSyntax forStatement)
         {
             var incrementors = forStatement.Incrementors;
             for (var i = 0; i < incrementors.Count; i++)
             {
-                Walk(incrementors[i], ref scan);
+                if (ChangesCondition(incrementors[i], ref condition))
+                {
+                    return true;
+                }
             }
         }
 
-        if (GetBody(loop) is not { } body)
-        {
-            return scan.Stop;
-        }
-
-        Walk(body, ref scan);
-        return scan.Stop;
+        return GetBody(loop) is { } body && ChangesCondition(body, ref condition);
     }
 
-    /// <summary>Walks one node of the loop, looking for a write or a way out.</summary>
+    /// <summary>Returns whether a node, or anything beneath it, ends the loop or writes what the condition reads.</summary>
     /// <param name="node">The node to walk.</param>
-    /// <param name="scan">The scan state.</param>
-    private static void Walk(SyntaxNode node, ref BodyScan scan)
-    {
-        if (scan.Stop || !VisitLoopNode(node, ref scan))
-        {
-            return;
-        }
+    /// <param name="condition">The loop's condition.</param>
+    /// <returns><see langword="true"/> when the loop is disqualified.</returns>
+    private static bool ChangesCondition(SyntaxNode node, ref ExpressionSyntax condition) =>
+        !VisitLoopNode(node, ref condition)
+            || !DescendantTraversalHelper.VisitDescendants<SyntaxNode, ExpressionSyntax>(node, ref condition, VisitLoopNode);
 
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, BodyScan>(node, ref scan, VisitLoopNode);
-    }
-
-    /// <summary>Records whether one node ends the loop or writes what the condition reads.</summary>
+    /// <summary>Continues the walk past a node that neither ends the loop nor writes what the condition reads.</summary>
     /// <param name="node">The node being visited.</param>
-    /// <param name="scan">The scan state.</param>
+    /// <param name="condition">The loop's condition.</param>
     /// <returns><see langword="false"/> once the loop is disqualified, which stops the walk.</returns>
-    private static bool VisitLoopNode(SyntaxNode node, ref BodyScan scan)
-    {
-        var disqualified = IsEarlyExit(node)
-            || node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or RefExpressionSyntax
-            || (GetWrittenName(node) is { } written && Mentions(scan.Condition, written));
-        if (!disqualified)
-        {
-            return true;
-        }
-
-        scan.Stop = true;
-        return false;
-    }
+    private static bool VisitLoopNode(SyntaxNode node, ref ExpressionSyntax condition) =>
+        !IsEarlyExit(node)
+            && node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or RefExpressionSyntax)
+            && (GetWrittenName(node) is not { } written || !IdentifierReferences.MentionsName(condition, written));
 
     /// <summary>Returns whether a node is a way out of the loop other than the condition.</summary>
     /// <param name="node">The node.</param>
@@ -670,70 +612,8 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a condition is built only from names, literals and operators.</summary>
     /// <param name="condition">The loop's condition.</param>
     /// <returns><see langword="true"/> when nothing in it can produce a different value on its own.</returns>
-    private static bool IsSimpleCondition(ExpressionSyntax condition)
-    {
-        var scan = default(ShapeScan);
-        if (!VisitConditionNode(condition, ref scan))
-        {
-            return false;
-        }
-
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, ShapeScan>(condition, ref scan, VisitConditionNode);
-        return !scan.Rejected && scan.Identifiers is > 0 and <= MaximumConditionVariables;
-    }
-
-    /// <summary>Rejects a condition containing anything the rule cannot reason about.</summary>
-    /// <param name="node">The node being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once the condition is rejected, which stops the walk.</returns>
-    private static bool VisitConditionNode(SyntaxNode node, ref ShapeScan scan)
-    {
-        if (node is IdentifierNameSyntax)
-        {
-            scan.Identifiers++;
-            return true;
-        }
-
-        if (node is LiteralExpressionSyntax or ParenthesizedExpressionSyntax or BinaryExpressionSyntax
-            || (node is PrefixUnaryExpressionSyntax prefix && !IsStep(prefix.RawKind)))
-        {
-            return true;
-        }
-
-        scan.Rejected = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an expression mentions a name.</summary>
-    /// <param name="expression">The expression to search.</param>
-    /// <param name="name">The name to look for.</param>
-    /// <returns><see langword="true"/> when the name appears.</returns>
-    private static bool Mentions(ExpressionSyntax expression, string name)
-    {
-        if (expression is IdentifierNameSyntax self && self.Identifier.ValueText == name)
-        {
-            return true;
-        }
-
-        var scan = new NameScan(name);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
-        return scan.Found;
-    }
-
-    /// <summary>Records whether an identifier is the name being looked for.</summary>
-    /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once the name is found, which stops the walk.</returns>
-    private static bool VisitName(IdentifierNameSyntax identifier, ref NameScan scan)
-    {
-        if (identifier.Identifier.ValueText != scan.Name)
-        {
-            return true;
-        }
-
-        scan.Found = true;
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsSimpleCondition(ExpressionSyntax condition) => SimpleConditionShape.IsSimple(condition, MaximumConditionVariables);
 
     /// <summary>Gets the first variable a condition reads, which is the one the message names.</summary>
     /// <param name="condition">The loop's condition.</param>
@@ -780,14 +660,6 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         _ => null,
     };
 
-    /// <summary>The state threaded through the loop body's scan.</summary>
-    /// <param name="Condition">The loop's condition.</param>
-    private record struct BodyScan(ExpressionSyntax Condition)
-    {
-        /// <summary>Gets or sets a value indicating whether the loop is disqualified.</summary>
-        public bool Stop { get; set; }
-    }
-
     /// <summary>The state threaded through the never-stepped scan.</summary>
     /// <param name="Declaration">The for loop's declaration.</param>
     /// <param name="Condition">The loop's condition.</param>
@@ -803,24 +675,6 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         public readonly bool Done => SteppedTested || Opaque;
     }
 
-    /// <summary>The state threaded through the counter-write scan.</summary>
-    /// <param name="Counter">The counter's name.</param>
-    private record struct CounterWriteScan(string Counter)
-    {
-        /// <summary>Gets or sets a value indicating whether the counter is written.</summary>
-        public bool Written { get; set; }
-    }
-
-    /// <summary>The state threaded through the condition's shape scan.</summary>
-    private record struct ShapeScan
-    {
-        /// <summary>Gets or sets the number of variables the condition reads.</summary>
-        public int Identifiers { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether the condition was rejected.</summary>
-        public bool Rejected { get; set; }
-    }
-
     /// <summary>The state threaded through the condition's symbol scan.</summary>
     /// <param name="Context">The syntax node context.</param>
     private record struct LocalScan(SyntaxNodeAnalysisContext Context)
@@ -830,14 +684,6 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets or sets a value indicating whether the condition was rejected.</summary>
         public bool Rejected { get; set; }
-    }
-
-    /// <summary>The state threaded through a name search.</summary>
-    /// <param name="Name">The name being looked for.</param>
-    private record struct NameScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the name was found.</summary>
-        public bool Found { get; set; }
     }
 
     /// <summary>The state threaded through the search for a condition's first variable.</summary>

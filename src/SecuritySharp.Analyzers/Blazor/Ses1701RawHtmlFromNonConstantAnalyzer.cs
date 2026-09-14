@@ -17,18 +17,12 @@ namespace SecuritySharp.Analyzers;
 /// developer-authored markup and is not reported. A value wrapped in a call to a method whose name is listed
 /// in <c>securitysharp.SES1701.sanitizers</c> (or the project-wide <c>securitysharp.sanitizers</c>) is
 /// treated as already-encoded and stays silent. The sink is confirmed by binding, so a same-named type or
-/// method on an unrelated type is ignored. The whole rule is gated on <c>MarkupString</c> resolving, so a
-/// non-Blazor project registers nothing and pays nothing.
+/// method on an unrelated type is ignored. The whole rule is gated on <c>MarkupString</c> resolving,
+/// with framework types resolved only after a candidate passes the syntax filter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the raw-markup wrapper the rule gates on.</summary>
-    private const string MarkupStringMetadataName = "Microsoft.AspNetCore.Components.MarkupString";
-
-    /// <summary>The metadata name of the render-tree builder that owns the raw-markup append helper.</summary>
-    private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
-
     /// <summary>The simple type name of the raw-markup wrapper, used for the syntactic prefilter.</summary>
     private const string MarkupStringSimpleName = "MarkupString";
 
@@ -44,6 +38,15 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>The project-wide sanitizer allow-list key.</summary>
     private const string SanitizersGeneralKey = "securitysharp.sanitizers";
 
+    /// <summary>The metadata name of the raw-markup wrapper the rule gates on.</summary>
+    private const string MarkupStringMetadataName = "Microsoft.AspNetCore.Components.MarkupString";
+
+    /// <summary>The metadata name of the render-tree builder that owns the raw-markup append helper.</summary>
+    private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
+
+    /// <summary>The markup-string and render-tree-builder metadata names, in slot order.</summary>
+    private static readonly string[] MarkupMetadataNames = [MarkupStringMetadataName, RenderTreeBuilderMetadataName];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.RawHtmlFromNonConstant);
 
@@ -56,35 +59,25 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var markupString = start.Compilation.GetTypeByMetadataName(MarkupStringMetadataName);
-            if (markupString is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, markupString), SyntaxKind.ObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeCast(nodeContext, markupString), SyntaxKind.CastExpression);
-
-            var renderTreeBuilder = start.Compilation.GetTypeByMetadataName(RenderTreeBuilderMetadataName);
-            if (renderTreeBuilder is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, renderTreeBuilder), SyntaxKind.InvocationExpression);
-            }
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, MarkupMetadataNames),
+            new(AnalyzeObjectCreation, [SyntaxKind.ObjectCreationExpression]),
+            new(AnalyzeCast, [SyntaxKind.CastExpression]),
+            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]));
     }
 
     /// <summary>Reports SES1701 for <c>new MarkupString(x)</c> whose value argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="markupString">The gated <c>MarkupString</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
+    /// <param name="markupTypes">The lazily resolved raw-markup types for this compilation.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markupTypes)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: 'new MarkupString(<single argument>)'.
         if (creation.ArgumentList is not { Arguments.Count: 1 } argumentList
-            || !string.Equals(GetRightmostIdentifier(creation.Type), MarkupStringSimpleName, StringComparison.Ordinal))
+            || !string.Equals(GetRightmostIdentifier(creation.Type), MarkupStringSimpleName, StringComparison.Ordinal)
+            || markupTypes.Get() is not [{ } markupString, _])
         {
             return;
         }
@@ -101,13 +94,14 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1701 for <c>(MarkupString)x</c> whose cast operand is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="markupString">The gated <c>MarkupString</c> type resolved for the compilation.</param>
-    private static void AnalyzeCast(in SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
+    /// <param name="markupTypes">The lazily resolved raw-markup types for this compilation.</param>
+    private static void AnalyzeCast(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markupTypes)
     {
         var cast = (CastExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '(MarkupString)<operand>'.
-        if (!string.Equals(GetRightmostIdentifier(cast.Type), MarkupStringSimpleName, StringComparison.Ordinal))
+        if (!string.Equals(GetRightmostIdentifier(cast.Type), MarkupStringSimpleName, StringComparison.Ordinal)
+            || markupTypes.Get() is not [{ } markupString, _])
         {
             return;
         }
@@ -123,14 +117,15 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1701 for <c>AddMarkupContent(seq, x)</c> whose markup argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="renderTreeBuilder">The gated <c>RenderTreeBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
+    /// <param name="markupTypes">The lazily resolved raw-markup types for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markupTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a member '.AddMarkupContent(sequence, markup)' call.
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: AddMarkupContentMethodName }
-            || invocation.ArgumentList.Arguments.Count <= AddMarkupContentMarkupPosition)
+            || invocation.ArgumentList.Arguments.Count <= AddMarkupContentMarkupPosition
+            || markupTypes.Get() is not [not null, { } renderTreeBuilder])
         {
             return;
         }
@@ -181,33 +176,14 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var name = GetInvokedName(invocation.Expression);
+        var name = MemberReferenceName.Of(invocation.Expression);
         var sanitizers = AnalyzerOptionReader.ReadCommaSeparatedList(
             context.Options.AnalyzerConfigOptionsProvider.GetOptions(value.SyntaxTree),
             SanitizersRuleKey,
             SanitizersGeneralKey);
 
-        for (var i = 0; i < sanitizers.Length; i++)
-        {
-            if (string.Equals(sanitizers[i], name, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return name is not null && StringArrays.ContainsOrdinal(sanitizers, name);
     }
-
-    /// <summary>Returns the invoked member's simple name for an <c>Identifier(...)</c> or <c>x.Identifier(...)</c> call.</summary>
-    /// <param name="expression">The invocation's callee expression.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the callee is not a plain member reference.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression) =>
-        expression switch
-        {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Returns the rightmost identifier of a plain or (possibly <c>global::</c>-) qualified type name.</summary>
     /// <param name="type">The type syntax to inspect.</param>

@@ -20,31 +20,62 @@ public sealed class Sst2100EmptyCollectionExpressionAnalyzer : DiagnosticAnalyze
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
-        {
-            var targets = CollectionExpressionHelper.ResolveTargets(start.Compilation);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, targets),
-                SyntaxKind.InvocationExpression,
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ArrayCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol[]>(compilation, CollectionExpressionHelper.ResolveTargets),
+            Analyze,
+            SyntaxKind.InvocationExpression,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ArrayCreationExpression);
     }
 
     /// <summary>Reports an accepted empty collection creation.</summary>
     /// <param name="context">The syntax context.</param>
-    /// <param name="targets">The accepted target definitions.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
+    /// <param name="targets">The accepted target definitions resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol[]> targets)
     {
         if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)
             || !IsEmptyCandidate(expression)
-            || !CollectionExpressionHelper.HasAcceptedTarget(context, expression, targets))
+            || !HasAcceptedTarget(context, expression, targets))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(CollectionExpressionRules.UseEmptyCollectionExpression, expression.GetLocation()));
+    }
+
+    /// <summary>Checks the target context before resolving any named collection definitions.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="expression">The empty collection candidate.</param>
+    /// <param name="targets">The collection definitions resolved on first demand.</param>
+    /// <returns>Whether the candidate has an accepted explicit target type.</returns>
+    private static bool HasAcceptedTarget(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, LazyCompilationValue<INamedTypeSymbol[]> targets)
+    {
+        if (!CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, expression, out var converted))
+        {
+            return false;
+        }
+
+        if (converted is IArrayTypeSymbol { Rank: 1 })
+        {
+            return true;
+        }
+
+        if (converted is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+
+        foreach (var target in targets.Get())
+        {
+            if (SymbolEqualityComparer.Default.Equals(target, named.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether an expression is syntactically an empty collection creation.</summary>

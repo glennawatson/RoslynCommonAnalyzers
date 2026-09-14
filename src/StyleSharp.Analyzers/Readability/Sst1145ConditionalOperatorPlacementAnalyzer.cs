@@ -71,7 +71,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <summary>Returns the line-break shape around both conditional operators.</summary>
     /// <param name="conditional">The conditional expression to inspect.</param>
     /// <returns>The detected line-break shape.</returns>
-    private static (bool QuestionBefore, bool QuestionAfter, bool ColonBefore, bool ColonAfter) GetLineBreaks(ConditionalExpressionSyntax conditional) =>
+    private static ConditionalLineBreaks GetLineBreaks(ConditionalExpressionSyntax conditional) =>
         new(
             HasLineBreakBefore(conditional.Condition.GetLastToken(), conditional.QuestionToken),
             HasLineBreakAfter(conditional.QuestionToken, conditional.WhenTrue.GetFirstToken()),
@@ -81,7 +81,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <summary>Returns whether either conditional operator has an adjacent line break.</summary>
     /// <param name="lineBreaks">The line-break shape.</param>
     /// <returns><see langword="true"/> when either operator is wrapped by adjacent trivia.</returns>
-    private static bool HasAnyLineBreak((bool QuestionBefore, bool QuestionAfter, bool ColonBefore, bool ColonAfter) lineBreaks) =>
+    private static bool HasAnyLineBreak(ConditionalLineBreaks lineBreaks) =>
         lineBreaks.QuestionBefore || lineBreaks.QuestionAfter || lineBreaks.ColonBefore || lineBreaks.ColonAfter;
 
     /// <summary>Runs SST1145 only when SST1140 did not already report the same operator.</summary>

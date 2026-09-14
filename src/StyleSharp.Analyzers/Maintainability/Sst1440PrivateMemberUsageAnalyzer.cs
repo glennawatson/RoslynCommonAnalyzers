@@ -43,7 +43,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static context =>
         {
-            var usages = new ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage>(SymbolEqualityComparer.Default);
+            // Only partial types share state across semantic-model callbacks.
+            var usages = new ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage>(concurrencyLevel: 1, capacity: 4, SymbolEqualityComparer.Default);
             context.RegisterSemanticModelAction(modelContext => AnalyzeSemanticModel(modelContext, usages));
             context.RegisterCompilationEndAction(context => ReportCandidates(context, usages));
         });
@@ -57,29 +58,34 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> usages)
     {
         var root = context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken);
-        foreach (var node in root.DescendantNodes())
-        {
-            context.CancellationToken.ThrowIfCancellationRequested();
-            if (node is not TypeDeclarationSyntax typeDeclaration)
+        var state = new SemanticModelUsageScan(context, usages);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, SemanticModelUsageScan>(
+            root,
+            ref state,
+            static (node, ref current) =>
             {
-                continue;
-            }
+                current.Context.CancellationToken.ThrowIfCancellationRequested();
+                if (node is not TypeDeclarationSyntax typeDeclaration)
+                {
+                    return true;
+                }
 
-            if (context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is not INamedTypeSymbol typeSymbol)
-            {
-                continue;
-            }
+                if (current.Context.SemanticModel.GetDeclaredSymbol(typeDeclaration, current.Context.CancellationToken) is not INamedTypeSymbol typeSymbol)
+                {
+                    return true;
+                }
 
-            if (typeSymbol.DeclaringSyntaxReferences.Length == 1)
-            {
-                AnalyzeSinglePartType(context, typeDeclaration);
-                continue;
-            }
+                if (typeSymbol.DeclaringSyntaxReferences.Length == 1)
+                {
+                    AnalyzeSinglePartType(current.Context, typeDeclaration);
+                    return true;
+                }
 
-            var usage = usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage());
-            CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
-            CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
-        }
+                var usage = current.Usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage());
+                CollectCandidates(typeDeclaration, current.Context.SemanticModel, usage, current.Context.CancellationToken);
+                CollectReferences(typeDeclaration, usage, current.Context.SemanticModel, current.Context.CancellationToken);
+                return true;
+            });
     }
 
     /// <summary>Analyzes one type declaration whose full body is available in the current semantic model.</summary>
@@ -90,13 +96,13 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         var usage = new PrivateTypeUsage();
         CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
         CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
-        var (candidates, references) = usage.Snapshot();
+        var candidates = usage.SnapshotCandidates();
         if (candidates.Count == 0)
         {
             return;
         }
 
-        MarkReferences(candidates, references, context.CancellationToken);
+        MarkReferences(candidates, usage.SnapshotReferences(), context.CancellationToken);
         ReportCandidates(context.ReportDiagnostic, candidates, context.SemanticModel.Compilation.GetEntryPoint(context.CancellationToken));
     }
 
@@ -155,7 +161,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(field.Modifiers)
-            || HasModifier(field.Modifiers, SyntaxKind.ConstKeyword)
+            || ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword)
             || HasAttributes(field))
         {
             return;
@@ -208,8 +214,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(method.Modifiers)
-            || HasModifier(method.Modifiers, SyntaxKind.PartialKeyword)
-            || HasModifier(method.Modifiers, SyntaxKind.ExternKeyword)
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.PartialKeyword)
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.ExternKeyword)
             || HasAttributes(method)
             || model.GetDeclaredSymbol(method, cancellationToken) is not IMethodSymbol symbol)
         {
@@ -277,21 +283,32 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        foreach (var node in typeDeclaration.DescendantNodes())
+        if (model.GetDeclaredSymbol(typeDeclaration, cancellationToken) is not { } type)
         {
-            if (node is not SimpleNameSyntax simpleName)
-            {
-                continue;
-            }
-
-            var symbol = model.GetSymbolInfo(simpleName, cancellationToken).Symbol;
-            if (symbol is null)
-            {
-                continue;
-            }
-
-            usage.AddMemberReference(new(symbol, simpleName));
+            return;
         }
+
+        // The declaration symbol includes members from every partial declaration, even those not scanned yet.
+        var memberNames = new HashSet<string>(type.MemberNames, StringComparer.Ordinal);
+        var state = new MemberReferenceScan(usage, model, memberNames, cancellationToken);
+        _ = DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, MemberReferenceScan>(
+            typeDeclaration,
+            ref state,
+            static (simpleName, ref current) =>
+            {
+                if (!current.MemberNames.Contains(simpleName.Identifier.ValueText))
+                {
+                    return true;
+                }
+
+                var symbol = current.Model.GetSymbolInfo(simpleName, current.CancellationToken).Symbol;
+                if (symbol is not null)
+                {
+                    current.Usage.AddMemberReference(new(symbol, simpleName));
+                }
+
+                return true;
+            });
     }
 
     /// <summary>Returns whether a reference symbol matches a candidate declaration symbol.</summary>
@@ -337,13 +354,13 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="usage">The type usage state.</param>
     private static void ReportCandidates(in CompilationAnalysisContext context, PrivateTypeUsage usage)
     {
-        var (candidates, references) = usage.Snapshot();
+        var candidates = usage.SnapshotCandidates();
         if (candidates.Count == 0)
         {
             return;
         }
 
-        MarkReferences(candidates, references, context.CancellationToken);
+        MarkReferences(candidates, usage.SnapshotReferences(), context.CancellationToken);
         ReportCandidates(context.ReportDiagnostic, candidates, context.Compilation.GetEntryPoint(context.CancellationToken));
     }
 
@@ -351,15 +368,13 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="reportDiagnostic">The diagnostic reporting callback.</param>
     /// <param name="candidates">The candidate list.</param>
     /// <param name="entryPoint">The compilation's entry point, when it has one.</param>
-    /// <remarks>
-    /// The runtime calls the entry point, so nothing in the source references it. Removing it leaves a
-    /// program that cannot start (CS5001).
-    /// </remarks>
     private static void ReportCandidates(Action<Diagnostic> reportDiagnostic, List<PrivateMemberCandidate> candidates, IMethodSymbol? entryPoint)
     {
         for (var i = 0; i < candidates.Count; i++)
         {
             var candidate = candidates[i];
+
+            // The runtime calls the entry point, so nothing in source references it; removing it breaks the program.
             if (entryPoint is not null && SymbolEqualityComparer.Default.Equals(candidate.Symbol, entryPoint))
             {
                 continue;
@@ -432,27 +447,10 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The modifiers.</param>
     /// <returns><see langword="true"/> when the declaration is private.</returns>
     private static bool IsPrivate(in SyntaxTokenList modifiers) =>
-        HasModifier(modifiers, SyntaxKind.PrivateKeyword)
-            && !HasModifier(modifiers, SyntaxKind.ProtectedKeyword)
-            && !HasModifier(modifiers, SyntaxKind.InternalKeyword)
-            && !HasModifier(modifiers, SyntaxKind.PublicKeyword);
-
-    /// <summary>Returns whether a modifier list contains a specific modifier kind.</summary>
-    /// <param name="modifiers">The modifiers.</param>
-    /// <param name="kind">The modifier kind.</param>
-    /// <returns><see langword="true"/> when the modifier is present.</returns>
-    private static bool HasModifier(in SyntaxTokenList modifiers, SyntaxKind kind)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].IsKind(kind))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        ModifierListHelper.Contains(modifiers, SyntaxKind.PrivateKeyword)
+            && !ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword)
+            && !ModifierListHelper.Contains(modifiers, SyntaxKind.InternalKeyword)
+            && !ModifierListHelper.Contains(modifiers, SyntaxKind.PublicKeyword);
 
     /// <summary>Returns whether a member has attributes.</summary>
     /// <param name="member">The member declaration.</param>
@@ -501,87 +499,4 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             (int)SyntaxKind.RefKeyword or (int)SyntaxKind.InKeyword => ValueUsages.ReadWrite,
             _ => ValueUsages.Read
         };
-
-    /// <summary>Tracks private member candidates and references for one type symbol.</summary>
-    private sealed class PrivateTypeUsage
-    {
-        /// <summary>Synchronizes access to the accumulated state.</summary>
-        private readonly object _gate = new();
-
-        /// <summary>The collected private member candidates.</summary>
-        private readonly List<PrivateMemberCandidate> _candidates = [];
-
-        /// <summary>The collected member references.</summary>
-        private readonly List<PrivateMemberReference> _references = [];
-
-        /// <summary>Adds one private member candidate.</summary>
-        /// <param name="candidate">The candidate to add.</param>
-        public void AddMemberCandidate(PrivateMemberCandidate candidate)
-        {
-            lock (_gate)
-            {
-                _candidates.Add(candidate);
-            }
-        }
-
-        /// <summary>Adds one member reference.</summary>
-        /// <param name="reference">The reference to add.</param>
-        public void AddMemberReference(PrivateMemberReference reference)
-        {
-            lock (_gate)
-            {
-                _references.Add(reference);
-            }
-        }
-
-        /// <summary>Creates a stable snapshot of the accumulated candidates and references.</summary>
-        /// <returns>The accumulated candidates and references.</returns>
-        public (List<PrivateMemberCandidate> Candidates, List<PrivateMemberReference> References) Snapshot()
-        {
-            lock (_gate)
-            {
-                return (new List<PrivateMemberCandidate>(_candidates), new List<PrivateMemberReference>(_references));
-            }
-        }
-    }
-
-    /// <summary>Tracks one private member candidate.</summary>
-    private sealed class PrivateMemberCandidate
-    {
-        /// <summary>Initializes a new instance of the <see cref="PrivateMemberCandidate"/> class.</summary>
-        /// <param name="symbol">The declared member symbol.</param>
-        /// <param name="declaration">The member declaration syntax.</param>
-        /// <param name="identifier">The declaration identifier.</param>
-        /// <param name="isFieldLike">Whether reads and writes are tracked separately.</param>
-        public PrivateMemberCandidate(ISymbol symbol, MemberDeclarationSyntax declaration, SyntaxToken identifier, bool isFieldLike)
-        {
-            Symbol = symbol;
-            Declaration = declaration;
-            Identifier = identifier;
-            IsFieldLike = isFieldLike;
-        }
-
-        /// <summary>Gets the declared member symbol.</summary>
-        public ISymbol Symbol { get; }
-
-        /// <summary>Gets the declaration syntax.</summary>
-        public MemberDeclarationSyntax Declaration { get; }
-
-        /// <summary>Gets the declaration identifier.</summary>
-        public SyntaxToken Identifier { get; }
-
-        /// <summary>Gets a value indicating whether reads and writes are tracked separately.</summary>
-        public bool IsFieldLike { get; }
-
-        /// <summary>Gets or sets a value indicating whether the member is read or otherwise used.</summary>
-        public bool Read { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether the member is written.</summary>
-        public bool Written { get; set; }
-    }
-
-    /// <summary>Tracks one member reference.</summary>
-    /// <param name="Symbol">The symbol resolved at the reference site.</param>
-    /// <param name="Name">The reference name syntax.</param>
-    private sealed record PrivateMemberReference(ISymbol Symbol, SimpleNameSyntax Name);
 }

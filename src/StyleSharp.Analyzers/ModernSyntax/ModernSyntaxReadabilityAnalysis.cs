@@ -52,9 +52,27 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        var literalExpression = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(literal.Token.ValueText));
-        var suffix = target == Utf8ArrayTarget ? "u8.ToArray()" : "u8";
-        replacement = SyntaxFactory.ParseExpression(literalExpression.Token.Text + suffix).WithTriviaFrom(expression);
+        var isArray = target == Utf8ArrayTarget;
+        var valueText = literal.Token.ValueText;
+        var token = SyntaxFactory.Token(
+            expression.GetLeadingTrivia(),
+            SyntaxKind.Utf8StringLiteralToken,
+            $"{SymbolDisplay.FormatLiteral(valueText, quote: true)}u8",
+            valueText,
+            isArray ? default : expression.GetTrailingTrivia());
+        var utf8Literal = SyntaxFactory.LiteralExpression(SyntaxKind.Utf8StringLiteralExpression, token);
+        replacement = isArray
+            ? SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    utf8Literal,
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
+                    SyntaxFactory.IdentifierName("ToArray")),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                    default,
+                    SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, expression.GetTrailingTrivia())))
+            : utf8Literal;
         return true;
     }
 
@@ -138,7 +156,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     internal static bool TryCollectHashInputs(ExpressionSyntax expression, out List<ExpressionSyntax> inputs)
     {
         inputs = new(HashCodeCombineMaxInputs);
-        if (!TryCollectHashInputsCore(ExpressionSimplificationAnalyzer.Unwrap(expression), inputs))
+        if (!TryCollectHashInputsCore(ExpressionShapes.WalkDownParentheses(expression), inputs))
         {
             inputs.Clear();
         }
@@ -158,7 +176,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     {
         var count = 0;
         return TryValidateHashInputsCore(
-                ExpressionSimplificationAnalyzer.Unwrap(expression),
+                ExpressionShapes.WalkDownParentheses(expression),
                 model,
                 cancellationToken,
                 ref count)
@@ -219,6 +237,28 @@ internal static class ModernSyntaxReadabilityAnalysis
             Parameters.Length: 0,
             ReturnType.SpecialType: SpecialType.System_Int32
         };
+
+    /// <summary>Returns the index of a statement inside a block.</summary>
+    /// <param name="block">The block.</param>
+    /// <param name="statement">The statement.</param>
+    /// <param name="index">The statement index.</param>
+    /// <returns><see langword="true"/> when found.</returns>
+    internal static bool TryGetStatementIndex(BlockSyntax block, StatementSyntax statement, out int index)
+    {
+        for (var i = 0; i < block.Statements.Count; i++)
+        {
+            if (block.Statements[i].Span != statement.Span)
+            {
+                continue;
+            }
+
+            index = i;
+            return true;
+        }
+
+        index = -1;
+        return false;
+    }
 
     /// <summary>Returns whether a symbol is the <c>Encoding.UTF8</c> property.</summary>
     /// <param name="symbol">The candidate symbol.</param>
@@ -443,37 +483,15 @@ internal static class ModernSyntaxReadabilityAnalysis
     {
         for (var i = start; i < block.Statements.Count; i++)
         {
-            foreach (var token in block.Statements[i].DescendantTokens())
+            if (!DescendantTraversalHelper.VisitDescendantTokens(
+                block.Statements[i],
+                ref name,
+                static (in SyntaxToken token, ref string state) => token.ValueText != state))
             {
-                if (token.ValueText == name)
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
-        return false;
-    }
-
-    /// <summary>Returns the index of a statement inside a block.</summary>
-    /// <param name="block">The block.</param>
-    /// <param name="statement">The statement.</param>
-    /// <param name="index">The statement index.</param>
-    /// <returns><see langword="true"/> when found.</returns>
-    private static bool TryGetStatementIndex(BlockSyntax block, StatementSyntax statement, out int index)
-    {
-        for (var i = 0; i < block.Statements.Count; i++)
-        {
-            if (block.Statements[i].Span != statement.Span)
-            {
-                continue;
-            }
-
-            index = i;
-            return true;
-        }
-
-        index = -1;
         return false;
     }
 
@@ -483,7 +501,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <returns><see langword="true"/> when the expression matches the supported shape.</returns>
     private static bool TryCollectHashInputsCore(ExpressionSyntax expression, List<ExpressionSyntax> inputs)
     {
-        expression = ExpressionSimplificationAnalyzer.Unwrap(expression);
+        expression = ExpressionShapes.WalkDownParentheses(expression);
         if (TryGetHashInput(expression, out var input))
         {
             inputs.Add(input);
@@ -514,7 +532,7 @@ internal static class ModernSyntaxReadabilityAnalysis
         CancellationToken cancellationToken,
         ref int count)
     {
-        expression = ExpressionSimplificationAnalyzer.Unwrap(expression);
+        expression = ExpressionShapes.WalkDownParentheses(expression);
         if (TryGetHashInput(expression, out var input))
         {
             if (count >= HashCodeCombineMaxInputs || !IsValueTypeHashReceiver(input, model, cancellationToken))
@@ -545,7 +563,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     private static bool TryGetMultipliedHash(ExpressionSyntax expression, out ExpressionSyntax hashExpression)
     {
         hashExpression = null!;
-        if (ExpressionSimplificationAnalyzer.Unwrap(expression) is not BinaryExpressionSyntax binary
+        if (ExpressionShapes.WalkDownParentheses(expression) is not BinaryExpressionSyntax binary
             || !binary.IsKind(SyntaxKind.MultiplyExpression))
         {
             return false;
@@ -570,7 +588,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="expression">The expression.</param>
     /// <returns><see langword="true"/> for supported multiplier literals.</returns>
     private static bool IsHashMultiplier(ExpressionSyntax expression) =>
-        ExpressionSimplificationAnalyzer.Unwrap(expression) is LiteralExpressionSyntax literal
+        ExpressionShapes.WalkDownParentheses(expression) is LiteralExpressionSyntax literal
         && literal.Token.Value is int value
         && value is HashMultiplier397 or HashMultiplier31;
 
@@ -590,7 +608,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        receiver = ExpressionSimplificationAnalyzer.Unwrap(receiver);
+        receiver = ExpressionShapes.WalkDownParentheses(receiver);
         if (receiver is not IdentifierNameSyntax and not MemberAccessExpressionSyntax)
         {
             return false;

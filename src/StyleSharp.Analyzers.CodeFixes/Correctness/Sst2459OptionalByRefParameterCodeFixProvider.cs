@@ -2,20 +2,21 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes the <c>[Optional]</c> attribute from a <c>ref</c> or <c>out</c> parameter (SST2459).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2459OptionalByRefParameterCodeFixProvider))]
 [Shared]
-public sealed class Sst2459OptionalByRefParameterCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2459OptionalByRefParameterCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.OptionalByRefParameter.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -23,12 +24,17 @@ public sealed class Sst2459OptionalByRefParameterCodeFixProvider : CodeFixProvid
             context,
             "Remove the [Optional] attribute",
             nameof(Sst2459OptionalByRefParameterCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AttributeSyntax>()is { Parent: AttributeListSyntax list }
+            && (list.Attributes.Count > 1
+            || list.Parent is ParameterSyntax);
 
     /// <summary>Resolves the reported attribute and removes it from its parameter.</summary>
     /// <param name="root">The syntax root.</param>

@@ -15,13 +15,16 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2400SwappedArgumentsCodeFixProvider))]
 [Shared]
-public sealed class Sst2400SwappedArgumentsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2400SwappedArgumentsCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.SwappedArguments.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -29,28 +32,22 @@ public sealed class Sst2400SwappedArgumentsCodeFixProvider : CodeFixProvider, IB
             context,
             "Swap the arguments into the parameter order",
             nameof(Sst2400SwappedArgumentsCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Applies one SST2400 swap for the reported argument.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original when the reported shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        TryRewrite(root, diagnostic) is { } edit
-            ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
-            : document;
 
     /// <summary>Resolves the reported argument and swaps it with the position it belongs in.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, Sst2400SwappedArgumentsAnalyzer.SwapWithKey);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        SwappedArgumentCodeFix.CanSwap(root, diagnostic, Sst2400SwappedArgumentsAnalyzer.SwapWithKey);
 }

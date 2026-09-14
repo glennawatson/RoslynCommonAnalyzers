@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyCollectionProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -324,4 +328,217 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies the reported nullable collection keeps its diagnostic when suppressed.</summary>
+    /// <param name="suppress">Whether to apply the suppression from the report.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task IssueSnippetStillReportsAsync(bool suppress, CancellationToken cancellationToken)
+    {
+        const string Source = """
+                              using System.Collections.ObjectModel;
+
+                              public class C
+                              {
+                                  public Collection<C>? Owner { get; internal set; }
+                              }
+                              """;
+        const string SuppressedSource = """
+                                        using System.Collections.ObjectModel;
+                                        using System.Diagnostics.CodeAnalysis;
+
+                                        public class C
+                                        {
+                                            [SuppressMessage("Design", "SST2305", Justification = "Justification")]
+                                            public Collection<C>? Owner { get; internal set; }
+                                        }
+                                        """;
+        var diagnostics = await AnalyzeCollectionSourceAsync(suppress ? SuppressedSource : Source, cancellationToken);
+
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST2305");
+        await Assert.That(diagnostics[0].IsSuppressed).IsEqualTo(suppress);
+        var text = await diagnostics[0].Location.SourceTree!.GetTextAsync(cancellationToken);
+        await Assert.That(text.ToString(diagnostics[0].Location.SourceSpan)).IsEqualTo("Owner");
+    }
+
+    /// <summary>Verifies suppressions do not exempt a property, setter, or containing type.</summary>
+    /// <param name="site">The declaration carrying the suppression.</param>
+    /// <param name="name">The written suppression attribute name.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MatrixDataSource]
+    public async Task SuppressionAtEachSiteStillReportsAsync(
+        [Matrix("property", "setter", "type")] string site,
+        [Matrix(
+            "SuppressMessage",
+            "SuppressMessageAttribute",
+            "System.Diagnostics.CodeAnalysis.SuppressMessage",
+            "global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute",
+            "Diagnostics::SuppressMessage")] string name,
+        CancellationToken cancellationToken)
+    {
+        var attribute = $"[{name}(\"Design\", \"SST2305\", Justification = \"Justification\")]";
+        var source = $$"""
+                       using System.Collections.ObjectModel;
+                       using System.Diagnostics.CodeAnalysis;
+                       using Diagnostics = System.Diagnostics.CodeAnalysis;
+
+                       {{(site == "type" ? attribute : string.Empty)}}
+                       public class C
+                       {
+                           {{(site == "property" ? attribute : string.Empty)}}
+                           public Collection<C>? Owner { get; {{(site == "setter" ? attribute : string.Empty)}} internal set; }
+                       }
+                       """;
+        var diagnostics = await AnalyzeCollectionSourceAsync(source, cancellationToken);
+
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST2305");
+    }
+
+    /// <summary>Verifies tooling metadata is recognized without binding at all three exemption sites.</summary>
+    /// <param name="name">The tooling attribute's short name.</param>
+    /// <param name="suffix">The optional attribute suffix.</param>
+    /// <param name="prefix">The optional namespace or alias qualification.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MatrixDataSource]
+    public async Task ToolingAttributeNamesKeepSetterAsync(
+        [Matrix(
+            "SuppressMessage",
+            "UnconditionalSuppressMessage",
+            "ExcludeFromCodeCoverage",
+            "DebuggerBrowsable",
+            "DebuggerDisplay",
+            "DebuggerHidden",
+            "DebuggerNonUserCode",
+            "DebuggerStepThrough",
+            "DebuggerStepperBoundary",
+            "DebuggerTypeProxy",
+            "DebuggerVisualizer",
+            "DebuggerDisableUserUnhandledExceptions",
+            "EditorBrowsable",
+            "CompilerGenerated")] string name,
+        [Matrix("", "Attribute")] string suffix,
+        [Matrix("", "Tools.", "global::Tools.", "Tools::")] string prefix)
+    {
+        var attribute = $"[{prefix}{name}{suffix}]";
+        string[] sources =
+        [
+            $"class C {{ {attribute} public int[] Items {{ get; set; }} }}",
+            $"class C {{ public int[] Items {{ get; {attribute} set; }} }}",
+            $"{attribute} class C {{ public int[] Items {{ get; set; }} }}",
+        ];
+        foreach (var source in sources)
+        {
+            var declaration = (ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
+            var property = (PropertyDeclarationSyntax)declaration.Members[0];
+
+            await Assert.That(Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property)).IsNotNull();
+        }
+    }
+
+    /// <summary>Verifies a contract still exempts each declaration alongside tooling metadata.</summary>
+    /// <param name="attributes">The contract and optional tooling attributes in either order.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("[Contract]")]
+    [Arguments("[ExcludeFromCodeCoverage, Contract]")]
+    [Arguments("[Contract, ExcludeFromCodeCoverage]")]
+    [Arguments("[ExcludeFromCodeCoverage][Contract]")]
+    [Arguments("[Contract][ExcludeFromCodeCoverage]")]
+    public async Task ContractAttributesStillExemptAsync(string attributes)
+    {
+        var source = $$"""
+                       using System;
+                       using System.Diagnostics.CodeAnalysis;
+
+                       [AttributeUsage(AttributeTargets.All)]
+                       public sealed class ContractAttribute : Attribute { }
+
+                       public class PropertyContract
+                       {
+                           {{attributes}}
+                           public int[] Items { get; set; }
+                       }
+
+                       public class SetterContract
+                       {
+                           public int[] Items { get; {{attributes}} set; }
+                       }
+
+                       {{attributes}}
+                       public class TypeContract
+                       {
+                           public int[] Items { get; set; }
+                       }
+                       """;
+
+        await VerifyCollectionProperty.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>Verifies real tooling attributes on all three declarations leave the report intact.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ToolingAttributesStillReportAsync()
+    {
+        const string Source = """
+                              using System.ComponentModel;
+                              using System.Diagnostics;
+                              using System.Diagnostics.CodeAnalysis;
+                              using System.Runtime.CompilerServices;
+
+                              [CompilerGenerated]
+                              [DebuggerDisplay("{Items}")]
+                              public class C
+                              {
+                                  [EditorBrowsable(EditorBrowsableState.Never)]
+                                  [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+                                  [ExcludeFromCodeCoverage]
+                                  public int[] {|SST2305:Items|}
+                                  {
+                                      get;
+                                      [DebuggerHidden]
+                                      [DebuggerNonUserCode]
+                                      [DebuggerStepThrough]
+                                      [DebuggerStepperBoundary]
+                                      set;
+                                  }
+                              }
+                              """;
+
+        await VerifyCollectionProperty.VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Runs SST2305 with suppressed reports retained so a vanished trigger fails the test.</summary>
+    /// <param name="source">The collection property source.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns>The reports, including diagnostics suppressed by attributes.</returns>
+    private static async Task<System.Collections.Immutable.ImmutableArray<Diagnostic>> AnalyzeCollectionSourceAsync(string source, CancellationToken cancellationToken)
+    {
+        var references = await ReferenceAssemblies.Net.Net80.ResolveAsync(LanguageNames.CSharp, cancellationToken);
+        var tree = CSharpSyntaxTree.ParseText(source, cancellationToken: cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            "CollectionPropertySuppression",
+            [tree],
+            references,
+            new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        foreach (var diagnostic in compilation.GetDiagnostics(cancellationToken))
+        {
+            await Assert.That(diagnostic.Severity).IsNotEqualTo(DiagnosticSeverity.Error);
+        }
+
+        var options = new CompilationWithAnalyzersOptions(
+            new AnalyzerOptions([]),
+            onAnalyzerException: null,
+            concurrentAnalysis: false,
+            logAnalyzerExecutionTime: false,
+            reportSuppressedDiagnostics: true);
+        return await compilation.WithAnalyzers([new Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer()], options).GetAnalyzerDiagnosticsAsync(cancellationToken);
+    }
 }

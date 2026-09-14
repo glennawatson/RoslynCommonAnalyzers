@@ -20,6 +20,90 @@ public class RecordAnalyzerUnitTest
         namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
         """;
 
+    /// <summary>Verifies static, constant, and readonly fields do not make a record struct mutable.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonWritableFieldsStillAllowReadonlyRecordAsync() =>
+        VerifyRecord.VerifyAnalyzerAsync($$"""
+            public record struct {|SST1803:Point|}
+            {
+                public static int Shared;
+                public const int Zero = 0;
+                public readonly int Value;
+                public static int Count { get; set; }
+                public int Read() => Value;
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies the rule-specific convention takes precedence and invalid values fall back to the general option.</summary>
+    /// <param name="specific">The rule-specific convention.</param>
+    /// <param name="general">The general record convention.</param>
+    /// <param name="parameters">The parameters with diagnostic markup for the effective convention.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("camel_case", "pascal_case", "int value, int {|SST1801:Other|}")]
+    [Arguments("pascal_case", "camel_case", "int Value, int {|SST1801:other|}")]
+    [Arguments("invalid", "camel_case", "int value, int {|SST1801:Other|}")]
+    [Arguments("invalid", "invalid", "int Value, int {|SST1801:other|}")]
+    public async Task SpecificRecordConventionPrecedesGeneralAsync(string specific, string general, string parameters)
+    {
+        var test = new VerifyRecord.Test { TestCode = $"public sealed record Point({parameters});{IsExternalInit}" };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", $$"""
+            root = true
+            [*.cs]
+            stylesharp.SST1801.record_parameter_naming = {{specific}}
+            stylesharp.record_parameter_naming = {{general}}
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies accessor ordering and incomplete accessor lists select only a set accessor.</summary>
+    /// <param name="accessors">The accessor list to parse.</param>
+    /// <param name="expectedIndex">The set accessor's index, or minus one when absent.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("set; get;", 0)]
+    [Arguments("init; get;", -1)]
+    [Arguments("set;", 0)]
+    [Arguments("get;", -1)]
+    [Arguments("", -1)]
+    [Arguments("get; init; set;", 2)]
+    [Arguments("get; init; get;", -1)]
+    public async Task AccessorShapesSelectOnlySetAsync(string accessors, int expectedIndex)
+    {
+        var property = ParseProperty($"public int Value {{ {accessors} }}");
+        var list = property.AccessorList!.Accessors;
+        var actual = RecordAnalyzer.TryGetSetAccessorToReport(list);
+        await Assert.That(actual).IsEqualTo(expectedIndex < 0 ? null : list[expectedIndex]);
+    }
+
+    /// <summary>Verifies prefix mutations retain a positional record struct's writable properties.</summary>
+    /// <param name="operation">The prefix write through the record property.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("++scan.Count")]
+    [Arguments("--scan.Count")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PrefixMutationKeepsRecordMutableAsync(string operation) =>
+        VerifyRecord.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                private record struct Scan(int Count);
+                int M() { var scan = new Scan(1); return {{operation}}; }
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies Unicode casing follows uppercase character classification.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnicodePositionalParameterCasingIsRespectedAsync() =>
+        VerifyRecord.VerifyAnalyzerAsync($$"""
+            public sealed record Point(int Étage, int {|SST1801:étage|});{{IsExternalInit}}
+            """);
+
     /// <summary>Verifies a record class that is neither sealed nor abstract is reported (SST1800, force-enabled here).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

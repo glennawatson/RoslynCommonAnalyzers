@@ -43,7 +43,7 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     {
         throwExpression = null!;
         if (ifStatement.Else is not null
-            || HasNonWhitespaceTrivia(ifStatement)
+            || SurroundingTrivia.HasNonWhitespace(ifStatement)
             || !TryGetGuardedIdentifier(ifStatement.Condition, out var guardedIdentifier)
             || !TryGetThrowStatement(ifStatement.Statement, out var throwStatement)
             || throwStatement.Expression is null
@@ -132,33 +132,44 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken,
         out ArgumentSyntax argument)
     {
-        ArgumentSyntax? match = null;
-        foreach (var node in nextStatement.DescendantNodes(static node => node is not AnonymousFunctionExpressionSyntax))
-        {
-            if (node is not ArgumentSyntax candidate
-                || !candidate.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
-                || candidate.Expression is not IdentifierNameSyntax identifier)
+        var state = new OutArgumentSearch(nextStatement, local, model, cancellationToken);
+        var completed = DescendantTraversalHelper.VisitDescendants<ArgumentSyntax, OutArgumentSearch>(
+            nextStatement,
+            ref state,
+            static (candidate, ref current) =>
             {
-                continue;
-            }
+                if (!candidate.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                    || candidate.Expression is not IdentifierNameSyntax identifier
+                    || identifier.Identifier.ValueText != current.Local.Name)
+                {
+                    return true;
+                }
 
-            var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
-            if (!SymbolEqualityComparer.Default.Equals(local, symbol))
-            {
-                continue;
-            }
+                for (var ancestor = candidate.Parent; ancestor is not null && ancestor != current.Boundary; ancestor = ancestor.Parent)
+                {
+                    if (ancestor is AnonymousFunctionExpressionSyntax)
+                    {
+                        return true;
+                    }
+                }
 
-            if (match is not null)
-            {
-                argument = null!;
-                return false;
-            }
+                var symbol = current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol;
+                if (!SymbolEqualityComparer.Default.Equals(current.Local, symbol))
+                {
+                    return true;
+                }
 
-            match = candidate;
-        }
+                if (current.Match is not null)
+                {
+                    return false;
+                }
 
-        argument = match!;
-        return match is not null;
+                current.Match = candidate;
+                return true;
+            });
+
+        argument = completed ? state.Match! : null!;
+        return completed && state.Match is not null;
     }
 
     /// <summary>Returns whether moving the declaration into the out argument keeps every later reference in scope.</summary>
@@ -190,7 +201,7 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeIfStatement(SyntaxNodeAnalysisContext context)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(ifStatement, CSharp7)
+        if (!LanguageVersions.IsAtLeast(ifStatement, CSharp7)
             || !TryGetThrowExpressionCandidate(ifStatement, context.SemanticModel, context.CancellationToken, out _))
         {
             return;
@@ -204,7 +215,7 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(declaration, CSharp7))
+        if (!LanguageVersions.IsAtLeast(declaration, CSharp7))
         {
             return;
         }
@@ -212,7 +223,7 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         if (declaration.Declaration.Variables.Count != 1
             || declaration.Declaration.Type is IdentifierNameSyntax { Identifier.ValueText: "var" }
             || declaration.Declaration.Variables[0].Initializer is not null
-            || HasNonWhitespaceTrivia(declaration)
+            || SurroundingTrivia.HasNonWhitespace(declaration)
             || !TryGetNextStatement(declaration, out var nextStatement)
             || !TryGetInlineOutArgument(
                 declaration,
@@ -227,20 +238,13 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.InlineOutVariableDeclaration, declaration.Declaration.Variables[0].Identifier.GetLocation()));
     }
 
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">A syntax node in the tree.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
-
     /// <summary>Finds the identifier checked against <see langword="null"/>.</summary>
     /// <param name="condition">The condition expression.</param>
     /// <param name="identifier">The guarded identifier.</param>
     /// <returns><see langword="true"/> when the condition is a supported null check.</returns>
     private static bool TryGetGuardedIdentifier(ExpressionSyntax condition, out IdentifierNameSyntax identifier)
     {
-        condition = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        condition = ExpressionShapes.WalkDownParentheses(condition);
         if (condition is IsPatternExpressionSyntax
             {
                 Expression: IdentifierNameSyntax patternIdentifier,
@@ -253,15 +257,15 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
 
         if (condition is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.EqualsExpression))
         {
-            if (ExpressionSimplificationAnalyzer.Unwrap(binary.Left) is IdentifierNameSyntax leftIdentifier
-                && ExpressionSimplificationAnalyzer.Unwrap(binary.Right).IsKind(SyntaxKind.NullLiteralExpression))
+            if (ExpressionShapes.WalkDownParentheses(binary.Left) is IdentifierNameSyntax leftIdentifier
+                && ExpressionShapes.WalkDownParentheses(binary.Right).IsKind(SyntaxKind.NullLiteralExpression))
             {
                 identifier = leftIdentifier;
                 return true;
             }
 
-            if (ExpressionSimplificationAnalyzer.Unwrap(binary.Right) is IdentifierNameSyntax rightIdentifier
-                && ExpressionSimplificationAnalyzer.Unwrap(binary.Left).IsKind(SyntaxKind.NullLiteralExpression))
+            if (ExpressionShapes.WalkDownParentheses(binary.Right) is IdentifierNameSyntax rightIdentifier
+                && ExpressionShapes.WalkDownParentheses(binary.Left).IsKind(SyntaxKind.NullLiteralExpression))
             {
                 identifier = rightIdentifier;
                 return true;
@@ -294,30 +298,6 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether preserving trivia would require moving comments.</summary>
-    /// <param name="node">The node to inspect.</param>
-    /// <returns><see langword="true"/> when the node has non-whitespace leading or trailing trivia.</returns>
-    private static bool HasNonWhitespaceTrivia(SyntaxNode node)
-    {
-        foreach (var trivia in node.GetLeadingTrivia())
-        {
-            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return true;
-            }
-        }
-
-        foreach (var trivia in node.GetTrailingTrivia())
-        {
-            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether the local is referenced after the declaration outside the proposed inline scope.</summary>
     /// <param name="declarationBlock">The block that contains the original declaration.</param>
     /// <param name="declaration">The original declaration.</param>
@@ -335,25 +315,16 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         var declarationIndex = declarationBlock.Statements.IndexOf(declaration);
+        var state = new InlineScopeReferenceSearch(inlineScope, local, model, cancellationToken);
         for (var index = declarationIndex + 1; index < declarationBlock.Statements.Count; index++)
         {
-            foreach (var node in declarationBlock.Statements[index].DescendantNodesAndSelf())
+            if (!DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, InlineScopeReferenceSearch>(
+                declarationBlock.Statements[index],
+                ref state,
+                static (identifier, ref current) => IsInside(current.InlineScope, identifier)
+                    || !IdentifierReferences.IsReferenceTo(identifier, current.Local, current.Model, current.CancellationToken)))
             {
-                if (node is not IdentifierNameSyntax identifier)
-                {
-                    continue;
-                }
-
-                if (IsInside(inlineScope, identifier))
-                {
-                    continue;
-                }
-
-                var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
-                if (SymbolEqualityComparer.Default.Equals(local, symbol))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 

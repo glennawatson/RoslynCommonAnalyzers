@@ -13,8 +13,11 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ArgumentGuardCodeFixProvider))]
 [Shared]
-public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ModernizationRules.UseThrowIfNull.Id,
@@ -24,61 +27,40 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
         ModernizationRules.UseArgumentOutOfRangeThrowIf.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => FindGuard(root, diagnostic) is { } ifStatement && CanReplaceStatement(diagnostic.Id, ifStatement) ? "Use guard helper" : null,
+            static _ => nameof(ArgumentGuardCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
-                || BuildReplacementStatement(diagnostic.Id, ifStatement) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use guard helper",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, ifStatement, diagnostic.Id)),
-                    equivalenceKey: nameof(ArgumentGuardCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement)
-        {
-            return;
-        }
-
-        if (BuildReplacementStatement(diagnostic.Id, ifStatement) is not { } replacement)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(ifStatement, replacement.WithTriviaFrom(ifStatement));
-    }
-
-    /// <summary>Replaces the matched guard statement with the corresponding throw-helper call.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported guard statement and builds its throw-helper replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="ifStatement">The guard statement.</param>
-    /// <param name="diagnosticId">The diagnostic id selecting the replacement helper.</param>
-    /// <returns>The updated document, or the original document when the statement no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement, string diagnosticId)
-    {
-        var replacement = BuildReplacementStatement(diagnosticId, ifStatement);
-        return replacement is null ? document : document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement.WithTriviaFrom(ifStatement)));
-    }
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <returns>The guard statement and its replacement, or <see langword="null"/> when the statement no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        FindGuard(root, diagnostic) is { } ifStatement && BuildReplacement(diagnostic.Id, ifStatement) is { } replacement
+            ? new NodeReplacement(ifStatement, replacement)
+            : null;
+
+    /// <summary>Resolves the diagnostic's span to the guard statement it was reported on.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The enclosing if statement, or <see langword="null"/> when there is none.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IfStatementSyntax? FindGuard(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>();
+
+    /// <summary>Builds the throw-helper statement for the matched guard, carrying the guard's trivia.</summary>
+    /// <param name="diagnosticId">The reported diagnostic id, selecting the helper to emit.</param>
+    /// <param name="ifStatement">The if statement to replace.</param>
+    /// <returns>The replacement statement, or <see langword="null"/> when the guard no longer matches.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionStatementSyntax? BuildReplacement(string diagnosticId, IfStatementSyntax ifStatement) =>
+        BuildReplacementStatement(diagnosticId, ifStatement)?.WithTriviaFrom(ifStatement);
 
     /// <summary>Builds the throw-helper statement syntax for the matched guard, or null when it no longer matches.</summary>
     /// <param name="diagnosticId">The reported diagnostic id, selecting the helper to emit.</param>
@@ -146,4 +128,25 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
                     SyntaxFactory.IdentifierName(typeName),
                     SyntaxFactory.IdentifierName(methodName)),
                 SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments))));
+
+    /// <summary>Checks the same guard patterns as the builder without constructing the helper call.</summary>
+    /// <param name="diagnosticId">The diagnostic selecting the helper.</param>
+    /// <param name="ifStatement">The guard statement.</param>
+    /// <returns>Whether the statement has a replacement.</returns>
+    private static bool CanReplaceStatement(string diagnosticId, IfStatementSyntax ifStatement)
+    {
+        if (diagnosticId == ModernizationRules.UseThrowIfNull.Id)
+        {
+            return ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _);
+        }
+
+        if (diagnosticId == ModernizationRules.UseObjectDisposedThrowIf.Id)
+        {
+            return ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out _);
+        }
+
+        return diagnosticId == ModernizationRules.UseArgumentOutOfRangeThrowIf.Id
+            ? ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out _)
+            : ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out _, out _);
+    }
 }

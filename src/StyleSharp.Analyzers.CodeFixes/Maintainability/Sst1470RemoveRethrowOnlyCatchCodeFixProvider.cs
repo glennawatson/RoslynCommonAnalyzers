@@ -12,41 +12,30 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1470RemoveRethrowOnlyCatchCodeFixProvider))]
 [Shared]
-public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.RemoveRethrowOnlyCatch.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<CatchClauseSyntax>(
+            context,
+            "Remove the rethrow-only catch clause",
+            nameof(Sst1470RemoveRethrowOnlyCatchCodeFixProvider),
+            TryGetCatchClause,
+            Apply);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetCatchClause(root, diagnostic, out var catchClause))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the rethrow-only catch clause",
-                    _ => Task.FromResult(Apply(context.Document, root, catchClause!)),
-                    equivalenceKey: nameof(Sst1470RemoveRethrowOnlyCatchCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (!TryGetCatchClause(editor.OriginalRoot, diagnostic, out var catchClause)
             || catchClause!.Parent is not TryStatementSyntax tryStatement
@@ -96,7 +85,7 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
     /// it, and unwrapping the whole statement takes the try block's braces as well — either way the
     /// <c>#endif</c> or <c>#endregion</c> closing a region inside is the leading trivia of a brace that goes.
     /// </remarks>
-    private static bool TryGetCatchClause(SyntaxNode root, Diagnostic diagnostic, out CatchClauseSyntax? catchClause)
+    private static bool TryGetCatchClause(SyntaxNode root, Diagnostic diagnostic, [NotNullWhen(true)] out CatchClauseSyntax? catchClause)
     {
         catchClause = root.FindNode(diagnostic.Location.SourceSpan) as CatchClauseSyntax;
         return catchClause?.Parent is TryStatementSyntax tryStatement

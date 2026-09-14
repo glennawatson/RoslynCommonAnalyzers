@@ -20,17 +20,17 @@ internal static class EmptinessComparisonClassifier
     /// <param name="leftCount">The counting operand on the left, or <see langword="null"/>.</param>
     /// <param name="rightCount">The counting operand on the right, or <see langword="null"/>.</param>
     /// <returns>The counting operand and whether the check means "has elements", or <see langword="null"/>.</returns>
-    internal static (TCount Count, bool HasElements)? Classify<TCount>(BinaryExpressionSyntax binary, TCount? leftCount, TCount? rightCount)
+    internal static EmptinessComparison<TCount>? Classify<TCount>(BinaryExpressionSyntax binary, TCount? leftCount, TCount? rightCount)
         where TCount : ExpressionSyntax
     {
         if (leftCount is not null && TryGetZeroOrOneLiteral(binary.Right) is { } rightLiteral)
         {
-            return ClassifyHasElements(binary.Kind(), rightLiteral) is { } hasElements ? (leftCount, hasElements) : null;
+            return ClassifyHasElements(binary.Kind(), rightLiteral) is { } hasElements ? new EmptinessComparison<TCount>(leftCount, hasElements) : null;
         }
 
         if (rightCount is not null && TryGetZeroOrOneLiteral(binary.Left) is { } leftLiteral)
         {
-            return ClassifyHasElements(MirrorComparison(binary.Kind()), leftLiteral) is { } hasElements ? (rightCount, hasElements) : null;
+            return ClassifyHasElements(ComparisonKinds.Mirror(binary.Kind()), leftLiteral) is { } hasElements ? new EmptinessComparison<TCount>(rightCount, hasElements) : null;
         }
 
         return null;
@@ -48,28 +48,17 @@ internal static class EmptinessComparisonClassifier
             _ => null,
         };
 
-    /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The kind with the counting operand on the left.</returns>
-    internal static SyntaxKind MirrorComparison(SyntaxKind kind) =>
-        kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
-        };
-
     /// <summary>Maps a count-on-the-left comparison to whether it means the sequence has elements.</summary>
     /// <param name="kind">The comparison kind.</param>
     /// <param name="literal">The literal operand value.</param>
     /// <returns><see langword="true"/> for "has elements", <see langword="false"/> for "is empty", or <see langword="null"/> when the shape needs the real count.</returns>
     internal static bool? ClassifyHasElements(SyntaxKind kind, int literal) =>
-        (kind, literal) switch
+        kind switch
         {
-            (SyntaxKind.GreaterThanExpression, 0) or (SyntaxKind.GreaterThanOrEqualExpression, 1) or (SyntaxKind.NotEqualsExpression, 0) => true,
-            (SyntaxKind.EqualsExpression, 0) or (SyntaxKind.LessThanExpression, 1) or (SyntaxKind.LessThanOrEqualExpression, 0) => false,
+            SyntaxKind.GreaterThanExpression or SyntaxKind.NotEqualsExpression when literal == 0 => true,
+            SyntaxKind.GreaterThanOrEqualExpression when literal == 1 => true,
+            SyntaxKind.EqualsExpression or SyntaxKind.LessThanOrEqualExpression when literal == 0 => false,
+            SyntaxKind.LessThanExpression when literal == 1 => false,
             _ => null,
         };
 }

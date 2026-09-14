@@ -62,6 +62,28 @@ public sealed class DescendantTraversalHelperUnitTest
         await Assert.That(string.Join(",", names)).IsEqualTo("Inner");
     }
 
+    /// <summary>Verifies the stateless node overload stops at the first node the visitor rejects.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StatelessVisitDescendantsStopsAtRejectedNode()
+    {
+        var type = ParseType("public class Outer { void First() { } void Second() { } }");
+
+        await Assert.That(DescendantTraversalHelper.VisitDescendants<MethodDeclarationSyntax>(type, static method => method.Identifier.ValueText != "Second")).IsFalse();
+        await Assert.That(DescendantTraversalHelper.VisitDescendants<MethodDeclarationSyntax>(type, static method => method.Identifier.ValueText != "Missing")).IsTrue();
+    }
+
+    /// <summary>Verifies the stateless token overload stops at the first token the visitor rejects.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task StatelessVisitDescendantTokensStopsAtRejectedToken()
+    {
+        var type = ParseType("public class Outer { void First() { } }");
+
+        await Assert.That(DescendantTraversalHelper.VisitDescendantTokens(type, static token => token.RawKind != (int)SyntaxKind.VoidKeyword)).IsFalse();
+        await Assert.That(DescendantTraversalHelper.VisitDescendantTokens(type, static token => token.RawKind != (int)SyntaxKind.StaticKeyword)).IsTrue();
+    }
+
     /// <summary>Parses a single type declaration for traversal helper tests.</summary>
     /// <param name="source">The source to parse.</param>
     /// <returns>The parsed type declaration.</returns>

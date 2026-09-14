@@ -12,50 +12,26 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2335PartialStaticMismatchCodeFixProvider))]
 [Shared]
-public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindDeclaration, static (current, _) => MakeStatic((ClassDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DesignRules.PartialTypeStaticModifierMismatch.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindDeclaration(root, diagnostic) is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add 'static'",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, MakeStatic(declaration)))),
-                    equivalenceKey: nameof(Sst2335PartialStaticMismatchCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (FindDeclaration(editor.OriginalRoot, diagnostic) is not { } declaration)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, static (current, _) => MakeStatic((ClassDeclarationSyntax)current));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Add 'static'",
+            nameof(Sst2335PartialStaticMismatchCodeFixProvider),
+            FindDeclaration,
+            MakeStatic);
 
     /// <summary>Resolves the diagnostic's span to the class part it was reported on.</summary>
     /// <param name="root">The syntax root.</param>
@@ -68,29 +44,7 @@ public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvide
     /// <summary>Builds the class declaration with <c>static</c> inserted before <c>partial</c>.</summary>
     /// <param name="declaration">The class part to make static.</param>
     /// <returns>The rewritten declaration.</returns>
-    private static ClassDeclarationSyntax MakeStatic(ClassDeclarationSyntax declaration)
-    {
-        var modifiers = declaration.Modifiers;
-        if (modifiers.Count == 0)
-        {
-            var lone = SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration
-                .WithKeyword(declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-                .WithModifiers(SyntaxFactory.TokenList(lone));
-        }
-
-        var partialIndex = modifiers.IndexOf(SyntaxKind.PartialKeyword);
-        if (partialIndex < 0)
-        {
-            var appended = SyntaxFactory.Token(default, SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration.WithModifiers(modifiers.Add(appended));
-        }
-
-        // 'partial' stays last, so 'static' goes in front of it — and takes over its leading trivia, which is
-        // the declaration's own indentation whenever 'partial' is the first modifier.
-        var partial = modifiers[partialIndex];
-        var inserted = SyntaxFactory.Token(partial.LeadingTrivia, SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        var reindented = modifiers.Replace(partial, partial.WithLeadingTrivia(SyntaxFactory.TriviaList()));
-        return declaration.WithModifiers(reindented.Insert(partialIndex, inserted));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ClassDeclarationSyntax MakeStatic(ClassDeclarationSyntax declaration) =>
+        ClassModifierInsertion.InsertBeforePartial(declaration, SyntaxKind.StaticKeyword, takePartialIndentation: true);
 }

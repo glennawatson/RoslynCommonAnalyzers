@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,51 +11,27 @@ namespace StyleSharp.Analyzers;
 /// <summary>Reorders property/event accessors so get/add appears before set/remove (SST1212/SST1213).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AccessorOrderCodeFixProvider))]
 [Shared]
-public sealed class AccessorOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class AccessorOrderCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindAccessorList, static (current, _) => Reorder((AccessorListSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         OrderingRules.PropertyAccessorOrder.Id,
         OrderingRules.EventAccessorOrder.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<AccessorListSyntax>() is not { } list)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Reorder accessors",
-                    cancellationToken => ReorderAsync(context.Document, list, cancellationToken),
-                    equivalenceKey: nameof(AccessorOrderCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<AccessorListSyntax>() is not { } list)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(list, Reorder(list));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Reorder accessors",
+            nameof(AccessorOrderCodeFixProvider),
+            FindAccessorList,
+            ReorderAsync);
 
     /// <summary>Reorders the accessor list into canonical order, keeping each slot's trivia.</summary>
     /// <param name="document">The document to fix.</param>
@@ -67,6 +44,14 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         return document.WithSyntaxRoot(root!.ReplaceNode(list, newList));
     }
+
+    /// <summary>Resolves a diagnostic to the accessor list it was reported in.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The accessor list, or <see langword="null"/> when the diagnostic is not inside one.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static AccessorListSyntax? FindAccessorList(SyntaxNode root, Diagnostic diagnostic) =>
+        DiagnosticAncestor.Find<AccessorListSyntax>(root, diagnostic.Location.SourceSpan);
 
     /// <summary>Rebuilds the accessor list in canonical order, keeping each slot's trivia.</summary>
     /// <param name="list">The accessor list.</param>
@@ -85,9 +70,34 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
         var rebuilt = new AccessorDeclarationSyntax[ordered.Length];
         for (var index = 0; index < ordered.Length; index++)
         {
-            rebuilt[index] = ordered[index]
-                .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia());
+            var accessor = ordered[index];
+            var attributeLists = accessor.AttributeLists;
+            var modifiers = accessor.Modifiers;
+            var keyword = accessor.Keyword;
+            LeadingTriviaPlacement.PlaceOnFirstToken(ref attributeLists, ref modifiers, ref keyword, original[index].GetLeadingTrivia());
+
+            var body = accessor.Body;
+            var expressionBody = accessor.ExpressionBody;
+            var semicolonToken = accessor.SemicolonToken;
+            var trailingTrivia = original[index].GetTrailingTrivia();
+            if (semicolonToken.RawKind != 0)
+            {
+                semicolonToken = semicolonToken.WithTrailingTrivia(trailingTrivia);
+            }
+            else if (expressionBody is not null)
+            {
+                expressionBody = expressionBody.WithTrailingTrivia(trailingTrivia);
+            }
+            else if (body is not null)
+            {
+                body = body.WithTrailingTrivia(trailingTrivia);
+            }
+            else
+            {
+                keyword = keyword.WithTrailingTrivia(trailingTrivia);
+            }
+
+            rebuilt[index] = accessor.Update(attributeLists, modifiers, keyword, body, expressionBody, semicolonToken);
         }
 
         return list.WithAccessors(SyntaxFactory.List(rebuilt));

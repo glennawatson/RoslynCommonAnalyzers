@@ -12,8 +12,8 @@ namespace StyleSharp.Analyzers;
 /// happens to collide is reported.
 /// </summary>
 /// <remarks>
-/// One pass over the members collects the declared constant values, so the enum is walked once however many
-/// members it has. An enum whose members are all distinct allocates only the lookup that pass needs.
+/// Increasing integer literals and implicit successors need no binding. Other initializers use one pass
+/// over declared constant values so aliases, expressions, and overflow retain the compiler's semantics.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
@@ -41,35 +41,13 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
     /// The names are compared syntactically. An initializer that reads a sibling is an alias or a combination
     /// written in terms of the enum's own vocabulary, which is the deliberate form this rule exists to allow.
     /// </remarks>
-    internal static bool IsExpressedAsAnAlias(EnumMemberDeclarationSyntax member, EnumDeclarationSyntax declaration)
-    {
-        if (member.EqualsValue is not { } initializer)
-        {
-            return false;
-        }
-
-        var state = (Declaration: declaration, Found: false);
-        if (initializer.Value is IdentifierNameSyntax root && NamesSibling(root, declaration))
-        {
-            return true;
-        }
-
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (EnumDeclarationSyntax Declaration, bool Found)>(
-            initializer.Value,
-            ref state,
-            static (node, ref current) =>
-            {
-                if (!NamesSibling(node, current.Declaration))
-                {
-                    return true;
-                }
-
-                current.Found = true;
-                return false;
-            });
-
-        return state.Found;
-    }
+    internal static bool IsExpressedAsAnAlias(EnumMemberDeclarationSyntax member, EnumDeclarationSyntax declaration) =>
+        member.EqualsValue is { } initializer
+            && ((initializer.Value is IdentifierNameSyntax root && NamesSibling(root, declaration))
+                || !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EnumDeclarationSyntax>(
+                    initializer.Value,
+                    ref declaration,
+                    static (node, ref enumDeclaration) => !NamesSibling(node, enumDeclaration)));
 
     /// <summary>Returns whether an identifier names one of the enum's own members.</summary>
     /// <param name="identifier">The identifier to check.</param>
@@ -96,7 +74,7 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
     {
         var declaration = (EnumDeclarationSyntax)context.Node;
         var members = declaration.Members;
-        if (members.Count < 2)
+        if (members.Count < 2 || !MayHaveDuplicateValues(members))
         {
             return;
         }
@@ -128,5 +106,92 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
                 member.Identifier.ValueText,
                 first));
         }
+    }
+
+    /// <summary>Checks whether syntax leaves a possible collision in the enum's value sequence.</summary>
+    /// <param name="members">The enum's members in declaration order.</param>
+    /// <returns>Whether semantic constant evaluation is needed to rule out duplicate values.</returns>
+    private static bool MayHaveDuplicateValues(SeparatedSyntaxList<EnumMemberDeclarationSyntax> members)
+    {
+        long previous = -1;
+        for (var i = 0; i < members.Count; i++)
+        {
+            if (members[i].EqualsValue is { Value: var expression })
+            {
+                if (!TryGetLiteralValue(expression, out var value) || (i > 0 && value <= previous))
+                {
+                    return true;
+                }
+
+                previous = value;
+            }
+            else
+            {
+                if (previous == long.MaxValue)
+                {
+                    return true;
+                }
+
+                previous++;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Reads an integer literal without asking the semantic model to evaluate constants.</summary>
+    /// <param name="expression">The initializer to inspect.</param>
+    /// <param name="value">The literal value when its syntax is supported.</param>
+    /// <returns>Whether the initializer is a directly representable integer literal.</returns>
+    private static bool TryGetLiteralValue(ExpressionSyntax expression, out long value)
+    {
+        var negative = expression.IsKind(SyntaxKind.UnaryMinusExpression);
+        if (expression is PrefixUnaryExpressionSyntax unary
+            && (negative || unary.IsKind(SyntaxKind.UnaryPlusExpression)))
+        {
+            expression = unary.Operand;
+        }
+
+        if (expression is LiteralExpressionSyntax literal)
+        {
+            switch (literal.Token.Value)
+            {
+                case int signed:
+                {
+                    value = signed;
+                    break;
+                }
+
+                case uint unsigned:
+                {
+                    value = unsigned;
+                    break;
+                }
+
+                case long wide:
+                {
+                    value = wide;
+                    break;
+                }
+
+                case ulong wideUnsigned when wideUnsigned <= long.MaxValue:
+                {
+                    value = (long)wideUnsigned;
+                    break;
+                }
+
+                default:
+                {
+                    value = 0;
+                    return false;
+                }
+            }
+
+            value = negative ? -value : value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
 }

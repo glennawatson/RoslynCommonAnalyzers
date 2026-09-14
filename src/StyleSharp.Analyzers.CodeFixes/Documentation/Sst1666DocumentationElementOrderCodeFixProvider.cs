@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -14,14 +13,17 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1666DocumentationElementOrderCodeFixProvider))]
 [Shared]
-public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DocumentationRules.DocumentationElementOrder.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -29,12 +31,18 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
             context,
             "Order the documentation elements",
             nameof(Sst1666DocumentationElementOrderCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // A documentation comment is structured trivia, so the search has to be told to descend into it.
+        return root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true)?.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()is { };
+    }
 
     /// <summary>Resolves the reported comment and replaces it with one whose elements are in order.</summary>
     /// <param name="root">The syntax root.</param>
@@ -62,7 +70,7 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
     {
         var content = documentation.Content;
         var isSlot = new bool[content.Count];
-        var ranked = new List<(int Rank, int Position, XmlNodeSyntax Node)>();
+        var ranked = new List<RankedElement>(content.Count);
 
         for (var i = 0; i < content.Count; i++)
         {
@@ -79,7 +87,7 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
             }
 
             isSlot[i] = true;
-            ranked.Add((rank, i, node));
+            ranked.Add(new(rank, i, node));
         }
 
         ranked.Sort(static (left, right) => left.Rank == right.Rank

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -17,10 +15,13 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(CollectionNativeMethodCodeFixProvider))]
 [Shared]
-public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider
 {
     /// <summary>The prefix distinguishing static <c>System.Array</c> targets from member renames.</summary>
     private const string ArrayTargetPrefix = "Array.";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(CreateEdit);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -28,25 +29,24 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         CollectionRules.UseContainsForMembership.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CanRewrite, CreateEdit);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, CreateEdit);
-
-    /// <summary>Applies the replacement for one diagnostic to a document.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original when no edit applies.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.Apply(document, root, diagnostic, CreateEdit);
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    internal static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var replacement = string.Equals(diagnostic.Id, CollectionRules.UseContainsForMembership.Id, StringComparison.Ordinal)
+            ? CreateContainsFix(root, diagnostic.Location.SourceSpan, out var oldNode)
+            : CreateNativePredicateFix(root, diagnostic, out oldNode);
+
+        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+    }
 
     /// <summary>Returns the action wording naming the native method the call becomes.</summary>
     /// <param name="diagnostic">The diagnostic being fixed.</param>
@@ -56,17 +56,19 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
             ? "Use Contains"
             : $"Use '{GetTargetName(diagnostic)}'";
 
-    /// <summary>Creates the replacement node for one diagnostic.</summary>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        var replacement = string.Equals(diagnostic.Id, CollectionRules.UseContainsForMembership.Id, StringComparison.Ordinal)
-            ? CreateContainsFix(root, diagnostic.Location.SourceSpan, out var oldNode)
-            : CreateNativePredicateFix(root, diagnostic, out oldNode);
-
-        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+        var invocation = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>();
+        return invocation is { ArgumentList.Arguments.Count: 1, Expression: MemberAccessExpressionSyntax }
+            && (!string.Equals(diagnostic.Id, CollectionRules.UseContainsForMembership.Id, StringComparison.Ordinal)
+                ? GetTargetName(diagnostic).Length != 0
+                : LinqCallSyntax.TryGetPredicateLambda(invocation.ArgumentList.Arguments[0].Expression, out var parameterName, out var expressionBody)
+                    && expressionBody is BinaryExpressionSyntax equality
+                    && LinqCallSyntax.TryGetComparedValue(equality, parameterName, out _));
     }
 
     /// <summary>Creates a <c>receiver.Contains(value)</c> replacement for an equality-only Any predicate.</summary>
@@ -87,10 +89,12 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         }
 
         oldNode = invocation;
-        return invocation
-            .WithExpression(memberAccess.WithName(SyntaxFactory.IdentifierName("Contains").WithTriviaFrom(memberAccess.Name)))
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(value.WithoutTrivia()))))
-            .WithTriviaFrom(invocation);
+        return invocation.Update(
+            memberAccess.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(memberAccess.Name.GetLeadingTrivia(), "Contains", memberAccess.Name.GetTrailingTrivia()))),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(value.WithoutTrivia())),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Creates the native-predicate replacement stored in the diagnostic's target-name property.</summary>
@@ -116,11 +120,19 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         if (!target.StartsWith(ArrayTargetPrefix, StringComparison.Ordinal))
         {
             oldNode = memberAccess.Name;
-            return SyntaxFactory.IdentifierName(target).WithTriviaFrom(memberAccess.Name);
+            return SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(memberAccess.Name.GetLeadingTrivia(), target, memberAccess.Name.GetTrailingTrivia()));
         }
 
         oldNode = invocation;
-        return CreateArrayHelperInvocation(invocation, memberAccess, target.Substring(ArrayTargetPrefix.Length));
+        var methodName = target switch
+        {
+            "Array.Find" => nameof(Array.Find),
+            "Array.Exists" => nameof(Array.Exists),
+            "Array.TrueForAll" => nameof(Array.TrueForAll),
+            _ => target.Substring(ArrayTargetPrefix.Length)
+        };
+
+        return CreateArrayHelperInvocation(invocation, memberAccess, methodName);
     }
 
     /// <summary>Creates a <c>System.Array.&lt;method&gt;(receiver, predicate)</c> invocation.</summary>
@@ -148,7 +160,12 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
             [
                 SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))
             ]);
-        return SyntaxFactory.InvocationExpression(helperAccess, SyntaxFactory.ArgumentList(arguments)).WithTriviaFrom(invocation);
+        return SyntaxFactory.InvocationExpression(
+            helperAccess.WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                arguments,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Reads the analyzer's replacement target name from the diagnostic.</summary>

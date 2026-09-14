@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1307 — an insecure, predictable temporary file is created with <c>Path.GetTempFileName()</c>.</summary>
-    public static readonly DiagnosticDescriptor InsecureTempFile = Create(
+    public static readonly DiagnosticDescriptor InsecureTempFile = DescriptorFactory.Create(
         "SES1307",
         "Do not create predictable temporary files with Path.GetTempFileName",
         "'Path.GetTempFileName()' creates a predictable, world-readable temporary file that is open to a time-of-check/time-of-use race and fails after 65535 undeleted files; replace it with {0}",

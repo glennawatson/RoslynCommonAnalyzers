@@ -14,9 +14,8 @@ namespace PerformanceSharp.Analyzers;
 /// Only per-call construction is reported. A field or property <em>initializer</em> runs once and
 /// is left alone, as is anything built in a constructor, so the cached
 /// <c>static readonly JsonSerializerOptions</c> the rule is steering toward never reports itself.
-/// An expression-bodied property, which does run on every read, is reported. The rule is resolved
-/// once per compilation by probing for <c>System.Text.Json.JsonSerializerOptions</c>, so it costs
-/// nothing where the serializer is not referenced.
+/// An expression-bodied property, which does run on every read, is reported. The serializer options
+/// type is resolved only after a construction passes this syntax check.
 /// </para>
 /// <para>
 /// There is no code fix. Hoisting the construction has to invent a field name, choose where to put
@@ -46,18 +45,12 @@ public sealed class Psh1416CacheSerializerOptionsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(OptionsMetadataName) is not { } optionsType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, optionsType),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, OptionsMetadataName),
+            AnalyzeCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Returns whether a construction runs on every call, rather than once at initialization.</summary>
@@ -104,15 +97,11 @@ public sealed class Psh1416CacheSerializerOptionsAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        foreach (var node in creation.DescendantNodes())
-        {
-            if (ReadsCallerState(node, model, cancellationToken))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var state = new CallerStateSearch(model, cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants<SyntaxNode, CallerStateSearch>(
+            creation,
+            ref state,
+            static (node, ref current) => !ReadsCallerState(node, current.Model, current.CancellationToken));
     }
 
     /// <summary>Returns whether one node inside the construction reads state the caller brought with it.</summary>
@@ -157,11 +146,12 @@ public sealed class Psh1416CacheSerializerOptionsAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1416 for a serializer options instance built on every call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The <c>JsonSerializerOptions</c> type in the current compilation.</param>
-    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkTypes)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!IsConstructedPerCall(creation)
+            || frameworkTypes.Get() is not { } optionsType
             || context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not { } created
             || !SymbolEqualityComparer.Default.Equals(created, optionsType)
             || DependsOnStateAStaticFieldCannotHold(creation, context.SemanticModel, context.CancellationToken))

@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -23,59 +22,31 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2013MergeNestedIfCodeFixProvider))]
 [Shared]
-public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.MergeNestedIf.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => TryGetPair(root, diagnostic, out _, out _) ? "Merge the conditions" : null,
+            static _ => nameof(Sst2013MergeNestedIfCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetPair(root, diagnostic, out var outer, out var inner))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Merge the conditions",
-                    _ => Task.FromResult(Apply(context.Document, root, outer!, inner!)),
-                    equivalenceKey: nameof(Sst2013MergeNestedIfCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetPair(editor.OriginalRoot, diagnostic, out var outer, out var inner))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(outer!, Merge(outer!, inner!));
-    }
-
-    /// <summary>Merges one reported nested pair.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported nested pair and builds the merged <c>if</c>.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="outer">The outer if statement.</param>
-    /// <param name="inner">The inner if statement.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax outer, IfStatementSyntax inner) =>
-        document.WithSyntaxRoot(root.ReplaceNode(outer, Merge(outer, inner)));
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <returns>The outer if and its merged replacement, or <see langword="null"/> when the pair can no longer be merged.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetPair(root, diagnostic, out var outer, out var inner) ? new NodeReplacement(outer!, Merge(outer!, inner!)) : null;
 
     /// <summary>Resolves the reported outer <c>if</c> and the inner one it wraps.</summary>
     /// <param name="root">The syntax root.</param>
@@ -108,8 +79,14 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     {
         var condition = Join(Parenthesize(outer.Condition), Parenthesize(inner.Condition));
         var merged = outer
-            .WithCondition(condition)
-            .WithStatement(inner.Statement)
+            .Update(
+                outer.AttributeLists,
+                outer.IfKeyword,
+                outer.OpenParenToken,
+                condition,
+                outer.CloseParenToken,
+                inner.Statement,
+                outer.Else)
             .WithAdditionalAnnotations(Formatter.Annotation);
 
         var carried = CollectDiscardedComments(outer, inner);
@@ -144,9 +121,7 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="expression">The condition operand.</param>
     /// <returns>The operand, parenthesized only where the grouping would otherwise change.</returns>
     private static ExpressionSyntax Parenthesize(ExpressionSyntax expression) =>
-        NeedsParentheses(expression)
-            ? SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression)
-            : expression;
+        NeedsParentheses(expression) ? ExpressionParentheses.Wrap(expression) : expression;
 
     /// <summary>Returns whether an expression binds looser than <c>&amp;&amp;</c>.</summary>
     /// <param name="expression">The condition operand.</param>

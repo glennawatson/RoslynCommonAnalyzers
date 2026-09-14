@@ -10,41 +10,32 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds braces to every bare clause of an inconsistent if/else chain (SST1520).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1520ConsistentBracesCodeFixProvider))]
 [Shared]
-public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1520ConsistentBracesCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.BracesUsedConsistently.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Add braces to all clauses",
+            nameof(Sst1520ConsistentBracesCodeFixProvider),
+            static (root, diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent as IfStatementSyntax,
+            WrapChainAsync);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not IfStatementSyntax ifStatement)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add braces to all clauses",
-                    cancellationToken => WrapChainAsync(context.Document, ifStatement, cancellationToken),
-                    equivalenceKey: nameof(Sst1520ConsistentBracesCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not IfStatementSyntax ifStatement)
         {

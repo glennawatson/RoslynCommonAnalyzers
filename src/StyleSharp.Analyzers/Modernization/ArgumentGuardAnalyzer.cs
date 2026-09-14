@@ -39,17 +39,14 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var helpers = CreateHelpers(start.Compilation);
-
-            if (!helpers.Any)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeIf(nodeContext, helpers), SyntaxKind.IfStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<GuardHelpers>(
+                compilation,
+                CreateHelpers,
+                runOnce: true),
+            AnalyzeIf,
+            SyntaxKind.IfStatement);
     }
 
     /// <summary>Returns whether an <c>if</c> statement matches any supported throw-helper pattern.</summary>
@@ -150,20 +147,20 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports the applicable guard-helper suggestion for one if statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="helpers">The guard helpers available in this compilation.</param>
-    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, GuardHelpers helpers)
+    /// <param name="helpers">The guard helpers, resolved only after a supported pattern matches.</param>
+    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, LazyCompilationValue<GuardHelpers> helpers)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
 
-        if (helpers.ThrowIfNull && ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out var nullChecked))
+        if (ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out var nullChecked) && helpers.Get().ThrowIfNull)
         {
             context.ReportDiagnostic(Diagnostic.Create(ModernizationRules.UseThrowIfNull, ifStatement.GetLocation(), nullChecked!.ToString()));
             return;
         }
 
-        if (helpers.ThrowIfDisposed
+        if (ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out var disposedCondition)
             && !IsStaticContext(ifStatement)
-            && ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out var disposedCondition))
+            && helpers.Get().ThrowIfDisposed)
         {
             context.ReportDiagnostic(
                 Diagnostic.Create(
@@ -174,7 +171,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         }
 
         if (ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out var rangeMatch)
-            && HasRangeHelper(helpers.Range, rangeMatch.Helper))
+            && HasRangeHelper(helpers.Get().Range, rangeMatch.Helper))
         {
             context.ReportDiagnostic(
                 Diagnostic.Create(
@@ -189,7 +186,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportStringGuard(context, ifStatement, helpers, guardMethod!, stringChecked!);
+        ReportStringGuard(context, ifStatement, helpers.Get(), guardMethod!, stringChecked!);
     }
 
     /// <summary>Reports SST2001/SST2002 for a matched string guard when its helper is available.</summary>
@@ -205,16 +202,15 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         string guardMethod,
         ExpressionSyntax checkedExpression)
     {
-        var (available, rule) = guardMethod == ThrowGuardPatterns.IsNullOrEmpty
-            ? (helpers.ThrowIfNullOrEmpty, ModernizationRules.UseThrowIfNullOrEmpty)
-            : (helpers.ThrowIfNullOrWhiteSpace, ModernizationRules.UseThrowIfNullOrWhiteSpace);
-
-        if (!available)
+        if (!IsStringGuardHelperAvailable(helpers, guardMethod))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(rule, ifStatement.GetLocation(), checkedExpression.ToString()));
+        context.ReportDiagnostic(Diagnostic.Create(
+            guardMethod == ThrowGuardPatterns.IsNullOrEmpty ? ModernizationRules.UseThrowIfNullOrEmpty : ModernizationRules.UseThrowIfNullOrWhiteSpace,
+            ifStatement.GetLocation(),
+            checkedExpression.ToString()));
     }
 
     /// <summary>Returns whether the matching string-guard helper is available.</summary>

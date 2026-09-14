@@ -41,6 +41,86 @@ internal static class LayoutHelpers
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 
+    /// <summary>Returns whether a token starts on the line its preceding token ends on.</summary>
+    /// <param name="tree">The tree that holds the token.</param>
+    /// <param name="token">The token whose placement is checked.</param>
+    /// <param name="cancellationToken">A token that cancels reading the source text.</param>
+    /// <returns><see langword="true"/> when a preceding token exists and ends on the token's starting line.</returns>
+    internal static bool SharesLineWithPreviousToken(SyntaxTree tree, SyntaxToken token, CancellationToken cancellationToken)
+    {
+        var previous = token.GetPreviousToken();
+        if (previous.IsKind(SyntaxKind.None))
+        {
+            return false;
+        }
+
+        var text = tree.GetText(cancellationToken);
+        return LineOf(text, previous.Span.End) == LineOf(text, token.SpanStart);
+    }
+
+    /// <summary>Reports the analyzed node when its leading token shares a line with the token before it.</summary>
+    /// <param name="context">The syntax node analysis context; the diagnostic covers its node.</param>
+    /// <param name="token">The token that should start its own line.</param>
+    /// <param name="descriptor">The rule to report.</param>
+    internal static void ReportWhenSharesLineWithPreviousToken(in SyntaxNodeAnalysisContext context, SyntaxToken token, DiagnosticDescriptor descriptor)
+    {
+        if (!SharesLineWithPreviousToken(context.Node.SyntaxTree, token, context.CancellationToken))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(descriptor, context.Node.GetLocation()));
+    }
+
+    /// <summary>Returns whether a wrapped token sits on the side of its line break the configuration does not want.</summary>
+    /// <param name="context">The syntax node analysis context whose tree's options are read.</param>
+    /// <param name="ruleKey">The rule-specific placement key.</param>
+    /// <param name="generalKey">The project-wide placement key.</param>
+    /// <param name="defaultBreakBefore">The placement used when neither key resolves.</param>
+    /// <param name="breakBefore">Whether a line break precedes the token.</param>
+    /// <param name="breakAfter">Whether a line break follows the token.</param>
+    /// <param name="wantBreakBefore">Whether the configuration wants the token to lead its continuation line.</param>
+    /// <returns><see langword="true"/> when the token breaks on the unwanted side.</returns>
+    /// <remarks>Call it only for a token with a line break on at least one side, so an unwrapped token never reads options.</remarks>
+    internal static bool IsBreakMisplaced(
+        in SyntaxNodeAnalysisContext context,
+        string ruleKey,
+        string generalKey,
+        bool defaultBreakBefore,
+        bool breakBefore,
+        bool breakAfter,
+        out bool wantBreakBefore)
+    {
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
+        wantBreakBefore = LayoutStyleOptions.ReadBreakBefore(options, ruleKey, generalKey, defaultBreakBefore);
+        return wantBreakBefore ? breakAfter : breakBefore;
+    }
+
+    /// <summary>Reports a wrapped token on the wrong side of its line break, naming the side it belongs on.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="descriptor">The placement rule.</param>
+    /// <param name="token">The misplaced token.</param>
+    /// <param name="wantBreakBefore">Whether the token should lead its continuation line.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ReportMisplacedBreak(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor descriptor, SyntaxToken token, bool wantBreakBefore) =>
+        context.ReportDiagnostic(Diagnostic.Create(descriptor, token.GetLocation(), PlacementProperties(wantBreakBefore), PlacementSide(wantBreakBefore)));
+
+    /// <summary>Reports a wrapped token on the wrong side of its line break, naming the token and the side it belongs on.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="descriptor">The placement rule.</param>
+    /// <param name="token">The misplaced token.</param>
+    /// <param name="display">The token text the message names.</param>
+    /// <param name="wantBreakBefore">Whether the token should lead its continuation line.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ReportMisplacedBreak(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor descriptor, SyntaxToken token, string display, bool wantBreakBefore) =>
+        context.ReportDiagnostic(Diagnostic.Create(descriptor, token.GetLocation(), PlacementProperties(wantBreakBefore), display, PlacementSide(wantBreakBefore)));
+
+    /// <summary>Returns the line side a placement message names.</summary>
+    /// <param name="wantBreakBefore">Whether the token should lead its continuation line.</param>
+    /// <returns><c>start</c> for a token that leads its line, otherwise <c>end</c>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string PlacementSide(bool wantBreakBefore) => wantBreakBefore ? "start" : "end";
+
     /// <summary>Returns the zero-based line index on which <paramref name="token"/> starts.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="token">The token.</param>
@@ -242,22 +322,14 @@ internal static class LayoutHelpers
     /// <summary>Returns whether a line break separates the token before <paramref name="token"/> from it.</summary>
     /// <param name="token">The token whose leading side is inspected.</param>
     /// <returns><see langword="true"/> when <paramref name="token"/> begins a new line relative to its predecessor.</returns>
-    internal static bool HasLineBreakBefore(SyntaxToken token)
-    {
-        var previous = token.GetPreviousToken();
-        return !previous.IsKind(SyntaxKind.None)
-            && (TriviaLineBreakHelper.HasLineBreak(previous.TrailingTrivia) || TriviaLineBreakHelper.HasLineBreak(token.LeadingTrivia));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasLineBreakBefore(SyntaxToken token) => HasLineBreakBetween(token.GetPreviousToken(), token);
 
     /// <summary>Returns whether a line break separates <paramref name="token"/> from the token after it.</summary>
     /// <param name="token">The token whose trailing side is inspected.</param>
     /// <returns><see langword="true"/> when the following token begins a new line relative to <paramref name="token"/>.</returns>
-    internal static bool HasLineBreakAfter(SyntaxToken token)
-    {
-        var next = token.GetNextToken();
-        return !next.IsKind(SyntaxKind.None)
-            && (TriviaLineBreakHelper.HasLineBreak(token.TrailingTrivia) || TriviaLineBreakHelper.HasLineBreak(next.LeadingTrivia));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasLineBreakAfter(SyntaxToken token) => HasLineBreakBetween(token, token.GetNextToken());
 
     /// <summary>Classifies the character run between two positions as containing a line break and/or non-whitespace.</summary>
     /// <param name="text">The source text.</param>
@@ -397,6 +469,15 @@ internal static class LayoutHelpers
         SyntaxKind.WithInitializerExpression,
         SyntaxKind.AnonymousObjectCreationExpression);
 
+    /// <summary>Returns whether a line break separates two adjacent tokens.</summary>
+    /// <param name="left">The earlier token, or a default token when there is none.</param>
+    /// <param name="right">The later token, or a default token when there is none.</param>
+    /// <returns><see langword="true"/> when both tokens exist and a line break sits between them.</returns>
+    private static bool HasLineBreakBetween(SyntaxToken left, SyntaxToken right) =>
+        !left.IsKind(SyntaxKind.None)
+            && !right.IsKind(SyntaxKind.None)
+            && (TriviaLineBreakHelper.HasLineBreak(left.TrailingTrivia) || TriviaLineBreakHelper.HasLineBreak(right.LeadingTrivia));
+
     /// <summary>Gets the brace pair a node carries, whichever brace-bearing shape it is.</summary>
     /// <param name="node">The candidate node.</param>
     /// <returns>The node's braces, or a default pair for a node that carries none.</returns>
@@ -404,16 +485,16 @@ internal static class LayoutHelpers
     /// A default <see cref="SyntaxToken"/> has kind <see cref="SyntaxKind.None"/>, so a node that carries no
     /// braces at all is rejected by the same kind test that rejects a missing brace.
     /// </remarks>
-    private static (SyntaxToken Open, SyntaxToken Close) GetBracePair(SyntaxNode node) => node switch
+    private static BracePair GetBracePair(SyntaxNode node) => node switch
     {
-        BlockSyntax block => (block.OpenBraceToken, block.CloseBraceToken),
-        AccessorListSyntax accessors => (accessors.OpenBraceToken, accessors.CloseBraceToken),
-        BaseTypeDeclarationSyntax type => (type.OpenBraceToken, type.CloseBraceToken),
-        NamespaceDeclarationSyntax ns => (ns.OpenBraceToken, ns.CloseBraceToken),
-        SwitchStatementSyntax @switch => (@switch.OpenBraceToken, @switch.CloseBraceToken),
-        SwitchExpressionSyntax switchExpression => (switchExpression.OpenBraceToken, switchExpression.CloseBraceToken),
-        InitializerExpressionSyntax initializer => (initializer.OpenBraceToken, initializer.CloseBraceToken),
-        AnonymousObjectCreationExpressionSyntax anonymous => (anonymous.OpenBraceToken, anonymous.CloseBraceToken),
+        BlockSyntax block => new(block.OpenBraceToken, block.CloseBraceToken),
+        AccessorListSyntax accessors => new(accessors.OpenBraceToken, accessors.CloseBraceToken),
+        BaseTypeDeclarationSyntax type => new(type.OpenBraceToken, type.CloseBraceToken),
+        NamespaceDeclarationSyntax ns => new(ns.OpenBraceToken, ns.CloseBraceToken),
+        SwitchStatementSyntax @switch => new(@switch.OpenBraceToken, @switch.CloseBraceToken),
+        SwitchExpressionSyntax switchExpression => new(switchExpression.OpenBraceToken, switchExpression.CloseBraceToken),
+        InitializerExpressionSyntax initializer => new(initializer.OpenBraceToken, initializer.CloseBraceToken),
+        AnonymousObjectCreationExpressionSyntax anonymous => new(anonymous.OpenBraceToken, anonymous.CloseBraceToken),
         _ => default,
     };
 

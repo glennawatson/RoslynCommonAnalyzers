@@ -750,6 +750,66 @@ public class ShadowedDeclarationAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Checks non-forwarding constructors and unrelated tuple assignments still expose shadowed parameters.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnrelatedAssignmentsDoNotExemptParametersAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync("""
+            class C
+            {
+                int value;
+                int other;
+                int[] values = new int[1];
+                C(int {|SST1484:value|}) : this(1, 2) { }
+                C(int first, int second) { }
+                void M(int {|SST1484:value|}) { (other, values[0]) = (1, 2); }
+                void N(int value) { (this.value) = value; }
+                void P(int {|SST1484:value|}, C target) { target.value = value; }
+            }
+            class B { protected int value; }
+            class D : B { void M(int value) { base.value = value; } }
+            """);
+
+    /// <summary>Checks instance field initializers and property bodies retain the surrounding instance scope.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task FieldAndPropertyScopesRespectStaticContextAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync("""
+            class C
+            {
+                int value;
+                System.Func<int, int> instance = {|SST1484:value|} => value;
+                static System.Func<int, int> shared = value => value;
+                System.Func<int, int> ExplicitStatic = static value => value;
+                int P { get { int {|SST1484:value|} = 1; return value; } }
+                static int Q { get { int value = 1; return value; } }
+                void M() { int Local(int {|SST1484:value|}) => value; _ = Local(1); }
+            }
+            """);
+
+    /// <summary>Checks declarations in incomplete type attributes still see instance members.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TypeAttributeDeclarationsSeeInstanceMembersAsync()
+    {
+        var test = new VerifyShadowed.Test
+        {
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+            TestCode = """
+                [A(M(out var {|SST1484:value|}))]
+                class C
+                {
+                    int value;
+                    static int M(out int result) { result = 1; return result; }
+                }
+                class A : System.Attribute { public A(int argument) { } }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a discard names nothing and so shadows nothing.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

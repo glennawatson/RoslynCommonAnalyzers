@@ -18,38 +18,18 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var title = diagnostic.Id switch
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static diagnostic => diagnostic.Id switch
             {
                 "SST2207" => "Use a throw expression",
                 "SST2208" => "Inline the out declaration",
                 _ => null
-            };
-
-            // Both fixes fold a statement into its neighbour, so a directive between the two rules the fix
-            // out. Checking here keeps the action off the lightbulb rather than offering one that no-ops.
-            if (title is null || FoldsAcrossADirective(root, diagnostic))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title,
-                    cancellationToken => ApplyAsync(context.Document, root, diagnostic, cancellationToken),
-                    equivalenceKey: diagnostic.Id),
-                diagnostic);
-        }
-    }
+            },
+            static diagnostic => diagnostic.Id,
+            static (root, diagnostic) => !FoldsAcrossADirective(root, diagnostic),
+            ApplyAsync);
 
     /// <summary>Applies one flow syntax fix.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -80,7 +60,7 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
     /// <returns><see langword="true"/> when the fold would carry half a directive pair.</returns>
     private static bool FoldsAcrossADirective(SyntaxNode root, Diagnostic diagnostic)
     {
-        var reported = FindAncestor<StatementSyntax>(root, diagnostic.Location.SourceSpan);
+        var reported = DiagnosticAncestor.Find<StatementSyntax>(root, diagnostic.Location.SourceSpan);
         return reported is not null
             && ModernSyntaxFlowAnalyzer.TryGetNextStatement(reported, out var next)
             && DirectiveBoundaries.Separate(reported, next);
@@ -100,7 +80,7 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        var ifStatement = FindAncestor<IfStatementSyntax>(root, diagnostic.Location.SourceSpan);
+        var ifStatement = DiagnosticAncestor.Find<IfStatementSyntax>(root, diagnostic.Location.SourceSpan);
         if (ifStatement?.Parent is not BlockSyntax block
             || !ModernSyntaxFlowAnalyzer.TryGetThrowExpressionCandidate(ifStatement, model, cancellationToken, out var throwValue)
             || !ModernSyntaxFlowAnalyzer.TryGetNextStatement(ifStatement, out var nextStatement)
@@ -114,7 +94,11 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
             SyntaxKind.CoalesceExpression,
             returnedValue.WithoutTrivia(),
             SyntaxFactory.ThrowExpression(throwValue.WithoutTrivia()));
-        var replacement = SyntaxFactory.ReturnStatement(coalesce).WithTriviaFrom(ifStatement);
+        var replacement = SyntaxFactory.ReturnStatement(
+            default,
+            SyntaxFactory.Token(ifStatement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            coalesce,
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
         var index = block.Statements.IndexOf(ifStatement);
         var statements = block.Statements.Replace(ifStatement, replacement).RemoveAt(index + 1);
         var updatedBlock = block.WithStatements(statements);
@@ -135,7 +119,7 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        var declaration = FindAncestor<LocalDeclarationStatementSyntax>(root, diagnostic.Location.SourceSpan);
+        var declaration = DiagnosticAncestor.Find<LocalDeclarationStatementSyntax>(root, diagnostic.Location.SourceSpan);
         if (declaration?.Parent is not BlockSyntax block
             || !ModernSyntaxFlowAnalyzer.TryGetNextStatement(declaration, out var nextStatement)
             || !ModernSyntaxFlowAnalyzer.TryGetInlineOutArgument(declaration, nextStatement, model, cancellationToken, out var argument)
@@ -147,34 +131,12 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
 
         var declarationExpression = SyntaxFactory.DeclarationExpression(
             SyntaxFactory.IdentifierName("var"),
-            SyntaxFactory.SingleVariableDesignation(identifier.Identifier.WithoutTrivia()));
-        var replacementArgument = argument.WithExpression(declarationExpression).WithTriviaFrom(argument);
+            SyntaxFactory.SingleVariableDesignation(identifier.Identifier.WithLeadingTrivia(default(SyntaxTriviaList))));
+        var replacementArgument = argument.Update(argument.NameColon, argument.RefKindKeyword, declarationExpression);
         var updatedNext = nextStatement.ReplaceNode(argument, replacementArgument);
         var index = block.Statements.IndexOf(declaration);
         var statements = block.Statements.Replace(nextStatement, updatedNext).RemoveAt(index);
         var updatedBlock = block.WithStatements(statements);
         return document.WithSyntaxRoot(root.ReplaceNode(block, updatedBlock));
-    }
-
-    /// <summary>Finds the node at a span or one of its ancestors.</summary>
-    /// <typeparam name="T">The ancestor node type to find.</typeparam>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic span.</param>
-    /// <returns>The matching node, or <see langword="null"/>.</returns>
-    private static T? FindAncestor<T>(SyntaxNode root, TextSpan span)
-        where T : SyntaxNode
-    {
-        var node = root.FindToken(span.Start).Parent;
-        while (node is not null)
-        {
-            if (node is T matched)
-            {
-                return matched;
-            }
-
-            node = node.Parent;
-        }
-
-        return null;
     }
 }

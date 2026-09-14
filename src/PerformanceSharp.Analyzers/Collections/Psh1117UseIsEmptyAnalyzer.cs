@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -48,12 +50,10 @@ public sealed class Psh1117UseIsEmptyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Classifies an emptiness comparison, before any binding.</summary>
     /// <param name="binary">The comparison to inspect.</param>
-    /// <returns>The count access and whether the check means empty, or <see langword="null"/>.</returns>
-    internal static (MemberAccessExpressionSyntax Count, bool IsEmpty)? TryGetEmptinessShape(BinaryExpressionSyntax binary)
-    {
-        var shape = EmptinessComparisonClassifier.Classify(binary, TryGetCountAccess(binary.Left), TryGetCountAccess(binary.Right));
-        return shape is { } resolved ? (resolved.Count, !resolved.HasElements) : null;
-    }
+    /// <returns>The count access and whether the check means the sequence has elements, or <see langword="null"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static EmptinessComparison<MemberAccessExpressionSyntax>? TryGetEmptinessShape(BinaryExpressionSyntax binary) =>
+        EmptinessComparisonClassifier.Classify(binary, TryGetCountAccess(binary.Left), TryGetCountAccess(binary.Right));
 
     /// <summary>Returns a member access when it reads <c>Count</c> or <c>Length</c>.</summary>
     /// <param name="expression">The comparison operand.</param>

@@ -90,7 +90,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <returns>The rank, or <see langword="null"/>.</returns>
     internal static MemberOrder? Classify(MemberDeclarationSyntax member, bool isUnion = false)
     {
-        if (HasExplicitInterfaceSpecifier(member))
+        if (ExplicitInterfaceSpecifiers.IsPresent(member))
         {
             return null;
         }
@@ -344,18 +344,6 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <returns>The first variable's identifier, or the declaration's first token.</returns>
     private static SyntaxToken FirstVariable(VariableDeclarationSyntax declaration) =>
         declaration.Variables.Count > 0 ? declaration.Variables[0].Identifier : declaration.GetFirstToken();
-
-    /// <summary>Returns whether a member is an explicit interface implementation (skipped for ordering).</summary>
-    /// <param name="member">The member declaration.</param>
-    /// <returns><see langword="true"/> when the member has an explicit interface specifier.</returns>
-    private static bool HasExplicitInterfaceSpecifier(MemberDeclarationSyntax member) => member switch
-    {
-        MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is not null,
-        PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is not null,
-        EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is not null,
-        IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
-        _ => false
-    };
 
     /// <summary>Routes a readonly-ordering violation to the instance variant (SST1215) for instance fields.</summary>
     /// <param name="order">The member order that violated readonly ordering.</param>

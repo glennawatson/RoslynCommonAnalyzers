@@ -68,48 +68,23 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
         // collapses the header exemption, reporting the copyright banner of every file compiled out.
         var firstTokenStart = root.GetFirstToken(includeZeroWidth: true).SpanStart;
 
-        var start = -1;
-        var end = -1;
-        var first = default(SyntaxTrivia);
-        var last = default(SyntaxTrivia);
-
-        foreach (var trivia in root.DescendantTrivia())
-        {
-            if (!trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) || !IsStandaloneComment(text, trivia))
+        var state = new CommentBlockState(context, text, firstTokenStart);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            root,
+            ref state,
+            static (in SyntaxToken token, ref CommentBlockState scan) =>
             {
-                continue;
-            }
+                scan.Observe(token.LeadingTrivia);
+                scan.Observe(token.TrailingTrivia);
+                return true;
+            });
 
-            var line = text.Lines.GetLineFromPosition(trivia.SpanStart).LineNumber;
-            if (start < 0)
-            {
-                start = line;
-                end = line;
-                first = trivia;
-                last = trivia;
-                continue;
-            }
-
-            if (line == end + 1)
-            {
-                end = line;
-                last = trivia;
-                continue;
-            }
-
-            ReportBlock(context, text, start, end, first, last, firstTokenStart);
-            start = line;
-            end = line;
-            first = trivia;
-            last = trivia;
-        }
-
-        if (start < 0)
+        if (state.Start < 0)
         {
             return;
         }
 
-        ReportBlock(context, text, start, end, first, last, firstTokenStart);
+        ReportBlock(context, text, state.Start, state.End, state.First, state.Last, firstTokenStart);
     }
 
     /// <summary>Reports the preceding- and following-blank-line violations for a comment block.</summary>
@@ -186,5 +161,93 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Groups standalone comments across token boundaries in source order.</summary>
+    private record struct CommentBlockState
+    {
+        /// <summary>The context receiving spacing diagnostics.</summary>
+        private readonly SyntaxTreeAnalysisContext _context;
+
+        /// <summary>The source text used to locate comment lines.</summary>
+        private readonly SourceText _text;
+
+        /// <summary>The position separating the file header from interior comments.</summary>
+        private readonly int _firstTokenStart;
+
+        /// <summary>The first comment in the current block.</summary>
+        private SyntaxTrivia _first;
+
+        /// <summary>The last comment in the current block.</summary>
+        private SyntaxTrivia _last;
+
+        /// <summary>The first line in the current block, or -1 before a comment is found.</summary>
+        private int _start;
+
+        /// <summary>The last line in the current block.</summary>
+        private int _end;
+
+        /// <summary>Initializes a new instance of the <see cref="CommentBlockState"/> struct.</summary>
+        /// <param name="context">The context receiving spacing diagnostics.</param>
+        /// <param name="text">The source text.</param>
+        /// <param name="firstTokenStart">The first token's position, including zero-width tokens.</param>
+        public CommentBlockState(in SyntaxTreeAnalysisContext context, SourceText text, int firstTokenStart)
+        {
+            _context = context;
+            _text = text;
+            _first = default;
+            _last = default;
+            _firstTokenStart = firstTokenStart;
+            _start = -1;
+            _end = -1;
+        }
+
+        /// <summary>Gets the first line in the current block, or -1 when no comment was found.</summary>
+        public readonly int Start => _start;
+
+        /// <summary>Gets the last line in the current block.</summary>
+        public readonly int End => _end;
+
+        /// <summary>Gets the first comment in the current block.</summary>
+        public readonly SyntaxTrivia First => _first;
+
+        /// <summary>Gets the last comment in the current block.</summary>
+        public readonly SyntaxTrivia Last => _last;
+
+        /// <summary>Adds standalone comments and reports a block when a later block begins.</summary>
+        /// <param name="triviaList">One token's leading or trailing trivia in source order.</param>
+        public void Observe(in SyntaxTriviaList triviaList)
+        {
+            foreach (var trivia in triviaList)
+            {
+                if (!trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) || !IsStandaloneComment(_text, trivia))
+                {
+                    continue;
+                }
+
+                var line = _text.Lines.GetLineFromPosition(trivia.SpanStart).LineNumber;
+                if (_start < 0)
+                {
+                    _start = line;
+                    _end = line;
+                    _first = trivia;
+                    _last = trivia;
+                    continue;
+                }
+
+                if (line == _end + 1)
+                {
+                    _end = line;
+                    _last = trivia;
+                    continue;
+                }
+
+                ReportBlock(_context, _text, _start, _end, _first, _last, _firstTokenStart);
+                _start = line;
+                _end = line;
+                _first = trivia;
+                _last = trivia;
+            }
+        }
     }
 }

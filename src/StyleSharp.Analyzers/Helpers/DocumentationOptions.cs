@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -56,24 +56,9 @@ internal static class DocumentationOptions
     /// <summary>Reads the single-line summary length limit, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <returns>The configured (or default) maximum length.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int ReadSummaryMaxLength(AnalyzerConfigOptions options) =>
-        TryReadPositiveInt(options, SummaryMaxLengthSpecificKey, out var value)
-        || TryReadPositiveInt(options, SummaryMaxLengthGeneralKey, out value)
-            ? value
-            : DefaultSummaryMaxLength;
-
-    /// <summary>Tries to read a positive integer from a single editorconfig key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="key">The editorconfig key.</param>
-    /// <param name="value">The parsed value when the method returns <see langword="true"/>.</param>
-    /// <returns><see langword="true"/> when the key held a positive integer.</returns>
-    private static bool TryReadPositiveInt(AnalyzerConfigOptions options, string key, out int value)
-    {
-        value = 0;
-        return options.TryGetValue(key, out var text)
-            && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)
-            && value > 0;
-    }
+        AnalyzerOptionReader.ReadPositiveInt(options, SummaryMaxLengthSpecificKey, SummaryMaxLengthGeneralKey, DefaultSummaryMaxLength);
 
     /// <summary>Reads a boolean editorconfig key, falling back to the supplied default.</summary>
     /// <param name="options">The analyzer config options.</param>
@@ -86,13 +71,21 @@ internal static class DocumentationOptions
     /// <summary>Reads the interface documentation mode, accepting <c>all</c>/<c>exposed</c>/<c>none</c> (or <c>true</c>/<c>false</c>).</summary>
     /// <param name="options">The analyzer config options.</param>
     /// <returns>The configured mode, or <see cref="DocumentationInterfaceMode.All"/> by default.</returns>
-    private static DocumentationInterfaceMode ReadInterfaceMode(AnalyzerConfigOptions options) => !options.TryGetValue(DocumentInterfacesKey, out var text)
-        ? DocumentationInterfaceMode.All
-        : text.ToLowerInvariant() switch
+    private static DocumentationInterfaceMode ReadInterfaceMode(AnalyzerConfigOptions options)
+    {
+        if (!options.TryGetValue(DocumentInterfacesKey, out var text))
         {
-            "all" or "true" => DocumentationInterfaceMode.All,
-            "exposed" => DocumentationInterfaceMode.Exposed,
-            "none" or "false" => DocumentationInterfaceMode.None,
-            _ => DocumentationInterfaceMode.All,
-        };
+            return DocumentationInterfaceMode.All;
+        }
+
+        if (string.Equals(text, "exposed", StringComparison.OrdinalIgnoreCase))
+        {
+            return DocumentationInterfaceMode.Exposed;
+        }
+
+        return string.Equals(text, "none", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(text, "false", StringComparison.OrdinalIgnoreCase)
+            ? DocumentationInterfaceMode.None
+            : DocumentationInterfaceMode.All;
+    }
 }

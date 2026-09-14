@@ -12,52 +12,42 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2265FoldFluentCallChainCodeFixProvider))]
 [Shared]
-public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.FoldFluentCallChain.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<FoldEdit>(
+            context,
+            "Fold the calls into a fluent chain",
+            nameof(Sst2265FoldFluentCallChainCodeFixProvider),
+            TryResolve,
+            Apply);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
+        if (!TryResolve(editor.OriginalRoot, editor.SemanticModel, diagnostic, CancellationToken.None, out var edit))
         {
             return;
         }
 
-        foreach (var diagnostic in context.Diagnostics)
+        var block = (BlockSyntax)edit.First.Parent!;
+        var index = block.Statements.IndexOf(edit.First);
+        editor.ReplaceNode(edit.First, BuildFolded(block, index, edit.Count));
+        for (var i = 1; i < edit.Count; i++)
         {
-            if (Resolve(root, model, diagnostic) is not { } edit)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Fold the calls into a fluent chain",
-                    _ => Task.FromResult(Apply(context.Document, root, edit)),
-                    equivalenceKey: nameof(Sst2265FoldFluentCallChainCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } edit)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(edit.First, edit.Folded);
-        foreach (var statement in edit.Rest)
-        {
-            editor.RemoveNode(statement);
+            editor.RemoveNode(block.Statements[index + i]);
         }
     }
 
@@ -70,49 +60,47 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
     {
         var block = (BlockSyntax)edit.First.Parent!;
         var firstIndex = block.Statements.IndexOf(edit.First);
-        var statements = block.Statements.Replace(edit.First, edit.Folded);
-        for (var i = 0; i < edit.Rest.Length; i++)
+        var statements = block.Statements.Replace(edit.First, BuildFolded(block, firstIndex, edit.Count));
+        for (var i = 1; i < edit.Count; i++)
         {
             statements = statements.RemoveAt(firstIndex + 1);
         }
 
-        return document.WithSyntaxRoot(root.ReplaceNode(block, block.WithStatements(statements)));
+        return document.WithSyntaxRoot(root.ReplaceNode(block, block.Update(block.AttributeLists, block.OpenBraceToken, statements, block.CloseBraceToken)));
     }
 
-    /// <summary>Resolves the reported run into the first statement, the rest, and the folded statement.</summary>
+    /// <summary>Resolves the original run without allocating a replacement or a removal array.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The edit, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static FoldEdit? Resolve(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="edit">The resolved edit.</param>
+    /// <returns><see langword="true"/> when the shape still matches.</returns>
+    private static bool TryResolve(SyntaxNode root, SemanticModel model, Diagnostic diagnostic, CancellationToken cancellationToken, out FoldEdit edit)
     {
+        edit = default;
+        cancellationToken.ThrowIfCancellationRequested();
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ExpressionStatementSyntax>() is not { Parent: BlockSyntax block } first)
         {
-            return null;
+            return false;
         }
 
         var index = block.Statements.IndexOf(first);
         var count = index < 0 ? 0 : Sst2265FoldFluentCallChainAnalyzer.CountFluentRun(model, block, index);
         if (count < Sst2265FoldFluentCallChainAnalyzer.MinimumRunLength)
         {
-            return null;
+            return false;
         }
 
         // The run collapses into its first statement and the rest are deleted, so a directive anywhere
         // across it would lose whichever half sits on a statement that goes.
-        var last = block.Statements[index + count - 1];
-        if (DirectiveBoundaries.Separate(first, last))
+        if (DirectiveBoundaries.Separate(first, block.Statements[index + count - 1]))
         {
-            return null;
+            return false;
         }
 
-        var rest = new StatementSyntax[count - 1];
-        for (var i = 1; i < count; i++)
-        {
-            rest[i - 1] = block.Statements[index + i];
-        }
-
-        return new FoldEdit(first, rest, BuildFolded(block, index, count));
+        edit = new(first, count);
+        return true;
     }
 
     /// <summary>Builds the single chained statement replacing a fluent-call run.</summary>
@@ -129,20 +117,24 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
         {
             var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)block.Statements[i]).Expression;
             var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-            accumulated = invocation.WithExpression(memberAccess.WithExpression(accumulated));
+            accumulated = invocation.Update(
+                memberAccess.Update(accumulated, memberAccess.OperatorToken, memberAccess.Name),
+                invocation.ArgumentList);
         }
 
-        return SyntaxFactory.ExpressionStatement(accumulated.WithoutTrivia())
-            .WithLeadingTrivia(first.GetLeadingTrivia())
-            .WithTrailingTrivia(last.GetTrailingTrivia());
+        var foldedInvocation = (InvocationExpressionSyntax)accumulated;
+        return SyntaxFactory.ExpressionStatement(
+            default,
+            foldedInvocation.Update(
+                foldedInvocation.Expression.WithLeadingTrivia(first.GetLeadingTrivia()),
+                foldedInvocation.ArgumentList.WithoutTrailingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, last.GetTrailingTrivia()));
     }
 
-    /// <summary>The first statement to replace, the statements to drop, and the folded replacement.</summary>
+    /// <summary>The original run, retained without constructing its folded replacement.</summary>
     /// <param name="First">The first statement of the run, replaced by the folded chain.</param>
-    /// <param name="Rest">The remaining statements of the run, removed.</param>
-    /// <param name="Folded">The single chained statement.</param>
+    /// <param name="Count">The number of statements to fold.</param>
     internal readonly record struct FoldEdit(
         ExpressionStatementSyntax First,
-        StatementSyntax[] Rest,
-        ExpressionStatementSyntax Folded);
+        int Count);
 }

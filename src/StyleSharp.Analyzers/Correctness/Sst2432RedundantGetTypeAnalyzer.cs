@@ -11,8 +11,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// The clean path is a syntax check: only <c>receiver.GetType()</c> with no arguments reaches the semantic
-/// model, which rejects every other invocation before a bind. <see cref="System.Type"/> is resolved once per
-/// compilation and the whole rule is gated on it, so a compilation that somehow lacks the type pays nothing.
+/// model, which rejects every other invocation before a bind. <see cref="System.Type"/> is resolved only
+/// after a candidate survives the syntax check, and the rule reports nothing when the type is absent.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
@@ -31,29 +31,26 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Registers the invocation walk only when <see cref="System.Type"/> resolves.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (context.Compilation.GetTypeByMetadataName("System.Type") is not { } systemType)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, systemType), SyntaxKind.InvocationExpression);
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.Type"),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports one <c>GetType()</c> call whose receiver is already a Type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="systemType">The resolved <see cref="System.Type"/> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol systemType)
+    /// <param name="reflectionTypes">The reflection type cache for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType reflectionTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0
             || invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetTypeName } memberAccess)
+        {
+            return;
+        }
+
+        if (reflectionTypes.Get() is not { } systemType)
         {
             return;
         }
@@ -70,7 +67,7 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!InheritsFromType(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type, systemType))
+        if (!TypeRelations.IsOrDerivesFrom(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type, systemType))
         {
             return;
         }
@@ -79,22 +76,5 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
             CorrectnessRules.RedundantGetType,
             invocation.GetLocation(),
             memberAccess.Expression.ToString()));
-    }
-
-    /// <summary>Returns whether a type is <see cref="System.Type"/> or derives from it.</summary>
-    /// <param name="candidate">The receiver's type.</param>
-    /// <param name="systemType">The resolved <see cref="System.Type"/> symbol.</param>
-    /// <returns><see langword="true"/> when the receiver is already a Type.</returns>
-    private static bool InheritsFromType(ITypeSymbol? candidate, INamedTypeSymbol systemType)
-    {
-        for (var current = candidate; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, systemType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

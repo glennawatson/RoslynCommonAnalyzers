@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -31,8 +32,29 @@ internal static class MagicNumberOptions
     /// An unset, empty or wholly unparsable option yields the default set rather than an empty one, so a
     /// typo relaxes nothing and never silently turns every literal into a diagnostic.
     /// </remarks>
-    internal static decimal[] Read(AnalyzerConfigOptions options) =>
-        !options.TryGetValue(RuleKey, out var value) && !options.TryGetValue(GeneralKey, out value) ? DefaultAllowed : Parse(value) ?? DefaultAllowed;
+    internal static decimal[] Read(AnalyzerConfigOptions options)
+    {
+        if (!AnalyzerOptionReader.TryGetValue(options, RuleKey, GeneralKey, out var value))
+        {
+            return DefaultAllowed;
+        }
+
+        var parsed = new decimal[CommaSeparatedEntries.MaxCount(value)];
+        var count = 0;
+        foreach (var entry in new CommaSeparatedEntries(value))
+        {
+            // netstandard2.0 parses decimals only from a string; materialize only an entry narrower than the value.
+            if (!decimal.TryParse(entry.Length == value.Length ? value : entry.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+            {
+                continue;
+            }
+
+            parsed[count] = number;
+            count++;
+        }
+
+        return count == 0 ? DefaultAllowed : ArrayBuffers.RightSize(parsed, count);
+    }
 
     /// <summary>Reads whether a positional capacity argument is accepted without a name.</summary>
     /// <param name="options">The analyzer config options for the literal's tree.</param>
@@ -41,15 +63,9 @@ internal static class MagicNumberOptions
     /// Off by default: the documented way to say what a capacity means is to label it, as in
     /// <c>new List&lt;int&gt;(capacity: 4)</c>, and that stays the answer unless a project asks otherwise.
     /// </remarks>
-    internal static bool ReadAllowCapacityArguments(AnalyzerConfigOptions options)
-    {
-        if (!options.TryGetValue(AllowCapacityRuleKey, out var value) && !options.TryGetValue(AllowCapacityGeneralKey, out value))
-        {
-            return false;
-        }
-
-        return bool.TryParse(value.Trim(), out var parsed) && parsed;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool ReadAllowCapacityArguments(AnalyzerConfigOptions options) =>
+        AnalyzerOptionReader.ReadFirstSetBool(options, AllowCapacityRuleKey, AllowCapacityGeneralKey);
 
     /// <summary>Returns whether a value is present in the allow-list.</summary>
     /// <param name="allowed">The allowed values.</param>
@@ -66,39 +82,5 @@ internal static class MagicNumberOptions
         }
 
         return false;
-    }
-
-    /// <summary>Parses a comma-separated list of numbers.</summary>
-    /// <param name="value">The raw option value.</param>
-    /// <returns>The parsed values, or <see langword="null"/> when none parsed.</returns>
-    private static decimal[]? Parse(string value)
-    {
-        var parts = value.Split(',');
-        var parsed = new decimal[parts.Length];
-        var count = 0;
-        for (var i = 0; i < parts.Length; i++)
-        {
-            if (!decimal.TryParse(parts[i].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
-            {
-                continue;
-            }
-
-            parsed[count] = number;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return null;
-        }
-
-        if (count == parsed.Length)
-        {
-            return parsed;
-        }
-
-        var trimmed = new decimal[count];
-        Array.Copy(parsed, trimmed, count);
-        return trimmed;
     }
 }

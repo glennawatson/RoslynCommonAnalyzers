@@ -74,35 +74,33 @@ public sealed class Sst1649FileNameAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a non-partial type declaration exists.</returns>
     private static bool TryGetFirstTypeIdentifier(SyntaxNode root, out SyntaxToken identifier)
     {
-        var state = (Found: false, Identifier: default(SyntaxToken));
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, (bool Found, SyntaxToken Identifier)>(root, ref state, VisitTypeLikeDeclaration);
-        identifier = state.Identifier;
-        return state.Found;
+        identifier = default;
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, SyntaxToken>(root, ref identifier, VisitTypeLikeDeclaration);
+        return !identifier.IsKind(SyntaxKind.None);
     }
 
-    /// <summary>Records the first type-like declaration encountered in preorder.</summary>
+    /// <summary>Records the identifier of the first type-like declaration encountered in preorder.</summary>
     /// <param name="node">The visited syntax node.</param>
-    /// <param name="state">The current search state.</param>
+    /// <param name="identifier">The first type's identifier, left unset when that type is partial.</param>
     /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
-    private static bool VisitTypeLikeDeclaration(SyntaxNode node, ref (bool Found, SyntaxToken Identifier) state)
+    private static bool VisitTypeLikeDeclaration(SyntaxNode node, ref SyntaxToken identifier)
     {
         switch (node)
         {
             case BaseTypeDeclarationSyntax type:
                 {
                     // A partial type may legitimately live in any number of files.
-                    if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword))
+                    if (!ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword))
                     {
-                        return false;
+                        identifier = type.Identifier;
                     }
 
-                    state = (true, type.Identifier);
                     return false;
                 }
 
             case DelegateDeclarationSyntax @delegate:
                 {
-                    state = (true, @delegate.Identifier);
+                    identifier = @delegate.Identifier;
                     return false;
                 }
 

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -30,8 +31,8 @@ public class ClearOverFillDefaultCodeFixBenchmarks : IDisposable
     /// <summary>The cached semantic model, which the fix needs to bind the rewritten Clear call.</summary>
     private SemanticModel _model = null!;
 
-    /// <summary>The representative Fill invocation passed to the code fix.</summary>
-    private InvocationExpressionSyntax _invocation = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -50,7 +51,7 @@ public class ClearOverFillDefaultCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _invocation = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(type, 0, static _ => true);
+        _diagnostic = Diagnostic.Create(CollectionRules.ClearOverFillDefault, CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(type, 0, static _ => true).GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -70,7 +71,7 @@ public class ClearOverFillDefaultCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ClearOverFillDefault_ApplyFixAsync()
     {
-        var updated = Psh1127ClearOverFillDefaultCodeFixProvider.Apply(_document, _root, _model, _invocation);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _model, _diagnostic, Psh1127ClearOverFillDefaultCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

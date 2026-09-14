@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,73 +12,29 @@ namespace StyleSharp.Analyzers;
 /// <summary>Reorders declaration modifiers into the canonical order (SST1206/SST1207).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ModifierOrderCodeFixProvider))]
 [Shared]
-public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class ModifierOrderCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(
+        FindReorderableNode,
+        static (current, _) => Reorder(current, ModifierOrdering.Modifiers(current)));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         OrderingRules.DeclarationKeywordOrder.Id,
         OrderingRules.ProtectedBeforeInternal.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } node || ModifierOrdering.Modifiers(node).Count < 2)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Reorder modifiers",
-                    cancellationToken => ReorderAsync(context.Document, node, cancellationToken),
-                    equivalenceKey: nameof(ModifierOrderCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } node || ModifierOrdering.Modifiers(node).Count < 2)
-        {
-            return;
-        }
-
-        // Compute the reordering lazily against the current (tracked) node so a sibling/descendant edit
-        // applied first keeps its annotations — see BatchEditFixAllProvider.
-        editor.ReplaceNode(node, (current, _) =>
-        {
-            var modifiers = ModifierOrdering.Modifiers(current);
-            var sorted = new SyntaxToken[modifiers.Count];
-            for (var i = 0; i < modifiers.Count; i++)
-            {
-                sorted[i] = modifiers[i];
-            }
-
-            Array.Sort(sorted, CompareModifiers);
-
-            var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
-            for (var index = 0; index < modifiers.Count; index++)
-            {
-                replacements[modifiers[index].SpanStart] = sorted[index]
-                    .WithLeadingTrivia(modifiers[index].LeadingTrivia)
-                    .WithTrailingTrivia(modifiers[index].TrailingTrivia);
-            }
-
-            return current.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]);
-        });
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Reorder modifiers",
+            nameof(ModifierOrderCodeFixProvider),
+            FindReorderableNode,
+            ReorderAsync);
 
     /// <summary>Reorders the node's modifiers canonically, keeping each slot's trivia.</summary>
     /// <param name="document">The document to fix.</param>
@@ -86,7 +43,29 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <returns>The updated document.</returns>
     internal static async Task<Document> ReorderAsync(Document document, SyntaxNode node, CancellationToken cancellationToken)
     {
-        var modifiers = ModifierOrdering.Modifiers(node);
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithSyntaxRoot(Reorder(root!, ModifierOrdering.Modifiers(node)));
+    }
+
+    /// <summary>Resolves a diagnostic to the node that holds the reported modifiers, when there are at least two to reorder.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The node holding the modifiers, or <see langword="null"/> when there is nothing to reorder.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxNode? FindReorderableNode(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is { } node
+            && ModifierOrdering.Modifiers(node).Count >= 2
+            ? node
+            : null;
+
+    /// <summary>Puts a modifier list into canonical order within the node that contains it.</summary>
+    /// <typeparam name="TNode">The type of the node holding the modifiers.</typeparam>
+    /// <param name="target">The node the modifiers belong to, or one of its ancestors.</param>
+    /// <param name="modifiers">The modifiers to reorder.</param>
+    /// <returns>The node with the modifiers sorted; each slot keeps the trivia it had.</returns>
+    private static TNode Reorder<TNode>(TNode target, in SyntaxTokenList modifiers)
+        where TNode : SyntaxNode
+    {
         var sorted = new SyntaxToken[modifiers.Count];
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -98,14 +77,16 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
         var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
         for (var index = 0; index < modifiers.Count; index++)
         {
-            replacements[modifiers[index].SpanStart] = sorted[index]
-                .WithLeadingTrivia(modifiers[index].LeadingTrivia)
-                .WithTrailingTrivia(modifiers[index].TrailingTrivia);
+            var token = sorted[index];
+            replacements[modifiers[index].SpanStart] = token.CopyAnnotationsTo(SyntaxFactory.Token(
+                modifiers[index].LeadingTrivia,
+                token.Kind(),
+                token.Text,
+                token.ValueText,
+                modifiers[index].TrailingTrivia));
         }
 
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var newRoot = root!.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]);
-        return document.WithSyntaxRoot(newRoot);
+        return target.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]);
     }
 
     /// <summary>Compares two modifiers by declaration rank, then access rank for ties.</summary>

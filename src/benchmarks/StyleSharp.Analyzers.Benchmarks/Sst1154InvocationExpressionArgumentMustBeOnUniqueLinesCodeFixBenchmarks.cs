@@ -39,7 +39,7 @@ public class Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixBenchm
     [Benchmark]
     public async Task<int> Sst1154InvocationExpressionArgumentMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

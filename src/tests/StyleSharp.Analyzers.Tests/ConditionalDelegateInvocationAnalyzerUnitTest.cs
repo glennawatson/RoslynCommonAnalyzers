@@ -86,6 +86,107 @@ public class ConditionalDelegateInvocationAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies supported null checks and invocation spellings report the same delegate.</summary>
+    /// <param name="condition">The null guard.</param>
+    /// <param name="body">The single invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("null != callback", "callback();")]
+    [Arguments("((callback) != (null))", "{ callback.Invoke(); }")]
+    [Arguments("callback is not null", "callback.Invoke();")]
+    public Task AlternateNullGuardsAreReportedAsync(string condition, string body) =>
+        RunAsync($$"""
+            class C
+            {
+                void M(System.Action callback)
+                {
+                    {|SST2240:if|} ({{condition}}) {{body}}
+                }
+            }
+            """);
+
+    /// <summary>Verifies near-miss conditions and bodies preserve their existing control flow.</summary>
+    /// <param name="statement">The guarded statement that cannot be simplified.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("if (callback != null) callback(); else other();")]
+    [Arguments("if (callback == null) callback();")]
+    [Arguments("if (callback != other) callback();")]
+    [Arguments("if (callback is null) callback();")]
+    [Arguments("if (callback is not System.Action) callback();")]
+    [Arguments("if (value is not 0) callback();")]
+    [Arguments("if (callback != null) { }")]
+    [Arguments("if (callback != null) { callback(); other(); }")]
+    [Arguments("if (callback != null) return;")]
+    [Arguments("if (callback != null) { return; }")]
+    [Arguments("if (callback != null) { value = 1; }")]
+    [Arguments("if (callback != null) value = 1;")]
+    [Arguments("if (callback != null) other();")]
+    [Arguments("if (callback != null) callback.ToString();")]
+    public Task UnsupportedGuardsAreCleanAsync(string statement) =>
+        RunAsync($$"""
+            class C
+            {
+                void M(System.Action callback, System.Action other, int value)
+                {
+                    {{statement}}
+                }
+            }
+            """);
+
+    /// <summary>Verifies repeated factory calls currently match by method symbol despite evaluating separately.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task RepeatedDelegateFactoryCallsAreReportedAsync() =>
+        RunAsync("""
+            class C
+            {
+                System.Action GetCallback() => () => { };
+                void M()
+                {
+                    {|SST2240:if|} (GetCallback() != null) GetCallback()();
+                }
+            }
+            """);
+
+    /// <summary>Verifies an Invoke method on a nondelegate is not treated as delegate invocation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NondelegateInvokeIsCleanAsync() =>
+        RunAsync("class C { public void Invoke() { } void M(C callback) { if (callback != null) callback.Invoke(); } }");
+
+    /// <summary>Verifies unresolved symbols and untyped method groups do not produce a diagnostic.</summary>
+    /// <param name="source">The invalid delegate guard.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C { void M() { if (missing != null) missing(); } }")]
+    [Arguments("class C { void M() { if (M != null) M(); } }")]
+    [Arguments("class C { void M() { if (System != null) System(); } }")]
+    public Task UnresolvedOrUntypedDelegateIsCleanAsync(string source) =>
+        new VerifyConditionalDelegateInvocation.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies nullable generic delegate properties retain their symbol identity.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NullableGenericDelegatePropertyIsReportedAsync() =>
+        RunAsync("""
+            #nullable enable
+            class C<T>
+            {
+                System.Action<T>? Callback { get; set; }
+                void M(T value)
+                {
+                    {|SST2240:if|} (Callback is not null) Callback.Invoke(value);
+                }
+            }
+            """);
+
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>

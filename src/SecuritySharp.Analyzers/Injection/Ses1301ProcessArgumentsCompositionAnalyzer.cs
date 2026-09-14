@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -12,29 +14,22 @@ namespace SecuritySharp.Analyzers;
 /// least one interpolation, or a <c>+</c> concatenation — that is not a compile-time constant
 /// (<see cref="SemanticModel.GetConstantValue(SyntaxNode, CancellationToken)"/> decides
 /// this precisely, so a fully constant <c>Arguments</c> string is left alone). The suggested fix is to add
-/// each argument to <c>ArgumentList</c>, which escapes each argument for the platform; the rule is resolved
-/// once per compilation by probing <c>ProcessStartInfo</c> and confirming it exposes <c>ArgumentList</c>
-/// (a .NET Core 2.1+ member). On a target framework without it (netstandard2.0, .NET Framework) nothing is
-/// registered, so a project that cannot use <c>ArgumentList</c> pays nothing and never receives a diagnostic
-/// it cannot act on.
+/// each argument to <c>ArgumentList</c>, which escapes each argument for the platform. The first syntax
+/// candidate probes <c>ProcessStartInfo</c> and confirms it exposes <c>ArgumentList</c> (a .NET Core 2.1+
+/// member), caching the result for the compilation. A project without candidates performs no metadata
+/// lookups, and a target framework without <c>ArgumentList</c> never receives a diagnostic it cannot act on.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type whose <c>Arguments</c> assignment is inspected.</summary>
-    private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
-
-    /// <summary>The metadata name of the type whose <c>Start(string, string)</c> call is inspected.</summary>
-    private const string ProcessMetadataName = "System.Diagnostics.Process";
-
-    /// <summary>The safer collection property the rule gates on, to keep its suggestion actionable.</summary>
-    private const string ArgumentListPropertyName = "ArgumentList";
-
     /// <summary>The name of the <c>ProcessStartInfo.Arguments</c> property whose assignment is inspected.</summary>
     private const string ArgumentsPropertyName = "Arguments";
 
     /// <summary>The name of the <c>arguments</c> parameter on the guarded <c>Process.Start</c> overload.</summary>
     private const string ArgumentsParameterName = "arguments";
+
+    /// <summary>The zero-based position of the <c>arguments</c> parameter on <c>Process.Start(string, string)</c>.</summary>
+    private const int ArgumentsParameterPosition = 1;
 
     /// <summary>The name of the <c>Process.Start</c> method whose arguments string is inspected.</summary>
     private const string StartMethodName = "Start";
@@ -44,6 +39,15 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
 
     /// <summary>The sink name reported for a <c>Process.Start</c> arguments string.</summary>
     private const string ProcessStartArgumentsDisplayName = "Process.Start arguments";
+
+    /// <summary>The metadata name of the type whose <c>Arguments</c> assignment is inspected.</summary>
+    private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
+
+    /// <summary>The metadata name of the type whose <c>Start(string, string)</c> call is inspected.</summary>
+    private const string ProcessMetadataName = "System.Diagnostics.Process";
+
+    /// <summary>The safer collection property the rule gates on, to keep its suggestion actionable.</summary>
+    private const string ArgumentListPropertyName = "ArgumentList";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ProcessArgumentsComposition);
@@ -57,30 +61,17 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // Gate on ProcessStartInfo.ArgumentList: without it the 'use ArgumentList' suggestion is not
-            // actionable, so the rule stays silent on netstandard2.0 / .NET Framework.
-            var processStartInfoType = start.Compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName);
-            if (processStartInfoType is null || processStartInfoType.GetMembers(ArgumentListPropertyName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, processStartInfoType), SyntaxKind.SimpleAssignmentExpression);
-
-            var processType = start.Compilation.GetTypeByMetadataName(ProcessMetadataName);
-            if (processType is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, processType), SyntaxKind.InvocationExpression);
-            }
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyCompilationValue<ProcessTypes>(compilation, ResolveProcessTypes),
+            new(AnalyzeAssignment, [SyntaxKind.SimpleAssignmentExpression]),
+            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]));
     }
 
     /// <summary>Reports SES1301 for a <c>ProcessStartInfo.Arguments</c> assignment given a non-constant composition.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="processStartInfoType">The gated <c>ProcessStartInfo</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
+    /// <param name="types">The framework types cached on first demand.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ProcessTypes> types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -92,7 +83,8 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
 
         // Bind the target: report only when it truly resolves to ProcessStartInfo.Arguments, so a
         // same-named property on an unrelated type is never flagged.
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: ArgumentsPropertyName } property
+        if (types.Get().ProcessStartInfo is not { } processStartInfoType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: ArgumentsPropertyName } property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, processStartInfoType))
         {
             return;
@@ -113,8 +105,8 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports SES1301 for a <c>Process.Start(fileName, arguments)</c> call whose arguments string is a non-constant composition.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="processType">The gated <c>Process</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processType)
+    /// <param name="types">The framework types cached on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ProcessTypes> types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -128,7 +120,8 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
         }
 
         // Bind the call: only the Process.Start(string fileName, string arguments) overload qualifies.
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: StartMethodName } method
+        if (types.Get().Process is not { } processType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: StartMethodName } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, processType)
             || !HasStringArgumentsParameter(method))
         {
@@ -148,24 +141,12 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
             ProcessStartArgumentsDisplayName));
     }
 
-    /// <summary>Returns the <c>arguments</c> argument, honouring an explicit <c>arguments:</c> name.</summary>
-    /// <param name="argumentList">The invocation's argument list (already known to hold at least two arguments).</param>
-    /// <returns>The arguments expression, or <see langword="null"/> when it cannot be identified positionally.</returns>
-    private static ExpressionSyntax? GetArgumentsArgument(ArgumentListSyntax argumentList)
-    {
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: ArgumentsParameterName })
-            {
-                return arguments[i].Expression;
-            }
-        }
-
-        // 'arguments' is the second parameter of Process.Start(string, string), so a positional second
-        // argument (no earlier argument being named, which C# guarantees) is the arguments string.
-        return arguments[1].NameColon is null ? arguments[1].Expression : null;
-    }
+    /// <summary>Returns the <c>arguments</c> argument of <c>Process.Start(string, string)</c>, honouring an explicit <c>arguments:</c> name.</summary>
+    /// <param name="argumentList">The invocation's argument list.</param>
+    /// <returns>The arguments expression, or <see langword="null"/> when it cannot be identified.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax? GetArgumentsArgument(ArgumentListSyntax argumentList) =>
+        ArgumentLookup.Find(argumentList.Arguments, ArgumentsParameterName, ArgumentsParameterPosition)?.Expression;
 
     /// <summary>Returns whether an assignment target names the <c>Arguments</c> member.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
@@ -183,27 +164,10 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
     private static bool IsCompositionShape(ExpressionSyntax expression) =>
         expression switch
         {
-            InterpolatedStringExpressionSyntax interpolated => HasInterpolation(interpolated),
+            InterpolatedStringExpressionSyntax interpolated => interpolated.Contents.Any(SyntaxKind.Interpolation),
             BinaryExpressionSyntax binary => binary.IsKind(SyntaxKind.AddExpression),
             _ => false,
         };
-
-    /// <summary>Returns whether an interpolated string contains at least one interpolation hole.</summary>
-    /// <param name="interpolated">The interpolated string expression.</param>
-    /// <returns><see langword="true"/> when at least one content item is an interpolation.</returns>
-    private static bool HasInterpolation(InterpolatedStringExpressionSyntax interpolated)
-    {
-        var contents = interpolated.Contents;
-        for (var i = 0; i < contents.Count; i++)
-        {
-            if (contents[i].IsKind(SyntaxKind.Interpolation))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a bound method is the <c>Start(string fileName, string arguments)</c> overload.</summary>
     /// <param name="method">The bound <c>Start</c> method.</param>
@@ -220,4 +184,21 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
         return second.Type.SpecialType == SpecialType.System_String
             && string.Equals(second.Name, ArgumentsParameterName, StringComparison.Ordinal);
     }
+
+    /// <summary>Resolves the framework types only when the ArgumentList replacement is available.</summary>
+    /// <param name="compilation">The compilation whose framework types are probed.</param>
+    /// <returns>The framework probe, with both types null when ArgumentList is unavailable.</returns>
+    private static ProcessTypes ResolveProcessTypes(Compilation compilation)
+    {
+        // Without ArgumentList the suggestion is not actionable on older frameworks.
+        var startInfo = compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName);
+        return startInfo is null || startInfo.GetMembers(ArgumentListPropertyName).IsEmpty
+            ? new ProcessTypes(null, null)
+            : new ProcessTypes(startInfo, compilation.GetTypeByMetadataName(ProcessMetadataName));
+    }
+
+    /// <summary>The framework types gated together on ArgumentList availability.</summary>
+    /// <param name="ProcessStartInfo">The start-info type, or null when ArgumentList is unavailable.</param>
+    /// <param name="Process">The process type, or null when it or ArgumentList is unavailable.</param>
+    private sealed record ProcessTypes(INamedTypeSymbol? ProcessStartInfo, INamedTypeSymbol? Process);
 }

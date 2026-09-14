@@ -33,6 +33,42 @@ public class EnumerableInvocationHelperUnitTest
         }
         """;
 
+    /// <summary>The unreduced arity of a LINQ operator taking its source and one more argument.</summary>
+    private const int SourceAndArgumentArity = 2;
+
+    /// <summary>Verifies only extension-form calls declared on the resolved type match, and the arity overloads filter on the unreduced parameter count.</summary>
+    /// <param name="call">A call on the <c>list</c> parameter.</param>
+    /// <param name="reduced">Whether the call is a reduced extension declared on <c>Enumerable</c>.</param>
+    /// <param name="sourceOnly">Whether that extension takes only its source.</param>
+    /// <param name="twoParameters">Whether that extension takes its source and one more argument.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("list.First()", true, true, false)]
+    [Arguments("list.ElementAt(0)", true, false, true)]
+    [Arguments("list.First(x => x > 0)", true, false, true)]
+    [Arguments("Enumerable.First(list)", false, false, false)]
+    [Arguments("list.Contains(1)", false, false, false)]
+    [Arguments("list.Largest()", false, false, false)]
+    [Arguments("list.Missing()", false, false, false)]
+    public async Task ReducedExtensionMustBeDeclaredOnTheResolvedTypeAsync(string call, bool reduced, bool sourceOnly, bool twoParameters)
+    {
+        var compilation = Compile(
+            $$"""
+            using System.Collections.Generic;
+            using System.Linq;
+            static class Extensions { public static int Largest(this IEnumerable<int> source) => 0; }
+            class C { object M(List<int> list) => {{call}}; }
+            """);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = (await tree.GetRootAsync()).DescendantNodes().OfType<InvocationExpressionSyntax>().First();
+        var enumerable = compilation.GetTypeByMetadataName("System.Linq.Enumerable")!;
+
+        await Assert.That(EnumerableInvocationHelper.IsReducedExtensionOn(model, invocation, enumerable, CancellationToken.None)).IsEqualTo(reduced);
+        await Assert.That(EnumerableInvocationHelper.IsSourceOnlyExtensionOn(model, invocation, enumerable, CancellationToken.None)).IsEqualTo(sourceOnly);
+        await Assert.That(EnumerableInvocationHelper.IsReducedExtensionOn(model, invocation, enumerable, SourceAndArgumentArity, CancellationToken.None)).IsEqualTo(twoParameters);
+    }
+
     /// <summary>Verifies the Enumerable type is recognized and other types are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

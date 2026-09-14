@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -43,6 +45,13 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.SeedCollectionFromSource);
 
+    /// <summary>The metadata names CollectionTypes resolves, in slot order.</summary>
+    private static readonly string[] CollectionTypesMetadataNames =
+    [
+        ListMetadataName,
+        HashSetMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -52,17 +61,11 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var listType = start.Compilation.GetTypeByMetadataName(ListMetadataName);
-            var hashSetType = start.Compilation.GetTypeByMetadataName(HashSetMetadataName);
-            if (listType is null || hashSetType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, listType, hashSetType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, CollectionTypesMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>
@@ -135,27 +138,27 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <param name="source">The bulk-add source expression.</param>
     /// <param name="receiverName">The receiver local's name.</param>
     /// <returns><see langword="true"/> when the local appears inside the source.</returns>
-    private static bool SourceMentionsReceiver(ExpressionSyntax source, string receiverName)
-    {
-        foreach (var token in source.DescendantTokens())
-        {
-            if (token.IsKind(SyntaxKind.IdentifierToken) && token.ValueText == receiverName)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SourceMentionsReceiver(ExpressionSyntax source, string receiverName) =>
+        !DescendantTraversalHelper.VisitDescendantTokens(
+            source,
+            ref receiverName,
+            static (in SyntaxToken token, ref string name) =>
+                !token.IsKind(SyntaxKind.IdentifierToken) || token.ValueText != name);
 
     /// <summary>Reports PSH1112 for a bulk add into a just-created empty list or set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="listType">The list type definition.</param>
-    /// <param name="hashSetType">The hash set type definition.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol listType, INamedTypeSymbol hashSetType)
+    /// <param name="types">The collection definitions resolved only after a syntax match.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetSeedShape(invocation, out var declaration, out var creation))
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } listType || resolved[1] is not { } hashSetType)
         {
             return;
         }

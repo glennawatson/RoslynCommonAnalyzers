@@ -15,22 +15,29 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2248UseComparisonPatternCodeFixProvider))]
 [Shared]
-public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UseComparisonPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Combine these comparisons into an is-pattern", nameof(Sst2248UseComparisonPatternCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Combine these comparisons into an is-pattern", nameof(Sst2248UseComparisonPatternCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is BinaryExpressionSyntax binary
+            && Sst2248UseComparisonPatternAnalyzer.TryGetComparisonMerge(binary, model, out var _);
 
     /// <summary>Resolves the reported combination and builds its is-pattern replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -59,13 +66,13 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
             merge.IsConjunction ? SyntaxKind.AndPattern : SyntaxKind.OrPattern,
             BuildPattern(merge.LeftOperator, merge.LeftConstant),
             Keyword(merge.IsConjunction ? SyntaxKind.AndKeyword : SyntaxKind.OrKeyword),
-            BuildPattern(merge.RightOperator, merge.RightConstant));
+            BuildPattern(merge.RightOperator, merge.RightConstant).WithTrailingTrivia(original.GetTrailingTrivia()));
 
+        var subject = (IdentifierNameSyntax)merge.Subject;
         return SyntaxFactory.IsPatternExpression(
-                merge.Subject.WithoutTrivia(),
-                Keyword(SyntaxKind.IsKeyword),
-                pattern)
-            .WithTriviaFrom(original);
+            subject.Update(subject.Identifier.WithLeadingTrivia(original.GetLeadingTrivia()).WithTrailingTrivia(default(SyntaxTriviaList))),
+            Keyword(SyntaxKind.IsKeyword),
+            pattern);
     }
 
     /// <summary>Builds one comparison's pattern: a constant pattern for equality, else a relational pattern.</summary>

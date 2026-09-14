@@ -14,31 +14,51 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2245UseWhileOverForCodeFixProvider))]
 [Shared]
-public sealed class Sst2245UseWhileOverForCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2245UseWhileOverForCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UseWhileOverFor.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Rewrite the loop as a while loop", nameof(Sst2245UseWhileOverForCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Rewrite the loop as a while loop", nameof(Sst2245UseWhileOverForCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
+    /// <summary>Builds the <c>while</c> loop replacing a condition-only <c>for</c> loop.</summary>
+    /// <param name="statement">The reported loop; callers must have validated the shape.</param>
+    /// <returns>The rewritten loop.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    internal static WhileStatementSyntax Rewrite(ForStatementSyntax statement) =>
+        SyntaxFactory.WhileStatement(
+            statement.AttributeLists,
+            SyntaxFactory.Token(statement.ForKeyword.LeadingTrivia, SyntaxKind.WhileKeyword, statement.ForKeyword.TrailingTrivia),
+            statement.OpenParenToken,
+            statement.Condition!,
+            statement.CloseParenToken,
+            statement.Statement);
 
-    /// <summary>Replaces one reported loop with its <c>while</c> form.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="statement">The reported loop.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, ForStatementSyntax statement) =>
-        document.WithSyntaxRoot(root.ReplaceNode(statement, Rewrite(statement)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current is ForStatementSyntax statement)
+            {
+                return Sst2245UseWhileOverForAnalyzer.IsConditionOnlyLoop(statement);
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the reported loop and builds its <c>while</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -67,17 +87,4 @@ public sealed class Sst2245UseWhileOverForCodeFixProvider : CodeFixProvider, IBa
         current is ForStatementSyntax statement && Sst2245UseWhileOverForAnalyzer.IsConditionOnlyLoop(statement)
             ? Rewrite(statement)
             : current;
-
-    /// <summary>Builds the <c>while</c> loop replacing a condition-only <c>for</c> loop.</summary>
-    /// <param name="statement">The reported loop; callers must have validated the shape.</param>
-    /// <returns>The rewritten loop.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static WhileStatementSyntax Rewrite(ForStatementSyntax statement) =>
-        SyntaxFactory.WhileStatement(
-            statement.AttributeLists,
-            SyntaxFactory.Token(statement.ForKeyword.LeadingTrivia, SyntaxKind.WhileKeyword, statement.ForKeyword.TrailingTrivia),
-            statement.OpenParenToken,
-            statement.Condition!,
-            statement.CloseParenToken,
-            statement.Statement);
 }

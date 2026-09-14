@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports enum switches that omit named enum values and do not provide a catch-all case.</summary>
@@ -90,7 +92,7 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeSwitchStatement(SyntaxNodeAnalysisContext context)
     {
         var switchStatement = (SwitchStatementSyntax)context.Node;
-        if (HasDefaultLabel(switchStatement)
+        if (SwitchLabels.AnySectionHasDefault(switchStatement.Sections)
             || !TryGetEnumType(switchStatement.Expression, context.SemanticModel, context.CancellationToken, out var enumType))
         {
             return;
@@ -184,43 +186,12 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Returns whether the switch statement has a default label.</summary>
-    /// <param name="switchStatement">The switch statement.</param>
-    /// <returns><see langword="true"/> when a default label exists.</returns>
-    private static bool HasDefaultLabel(SwitchStatementSyntax switchStatement)
-    {
-        var sections = switchStatement.Sections;
-        for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
-        {
-            var labels = sections[sectionIndex].Labels;
-            for (var labelIndex = 0; labelIndex < labels.Count; labelIndex++)
-            {
-                if (labels[labelIndex].IsKind(SyntaxKind.DefaultSwitchLabel))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether the switch expression has a discard arm.</summary>
     /// <param name="switchExpression">The switch expression.</param>
     /// <returns><see langword="true"/> when a discard pattern exists.</returns>
-    private static bool HasDiscardArm(SwitchExpressionSyntax switchExpression)
-    {
-        var arms = switchExpression.Arms;
-        for (var i = 0; i < arms.Count; i++)
-        {
-            if (arms[i].Pattern.IsKind(SyntaxKind.DiscardPattern))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasDiscardArm(SwitchExpressionSyntax switchExpression) =>
+        ListScan.Any(switchExpression.Arms, static arm => arm.Pattern.IsKind(SyntaxKind.DiscardPattern));
 
     /// <summary>Returns whether a switch expression already covers an enum value.</summary>
     /// <param name="field">The enum value field.</param>
@@ -237,8 +208,23 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         var arms = switchExpression.Arms;
         for (var i = 0; i < arms.Count; i++)
         {
-            if (arms[i].Pattern is ConstantPatternSyntax constantPattern
-                && SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(constantPattern.Expression, cancellationToken).Symbol))
+            if (arms[i].Pattern is not ConstantPatternSyntax constantPattern)
+            {
+                continue;
+            }
+
+            var name = constantPattern.Expression switch
+            {
+                SimpleNameSyntax simple => simple.Identifier.ValueText,
+                MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
+                _ => null,
+            };
+            if (name is not null && name != field.Name)
+            {
+                continue;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(constantPattern.Expression, cancellationToken).Symbol))
             {
                 return true;
             }
@@ -254,12 +240,13 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     /// <param name="position">The position the label is written at.</param>
     private static void AppendMember(ref System.Text.StringBuilder? builder, IFieldSymbol field, SemanticModel model, int position)
     {
-        builder ??= new System.Text.StringBuilder();
+        var memberName = EnumSwitchCoverage.NameFor(field, model, position);
+        builder ??= new System.Text.StringBuilder(memberName.Length);
         if (builder.Length > 0)
         {
             _ = builder.Append(MissingMembersSeparator);
         }
 
-        _ = builder.Append(EnumSwitchCoverage.NameFor(field, model, position));
+        _ = builder.Append(memberName);
     }
 }

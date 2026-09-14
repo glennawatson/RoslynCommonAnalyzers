@@ -142,6 +142,15 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the caller-argument-expression attribute (.NET 6+).</summary>
         private const string CallerArgumentExpressionMetadataName = "System.Runtime.CompilerServices.CallerArgumentExpressionAttribute";
 
+        /// <summary>The metadata names of every caller-info attribute, in resolution order.</summary>
+        private static readonly string[] MetadataNames =
+        [
+            CallerMemberNameMetadataName,
+            CallerFilePathMetadataName,
+            CallerLineNumberMetadataName,
+            CallerArgumentExpressionMetadataName,
+        ];
+
         /// <summary>The resolved caller-info attribute symbols; the array is never empty.</summary>
         private readonly INamedTypeSymbol[] _attributes;
 
@@ -154,20 +163,8 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
         /// <returns>The resolved set, or <see langword="null"/> when none of the attributes exist.</returns>
         public static CallerInfoAttributeSet? Resolve(Compilation compilation)
         {
-            var buffer = new INamedTypeSymbol[4];
-            var count = 0;
-            Add(compilation, CallerMemberNameMetadataName, buffer, ref count);
-            Add(compilation, CallerFilePathMetadataName, buffer, ref count);
-            Add(compilation, CallerLineNumberMetadataName, buffer, ref count);
-            Add(compilation, CallerArgumentExpressionMetadataName, buffer, ref count);
-            if (count == 0)
-            {
-                return null;
-            }
-
-            var resolved = new INamedTypeSymbol[count];
-            Array.Copy(buffer, resolved, count);
-            return new(resolved);
+            var resolved = MetadataTypeLookup.ResolveAll(compilation, MetadataNames);
+            return resolved.Length == 0 ? null : new(resolved);
         }
 
         /// <summary>Returns whether a parameter carries one of the resolved caller-info attributes.</summary>
@@ -178,39 +175,7 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
             var parameterAttributes = parameter.GetAttributes();
             for (var i = 0; i < parameterAttributes.Length; i++)
             {
-                if (IsCallerInfoAttribute(parameterAttributes[i].AttributeClass))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>Appends a resolvable attribute symbol to the buffer.</summary>
-        /// <param name="compilation">The analyzed compilation.</param>
-        /// <param name="metadataName">The attribute's metadata name.</param>
-        /// <param name="buffer">The buffer receiving resolved symbols.</param>
-        /// <param name="count">The running count of resolved symbols.</param>
-        private static void Add(Compilation compilation, string metadataName, INamedTypeSymbol[] buffer, ref int count)
-        {
-            if (compilation.GetTypeByMetadataName(metadataName) is not { } symbol)
-            {
-                return;
-            }
-
-            buffer[count] = symbol;
-            count++;
-        }
-
-        /// <summary>Returns whether an attribute class is one of the resolved caller-info attributes.</summary>
-        /// <param name="attributeClass">The bound attribute class, if any.</param>
-        /// <returns><see langword="true"/> when the attribute is caller-info.</returns>
-        private bool IsCallerInfoAttribute(INamedTypeSymbol? attributeClass)
-        {
-            for (var i = 0; i < _attributes.Length; i++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(attributeClass, _attributes[i]))
+                if (TypeRelations.IsOneOf(parameterAttributes[i].AttributeClass, _attributes))
                 {
                     return true;
                 }

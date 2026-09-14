@@ -118,10 +118,10 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static string NegatedText(ExpressionSyntax condition)
     {
-        var inner = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        var inner = ExpressionShapes.WalkDownParentheses(condition);
         if (inner is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation)
         {
-            return ExpressionSimplificationAnalyzer.Unwrap(negation.Operand).WithoutTrivia().ToString();
+            return ExpressionShapes.WalkDownParentheses(negation.Operand).WithoutTrivia().ToString();
         }
 
         if (condition.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })

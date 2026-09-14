@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,38 +12,26 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider))]
 [Shared]
-public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UppercaseLiteralSuffix.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Upper-case the literal suffix", nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces one reported literal with its upper-cased form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="literal">The reported literal.</param>
-    /// <returns>The updated document, or the original document when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, LiteralExpressionSyntax literal) =>
-        Rewrite(literal) is { } replacement
-            ? document.WithSyntaxRoot(root.ReplaceNode(literal, replacement))
-            : document;
+        ReplaceNodeCodeFix.RegisterAsync(context, "Upper-case the literal suffix", nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Resolves the reported literal and builds its upper-cased replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not LiteralExpressionSyntax literal)
         {
@@ -55,10 +41,19 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
         return Rewrite(literal) is { } replacement ? new NodeReplacement(literal, replacement) : null;
     }
 
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.NumericLiteralExpression)
+            && Sst2244UppercaseLiteralSuffixAnalyzer.TryGetLowercaseSuffix(literal.Token.Text, out _);
+
     /// <summary>Builds the literal with its suffix upper-cased and its digits untouched.</summary>
     /// <param name="literal">The reported literal.</param>
     /// <returns>The rewritten literal carrying the original trivia, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static ExpressionSyntax? Rewrite(LiteralExpressionSyntax literal)
+    private static LiteralExpressionSyntax? Rewrite(LiteralExpressionSyntax literal)
     {
         var text = literal.Token.Text;
         if (!literal.IsKind(SyntaxKind.NumericLiteralExpression)
@@ -67,7 +62,14 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
             return null;
         }
 
-        var upperCased = text[0..(0 + suffixStart)] + text[suffixStart..].ToUpperInvariant();
-        return SyntaxFactory.ParseExpression(upperCased).WithTriviaFrom(literal);
+        var characters = text.ToCharArray();
+        for (var index = suffixStart; index < characters.Length; index++)
+        {
+            characters[index] = char.ToUpperInvariant(characters[index]);
+        }
+
+        var upperCased = new string(characters);
+        var token = SyntaxFactory.ParseToken(upperCased).WithTriviaFrom(literal.Token);
+        return SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, token);
     }
 }

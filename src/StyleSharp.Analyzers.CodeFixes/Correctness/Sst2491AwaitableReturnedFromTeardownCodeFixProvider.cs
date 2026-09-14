@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -16,14 +15,17 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2491AwaitableReturnedFromTeardownCodeFixProvider))]
 [Shared]
-public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix, IBatchEditKeyProvider
+public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite, TryGetBatchEditSpan);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(CorrectnessRules.AwaitableReturnedFromTeardown.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -31,19 +33,52 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
             context,
             "Make the method 'async' and await the call",
             nameof(Sst2491AwaitableReturnedFromTeardownCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <inheritdoc/>
-    bool IBatchEditKeyProvider.TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
+    /// <summary>Resolves the span one diagnostic's edit replaces.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to inspect.</param>
+    /// <param name="span">The span that identifies the edit target.</param>
+    /// <returns><see langword="true"/> when an edit target resolves.</returns>
+    internal static bool TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
     {
         var function = FindFixableFunction(root, diagnostic);
         span = function?.Span ?? default;
         return function is not null;
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (FindFixableFunction(root, diagnostic)is not { } function
+            || Decompose(function)is not (var modifiers, { } body)
+            || modifiers.Any(SyntaxKind.AsyncKeyword))
+        {
+            return false;
+        }
+
+        var returns = new List<ReturnStatementSyntax>(capacity: 4);
+        CollectOwnedReturns(body, returns);
+        if (returns.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < returns.Count; i++)
+        {
+            if (SyntaxAncestry.HasAncestorBefore<LockStatementSyntax>(returns[i], function))
+            {
+                return false;
+            }
+        }
+
+        return model.GetDeclaredSymbol(function)is IMethodSymbol method
+            && method.ReturnType is INamedTypeSymbol;
     }
 
     /// <summary>Resolves the reported return to its function and builds the async replacement.</summary>
@@ -60,7 +95,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
             return null;
         }
 
-        var returns = new List<ReturnStatementSyntax>();
+        var returns = new List<ReturnStatementSyntax>(capacity: 4);
         CollectOwnedReturns(body, returns);
         if (returns.Count == 0)
         {
@@ -69,7 +104,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
 
         for (var i = 0; i < returns.Count; i++)
         {
-            if (IsInsideLock(returns[i], function))
+            if (SyntaxAncestry.HasAncestorBefore<LockStatementSyntax>(returns[i], function))
             {
                 return null;
             }
@@ -115,11 +150,11 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
     /// <summary>Reads the modifiers and block body of a method or local function.</summary>
     /// <param name="function">The function node.</param>
     /// <returns>The modifiers and block body; the body is <see langword="null"/> when the function is expression-bodied.</returns>
-    private static (SyntaxTokenList Modifiers, BlockSyntax? Body) Decompose(SyntaxNode function) => function switch
+    private static FunctionParts Decompose(SyntaxNode function) => function switch
     {
-        MethodDeclarationSyntax method => (method.Modifiers, method.Body),
-        LocalFunctionStatementSyntax localFunction => (localFunction.Modifiers, localFunction.Body),
-        _ => (default, null),
+        MethodDeclarationSyntax method => new(method.Modifiers, method.Body),
+        LocalFunctionStatementSyntax localFunction => new(localFunction.Modifiers, localFunction.Body),
+        _ => new(default, null),
     };
 
     /// <summary>Collects the returns owned by a function's body, not descending into nested functions.</summary>
@@ -144,23 +179,6 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
         }
     }
 
-    /// <summary>Returns whether a return sits inside a <c>lock</c> body within its function.</summary>
-    /// <param name="returnStatement">The return statement.</param>
-    /// <param name="function">The owning function.</param>
-    /// <returns><see langword="true"/> when awaiting the return would not compile.</returns>
-    private static bool IsInsideLock(ReturnStatementSyntax returnStatement, SyntaxNode function)
-    {
-        for (var node = returnStatement.Parent; node is not null && node != function; node = node.Parent)
-        {
-            if (node is LockStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Rewrites one return so its task is awaited.</summary>
     /// <param name="returnStatement">The return to rewrite.</param>
     /// <param name="producesValue">Whether the method returns a generic task and the awaited value is returned.</param>
@@ -178,7 +196,10 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
 
         var awaitStatement = SyntaxFactory.ExpressionStatement(awaited);
         var bareReturn = SyntaxFactory.ReturnStatement();
-        return SyntaxFactory.Block(awaitStatement, bareReturn).WithLeadingTrivia(returnStatement.GetLeadingTrivia());
+        return SyntaxFactory.Block(
+            SyntaxFactory.Token(returnStatement.GetLeadingTrivia(), SyntaxKind.OpenBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.List<StatementSyntax>([awaitStatement, bareReturn]),
+            SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
     }
 
     /// <summary>Rebuilds a function node with the <c>async</c> modifier and a rewritten body.</summary>
@@ -190,29 +211,49 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
         if (function is MethodDeclarationSyntax method)
         {
             var (modifiers, returnType) = WithAsyncModifier(method.Modifiers, method.ReturnType);
-            return method.WithModifiers(modifiers).WithReturnType(returnType).WithBody(body);
+            return method.Update(
+                method.AttributeLists,
+                modifiers,
+                returnType,
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                method.TypeParameterList,
+                method.ParameterList,
+                method.ConstraintClauses,
+                body,
+                method.ExpressionBody,
+                method.SemicolonToken);
         }
 
         var localFunction = (LocalFunctionStatementSyntax)function;
         var (localModifiers, localReturnType) = WithAsyncModifier(localFunction.Modifiers, localFunction.ReturnType);
-        return localFunction.WithModifiers(localModifiers).WithReturnType(localReturnType).WithBody(body);
+        return localFunction.Update(
+            localFunction.AttributeLists,
+            localModifiers,
+            localReturnType,
+            localFunction.Identifier,
+            localFunction.TypeParameterList,
+            localFunction.ParameterList,
+            localFunction.ConstraintClauses,
+            body,
+            localFunction.ExpressionBody,
+            localFunction.SemicolonToken);
     }
 
     /// <summary>Adds the <c>async</c> modifier immediately before the return type, carrying trivia across.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <param name="returnType">The declaration's return type.</param>
     /// <returns>The modifiers with async, and the return type adjusted when it led the declaration.</returns>
-    private static (SyntaxTokenList Modifiers, TypeSyntax ReturnType) WithAsyncModifier(in SyntaxTokenList modifiers, TypeSyntax returnType)
+    private static AsyncSignature WithAsyncModifier(in SyntaxTokenList modifiers, TypeSyntax returnType)
     {
-        var asyncToken = SyntaxFactory.Token(SyntaxKind.AsyncKeyword);
         if (modifiers.Count == 0)
         {
-            var leading = asyncToken.WithLeadingTrivia(returnType.GetLeadingTrivia()).WithTrailingTrivia(SyntaxFactory.Space);
-            return (SyntaxFactory.TokenList(leading), returnType.WithLeadingTrivia());
+            var leading = SyntaxFactory.Token(returnType.GetLeadingTrivia(), SyntaxKind.AsyncKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+            return new(SyntaxFactory.TokenList(leading), returnType.WithLeadingTrivia());
         }
 
         var last = modifiers[modifiers.Count - 1];
-        var placed = asyncToken.WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(last.TrailingTrivia);
-        return (modifiers.Replace(last, last.WithTrailingTrivia()).Add(placed), returnType);
+        var placed = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.AsyncKeyword, last.TrailingTrivia);
+        return new(modifiers.Replace(last, last.WithTrailingTrivia()).Add(placed), returnType);
     }
 }

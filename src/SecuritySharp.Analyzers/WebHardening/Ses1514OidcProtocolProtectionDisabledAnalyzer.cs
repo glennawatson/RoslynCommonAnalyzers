@@ -13,8 +13,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectProtocolValidator</c> (reached through
 /// <c>OpenIdConnectOptions.ProtocolValidator</c>; disables the state or nonce check). Each protection defends the login
 /// against cross-site request forgery or token replay, so turning one off is a downgrade. The options type is probed
-/// once per compilation and gates the whole rule; the validator flags additionally require the validator type to
-/// resolve, so a project without OpenID Connect authentication registers nothing and never receives a diagnostic it
+/// only for a candidate assignment and gates the whole rule; the validator flags additionally require the validator
+/// type to resolve, so a project without OpenID Connect authentication never receives a diagnostic it
 /// cannot act on. The issuer/audience/lifetime and signature flags on <c>TokenValidationParameters</c> are a separate
 /// concern and are not reported here.
 /// </summary>
@@ -39,6 +39,9 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <summary>The metadata name of the validator type that carries the state and nonce flags.</summary>
     private const string OpenIdConnectProtocolValidatorMetadataName = "Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectProtocolValidator";
 
+    /// <summary>The options and validator metadata names, in slot order.</summary>
+    private static readonly string[] OidcMetadataNames = [OpenIdConnectOptionsMetadataName, OpenIdConnectProtocolValidatorMetadataName];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.OidcProtocolProtectionDisabled);
 
@@ -51,35 +54,30 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var optionsType = start.Compilation.GetTypeByMetadataName(OpenIdConnectOptionsMetadataName);
-            if (optionsType is null)
-            {
-                return;
-            }
-
-            // The state and nonce flags belong to the protocol validator, which an application reaches through the
-            // options' ProtocolValidator member and which ships in its own assembly. When that validator type is
-            // absent the state and nonce flags simply never match, while the PKCE flag stays guarded.
-            var validatorType = start.Compilation.GetTypeByMetadataName(OpenIdConnectProtocolValidatorMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, optionsType, validatorType), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, OidcMetadataNames),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1514 for a protocol-protection flag set to <c>false</c> on a gated type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The gated <c>OpenIdConnectOptions</c> type resolved for the compilation.</param>
-    /// <param name="validatorType">The gated <c>OpenIdConnectProtocolValidator</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType, INamedTypeSymbol? validatorType)
+    /// <param name="types">The compilation-scoped OpenID Connect type cache.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '<expr>.UsePkce = false' / '...RequireState = false' etc., or the object-initializer
         // member forms. Both bind the left member to the guarded property below.
         if (!assignment.Right.IsKind(SyntaxKind.FalseLiteralExpression)
-            || !IsProtectionFlagTarget(assignment.Left))
+            || SyntaxNames.GetMemberName(assignment.Left) is not { } name
+            || !IsProtectionFlag(name))
+        {
+            return;
+        }
+
+        if (types.Get() is not [{ } optionsType, var validatorType])
         {
             return;
         }
@@ -90,7 +88,9 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
         }
 
         // UsePkce lives on the options type; the three Require* flags live on the validator type.
-        var expectedType = property.Name == UsePkcePropertyName ? optionsType : validatorType;
+        var expectedType = property.Name == UsePkcePropertyName
+            ? optionsType
+            : validatorType;
         if (!SymbolEqualityComparer.Default.Equals(property.ContainingType, expectedType))
         {
             return;
@@ -103,21 +103,6 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
             property.ContainingType.Name,
             property.Name));
     }
-
-    /// <summary>Returns whether an assignment target syntactically names one of the four protection flags.</summary>
-    /// <param name="left">The assignment's left-hand expression.</param>
-    /// <returns><see langword="true"/> for a member access or bare initializer member naming a guarded flag.</returns>
-    private static bool IsProtectionFlagTarget(ExpressionSyntax left) =>
-        left switch
-        {
-            // 'options.UsePkce = false' / 'options.ProtocolValidator.RequireState = false'.
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } => IsProtectionFlag(name),
-
-            // 'new OpenIdConnectOptions { UsePkce = false }' (object-initializer member).
-            IdentifierNameSyntax { Identifier.ValueText: var name } => IsProtectionFlag(name),
-
-            _ => false,
-        };
 
     /// <summary>Returns whether a member name is one of the four guarded protocol-protection flags.</summary>
     /// <param name="name">The member name to test.</param>

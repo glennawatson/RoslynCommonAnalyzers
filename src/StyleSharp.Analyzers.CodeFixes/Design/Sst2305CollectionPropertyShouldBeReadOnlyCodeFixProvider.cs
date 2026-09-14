@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,13 +12,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider))]
 [Shared]
-public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DesignRules.CollectionPropertyShouldBeReadOnly.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -28,31 +29,26 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : C
             context,
             "Remove the setter",
             nameof(Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Removes the setter from one reported property.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="property">The reported property.</param>
-    /// <returns>The updated document, or the original when the property no longer qualifies.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, PropertyDeclarationSyntax property) =>
-        RemoveSetter(property) is { } updated
-            ? document.WithSyntaxRoot(root.ReplaceNode(property, updated))
-            : document;
 
     /// <summary>Resolves the reported property and builds the get-only replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not PropertyDeclarationSyntax property
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not PropertyDeclarationSyntax property
             || RemoveSetter(property) is not { } updated
         ? null
         : new NodeReplacement(property, updated);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is PropertyDeclarationSyntax property
+            && Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property)is not null
+            && property.AccessorList is not null;
 
     /// <summary>Builds the property without its setter.</summary>
     /// <param name="property">The reported property.</param>

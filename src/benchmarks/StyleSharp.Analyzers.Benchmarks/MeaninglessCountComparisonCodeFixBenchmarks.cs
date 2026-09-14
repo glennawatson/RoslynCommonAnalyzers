@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -30,8 +31,8 @@ public class MeaninglessCountComparisonCodeFixBenchmarks : IDisposable
     /// <summary>The representative decided comparison passed to the code fix.</summary>
     private BinaryExpressionSyntax _comparison = null!;
 
-    /// <summary>The constant the representative comparison folds to.</summary>
-    private bool _result;
+    /// <summary>The diagnostic reported on the representative comparison.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -54,7 +55,7 @@ public class MeaninglessCountComparisonCodeFixBenchmarks : IDisposable
             _root,
             Nodes / MiddleNodeDivisor,
             static binary => Sst1479MeaninglessCountComparisonAnalyzer.TryGetConstantResult(binary, out _));
-        _result = Sst1479MeaninglessCountComparisonAnalyzer.TryGetConstantResult(_comparison, out var folded) && folded;
+        _diagnostic = Diagnostic.Create(MaintainabilityRules.MeaninglessCountComparison, _comparison.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -74,7 +75,7 @@ public class MeaninglessCountComparisonCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> MeaninglessCountComparison_ApplyFixAsync()
     {
-        var updated = Sst1479MeaninglessCountComparisonCodeFixProvider.Apply(_document, _root, _comparison, _result);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst1479MeaninglessCountComparisonCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

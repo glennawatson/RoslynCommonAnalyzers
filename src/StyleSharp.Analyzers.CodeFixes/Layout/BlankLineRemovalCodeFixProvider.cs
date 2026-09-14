@@ -15,8 +15,11 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(BlankLineRemovalCodeFixProvider))]
 [Shared]
-public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.OpenBraceNotFollowedByBlankLine.Id,
@@ -24,27 +27,23 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider, ITextChan
         LayoutRules.OpenBraceNotPrecededByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var after = diagnostic.Id == LayoutRules.OpenBraceNotFollowedByBlankLine.Id;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove blank line",
-                    cancellationToken => RemoveBlankLinesAsync(context.Document, diagnostic.Location.SourceSpan, after, cancellationToken),
-                    equivalenceKey: nameof(BlankLineRemovalCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove blank line",
+            nameof(BlankLineRemovalCodeFixProvider),
+            static (document, diagnostic, cancellationToken) =>
+                RemoveBlankLinesAsync(document, diagnostic.Location.SourceSpan, diagnostic.Id == LayoutRules.OpenBraceNotFollowedByBlankLine.Id, cancellationToken));
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         var after = diagnostic.Id == LayoutRules.OpenBraceNotFollowedByBlankLine.Id;
         if (!TryBuildChange(text, diagnostic.Location.SourceSpan, after, out var change))

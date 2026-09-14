@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -112,12 +114,22 @@ public sealed class Sst2437RecursiveGenericInheritanceAnalyzer : DiagnosticAnaly
     /// <param name="name">The declaring type's simple name.</param>
     /// <param name="arity">The declaring type's generic arity.</param>
     /// <returns><see langword="true"/> when any argument nests the declaring type inside its own arguments.</returns>
-    private static bool ScanTypeArguments(TypeArgumentListSyntax arguments, string name, int arity)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ScanTypeArguments(TypeArgumentListSyntax arguments, string name, int arity) =>
+        AnyTypeArgument(arguments, name, arity, NestsSelfInsideOwnArguments);
+
+    /// <summary>Returns whether any type argument satisfies a test against the declaring type.</summary>
+    /// <param name="arguments">The type-argument list to scan.</param>
+    /// <param name="name">The declaring type's simple name.</param>
+    /// <param name="arity">The declaring type's generic arity.</param>
+    /// <param name="matches">The test applied to each argument with the declaring type's name and arity.</param>
+    /// <returns><see langword="true"/> when an argument matches.</returns>
+    private static bool AnyTypeArgument(TypeArgumentListSyntax arguments, string name, int arity, Func<SyntaxNode?, string, int, bool> matches)
     {
         var list = arguments.Arguments;
         for (var i = 0; i < list.Count; i++)
         {
-            if (NestsSelfInsideOwnArguments(list[i], name, arity))
+            if (matches(list[i], name, arity))
             {
                 return true;
             }
@@ -131,19 +143,9 @@ public sealed class Sst2437RecursiveGenericInheritanceAnalyzer : DiagnosticAnaly
     /// <param name="name">The declaring type's simple name.</param>
     /// <param name="arity">The declaring type's generic arity.</param>
     /// <returns><see langword="true"/> when the declaring type appears anywhere inside.</returns>
-    private static bool ContainsDeclaringReference(TypeArgumentListSyntax arguments, string name, int arity)
-    {
-        var list = arguments.Arguments;
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (ContainsDeclaringReference(list[i], name, arity))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ContainsDeclaringReference(TypeArgumentListSyntax arguments, string name, int arity) =>
+        AnyTypeArgument(arguments, name, arity, ContainsDeclaringReference);
 
     /// <summary>Returns whether a type subtree contains any reference to the declaring type.</summary>
     /// <param name="node">The type syntax to search.</param>

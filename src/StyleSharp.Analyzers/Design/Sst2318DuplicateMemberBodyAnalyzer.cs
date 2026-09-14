@@ -157,15 +157,19 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static string BuildBodyKey(MethodDeclarationSyntax method)
     {
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(method.Span.Length);
         AppendParameterTypes(method.ParameterList, builder);
         _ = builder.Append(SectionSeparator);
 
         SyntaxNode body = method.Body is { } block ? block : method.ExpressionBody!.Expression;
-        foreach (var token in body.DescendantTokens())
-        {
-            _ = builder.Append(token.ValueText).Append(TokenSeparator);
-        }
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            body,
+            ref builder,
+            static (in SyntaxToken token, ref StringBuilder state) =>
+            {
+                _ = state.Append(token.ValueText).Append(TokenSeparator);
+                return true;
+            });
 
         return builder.ToString();
     }
@@ -192,10 +196,14 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
 
             if (parameter.Type is { } type)
             {
-                foreach (var token in type.DescendantTokens())
-                {
-                    _ = builder.Append(token.ValueText).Append(TokenSeparator);
-                }
+                _ = DescendantTraversalHelper.VisitDescendantTokens(
+                    type,
+                    ref builder,
+                    static (in SyntaxToken token, ref StringBuilder state) =>
+                    {
+                        _ = state.Append(token.ValueText).Append(TokenSeparator);
+                        return true;
+                    });
             }
 
             _ = builder.Append(SectionSeparator);

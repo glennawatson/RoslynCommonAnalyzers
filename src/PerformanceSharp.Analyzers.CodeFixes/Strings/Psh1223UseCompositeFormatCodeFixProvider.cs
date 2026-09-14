@@ -73,6 +73,7 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
             context,
             "Hoist the format into a CompositeFormat field",
             nameof(Psh1223UseCompositeFormatCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <summary>Resolves the reported format call and builds the type carrying the hoisted field.</summary>
@@ -137,7 +138,7 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
     /// <param name="formatIndex">The format argument's index.</param>
     /// <param name="fieldName">The name chosen for the field.</param>
     /// <returns>The field declaration, indented and spaced for the type it joins.</returns>
-    private static MemberDeclarationSyntax BuildFieldDeclaration(
+    private static FieldDeclarationSyntax BuildFieldDeclaration(
         SemanticModel model,
         TypeDeclarationSyntax owner,
         InvocationExpressionSyntax invocation,
@@ -152,10 +153,14 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
         var text = $"private static readonly {typeName} {fieldName} = {typeName}.Parse({source});";
 
         var lineBreak = LineEndingHelper.GetLineBreak(owner);
-        var indentation = GetMemberIndentation(owner);
-        return SyntaxFactory.ParseMemberDeclaration(text)!
-            .WithLeadingTrivia(SyntaxFactory.Whitespace(indentation))
-            .WithTrailingTrivia(lineBreak, lineBreak);
+        var indentation = MemberIndentation.Of(owner);
+        var field = (FieldDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(text)!;
+        var firstModifier = field.Modifiers[0];
+        return field.Update(
+            field.AttributeLists,
+            field.Modifiers.Replace(firstModifier, firstModifier.WithLeadingTrivia(SyntaxFactory.Whitespace(indentation))),
+            field.Declaration,
+            field.SemicolonToken.WithTrailingTrivia(lineBreak, lineBreak));
     }
 
     /// <summary>Returns the source text of the format the hoisted field should parse.</summary>
@@ -269,25 +274,13 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
         return names;
     }
 
-    /// <summary>Returns the indentation for a member of a type: the type's own indent plus one level.</summary>
-    /// <param name="owner">The type receiving the field.</param>
-    /// <returns>The member indentation whitespace.</returns>
-    private static string GetMemberIndentation(TypeDeclarationSyntax owner)
-    {
-        var leading = owner.GetLeadingTrivia();
-        var typeIndent = leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
-            ? leading[leading.Count - 1].ToString()
-            : string.Empty;
-        return $"{typeIndent}    ";
-    }
-
     /// <summary>Returns whether the culture type resolves by its simple name at a position.</summary>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="position">The lookup position.</param>
     /// <returns><see langword="true"/> when the unqualified spelling binds.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ResolvesCultureInfo(SemanticModel model, int position) =>
-        ResolvesIn(model, position, CultureInfoTypeName, GlobalizationNamespace);
+        TypeNameLookup.ResolvesIn(model, position, CultureInfoTypeName, GlobalizationNamespace);
 
     /// <summary>Returns whether the parsed-format type resolves by its simple name at a position.</summary>
     /// <param name="model">The semantic model for the document.</param>
@@ -295,24 +288,48 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
     /// <returns><see langword="true"/> when the unqualified spelling binds.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ResolvesCompositeFormat(SemanticModel model, int position) =>
-        ResolvesIn(model, position, Psh1223UseCompositeFormatAnalyzer.CompositeFormatTypeName, TextNamespace);
+        TypeNameLookup.ResolvesIn(model, position, Psh1223UseCompositeFormatAnalyzer.CompositeFormatTypeName, TextNamespace);
 
-    /// <summary>Returns whether a simple type name resolves to the expected namespace at a position.</summary>
+    /// <summary>Checks the hoist site without rebuilding the call already validated by the analyzer.</summary>
+    /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
-    /// <param name="position">The lookup position.</param>
-    /// <param name="name">The simple type name.</param>
-    /// <param name="containingNamespace">The namespace the name must resolve into.</param>
-    /// <returns><see langword="true"/> when the unqualified spelling binds.</returns>
-    private static bool ResolvesIn(SemanticModel model, int position, string name, string containingNamespace)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a field can be inserted and the chosen culture spelling preserves the binding.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: name))
+        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+                ?.FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation
+            || !Psh1223UseCompositeFormatAnalyzer.IsFormatShape(invocation)
+            || FindHoistTarget(invocation) is not { } owner
+            || DirectiveBoundaries.SeparateMembers(owner))
         {
-            if (candidate is INamedTypeSymbol named && named.ContainingNamespace.ToDisplayString() == containingNamespace)
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        var formatIndex = Psh1223UseCompositeFormatAnalyzer.GetHoistableFormatIndex(model, invocation, CancellationToken.None);
+        if (formatIndex < 0)
+        {
+            return false;
+        }
+
+        // The diagnostic proves the call with its original provider or the fully qualified current culture.
+        // The fix prefers a simple spelling, which needs another bind only when a value or alias shadows it.
+        return formatIndex == 1
+            || !ResolvesCultureInfo(model, invocation.SpanStart)
+            || IsUnshadowedCultureInfo(model, invocation.SpanStart)
+            || Psh1223UseCompositeFormatAnalyzer.RewriteBindsToCompositeFormat(model, invocation, formatIndex, SimpleCurrentCulture);
+    }
+
+    /// <summary>Checks that expression lookup selects the framework culture type without an alias or value shadow.</summary>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="position">The call's binding position.</param>
+    /// <returns>Whether the simple and fully qualified culture spellings resolve identically.</returns>
+    private static bool IsUnshadowedCultureInfo(SemanticModel model, int position)
+    {
+        var symbols = model.LookupSymbols(position, name: CultureInfoTypeName);
+        return symbols.Length == 1
+            && SymbolEqualityComparer.Default.Equals(
+                symbols[0],
+                model.Compilation.GetTypeByMetadataName("System.Globalization.CultureInfo"));
     }
 }

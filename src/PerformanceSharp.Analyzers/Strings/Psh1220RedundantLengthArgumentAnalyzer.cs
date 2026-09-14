@@ -189,10 +189,10 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax receiver,
         ExpressionSyntax start,
         ExpressionSyntax length,
-        CancellationToken cancellationToken) => Unwrap(length) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction
+        CancellationToken cancellationToken) => ExpressionShapes.WalkDownParentheses(length) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction
             ? IsLengthOf(model, receiver, subtraction.Left, cancellationToken)
-                && SyntaxFactory.AreEquivalent(Unwrap(subtraction.Right), Unwrap(start))
-            : Unwrap(start) is LiteralExpressionSyntax { Token.ValueText: "0" }
+                && SyntaxFactory.AreEquivalent(ExpressionShapes.WalkDownParentheses(subtraction.Right), ExpressionShapes.WalkDownParentheses(start))
+            : ExpressionShapes.WalkDownParentheses(start) is LiteralExpressionSyntax { Token.ValueText: "0" }
             && IsLengthOf(model, receiver, length, cancellationToken);
 
     /// <summary>Returns whether an expression reads the receiver's own <c>Length</c>.</summary>
@@ -202,22 +202,8 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression is <c>receiver.Length</c>.</returns>
     private static bool IsLengthOf(SemanticModel model, ExpressionSyntax receiver, ExpressionSyntax expression, CancellationToken cancellationToken) =>
-        Unwrap(expression) is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
+        ExpressionShapes.WalkDownParentheses(expression) is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == LengthPropertyName
-            && SyntaxFactory.AreEquivalent(Unwrap(access.Expression), Unwrap(receiver))
+            && SyntaxFactory.AreEquivalent(ExpressionShapes.WalkDownParentheses(access.Expression), ExpressionShapes.WalkDownParentheses(receiver))
             && model.GetSymbolInfo(access, cancellationToken).Symbol is IPropertySymbol { Type.SpecialType: SpecialType.System_Int32 };
-
-    /// <summary>Strips redundant parentheses so two spellings of the same expression can be compared.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        var current = expression;
-        while (current is ParenthesizedExpressionSyntax parenthesized)
-        {
-            current = parenthesized.Expression;
-        }
-
-        return current;
-    }
 }

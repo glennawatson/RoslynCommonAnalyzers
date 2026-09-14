@@ -15,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>Microsoft.IdentityModel.Logging.IdentityModelEventSource</c>. The rule reports the enabling call or
 /// assignment when no enclosing <c>if</c> statement or conditional whose condition calls a method named
 /// <c>IsDevelopment</c> guards it -- a purely local ancestor scan, no data-flow. Each surface is independently
-/// marker-gated: the invocation check is registered only when a builder type resolves and the assignment check
-/// only when the event source resolves, so a project using just one of the two frameworks pays only for that one.
+/// marker-gated: builder types and the event source are resolved only after the corresponding syntax filter
+/// matches, so a compilation with no candidate calls or assignments performs no metadata lookup.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAnalyzer
@@ -55,38 +55,36 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var builderTypes = GetDbContextOptionsBuilderTypes(start.Compilation);
-            if (builderTypes is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderTypes), SyntaxKind.InvocationExpression);
-            }
-
-            if (start.Compilation.GetTypeByMetadataName(IdentityModelEventSourceMetadataName) is { } eventSourceType)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, eventSourceType), SyntaxKind.SimpleAssignmentExpression);
-            }
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypeSet(compilation, DbContextOptionsBuilderMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, IdentityModelEventSourceMetadataName),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1512 for an unguarded <c>EnableSensitiveDataLogging</c> call on a gated builder type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderTypes">The gated EF Core option-builder types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] builderTypes)
+    /// <param name="builderTypes">The EF Core option-builder types resolved on first demand for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSet builderTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to a member named 'EnableSensitiveDataLogging'.
         if (InvokedName.Of(invocation.Expression) is not EnableSensitiveDataLoggingMethodName
-            || !IsUnconditionallyEnabled(invocation.ArgumentList, context.SemanticModel, context.CancellationToken))
+            || DevelopmentGuard.Encloses(invocation))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EnableSensitiveDataLoggingMethodName } method
-            || !IsGatedBuilderType(method.ContainingType.OriginalDefinition, builderTypes)
-            || DevelopmentGuard.Encloses(invocation))
+        if (!IsUnconditionallyEnabled(invocation.ArgumentList, context.SemanticModel, context.CancellationToken)
+            || builderTypes.Get() is not { Length: > 0 } resolvedBuilderTypes
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EnableSensitiveDataLoggingMethodName } method
+            || !TypeRelations.IsOneOf(method.ContainingType.OriginalDefinition, resolvedBuilderTypes))
         {
             return;
         }
@@ -100,22 +98,23 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
 
     /// <summary>Reports SES1512 for an unguarded <c>true</c> assignment to a gated identity-logging property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="eventSourceType">The gated identity event-source type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventSourceType)
+    /// <param name="eventSourceTypes">The identity event-source type cache for this compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataType eventSourceTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '<expr>.ShowPII = true' / '<expr>.LogCompleteSecurityArtifact = true' or the
         // bare-identifier form under a 'using static'. Both bind the left member to the property below.
         if (!assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression)
-            || GetSensitiveIdentityMember(assignment.Left) is not { } memberExpression)
+            || GetSensitiveIdentityMember(assignment.Left) is not { } memberExpression
+            || DevelopmentGuard.Encloses(assignment))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { IsStatic: true } property
-            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, eventSourceType)
-            || DevelopmentGuard.Encloses(assignment))
+        if (eventSourceTypes.Get() is not { } eventSourceType
+            || context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { IsStatic: true } property
+            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, eventSourceType))
         {
             return;
         }
@@ -151,57 +150,9 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns>The left expression to bind, or <see langword="null"/> when it is not a guarded member.</returns>
     private static ExpressionSyntax? GetSensitiveIdentityMember(ExpressionSyntax left) =>
-        GetMemberName(left) switch
+        MemberReferenceName.Of(left) switch
         {
             ShowPiiPropertyName or LogCompleteSecurityArtifactPropertyName => left,
             _ => null,
         };
-
-    /// <summary>Returns the member name an assignment target spells, ignoring the receiver.</summary>
-    /// <param name="left">The assignment's left-hand expression.</param>
-    /// <returns>The simple member name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetMemberName(ExpressionSyntax left) =>
-        left switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
-    /// <summary>Returns whether a bound method's containing type definition is one of the gated builder types.</summary>
-    /// <param name="containingTypeDefinition">The bound method's containing type, reduced to its original definition.</param>
-    /// <param name="builderTypes">The gated EF Core option-builder types resolved for the compilation.</param>
-    /// <returns><see langword="true"/> when the container is a gated builder type.</returns>
-    private static bool IsGatedBuilderType(INamedTypeSymbol containingTypeDefinition, INamedTypeSymbol?[] builderTypes)
-    {
-        for (var i = 0; i < builderTypes.Length; i++)
-        {
-            if (builderTypes[i] is { } builderType && SymbolEqualityComparer.Default.Equals(builderType, containingTypeDefinition))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Resolves the EF Core option-builder types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved builder type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetDbContextOptionsBuilderTypes(Compilation compilation)
-    {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < DbContextOptionsBuilderMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(DbContextOptionsBuilderMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            types ??= new INamedTypeSymbol?[DbContextOptionsBuilderMetadataNames.Length];
-            types[i] = type;
-        }
-
-        return types;
-    }
 }

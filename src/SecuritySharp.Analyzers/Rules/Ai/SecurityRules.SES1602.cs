@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1602 — text read from an AI model response flows directly into a code/command/query sink.</summary>
-    public static readonly DiagnosticDescriptor ModelOutputToDangerousSink = Create(
+    public static readonly DiagnosticDescriptor ModelOutputToDangerousSink = DescriptorFactory.Create(
         "SES1602",
         "Do not route AI model output into a process, file, or raw SQL sink",
         "Text read from the AI model response flows directly into {0}; treat model output as untrusted data and never let it choose the program, path, or query that runs",

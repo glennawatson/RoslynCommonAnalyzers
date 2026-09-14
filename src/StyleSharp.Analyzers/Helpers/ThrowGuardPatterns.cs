@@ -61,7 +61,7 @@ internal static class ThrowGuardPatterns
 
         var value = leftMatches ? binary.Left : binary.Right;
         var bound = leftMatches ? binary.Right : binary.Left;
-        var kind = leftMatches ? binary.Kind() : Reverse(binary.Kind());
+        var kind = leftMatches ? binary.Kind() : ComparisonKinds.Mirror(binary.Kind());
         var helper = RangeHelper(kind, bound);
         if (helper is null)
         {
@@ -154,26 +154,13 @@ internal static class ThrowGuardPatterns
 
             case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.EqualsExpression):
             {
-                operand = OtherNullOperand(binary);
+                operand = ExpressionShapes.OperandComparedToNull(binary);
                 return operand is not null;
             }
 
             default:
                 return false;
         }
-    }
-
-    /// <summary>Returns the non-null side of an equality whose other side is the <c>null</c> literal.</summary>
-    /// <param name="binary">The equality expression.</param>
-    /// <returns>The non-null operand, or <see langword="null"/> when neither side is the null literal.</returns>
-    private static ExpressionSyntax? OtherNullOperand(BinaryExpressionSyntax binary)
-    {
-        if (binary.Right.IsKind(SyntaxKind.NullLiteralExpression))
-        {
-            return binary.Left;
-        }
-
-        return binary.Left.IsKind(SyntaxKind.NullLiteralExpression) ? binary.Right : null;
     }
 
     /// <summary>Returns the argument of a <c>string.IsNullOrEmpty</c>/<c>IsNullOrWhiteSpace</c> condition.</summary>
@@ -310,18 +297,6 @@ internal static class ThrowGuardPatterns
     /// <returns><see langword="true"/> when the expression is that identifier.</returns>
     private static bool IsIdentifier(ExpressionSyntax expression, string name) =>
         expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
-
-    /// <summary>Reverses a comparison kind when the guarded value is on the right.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The reversed comparison kind.</returns>
-    private static SyntaxKind Reverse(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind
-    };
 
     /// <summary>Maps a comparison kind and zero bound to the corresponding helper.</summary>
     /// <param name="kind">The normalized comparison kind.</param>

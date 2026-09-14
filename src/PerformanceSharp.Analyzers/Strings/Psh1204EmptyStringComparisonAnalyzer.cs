@@ -55,14 +55,12 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var expressionOfTType = start.Compilation.GetTypeByMetadataName(ExpressionOfTMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeComparison(nodeContext, expressionOfTType),
-                SyntaxKind.EqualsExpression,
-                SyntaxKind.NotEqualsExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ExpressionOfTMetadataName),
+            AnalyzeComparison,
+            SyntaxKind.EqualsExpression,
+            SyntaxKind.NotEqualsExpression);
     }
 
     /// <summary>Splits a comparison into its empty-string operand and its value operand, syntactically.</summary>
@@ -74,7 +72,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <c>.Empty</c> accesses so a custom <c>.Empty</c> property compared to <c>""</c> is still recognized.</returns>
     internal static bool TryGetOperands(BinaryExpressionSyntax binary, out ExpressionSyntax? empty, out ExpressionSyntax? value, out bool emptyIsLiteral)
     {
-        if (IsEmptyStringLiteral(binary.Left))
+        if (EmptyStringExpressions.IsEmptyStringLiteral(binary.Left))
         {
             empty = binary.Left;
             value = binary.Right;
@@ -82,7 +80,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (IsEmptyStringLiteral(binary.Right))
+        if (EmptyStringExpressions.IsEmptyStringLiteral(binary.Right))
         {
             empty = binary.Right;
             value = binary.Left;
@@ -90,7 +88,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (IsEmptyMemberAccess(binary.Left))
+        if (EmptyStringExpressions.IsEmptyMemberAccess(binary.Left))
         {
             empty = binary.Left;
             value = binary.Right;
@@ -98,7 +96,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (IsEmptyMemberAccess(binary.Right))
+        if (EmptyStringExpressions.IsEmptyMemberAccess(binary.Right))
         {
             empty = binary.Right;
             value = binary.Left;
@@ -114,8 +112,8 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1204 for a comparison of a string against the empty string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
+    /// <param name="expressionOfTType">The deferred expression-tree type lookup.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, LazyMetadataType expressionOfTType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryGetOperands(binary, out var empty, out var value, out var emptyIsLiteral))
@@ -124,7 +122,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
         }
 
         var model = context.SemanticModel;
-        if (!emptyIsLiteral && !IsStringEmptyField(model, empty!, context.CancellationToken))
+        if (!emptyIsLiteral && !EmptyStringExpressions.IsStringEmptyField(model, empty!, context.CancellationToken))
         {
             return;
         }
@@ -166,34 +164,6 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
             : EmptyStringStyle.Pattern;
     }
 
-    /// <summary>Returns whether an expression is the literal <c>""</c>.</summary>
-    /// <param name="expression">The candidate operand expression.</param>
-    /// <returns><see langword="true"/> for a string literal whose value is empty.</returns>
-    private static bool IsEmptyStringLiteral(ExpressionSyntax expression) =>
-        expression is LiteralExpressionSyntax literal
-            && literal.IsKind(SyntaxKind.StringLiteralExpression)
-            && literal.Token.ValueText.Length == 0;
-
-    /// <summary>Returns whether an expression is a member access ending in <c>.Empty</c>, syntactically.</summary>
-    /// <param name="expression">The candidate operand expression.</param>
-    /// <returns><see langword="true"/> for a simple member access named <c>Empty</c>.</returns>
-    private static bool IsEmptyMemberAccess(ExpressionSyntax expression) =>
-        expression is MemberAccessExpressionSyntax access
-            && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
-            && access.Name is IdentifierNameSyntax { Identifier.ValueText: "Empty" };
-
-    /// <summary>Returns whether a <c>.Empty</c> access binds to the <see cref="string.Empty"/> field.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="empty">The <c>.Empty</c> member access to bind.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the access is the static <c>Empty</c> field on <see cref="string"/>.</returns>
-    private static bool IsStringEmptyField(SemanticModel model, ExpressionSyntax empty, CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(empty, cancellationToken).Symbol is IFieldSymbol
-        {
-            IsStatic: true,
-            ContainingType.SpecialType: SpecialType.System_String
-        };
-
     /// <summary>Returns whether the comparison binds to string's built-in equality operator.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="binary">The comparison expression to bind.</param>
@@ -208,21 +178,17 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the comparison sits inside a lambda converted to an expression tree.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="node">The comparison node.</param>
-    /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
+    /// <param name="expressionOfTType">The deferred expression-tree type lookup.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when an enclosing anonymous function's converted type is constructed from <c>Expression&lt;TDelegate&gt;</c>.</returns>
-    private static bool IsInsideExpressionTree(SemanticModel model, SyntaxNode node, INamedTypeSymbol? expressionOfTType, CancellationToken cancellationToken)
+    private static bool IsInsideExpressionTree(SemanticModel model, SyntaxNode node, LazyMetadataType expressionOfTType, CancellationToken cancellationToken)
     {
-        if (expressionOfTType is null)
-        {
-            return false;
-        }
-
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
             if (current is AnonymousFunctionExpressionSyntax function
+                && expressionOfTType.Get() is { } expressionType
                 && model.GetTypeInfo(function, cancellationToken).ConvertedType is INamedTypeSymbol convertedType
-                && SymbolEqualityComparer.Default.Equals(convertedType.ConstructedFrom, expressionOfTType))
+                && SymbolEqualityComparer.Default.Equals(convertedType.ConstructedFrom, expressionType))
             {
                 return true;
             }

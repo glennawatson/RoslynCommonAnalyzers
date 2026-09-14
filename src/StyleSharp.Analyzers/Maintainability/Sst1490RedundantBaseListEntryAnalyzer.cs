@@ -105,7 +105,7 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
         var impliedByBaseClass = false;
         for (var i = 0; i < entries.Count; i++)
         {
-            if (i == candidateIndex || GetEntryType(entries[i], context) is not { } other || !Brings(other, candidate))
+            if (i == candidateIndex || GetEntryType(entries[i], context) is not { } other || !TypeRelations.Implements(other, candidate))
             {
                 continue;
             }
@@ -123,24 +123,6 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
         }
 
         return impliedByBaseClass;
-    }
-
-    /// <summary>Returns whether one base-list entry's type carries the candidate interface.</summary>
-    /// <param name="entry">The other entry's type.</param>
-    /// <param name="candidate">The interface being judged.</param>
-    /// <returns><see langword="true"/> when the entry already implements or inherits the interface.</returns>
-    private static bool Brings(INamedTypeSymbol entry, INamedTypeSymbol candidate)
-    {
-        var interfaces = entry.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], candidate))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

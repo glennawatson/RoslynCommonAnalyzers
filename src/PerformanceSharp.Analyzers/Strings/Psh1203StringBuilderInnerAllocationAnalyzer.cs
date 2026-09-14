@@ -10,8 +10,8 @@ namespace PerformanceSharp.Analyzers;
 /// (use <c>AppendFormat</c>), <c>Append(x.ToString())</c> where a typed <c>Append</c>
 /// overload takes the value directly, and <c>Append(s.Substring(...))</c> on a simple
 /// receiver (use <c>Append(string, int, int)</c>). The <c>StringBuilder</c> type and the
-/// overloads each shape rewrites to are probed once per compilation, so the rule costs
-/// nothing where they are missing.
+/// overloads each shape rewrites to are resolved on the first syntax candidate and cached
+/// for that compilation, including when the type is missing.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnalyzer
@@ -59,15 +59,11 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (!StringBuilderAppendSurface.TryResolve(start.Compilation, out var surface))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, surface), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<StringBuilderAppendSurface?>(compilation, ResolveSurface),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>
@@ -100,13 +96,16 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
 
     /// <summary>Reports PSH1203 for an Append argument the builder could format itself.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="surface">The string builder overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in StringBuilderAppendSurface surface)
+    /// <param name="symbols">The lazily resolved string builder overloads for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<StringBuilderAppendSurface?> symbols)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        var shape = ClassifyShape(invocation, surface, out var inner, out var innerAccess, out var name);
+        var shape = ClassifyShape(invocation, out var inner, out var innerAccess, out var name);
         if (shape == InnerCallShape.None
-            || !IsStringBuilderAppendString(context.SemanticModel, invocation, surface.BuilderType, context.CancellationToken))
+            || symbols.Get() is not { } surface
+            || (shape == InnerCallShape.Format && !surface.HasAppendFormat)
+            || (shape == InnerCallShape.Substring && !surface.HasAppendSegment)
+            || !StringBuilderInvocation.BindsToStringOverload(context.SemanticModel, invocation, surface.BuilderType, context.CancellationToken))
         {
             return;
         }
@@ -133,14 +132,12 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
 
     /// <summary>Runs the syntax-only checks: member name, argument count, and inner call shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
-    /// <param name="surface">The string builder overloads available in this compilation.</param>
     /// <param name="inner">The inner call passed as the Append argument.</param>
     /// <param name="innerAccess">The inner call's member access.</param>
     /// <param name="name">The outer <c>Append</c> identifier the diagnostic reports on.</param>
     /// <returns>The syntactic shape of the inner call, or <see cref="InnerCallShape.None"/>.</returns>
     private static InnerCallShape ClassifyShape(
         InvocationExpressionSyntax invocation,
-        in StringBuilderAppendSurface surface,
         out InvocationExpressionSyntax? inner,
         out MemberAccessExpressionSyntax? innerAccess,
         out IdentifierNameSyntax? name)
@@ -158,10 +155,9 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         var innerArgumentCount = inner!.ArgumentList.Arguments.Count;
         return innerName!.Identifier.ValueText switch
         {
-            "Format" when surface.HasAppendFormat => InnerCallShape.Format,
+            "Format" => InnerCallShape.Format,
             "ToString" when innerArgumentCount == 0 => InnerCallShape.ToString,
-            "Substring" when surface.HasAppendSegment
-                && innerArgumentCount is SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount
+            "Substring" when innerArgumentCount is SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount
                 && IsSimpleReceiver(innerAccess!.Expression) => InnerCallShape.Substring,
             _ => InnerCallShape.None,
         };
@@ -219,20 +215,6 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         return true;
     }
 
-    /// <summary>Runs the outer semantic check: the invocation must bind to <c>StringBuilder.Append(string)</c>.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The candidate invocation.</param>
-    /// <param name="builderType">The resolved string builder type.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the invocation binds to the string Append overload.</returns>
-    private static bool IsStringBuilderAppendString(
-        SemanticModel model,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol builderType,
-        CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: false, Parameters: [{ Type.SpecialType: SpecialType.System_String }] } method
-            && SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType);
-
     /// <summary>Returns whether the inner call binds to a static <c>string.Format</c> overload.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="inner">The inner call passed as the Append argument.</param>
@@ -288,6 +270,12 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
             Name: "Substring",
             ContainingType.SpecialType: SpecialType.System_String,
         };
+
+    /// <summary>Resolves the Append surface when a syntax candidate needs it.</summary>
+    /// <param name="compilation">The compilation whose string builder surface is probed.</param>
+    /// <returns>The available string builder overloads, or <see langword="null"/> when the string builder type is missing.</returns>
+    private static StringBuilderAppendSurface? ResolveSurface(Compilation compilation) =>
+        StringBuilderAppendSurface.TryResolve(compilation, out var surface) ? surface : null;
 
     /// <summary>The <c>StringBuilder</c> type and the Append overload availability for one compilation.</summary>
     /// <param name="BuilderType">The resolved string builder type.</param>

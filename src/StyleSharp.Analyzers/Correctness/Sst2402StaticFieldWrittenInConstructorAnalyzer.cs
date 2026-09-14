@@ -263,39 +263,13 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
                 return true;
             }
 
-            if (node is IfStatementSyntax { Condition: { } condition } && MentionsName(condition, name))
+            if (node is IfStatementSyntax { Condition: { } condition } && IdentifierReferences.MentionsName(condition, name))
             {
                 return false;
             }
         }
 
         return true;
-    }
-
-    /// <summary>Returns whether an expression mentions an identifier by name.</summary>
-    /// <param name="expression">The expression to search.</param>
-    /// <param name="name">The name to look for.</param>
-    /// <returns><see langword="true"/> when the name appears.</returns>
-    private static bool MentionsName(ExpressionSyntax expression, string name)
-    {
-        var scan = new NameScan(name);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
-        return scan.Found || (expression is IdentifierNameSyntax self && self.Identifier.ValueText == name);
-    }
-
-    /// <summary>Records whether a name matches the one being looked for.</summary>
-    /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once the name is found, which stops the walk.</returns>
-    private static bool VisitName(IdentifierNameSyntax identifier, ref NameScan state)
-    {
-        if (identifier.Identifier.ValueText != state.Name)
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
     }
 
     /// <summary>Returns whether an assignment runs later than the member that contains it.</summary>
@@ -364,13 +338,5 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
             ContainingType = Context.SemanticModel.GetDeclaredSymbol(TypeDeclaration, Context.CancellationToken);
             return ContainingType;
         }
-    }
-
-    /// <summary>The state threaded through a name search.</summary>
-    /// <param name="Name">The name being looked for.</param>
-    private record struct NameScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the name was found.</summary>
-        public bool Found { get; set; }
     }
 }

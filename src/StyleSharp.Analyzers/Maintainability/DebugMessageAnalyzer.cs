@@ -7,7 +7,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Requires <c>Debug.Assert</c> (SST1405) and <c>Debug.Fail</c> (SST1406) calls to
 /// pass message text. Resolution of <c>System.Diagnostics.Debug</c> is done once per
-/// compilation, so the rule costs nothing when the type is absent.
+/// compilation, only after a possible call without a message is found.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
@@ -38,22 +38,17 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var debug = start.Compilation.GetTypeByMetadataName("System.Diagnostics.Debug");
-            if (debug is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, debug), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.Diagnostics.Debug"),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports a Debug.Assert/Debug.Fail call that omits a message.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="debug">The resolved <c>System.Diagnostics.Debug</c> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debug)
+    /// <param name="debug">The <c>System.Diagnostics.Debug</c> symbol, resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType debug)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access)
@@ -61,25 +56,28 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var (rule, messageIndex) = access.Name.Identifier.ValueText switch
+        var name = access.Name.Identifier.ValueText;
+        var messageIndex = name switch
         {
-            AssertName => (MaintainabilityRules.AssertMessage, AssertMessageIndex),
-            FailName => (MaintainabilityRules.FailMessage, FailMessageIndex),
-            _ => (null!, -1)
+            AssertName => AssertMessageIndex,
+            FailName => FailMessageIndex,
+            _ => -1
         };
 
-        if (rule is null || HasMessage(invocation.ArgumentList.Arguments, messageIndex))
+        if (messageIndex < 0 || HasMessage(invocation.ArgumentList.Arguments, messageIndex))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, debug))
+        if (debug.Get() is not { } resolved
+            || !InvocationTargets.IsMethodOf(context.SemanticModel, invocation, resolved, context.CancellationToken))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(rule, access.Name.GetLocation()));
+        context.ReportDiagnostic(Diagnostic.Create(
+            name == AssertName ? MaintainabilityRules.AssertMessage : MaintainabilityRules.FailMessage,
+            access.Name.GetLocation()));
     }
 
     /// <summary>Returns whether a non-empty message argument occupies the given position.</summary>

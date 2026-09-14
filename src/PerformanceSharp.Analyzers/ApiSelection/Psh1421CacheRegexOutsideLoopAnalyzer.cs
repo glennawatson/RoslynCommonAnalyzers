@@ -9,8 +9,8 @@ namespace PerformanceSharp.Analyzers;
 /// pattern through the bounded process-wide cache; one instance built outside the loop resolves it once.
 /// </summary>
 /// <remarks>
-/// The rule resolves <c>Regex</c> once per compilation and does nothing at all when the type is absent, so a
-/// project that never references the regular-expression assembly pays only that one lookup. Only a call that
+/// The rule resolves <c>Regex</c> on first demand after the receiver and argument syntax checks pass,
+/// caching the result per compilation even when the type is absent. Only a call that
 /// actually takes a pattern qualifies — found by parameter name, so <c>Escape</c> and <c>Unescape</c>, which
 /// rewrite a literal string and compile nothing, are never reported. Inside a loop the pattern must also be
 /// the same string on every pass: one read from the loop's iteration variable, or from anything the loop
@@ -19,14 +19,14 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the regular-expression type.</summary>
-    private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
-
     /// <summary>The parameter name every pattern-taking static shares.</summary>
     private const string PatternParameterName = "pattern";
 
     /// <summary>The receiver type name the syntax prepass requires before any binding.</summary>
     private const string RegexTypeName = "Regex";
+
+    /// <summary>The metadata name of the regular-expression type.</summary>
+    private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.CacheRegexOutsideLoop);
@@ -40,37 +40,11 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(RegexMetadataName) is not { } regex)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, regex), SyntaxKind.InvocationExpression);
-        });
-    }
-
-    /// <summary>Returns whether a member access reads a member off something named <c>Regex</c>.</summary>
-    /// <param name="access">The invoked member access.</param>
-    /// <returns><see langword="true"/> when the receiver's rightmost identifier is <c>Regex</c>.</returns>
-    /// <remarks>
-    /// A free syntax gate that runs before the semantic model is touched. Without it every member call
-    /// taking two or more arguments — <c>dict.TryGetValue(key, out value)</c>, <c>string.Format(a, b)</c> —
-    /// pays a <c>GetSymbolInfo</c>, which is the cost the rejection path is made of. Matching the name
-    /// rather than the type keeps it free and only over-approximates: a real <c>Regex</c> call always
-    /// passes, and anything else that happens to be spelled <c>Regex</c> is turned back by the binding
-    /// that follows.
-    /// </remarks>
-    private static bool IsRegexReceiverShape(MemberAccessExpressionSyntax access)
-    {
-        var receiver = access.Expression;
-        while (receiver is MemberAccessExpressionSyntax nested)
-        {
-            receiver = nested.Name;
-        }
-
-        return receiver is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == RegexTypeName;
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, RegexMetadataName),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns the loop that runs a node once per iteration, or <see langword="null"/> when none does.</summary>
@@ -153,35 +127,24 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     private static bool PatternVariesPerIteration(ExpressionSyntax pattern, SyntaxNode loop)
     {
         var refreshed = new HashSet<string>(StringComparer.Ordinal);
-        var loopState = new RefreshedNameScanState(refreshed);
 
         // The descendant walk starts below its root, and a foreach declares its iteration variable on the
         // loop node itself — the single most common way a pattern changes between passes.
         AddRefreshedName(loop, refreshed);
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, RefreshedNameScanState>(loop, ref loopState, VisitLoopNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, HashSet<string>>(loop, ref refreshed, VisitLoopNode);
 
-        if (refreshed.Count == 0)
-        {
-            return false;
-        }
-
-        var patternState = new PatternScanState(refreshed);
-        if (pattern is IdentifierNameSyntax self && !VisitPatternIdentifier(self, ref patternState))
-        {
-            return true;
-        }
-
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, PatternScanState>(pattern, ref patternState, VisitPatternIdentifier);
-        return patternState.Varies;
+        return refreshed.Count != 0
+            && ((pattern is IdentifierNameSyntax self && !IsUnrefreshedName(self, ref refreshed))
+                || !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(pattern, ref refreshed, IsUnrefreshedName));
     }
 
     /// <summary>Records one name the loop declares or writes.</summary>
     /// <param name="node">The visited node.</param>
-    /// <param name="state">The current scan state.</param>
+    /// <param name="names">The names the loop refreshes.</param>
     /// <returns><see langword="true"/> to continue scanning.</returns>
-    private static bool VisitLoopNode(SyntaxNode node, ref RefreshedNameScanState state)
+    private static bool VisitLoopNode(SyntaxNode node, ref HashSet<string> names)
     {
-        AddRefreshedName(node, state.Names);
+        AddRefreshedName(node, names);
         return true;
     }
 
@@ -196,7 +159,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             ForEachStatementSyntax forEach => forEach.Identifier.ValueText,
             SingleVariableDesignationSyntax designation => designation.Identifier.ValueText,
             ParameterSyntax parameter => parameter.Identifier.ValueText,
-            IdentifierNameSyntax identifier when IsWriteTarget(identifier) => identifier.Identifier.ValueText,
+            IdentifierNameSyntax identifier when WriteTargetSyntax.IsIdentifierWriteTarget(identifier) => identifier.Identifier.ValueText,
             _ => null,
         };
 
@@ -208,49 +171,27 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
         _ = names.Add(name);
     }
 
-    /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
-    /// <param name="identifier">The identifier occurrence.</param>
-    /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
-    private static bool IsWriteTarget(IdentifierNameSyntax identifier) =>
-        identifier.Parent switch
-        {
-            AssignmentExpressionSyntax assignment => assignment.Left == identifier,
-            PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
-            ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),
-            _ => false,
-        };
-
-    /// <summary>Classifies one identifier read by the pattern expression.</summary>
+    /// <summary>Continues the walk past an identifier the loop does not refresh.</summary>
     /// <param name="identifier">The visited identifier.</param>
-    /// <param name="state">The current scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once the pattern is known to vary.</returns>
-    private static bool VisitPatternIdentifier(IdentifierNameSyntax identifier, ref PatternScanState state)
-    {
-        if (!state.Refreshed.Contains(identifier.Identifier.ValueText))
-        {
-            return true;
-        }
-
-        state.Varies = true;
-        return false;
-    }
+    /// <param name="refreshed">The names the loop declares or writes.</param>
+    /// <returns><see langword="false"/> at a refreshed name, which stops the walk.</returns>
+    private static bool IsUnrefreshedName(IdentifierNameSyntax identifier, ref HashSet<string> refreshed) =>
+        !refreshed.Contains(identifier.Identifier.ValueText);
 
     /// <summary>Reports one static <c>Regex</c> call whose pattern is resolved again on every call.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="regex">The resolved regular-expression type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regex)
+    /// <param name="types">The lazily resolved regular-expression type.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name } access
             || invocation.ArgumentList.Arguments.Count < 2
-            || !IsRegexReceiverShape(access))
+            || !TypeNameReceiver.EndsWithTypeName(access.Expression, RegexTypeName))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, regex)
-            || GetPatternArgument(invocation, method) is not { } pattern)
+        if (GetRegexPattern(context, invocation, types) is not { } pattern)
         {
             return;
         }
@@ -269,15 +210,15 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             loop is not null ? ApiSelectionRules.RegexCalledPerIteration : ApiSelectionRules.RegexConstantPattern));
     }
 
-    /// <summary>Collects the names a loop declares or writes, in one pass over it.</summary>
-    /// <param name="Names">The names collected so far.</param>
-    private readonly record struct RefreshedNameScanState(HashSet<string> Names);
-
-    /// <summary>Decides whether the identifiers a pattern reads are among the names the loop refreshes.</summary>
-    /// <param name="Refreshed">The names the loop declares or writes.</param>
-    private record struct PatternScanState(HashSet<string> Refreshed)
-    {
-        /// <summary>Gets or sets a value indicating whether the pattern changes between iterations.</summary>
-        public bool Varies { get; set; }
-    }
+    /// <summary>Resolves the pattern argument only for calls bound to the framework's static regex methods.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="invocation">The candidate regex invocation.</param>
+    /// <param name="types">The regular-expression type cached for this compilation.</param>
+    /// <returns>The pattern argument, or null when the call does not match.</returns>
+    private static ExpressionSyntax? GetRegexPattern(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, LazyMetadataType types) =>
+        types.Get() is { } regex
+        && context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { IsStatic: true } method
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, regex)
+            ? GetPatternArgument(invocation, method)
+            : null;
 }

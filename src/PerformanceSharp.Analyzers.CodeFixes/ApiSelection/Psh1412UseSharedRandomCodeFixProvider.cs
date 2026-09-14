@@ -20,13 +20,16 @@ namespace PerformanceSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1412UseSharedRandomCodeFixProvider))]
 [Shared]
-public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.UseSharedRandom.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -34,46 +37,31 @@ public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBa
             context,
             "Use Random.Shared",
             nameof(Psh1412UseSharedRandomCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported allocation with the shared instance.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="creation">The reported allocation.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BaseObjectCreationExpressionSyntax creation) =>
-        Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation)
-            ? document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation)))
-            : document;
 
     /// <summary>Resolves the reported allocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BaseObjectCreationExpressionSyntax creation
             && Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation)
             ? new NodeReplacement(creation, Rewrite(creation))
             : null;
 
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BaseObjectCreationExpressionSyntax creation
+            && Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation);
+
     /// <summary>Builds the <c>Random.Shared</c> access, reusing the type name the author wrote.</summary>
     /// <param name="creation">The reported allocation.</param>
     /// <returns>The replacement expression.</returns>
-    private static MemberAccessExpressionSyntax Rewrite(BaseObjectCreationExpressionSyntax creation)
-    {
-        var type = creation is ObjectCreationExpressionSyntax { Type: NameSyntax name }
-            ? TypeNameExpression.From(name.WithoutTrivia())
-            : SyntaxFactory.IdentifierName(Psh1412UseSharedRandomAnalyzer.RandomTypeName);
-
-        return SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            type,
-            SyntaxFactory.IdentifierName(Psh1412UseSharedRandomAnalyzer.SharedPropertyName))
-            .WithTriviaFrom(creation);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MemberAccessExpressionSyntax Rewrite(BaseObjectCreationExpressionSyntax creation) =>
+        StaticMemberAccessRewrite.FromCreation(creation, Psh1412UseSharedRandomAnalyzer.RandomTypeName, Psh1412UseSharedRandomAnalyzer.SharedPropertyName);
 }

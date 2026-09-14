@@ -27,7 +27,7 @@ public sealed class Sst1712UnusableReceiverNameAnalyzer : DiagnosticAnalyzer
 
         // An extension block has no syntax kind to register on across every Roslyn slot, so the
         // containing class is walked instead.
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ClassDeclaration);
+        context.RegisterSyntaxNodeAction(static nodeContext => ExtensionBlockHelper.AnalyzeExtensionBlocks(nodeContext, AnalyzeBlock), SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Returns whether every member of a block is static.</summary>
@@ -53,27 +53,12 @@ public sealed class Sst1712UnusableReceiverNameAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Reports every block in a class that names a receiver no member can read.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        var containingClass = (ClassDeclarationSyntax)context.Node;
-        foreach (var member in containingClass.Members)
-        {
-            if (member is TypeDeclarationSyntax block && ExtensionBlockHelper.IsExtensionBlock(block))
-            {
-                AnalyzeBlock(in context, block);
-            }
-        }
-    }
-
     /// <summary>Reports one block whose receiver name is unusable.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     private static void AnalyzeBlock(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block)
     {
-        if (block.ParameterList?.Parameters is not { Count: > 0 } parameters
-            || parameters[0] is not { Type: { } receiverType } receiver
+        if (!ExtensionBlockHelper.TryGetReceiver(block, out var receiver, out var receiverType)
             || receiver.Identifier.IsKind(SyntaxKind.None)
             || receiver.Identifier.ValueText.Length == 0
             || !DeclaresOnlyStaticMembers(block))

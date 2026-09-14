@@ -95,41 +95,15 @@ public sealed class Psh1023PreferTupleOverAnonymousTypeAnalyzer : DiagnosticAnal
         return true;
     }
 
-    /// <summary>Returns whether the local is used as anything other than a receiver for a member read.</summary>
+    /// <summary>Returns whether the local is used as anything other than the receiver of a member read, the only use a tuple reproduces exactly.</summary>
     /// <param name="block">The block that declares the local.</param>
     /// <param name="name">The local's name.</param>
     /// <returns><see langword="true"/> when any use could observe the anonymous type itself.</returns>
-    private static bool EscapesTheBlock(BlockSyntax block, string name)
-    {
-        var state = new EscapeScan(name, Escapes: false);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EscapeScan>(block, ref state, static (node, ref scan) =>
-        {
-            if (node.Identifier.ValueText != scan.Name)
-            {
-                return true;
-            }
-
-            // A read of x.Member is the only use a tuple reproduces exactly.
-            if (node.Parent is MemberAccessExpressionSyntax access && access.Expression == node)
-            {
-                return true;
-            }
-
-            scan.Escapes = true;
-            return false;
-        });
-
-        return state.Escapes;
-    }
+    private static bool EscapesTheBlock(BlockSyntax block, string name) => !IdentifierReferences.IsOnlyMemberReceiver(block, name);
 
     /// <summary>Returns whether the tree is parsed at a language version that has named tuples.</summary>
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 7 or later.</returns>
     private static bool IsLanguageSupported(SyntaxNode node) =>
         node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp7;
-
-    /// <summary>Threads the local's name and the verdict through the escape traversal.</summary>
-    /// <param name="Name">The local's name.</param>
-    /// <param name="Escapes">Whether a use was found that observes the anonymous type itself.</param>
-    private record struct EscapeScan(string Name, bool Escapes);
 }

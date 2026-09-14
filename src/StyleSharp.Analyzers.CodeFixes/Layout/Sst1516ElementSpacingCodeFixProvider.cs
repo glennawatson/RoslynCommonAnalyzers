@@ -11,41 +11,32 @@ namespace StyleSharp.Analyzers;
 /// <summary>Inserts a blank line before a member that is not separated from the previous one (SST1516).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1516ElementSpacingCodeFixProvider))]
 [Shared]
-public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.ElementsSeparatedByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Insert blank line",
+            nameof(Sst1516ElementSpacingCodeFixProvider),
+            static (root, diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>(),
+            InsertBlankLineAsync);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Insert blank line",
-                    cancellationToken => InsertBlankLineAsync(context.Document, member, cancellationToken),
-                    equivalenceKey: nameof(Sst1516ElementSpacingCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
         {

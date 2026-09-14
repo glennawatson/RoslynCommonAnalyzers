@@ -39,7 +39,7 @@ public class Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixBenc
     [Benchmark]
     public async Task<int> Sst1164ConstructorInitializerArgumentMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

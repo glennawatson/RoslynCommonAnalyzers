@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -28,8 +30,8 @@ public class CompletedTaskOverNullCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative returned null literal passed to the code fix.</summary>
-    private LiteralExpressionSyntax _returned = null!;
+    /// <summary>The diagnostic reported on the representative returned null literal.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -47,7 +49,11 @@ public class CompletedTaskOverNullCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, CompletedTaskOverNullBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _returned = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<LiteralExpressionSyntax>(type, 0, static literal => literal.IsKind(SyntaxKind.NullLiteralExpression));
+        var returned = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<LiteralExpressionSyntax>(type, 0, static literal => literal.IsKind(SyntaxKind.NullLiteralExpression));
+        _diagnostic = Diagnostic.Create(
+            ConcurrencyRules.ReturnCompletedTaskOverNull,
+            returned.GetLocation(),
+            ImmutableDictionary<string, string?>.Empty.Add(Psh1312ReturnCompletedTaskOverNullAnalyzer.ReplacementKey, Psh1312ReturnCompletedTaskOverNullAnalyzer.CompletedTaskText));
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -67,11 +73,7 @@ public class CompletedTaskOverNullCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> CompletedTaskOverNull_ApplyFixAsync()
     {
-        var updated = Psh1312ReturnCompletedTaskOverNullCodeFixProvider.Apply(
-            _document,
-            _root,
-            _returned,
-            Psh1312ReturnCompletedTaskOverNullAnalyzer.CompletedTaskText);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1312ReturnCompletedTaskOverNullCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

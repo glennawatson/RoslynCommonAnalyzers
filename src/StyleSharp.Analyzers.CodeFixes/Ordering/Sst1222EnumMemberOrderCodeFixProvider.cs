@@ -47,11 +47,10 @@ public sealed class Sst1222EnumMemberOrderCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var sorted = Sort(declaration, values);
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Sort the enum members by value",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, sorted))),
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, Sort(declaration, values)))),
                     nameof(Sst1222EnumMemberOrderCodeFixProvider)),
                 diagnostic);
         }
@@ -99,9 +98,17 @@ public sealed class Sst1222EnumMemberOrderCodeFixProvider : CodeFixProvider
         var sorted = new List<EnumMemberDeclarationSyntax>(members.Count);
         for (var i = 0; i < order.Length; i++)
         {
-            sorted.Add(members[order[i]]
-                .WithLeadingTrivia(members[i].GetLeadingTrivia())
-                .WithTrailingTrivia(members[i].GetTrailingTrivia()));
+            var member = members[order[i]];
+            var attributeLists = member.AttributeLists;
+            var modifiers = member.Modifiers;
+            var identifier = member.Identifier;
+            LeadingTriviaPlacement.PlaceOnFirstToken(ref attributeLists, ref modifiers, ref identifier, members[i].GetLeadingTrivia());
+
+            sorted.Add(member.Update(
+                attributeLists,
+                modifiers,
+                identifier,
+                member.EqualsValue!.WithTrailingTrivia(members[i].GetTrailingTrivia())));
         }
 
         var separators = new List<SyntaxToken>(members.SeparatorCount);

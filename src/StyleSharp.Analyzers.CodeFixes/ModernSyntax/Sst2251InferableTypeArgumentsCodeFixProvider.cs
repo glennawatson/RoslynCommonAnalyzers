@@ -9,82 +9,38 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes the redundant explicit type arguments from a method call (SST2251).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2251InferableTypeArgumentsCodeFixProvider))]
 [Shared]
-public sealed class Sst2251InferableTypeArgumentsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2251InferableTypeArgumentsCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindGenericName, static (current, _) => CreateReplacement((GenericNameSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.OmitInferableTypeArguments.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindGenericName(root, diagnostic.Location.SourceSpan) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant type arguments",
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: nameof(Sst2251InferableTypeArgumentsCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (FindGenericName(editor.OriginalRoot, diagnostic.Location.SourceSpan) is not { } genericName)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(genericName, CreateReplacement(genericName));
-    }
-
-    /// <summary>Applies one SST2251 fix.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        FindGenericName(root, diagnostic.Location.SourceSpan) is not { } genericName ? document : document.WithSyntaxRoot(root.ReplaceNode(genericName, CreateReplacement(genericName)));
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove the redundant type arguments",
+            nameof(Sst2251InferableTypeArgumentsCodeFixProvider),
+            FindGenericName,
+            CreateReplacement);
 
     /// <summary>Builds the plain identifier that replaces the generic name.</summary>
     /// <param name="genericName">The generic name being simplified.</param>
     /// <returns>The identifier name without the type-argument list.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IdentifierNameSyntax CreateReplacement(GenericNameSyntax genericName) =>
-        SyntaxFactory.IdentifierName(genericName.Identifier).WithTriviaFrom(genericName);
+        SyntaxFactory.IdentifierName(genericName.Identifier.WithTrailingTrivia(genericName.GetTrailingTrivia()));
 
     /// <summary>Finds the generic name whose type-argument list the diagnostic marks.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic source span.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The generic name, or <see langword="null"/>.</returns>
-    private static GenericNameSyntax? FindGenericName(SyntaxNode root, TextSpan span)
-    {
-        var node = root.FindToken(span.Start).Parent;
-        while (node is not null)
-        {
-            if (node is GenericNameSyntax genericName)
-            {
-                return genericName;
-            }
-
-            node = node.Parent;
-        }
-
-        return null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static GenericNameSyntax? FindGenericName(SyntaxNode root, Diagnostic diagnostic) =>
+        DiagnosticAncestor.Find<GenericNameSyntax>(root, diagnostic.Location.SourceSpan);
 }

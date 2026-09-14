@@ -12,10 +12,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>TimeProvider</c> arrived in .NET 8. The rule resolves it once per compilation and registers nothing at
-/// all when it is absent, so a project that cannot take the advice never sees the diagnostic and never pays
-/// for the analysis. There is no code fix: the fix is to accept a <c>TimeProvider</c> and thread it through
-/// the callers, which changes the type's construction contract.
+/// <c>TimeProvider</c> arrived in .NET 8. The rule resolves it once per compilation after a clock read passes
+/// the syntax gate, and reports nothing when it is absent. There is no code fix: the fix is to accept a
+/// <c>TimeProvider</c> and thread it through the callers, which changes the type's construction contract.
 /// </para>
 /// <para>
 /// Only a read inside a type declaration is reported, because a type is the thing that can hold the seam.
@@ -41,30 +40,22 @@ public sealed class Sst2010UseTimeProviderAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            // The suggestion is only honest where the API exists: no TimeProvider, no rule.
-            if (start.Compilation.GetTypeByMetadataName(TimeProviderMetadataName) is null)
-            {
-                return;
-            }
-
-            var clockTypes = ClockPropertyAccess.ClockTypes.Resolve(start.Compilation);
-            if (!clockTypes.Any)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, clockTypes),
-                SyntaxKind.SimpleMemberAccessExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<ClockPropertyAccess.ClockTypes>(
+                compilation,
+                static current => current.GetTypeByMetadataName(TimeProviderMetadataName) is null
+                    ? default
+                    : ClockPropertyAccess.ClockTypes.Resolve(current),
+                runOnce: true),
+            Analyze,
+            SyntaxKind.SimpleMemberAccessExpression);
     }
 
     /// <summary>Reports one direct clock read inside a type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="clockTypes">The clock types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
+    /// <param name="clockTypes">The clock types resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ClockPropertyAccess.ClockTypes> clockTypes)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!ClockPropertyAccess.MatchesSpelling(access, localOnly: false) || !IsInsideTypeDeclaration(access))
@@ -72,7 +63,8 @@ public sealed class Sst2010UseTimeProviderAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!ClockPropertyAccess.BindsToClock(context.SemanticModel, access, clockTypes, context.CancellationToken))
+        var resolved = clockTypes.Get();
+        if (!resolved.Any || !ClockPropertyAccess.BindsToClock(context.SemanticModel, access, resolved, context.CancellationToken))
         {
             return;
         }

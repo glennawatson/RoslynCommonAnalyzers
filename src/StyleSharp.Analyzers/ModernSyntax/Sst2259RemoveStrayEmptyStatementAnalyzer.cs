@@ -25,7 +25,11 @@ public sealed class Sst2259RemoveStrayEmptyStatementAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterSyntaxNodeAction(
-            AnalyzeType,
+            static nodeContext => NodeTokenReport.WhenMatches<BaseTypeDeclarationSyntax>(
+                nodeContext,
+                HasStraySemicolon,
+                static type => type.SemicolonToken,
+                ModernSyntaxRules.RemoveStrayEmptyStatement),
             SyntaxKind.ClassDeclaration,
             SyntaxKind.StructDeclaration,
             SyntaxKind.InterfaceDeclaration,
@@ -39,17 +43,4 @@ public sealed class Sst2259RemoveStrayEmptyStatementAnalyzer : DiagnosticAnalyze
     /// <returns><see langword="true"/> when a brace body and a trailing semicolon are both present.</returns>
     internal static bool HasStraySemicolon(BaseTypeDeclarationSyntax type) =>
         type.CloseBraceToken.IsKind(SyntaxKind.CloseBraceToken) && type.SemicolonToken.IsKind(SyntaxKind.SemicolonToken);
-
-    /// <summary>Reports a stray semicolon on a type declaration.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeType(SyntaxNodeAnalysisContext context)
-    {
-        var type = (BaseTypeDeclarationSyntax)context.Node;
-        if (!HasStraySemicolon(type))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.RemoveStrayEmptyStatement, type.SemicolonToken.GetLocation()));
-    }
 }

@@ -22,9 +22,9 @@ namespace PerformanceSharp.Analyzers;
 /// alone. The modern two-parameter lambda binds to a different overload and is never reported.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>Microsoft.AspNetCore.Builder.IApplicationBuilder</c>
-/// resolving, so a non-web compilation registers no syntax action. The clean path is a name check, an
-/// argument-count check, and a syntactic lambda-shape probe; the semantic model is consulted only once
+/// The middleware types are resolved on first demand and cached per compilation, including missing types.
+/// The clean path is a name check, an argument-count check, and a syntactic lambda-shape probe; type
+/// resolution and the semantic model are consulted only once
 /// the syntax already matches, to confirm the call binds to the legacy
 /// <c>Func&lt;RequestDelegate, RequestDelegate&gt;</c> overload on a builder that implements
 /// <c>IApplicationBuilder</c>.
@@ -51,6 +51,13 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.PreferTwoParameterMiddleware);
 
+    /// <summary>The metadata names MiddlewareTypes resolves, in slot order.</summary>
+    private static readonly string[] MiddlewareTypesMetadataNames =
+    [
+        ApplicationBuilderMetadataName,
+        RequestDelegateMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -60,18 +67,11 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(ApplicationBuilderMetadataName) is not { } applicationBuilderType
-                || start.Compilation.GetTypeByMetadataName(RequestDelegateMetadataName) is not { } requestDelegateType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, applicationBuilderType, requestDelegateType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, MiddlewareTypesMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation calls a member named <c>Use</c>, without binding.</summary>
@@ -88,7 +88,7 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <returns>The nested-delegate lambda to report, or <see langword="null"/> when the shape does not match.</returns>
     internal static LambdaExpressionSyntax? GetLegacyMiddlewareLambda(ArgumentSyntax argument)
     {
-        var expression = Unwrap(argument.Expression);
+        var expression = ExpressionShapes.WalkDownParentheses(argument.Expression);
         var isSingleParameterLambda = expression switch
         {
             SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } => true,
@@ -106,12 +106,8 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1501 for a legacy nested-delegate middleware registration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="applicationBuilderType">The gated middleware builder interface.</param>
-    /// <param name="requestDelegateType">The gated request delegate type.</param>
-    private static void AnalyzeInvocation(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol applicationBuilderType,
-        INamedTypeSymbol requestDelegateType)
+    /// <param name="types">The lazily resolved middleware types for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsUseInvocation(invocation)
@@ -121,9 +117,15 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var resolved = types.Get();
+        if (resolved[0] is not { } applicationBuilderType || resolved[1] is not { } requestDelegateType)
+        {
+            return;
+        }
+
         var symbol = context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol;
         if (symbol is not IMethodSymbol { Name: UseMethodName, Parameters.Length: 1, ContainingType: { } containingType } method
-            || !ImplementsApplicationBuilder(containingType, applicationBuilderType)
+            || !TypeRelations.IsOrImplements(containingType, applicationBuilderType)
             || !IsLegacyMiddlewareParameter(method.Parameters[0].Type, requestDelegateType))
         {
             return;
@@ -133,19 +135,6 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
             AspNetCoreRules.PreferTwoParameterMiddleware,
             lambda.SyntaxTree,
             lambda.Span));
-    }
-
-    /// <summary>Unwraps any enclosing parentheses around an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
     }
 
     /// <summary>Returns whether a lambda body yields a freshly written delegate.</summary>
@@ -176,30 +165,7 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> when the expression is a freshly written delegate.</returns>
     private static bool IsDelegateExpression(ExpressionSyntax expression) =>
-        Unwrap(expression) is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax;
-
-    /// <summary>Returns whether a type is, or implements, the middleware builder interface.</summary>
-    /// <param name="type">The method's containing type.</param>
-    /// <param name="applicationBuilderType">The gated middleware builder interface.</param>
-    /// <returns><see langword="true"/> when the call sits on an <c>IApplicationBuilder</c>.</returns>
-    private static bool ImplementsApplicationBuilder(INamedTypeSymbol type, INamedTypeSymbol applicationBuilderType)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, applicationBuilderType))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], applicationBuilderType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        ExpressionShapes.WalkDownParentheses(expression) is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax;
 
     /// <summary>Returns whether a parameter type is the legacy <c>Func&lt;RequestDelegate, RequestDelegate&gt;</c>.</summary>
     /// <param name="parameterType">The single parameter type of the bound <c>Use</c> overload.</param>

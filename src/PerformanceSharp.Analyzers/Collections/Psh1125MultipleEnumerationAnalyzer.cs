@@ -46,11 +46,11 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <summary>The type name the syntax prepass requires before any binding.</summary>
     internal const string EnumerableTypeName = "IEnumerable";
 
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The minimum number of walks that can constitute a re-enumeration.</summary>
     private const int MinimumWalkCount = 2;
+
+    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>The <c>System.Linq.Enumerable</c> methods that walk their source immediately.</summary>
     private static readonly HashSet<string> EagerMethodNames = new(StringComparer.Ordinal)
@@ -75,22 +75,20 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var enumerableType = start.Compilation.GetTypeByMetadataName(EnumerableMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeMember(nodeContext, enumerableType),
-                SyntaxKind.MethodDeclaration,
-                SyntaxKind.ConstructorDeclaration,
-                SyntaxKind.OperatorDeclaration,
-                SyntaxKind.ConversionOperatorDeclaration,
-                SyntaxKind.LocalFunctionStatement,
-                SyntaxKind.PropertyDeclaration,
-                SyntaxKind.IndexerDeclaration,
-                SyntaxKind.GetAccessorDeclaration,
-                SyntaxKind.SetAccessorDeclaration,
-                SyntaxKind.InitAccessorDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeMember,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.ConstructorDeclaration,
+            SyntaxKind.OperatorDeclaration,
+            SyntaxKind.ConversionOperatorDeclaration,
+            SyntaxKind.LocalFunctionStatement,
+            SyntaxKind.PropertyDeclaration,
+            SyntaxKind.IndexerDeclaration,
+            SyntaxKind.GetAccessorDeclaration,
+            SyntaxKind.SetAccessorDeclaration,
+            SyntaxKind.InitAccessorDeclaration);
     }
 
     /// <summary>Returns whether a type syntax's rightmost name is <c>IEnumerable</c>, before any binding.</summary>
@@ -134,11 +132,11 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1125 for each lazy-sequence parameter or local the member body walks twice.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, LazyMetadataType typeCache)
     {
         var shape = GetAnalyzableShape(context.Node);
-        if (shape.Body is not { } body || !MentionsEnumerable(shape.PrepassScope ?? body))
+        if (shape.Body is not { } body || !IdentifierReferences.ContainsIdentifierToken(shape.PrepassScope ?? body, EnumerableTypeName))
         {
             return;
         }
@@ -155,7 +153,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ScanAndReport(context, body, candidates, enumerableType);
+        ScanAndReport(context, body, candidates, typeCache.Get());
     }
 
     /// <summary>Resolves the parameters, body, and prepass scope of a body-carrying declaration.</summary>
@@ -202,31 +200,6 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static MemberShape CreateAccessorShape(AccessorDeclarationSyntax accessor) =>
         new(default, PickBody(accessor.Body, accessor.ExpressionBody), accessor, true);
-
-    /// <summary>Runs the free syntax prepass, which asks whether the declaration mentions <c>IEnumerable</c> at all.</summary>
-    /// <param name="scope">The declaration to scan.</param>
-    /// <returns><see langword="true"/> when an IEnumerable identifier token appears, so binding is worth it.</returns>
-    private static bool MentionsEnumerable(SyntaxNode scope)
-    {
-        var state = default(MentionScanState);
-        _ = DescendantTraversalHelper.VisitDescendantTokens(scope, ref state, VisitTypeNameToken);
-        return state.Found;
-    }
-
-    /// <summary>Classifies one token during the prepass.</summary>
-    /// <param name="token">The visited token.</param>
-    /// <param name="state">The current scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once IEnumerable is seen.</returns>
-    private static bool VisitTypeNameToken(in SyntaxToken token, ref MentionScanState state)
-    {
-        if (!token.IsKind(SyntaxKind.IdentifierToken) || token.ValueText != EnumerableTypeName)
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
 
     /// <summary>Adds each lazy-sequence parameter to the candidate set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -446,7 +419,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
             && access.Parent is InvocationExpressionSyntax invocation)
         {
             if (EagerMethodNames.Contains(access.Name.Identifier.ValueText)
-                && IsEnumerableExtension(model, invocation, enumerableType, cancellationToken))
+                && enumerableType is not null
+            && EnumerableInvocationHelper.IsReducedExtensionOn(model, invocation, enumerableType, cancellationToken))
             {
                 return true;
             }
@@ -466,21 +440,6 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the node is what the loop walks.</returns>
     private static bool IsForEachSource(SyntaxNode node) =>
         node.Parent is CommonForEachStatementSyntax forEach && forEach.Expression == node;
-
-    /// <summary>Returns whether an invocation binds to a reduced <c>System.Linq.Enumerable</c> extension.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the call really is the LINQ operator its name suggests.</returns>
-    private static bool IsEnumerableExtension(
-        SemanticModel model,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol? enumerableType,
-        CancellationToken cancellationToken) =>
-        enumerableType is not null
-            && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
-            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 
     /// <summary>Finds the first walk that can run after an earlier one, and so re-enumerates the sequence.</summary>
     /// <param name="walks">The walks found in the body, in document order.</param>
@@ -600,13 +559,6 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         SyntaxNode? Body,
         SyntaxNode? PrepassScope,
         bool OwnsLocals);
-
-    /// <summary>Tracks whether the prepass saw an IEnumerable mention.</summary>
-    private record struct MentionScanState
-    {
-        /// <summary>Gets or sets a value indicating whether an IEnumerable identifier token was found.</summary>
-        public bool Found { get; set; }
-    }
 
     /// <summary>Collects the IEnumerable-typed local declarations of a method body.</summary>
     /// <param name="Declarations">The declarations found so far.</param>

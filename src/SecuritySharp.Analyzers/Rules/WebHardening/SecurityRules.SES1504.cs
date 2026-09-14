@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1504 — a cookie initializer sets <c>SameSite = None</c> without marking the cookie secure.</summary>
-    public static readonly DiagnosticDescriptor SameSiteNoneWithoutSecure = Create(
+    public static readonly DiagnosticDescriptor SameSiteNoneWithoutSecure = DescriptorFactory.Create(
         "SES1504",
         "A cookie with SameSite=None must be marked Secure",
         SameSiteNoneWithoutSecureMessage,

@@ -67,7 +67,10 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeInterpolatedString, SyntaxKind.InterpolatedStringExpression);
         context.RegisterSyntaxNodeAction(AnalyzeStringLiteral, SyntaxKind.StringLiteralExpression);
         context.RegisterSyntaxNodeAction(AnalyzeSimpleAssignment, SyntaxKind.SimpleAssignmentExpression);
-        context.RegisterSyntaxNodeAction(AnalyzeComparison, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => ComparisonOperandOrder.ReportWhenOnlyLeftMatches(nodeContext, IsReorderableLiteral, ReadabilityRules.LiteralOnRightOfComparison),
+            SyntaxKind.EqualsExpression,
+            SyntaxKind.NotEqualsExpression);
         context.RegisterSyntaxNodeAction(AnalyzeDefaultExpression, SyntaxKind.DefaultExpression);
         context.RegisterSyntaxNodeAction(AnalyzeDoubledNegation, SyntaxKind.LogicalNotExpression, SyntaxKind.BitwiseNotExpression);
     }
@@ -101,28 +104,15 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     {
         (expressionKind, tokenKind, text) = kind switch
         {
-            SyntaxKind.EqualsExpression => (SyntaxKind.NotEqualsExpression, SyntaxKind.ExclamationEqualsToken, "!="),
-            SyntaxKind.NotEqualsExpression => (SyntaxKind.EqualsExpression, SyntaxKind.EqualsEqualsToken, "=="),
-            SyntaxKind.LessThanExpression => (SyntaxKind.GreaterThanOrEqualExpression, SyntaxKind.GreaterThanEqualsToken, ">="),
-            SyntaxKind.LessThanOrEqualExpression => (SyntaxKind.GreaterThanExpression, SyntaxKind.GreaterThanToken, ">"),
-            SyntaxKind.GreaterThanExpression => (SyntaxKind.LessThanOrEqualExpression, SyntaxKind.LessThanEqualsToken, "<="),
-            SyntaxKind.GreaterThanOrEqualExpression => (SyntaxKind.LessThanExpression, SyntaxKind.LessThanToken, "<"),
-            _ => (SyntaxKind.None, SyntaxKind.None, string.Empty)
+            SyntaxKind.EqualsExpression => new OperatorForm(SyntaxKind.NotEqualsExpression, SyntaxKind.ExclamationEqualsToken, "!="),
+            SyntaxKind.NotEqualsExpression => new OperatorForm(SyntaxKind.EqualsExpression, SyntaxKind.EqualsEqualsToken, "=="),
+            SyntaxKind.LessThanExpression => new OperatorForm(SyntaxKind.GreaterThanOrEqualExpression, SyntaxKind.GreaterThanEqualsToken, ">="),
+            SyntaxKind.LessThanOrEqualExpression => new OperatorForm(SyntaxKind.GreaterThanExpression, SyntaxKind.GreaterThanToken, ">"),
+            SyntaxKind.GreaterThanExpression => new OperatorForm(SyntaxKind.LessThanOrEqualExpression, SyntaxKind.LessThanEqualsToken, "<="),
+            SyntaxKind.GreaterThanOrEqualExpression => new OperatorForm(SyntaxKind.LessThanExpression, SyntaxKind.LessThanToken, "<"),
+            _ => new OperatorForm(SyntaxKind.None, SyntaxKind.None, string.Empty)
         };
         return tokenKind != SyntaxKind.None;
-    }
-
-    /// <summary>Unwraps any enclosing parentheses to reach the inner expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    internal static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
     }
 
     /// <summary>Returns whether a relational operand is nullable, floating-point, or conditional-access.</summary>
@@ -150,7 +140,7 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvertedBooleanCheck(SyntaxNodeAnalysisContext context)
     {
         var not = (PrefixUnaryExpressionSyntax)context.Node;
-        if (Unwrap(not.Operand) is not BinaryExpressionSyntax binary
+        if (ExpressionShapes.WalkDownParentheses(not.Operand) is not BinaryExpressionSyntax binary
             || !TryGetOpposite(binary.Kind(), out _, out _, out var text))
         {
             return;
@@ -190,7 +180,7 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         var cast = (CastExpressionSyntax)context.Node;
 
         // 'default'/'default(T)' have no independent type, so a cast on them is never redundant noise.
-        var operand = Unwrap(cast.Expression);
+        var operand = ExpressionShapes.WalkDownParentheses(cast.Expression);
         if (operand.IsKind(SyntaxKind.DefaultLiteralExpression) || operand.IsKind(SyntaxKind.DefaultExpression))
         {
             return;
@@ -230,7 +220,7 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var operand = Unwrap(asExpression.Left);
+        var operand = ExpressionShapes.WalkDownParentheses(asExpression.Left);
         if (operand.IsKind(SyntaxKind.DefaultLiteralExpression) || operand.IsKind(SyntaxKind.DefaultExpression))
         {
             return;
@@ -630,21 +620,6 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         assignment.Parent is InitializerExpressionSyntax initializer
             && (initializer.IsKind(SyntaxKind.ObjectInitializerExpression) || initializer.IsKind(SyntaxKind.WithInitializerExpression));
 
-    /// <summary>Reports SST1186 when a non-null literal sits on the left of an equality comparison.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context)
-    {
-        var comparison = (BinaryExpressionSyntax)context.Node;
-
-        // Null comparisons belong to the 'is null' rule, and two literals are a constant-folding concern.
-        if (!IsReorderableLiteral(comparison.Left) || IsReorderableLiteral(comparison.Right))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.LiteralOnRightOfComparison, comparison.GetLocation()));
-    }
-
     /// <summary>Reports SST1188 when <c>default(T)</c> sits in a target-typed position that accepts bare <c>default</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeDefaultExpression(SyntaxNodeAnalysisContext context)
@@ -685,7 +660,7 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (Unwrap(unary.Operand) is not PrefixUnaryExpressionSyntax inner || !inner.IsKind(unary.Kind()))
+        if (ExpressionShapes.WalkDownParentheses(unary.Operand) is not PrefixUnaryExpressionSyntax inner || !inner.IsKind(unary.Kind()))
         {
             return;
         }

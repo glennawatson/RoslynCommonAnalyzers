@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -37,6 +39,9 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the volatile type.</summary>
     private const string VolatileMetadataName = "System.Threading.Volatile";
 
+    /// <summary>The interlocked and volatile metadata names, in slot order.</summary>
+    private static readonly string[] ThreadingMetadataNames = [InterlockedMetadataName, VolatileMetadataName];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.VolatileInterlockedField);
 
@@ -49,21 +54,14 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var interlockedType = start.Compilation.GetTypeByMetadataName(InterlockedMetadataName);
-            if (interlockedType is null || start.Compilation.GetTypeByMetadataName(VolatileMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeType(nodeContext, interlockedType),
-                SyntaxKind.ClassDeclaration,
-                SyntaxKind.StructDeclaration,
-                SyntaxKind.RecordDeclaration,
-                SyntaxKind.RecordStructDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, ThreadingMetadataNames),
+            AnalyzeType,
+            SyntaxKind.ClassDeclaration,
+            SyntaxKind.StructDeclaration,
+            SyntaxKind.RecordDeclaration,
+            SyntaxKind.RecordStructDeclaration);
     }
 
     /// <summary>Returns the ref-argument field name of an <c>Interlocked.*(ref x, ...)</c> call, before any binding.</summary>
@@ -120,8 +118,8 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Scans one type for interlocked targets and reports their plain accesses.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="interlockedType">The interlocked type.</param>
-    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol interlockedType)
+    /// <param name="threadingTypes">The threading types resolved on demand for this compilation.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, LazyMetadataTypes threadingTypes)
     {
         var containingType = (TypeDeclarationSyntax)context.Node;
         var seeds = new SeedScan(containingType);
@@ -137,17 +135,55 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         var candidates = new HashSet<string>(StringComparer.Ordinal);
         foreach (var call in calls)
         {
-            _ = candidates.Add(TryGetInterlockedTargetName(call)!);
+            var targetName = TryGetInterlockedTargetName(call)!;
+            if (CouldNeedVolatileAccessor(containingType, targetName, requiresStatic: false))
+            {
+                _ = candidates.Add(targetName);
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            return;
         }
 
         var scan = new AccessScan(candidates, containingType);
         _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref AccessScan state) => state.Visit(in token));
-        if (scan.Usages is not { } usages || VerifyTargets(context, calls, interlockedType) is not { } targets)
+        if (scan.Usages is not { } usages
+            || threadingTypes.Get() is not [{ } interlockedType, not null]
+            || VerifyTargets(context, calls, interlockedType) is not { } targets)
         {
             return;
         }
 
         ReportPlainAccesses(context, containingType, usages, targets);
+    }
+
+    /// <summary>Rejects volatile fields and names that cannot denote a field of this type before binding a method body.</summary>
+    /// <param name="type">The declaration containing the interlocked calls.</param>
+    /// <param name="name">The targeted name.</param>
+    /// <param name="requiresStatic">Whether a readonly receiver rules out instance fields.</param>
+    /// <returns>Whether a non-volatile field could have this name, including a field in another partial declaration.</returns>
+    private static bool CouldNeedVolatileAccessor(TypeDeclarationSyntax type, string name, bool requiresStatic)
+    {
+        foreach (var member in type.Members)
+        {
+            if (member is not FieldDeclarationSyntax field)
+            {
+                continue;
+            }
+
+            foreach (var variable in field.Declaration.Variables)
+            {
+                if (variable.Identifier.ValueText == name)
+                {
+                    return !field.Modifiers.Any(SyntaxKind.VolatileKeyword)
+                        && (!requiresStatic || field.Modifiers.Any(SyntaxKind.StaticKeyword));
+                }
+            }
+        }
+
+        return type.Modifiers.Any(SyntaxKind.PartialKeyword);
     }
 
     /// <summary>Binds the interlocked-shaped calls and returns the verified target names.</summary>
@@ -160,6 +196,12 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         HashSet<string>? targets = null;
         foreach (var call in calls)
         {
+            var targetName = TryGetInterlockedTargetName(call)!;
+            if (targets is not null && targets.Contains(targetName))
+            {
+                continue;
+            }
+
             var receiver = ((MemberAccessExpressionSyntax)call.Expression).Expression;
             if (context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol is not INamedTypeSymbol bound || !SymbolEqualityComparer.Default.Equals(bound, interlockedType))
             {
@@ -167,7 +209,7 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
             }
 
             targets ??= new HashSet<string>(StringComparer.Ordinal);
-            _ = targets.Add(TryGetInterlockedTargetName(call)!);
+            _ = targets.Add(targetName);
         }
 
         return targets;
@@ -357,7 +399,8 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
             var usage = identifier.Parent is MemberAccessExpressionSyntax qualification && qualification.Name == identifier
                 ? (ExpressionSyntax)qualification
                 : identifier;
-            if (!IsPlainFieldAccess(usage) || IsConstructionOrLockContext(usage) || !IsDirectlyInType(usage, _containingType))
+            if (!IsPlainFieldAccess(usage)
+                || IsExcludedAccess(usage))
             {
                 return true;
             }
@@ -388,6 +431,16 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
             {
                 Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } },
             };
+
+        /// <summary>Rejects construction, locked, nested-type, and readonly instance accesses before binding.</summary>
+        /// <param name="usage">The candidate field access.</param>
+        /// <returns>Whether the access belongs to a context excluded from reporting.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsExcludedAccess(ExpressionSyntax usage) =>
+            IsConstructionOrLockContext(usage)
+                || !IsDirectlyInType(usage, _containingType)
+                || (IsThroughReadOnlyThis(_containingType, usage)
+                    && !CouldNeedVolatileAccessor(_containingType, GetUsageName(usage), requiresStatic: true));
 
         /// <summary>Returns whether a usage sits in construction code or inside a lock.</summary>
         /// <param name="usage">The usage expression.</param>

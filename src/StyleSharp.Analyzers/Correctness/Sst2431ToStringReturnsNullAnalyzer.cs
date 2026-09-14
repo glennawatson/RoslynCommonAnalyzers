@@ -47,7 +47,7 @@ public sealed class Sst2431ToStringReturnsNullAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var results = new List<ExpressionSyntax>();
+        var results = new List<ExpressionSyntax>(method.Body?.Statements.Count ?? 1);
         if (method.ExpressionBody is { } arrow)
         {
             CollectNullReturns(arrow.Expression, results);

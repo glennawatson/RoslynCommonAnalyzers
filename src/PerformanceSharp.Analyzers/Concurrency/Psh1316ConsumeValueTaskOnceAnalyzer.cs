@@ -35,11 +35,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (ValueTaskTypes.Create(start.Compilation) is not { } valueTaskTypes)
-            {
-                return;
-            }
-
+            var valueTaskTypes = new LazyCompilationValue<ValueTaskTypes?>(start.Compilation, ValueTaskTypes.Create, runOnce: true);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeLoop(nodeContext, valueTaskTypes),
                 SyntaxKind.ForStatement,
@@ -53,8 +49,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a ValueTask local awaited inside a loop it was declared outside of.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
-    private static void AnalyzeLoop(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
+    /// <param name="valueTaskTypes">The ValueTask types resolved on first demand.</param>
+    private static void AnalyzeLoop(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ValueTaskTypes?> valueTaskTypes)
     {
         if (GetLoopBody(context.Node) is not { } body)
         {
@@ -74,8 +70,9 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         if (!IsConsume(identifier)
             || NearestEnclosingLoop(identifier) != state.Loop
             || IsDeclaredOrAssignedInside(identifier, state.Loop)
+            || state.ValueTaskTypes.Get() is not { } valueTaskTypes
             || state.Context.SemanticModel.GetSymbolInfo(identifier, state.Context.CancellationToken).Symbol is not ILocalSymbol local
-            || !state.ValueTaskTypes.IsValueTask(local.Type)
+            || !valueTaskTypes.IsValueTask(local.Type)
             || IsDeclaredInside(local, state.Loop)
             || IsPreserved(local, identifier.Identifier.ValueText, state.Context.CancellationToken))
         {
@@ -88,8 +85,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a ValueTask local copied into a second local where both are consumed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
-    private static void AnalyzeCopy(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
+    /// <param name="valueTaskTypes">The ValueTask types resolved on first demand.</param>
+    private static void AnalyzeCopy(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ValueTaskTypes?> valueTaskTypes)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (!declaration.UsingKeyword.IsKind(SyntaxKind.None))
@@ -106,28 +103,36 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one <c>var copy = source;</c> alias of a consumed ValueTask.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
+    /// <param name="valueTaskTypes">The ValueTask types resolved on first demand.</param>
     /// <param name="variable">The copy declarator.</param>
-    private static void AnalyzeCopyVariable(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes, VariableDeclaratorSyntax variable)
+    private static void AnalyzeCopyVariable(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ValueTaskTypes?> valueTaskTypes, VariableDeclaratorSyntax variable)
     {
         if (variable.Initializer?.Value is not IdentifierNameSyntax source
+            || !IsConsumedCopy(variable, source)
+            || valueTaskTypes.Get() is not { } resolvedValueTaskTypes
             || context.SemanticModel.GetSymbolInfo(source, context.CancellationToken).Symbol is not ILocalSymbol sourceLocal
-            || !valueTaskTypes.IsValueTask(sourceLocal.Type)
-            || context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is not ILocalSymbol copyLocal
-            || GetEnclosingBody(variable) is not { } body)
+            || !resolvedValueTaskTypes.IsValueTask(sourceLocal.Type)
+            || context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is not ILocalSymbol copyLocal)
         {
             return;
         }
 
-        if (IsPreserved(sourceLocal, sourceLocal.Name, context.CancellationToken)
-            || !IsConsumedIn(body, sourceLocal.Name)
-            || !IsConsumedIn(body, copyLocal.Name))
+        if (IsPreserved(sourceLocal, sourceLocal.Name, context.CancellationToken))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(ConcurrencyRules.ConsumeValueTaskOnce, variable.Identifier.GetLocation(), copyLocal.Name));
     }
+
+    /// <summary>Checks whether both names in a local copy are consumed in the enclosing body.</summary>
+    /// <param name="variable">The copy declarator.</param>
+    /// <param name="source">The copied identifier.</param>
+    /// <returns>Whether both names have a syntactic consume in the body.</returns>
+    private static bool IsConsumedCopy(VariableDeclaratorSyntax variable, IdentifierNameSyntax source) =>
+        EnclosingFunction.GetBody(variable) is { } body
+            && IsConsumedIn(body, source.Identifier.ValueText)
+            && IsConsumedIn(body, variable.Identifier.ValueText);
 
     /// <summary>Returns whether an identifier is consumed as a ValueTask.</summary>
     /// <param name="identifier">The identifier.</param>
@@ -147,62 +152,34 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
     /// <param name="body">The body to scan.</param>
     /// <param name="name">The local name.</param>
     /// <returns><see langword="true"/> when a consume of the name is found.</returns>
-    private static bool IsConsumedIn(SyntaxNode body, string name)
-    {
-        var state = new NameConsumeScan(name);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameConsumeScan>(body, ref state, VisitNameConsume);
-        return state.Found;
-    }
+    private static bool IsConsumedIn(SyntaxNode body, string name) =>
+        !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, string>(body, ref name, VisitNameConsume);
 
-    /// <summary>Records a consume of the tracked name, stopping the walk once found.</summary>
+    /// <summary>Continues the walk past an identifier that is not a consume of the name.</summary>
     /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once a consume is found.</returns>
-    private static bool VisitNameConsume(IdentifierNameSyntax identifier, ref NameConsumeScan state)
-    {
-        if (identifier.Identifier.ValueText != state.Name || !IsConsume(identifier))
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
+    /// <param name="name">The local name.</param>
+    /// <returns><see langword="false"/> at a consume, which stops the walk.</returns>
+    private static bool VisitNameConsume(IdentifierNameSyntax identifier, ref string name) =>
+        identifier.Identifier.ValueText != name || !IsConsume(identifier);
 
     /// <summary>Returns whether a ValueTask local is preserved for reuse anywhere in its body.</summary>
     /// <param name="local">The local.</param>
     /// <param name="name">The local name.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a <c>local.Preserve()</c> keeps the token valid.</returns>
-    private static bool IsPreserved(ILocalSymbol local, string name, CancellationToken cancellationToken)
-    {
-        if (local.DeclaringSyntaxReferences is not [var reference]
-            || GetEnclosingBody(reference.GetSyntax(cancellationToken)) is not { } body)
-        {
-            return false;
-        }
+    private static bool IsPreserved(ILocalSymbol local, string name, CancellationToken cancellationToken) =>
+        local.DeclaringSyntaxReferences is [var reference]
+            && EnclosingFunction.GetBody(reference.GetSyntax(cancellationToken)) is { } body
+            && !DescendantTraversalHelper.VisitDescendants<MemberAccessExpressionSyntax, string>(body, ref name, VisitPreserve);
 
-        var state = new NamePreserveScan(name);
-        _ = DescendantTraversalHelper.VisitDescendants<MemberAccessExpressionSyntax, NamePreserveScan>(body, ref state, VisitPreserve);
-        return state.Found;
-    }
-
-    /// <summary>Records a <c>name.Preserve</c> access, stopping the walk once found.</summary>
+    /// <summary>Continues the walk past a member access that is not <c>name.Preserve</c>.</summary>
     /// <param name="access">The member access being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once a preserve is found.</returns>
-    private static bool VisitPreserve(MemberAccessExpressionSyntax access, ref NamePreserveScan state)
-    {
-        if (access.Name.Identifier.ValueText != "Preserve"
+    /// <param name="name">The local name.</param>
+    /// <returns><see langword="false"/> at a preserve, which stops the walk.</returns>
+    private static bool VisitPreserve(MemberAccessExpressionSyntax access, ref string name) =>
+        access.Name.Identifier.ValueText != "Preserve"
             || access.Expression is not IdentifierNameSyntax identifier
-            || identifier.Identifier.ValueText != state.Name)
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
+            || identifier.Identifier.ValueText != name;
 
     /// <summary>Returns whether a local is declared inside a loop.</summary>
     /// <param name="local">The local.</param>
@@ -222,32 +199,20 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var state = new NameWriteScan(identifier.Identifier.ValueText);
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, NameWriteScan>(body, ref state, VisitNameWrite);
-        return state.Found;
+        var name = identifier.Identifier.ValueText;
+        return !DescendantTraversalHelper.VisitDescendants<SyntaxNode, string>(body, ref name, VisitNameWrite);
     }
 
-    /// <summary>Records an assignment to, or declaration of, the tracked name.</summary>
+    /// <summary>Continues the walk past a node that neither assigns nor declares the name.</summary>
     /// <param name="node">The node being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once a write is found.</returns>
-    private static bool VisitNameWrite(SyntaxNode node, ref NameWriteScan state)
+    /// <param name="name">The local name.</param>
+    /// <returns><see langword="false"/> at a write, which stops the walk.</returns>
+    private static bool VisitNameWrite(SyntaxNode node, ref string name) => node switch
     {
-        var written = node switch
-        {
-            AssignmentExpressionSyntax { Left: IdentifierNameSyntax left } => left.Identifier.ValueText == state.Name,
-            VariableDeclaratorSyntax declarator => declarator.Identifier.ValueText == state.Name,
-            _ => false,
-        };
-
-        if (!written)
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
+        AssignmentExpressionSyntax { Left: IdentifierNameSyntax left } => left.Identifier.ValueText != name,
+        VariableDeclaratorSyntax declarator => declarator.Identifier.ValueText != name,
+        _ => true,
+    };
 
     /// <summary>Gets a loop's body statement.</summary>
     /// <param name="loop">The loop node.</param>
@@ -282,29 +247,6 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <summary>Gets the innermost body a node belongs to, bounding a name scan.</summary>
-    /// <param name="node">The node.</param>
-    /// <returns>The enclosing body, or <see langword="null"/>.</returns>
-    private static SyntaxNode? GetEnclosingBody(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            switch (current)
-            {
-                case AnonymousFunctionExpressionSyntax function:
-                    return function.Body;
-                case LocalFunctionStatementSyntax localFunction:
-                    return (SyntaxNode?)localFunction.Body ?? localFunction.ExpressionBody;
-                case BaseMethodDeclarationSyntax method:
-                    return (SyntaxNode?)method.Body ?? method.ExpressionBody;
-                case AccessorDeclarationSyntax accessor:
-                    return (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>The ValueTask types of one compilation, resolved once.</summary>
     /// <param name="ValueTask">The non-generic <c>ValueTask</c> type.</param>
     /// <param name="ValueTaskOfT">The generic <c>ValueTask&lt;T&gt;</c> type.</param>
@@ -330,31 +272,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The state threaded through a loop-body consume scan.</summary>
     /// <param name="Context">The syntax node analysis context.</param>
-    /// <param name="ValueTaskTypes">The ValueTask types resolved for this compilation.</param>
+    /// <param name="ValueTaskTypes">The ValueTask types resolved on first demand.</param>
     /// <param name="Loop">The loop being analyzed.</param>
-    private readonly record struct LoopScan(SyntaxNodeAnalysisContext Context, ValueTaskTypes ValueTaskTypes, SyntaxNode Loop);
-
-    /// <summary>The state threaded through a name-consume scan.</summary>
-    /// <param name="Name">The local name to look for.</param>
-    private record struct NameConsumeScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether a consume was found.</summary>
-        public bool Found { get; set; }
-    }
-
-    /// <summary>The state threaded through a preserve scan.</summary>
-    /// <param name="Name">The local name to look for.</param>
-    private record struct NamePreserveScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether a preserve was found.</summary>
-        public bool Found { get; set; }
-    }
-
-    /// <summary>The state threaded through a name-write scan.</summary>
-    /// <param name="Name">The local name to look for.</param>
-    private record struct NameWriteScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether a write was found.</summary>
-        public bool Found { get; set; }
-    }
+    private readonly record struct LoopScan(SyntaxNodeAnalysisContext Context, LazyCompilationValue<ValueTaskTypes?> ValueTaskTypes, SyntaxNode Loop);
 }

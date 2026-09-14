@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -95,8 +94,8 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
             ? SyntaxFactory.UnaryPattern(SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)), declaration)
             : declaration;
         return SyntaxFactory.IsPatternExpression(
-            operand.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.Token(default, SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            operand.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             pattern);
     }
 
@@ -111,7 +110,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var operand = PatternMatchingAnalyzer.Unwrap(candidate.AsExpression.Left);
+        var operand = ExpressionShapes.WalkDownParentheses(candidate.AsExpression.Left);
         if (!SideEffectFreeExpression.IsSideEffectFree(operand))
         {
             return;
@@ -179,7 +178,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
 
         var candidateDeclarator = local.Declaration.Variables[0];
         if (candidateDeclarator.Initializer is not { } initializer
-            || PatternMatchingAnalyzer.Unwrap(initializer.Value) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } candidateAs
+            || ExpressionShapes.WalkDownParentheses(initializer.Value) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } candidateAs
             || candidateAs.Right is not TypeSyntax candidateType)
         {
             return false;
@@ -247,14 +246,14 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (isPattern.Pattern is ConstantPatternSyntax constant && IsNullLiteral(constant.Expression))
+        if (isPattern.Pattern is ConstantPatternSyntax constant && ExpressionShapes.IsNullLiteral(constant.Expression))
         {
             isNegative = true;
             return true;
         }
 
         return isPattern.Pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern, Pattern: ConstantPatternSyntax notConstant }
-            && IsNullLiteral(notConstant.Expression);
+            && ExpressionShapes.IsNullLiteral(notConstant.Expression);
     }
 
     /// <summary>Returns whether a comparison pairs the <c>null</c> literal with the named local.</summary>
@@ -262,8 +261,8 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The local's name.</param>
     /// <returns><see langword="true"/> when one side is <c>null</c> and the other is the named local.</returns>
     private static bool IsNullComparedToName(BinaryExpressionSyntax comparison, string name) =>
-        (IsNullLiteral(comparison.Right) && IsNameExpression(comparison.Left, name))
-            || (IsNullLiteral(comparison.Left) && IsNameExpression(comparison.Right, name));
+        (ExpressionShapes.IsNullLiteral(comparison.Right) && IsNameExpression(comparison.Left, name))
+            || (ExpressionShapes.IsNullLiteral(comparison.Left) && IsNameExpression(comparison.Right, name));
 
     /// <summary>Returns whether an expression is exactly the named identifier.</summary>
     /// <param name="expression">The expression to test.</param>
@@ -271,12 +270,6 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for an identifier with that name.</returns>
     private static bool IsNameExpression(ExpressionSyntax expression, string name) =>
         expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
-
-    /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
-    /// <param name="expression">The expression to test.</param>
-    /// <returns><see langword="true"/> for a <c>null</c> literal.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether a statement always leaves the enclosing block without falling through.</summary>
     /// <param name="statement">The guard body.</param>
@@ -313,24 +306,20 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// </returns>
     private static bool ReferencesAreCompatible(SemanticModel model, in AsAssignmentPatternCandidate candidate, ILocalSymbol local, CancellationToken token)
     {
-        var conditionSpan = candidate.IfStatement.Condition.Span;
-        var bodySpan = candidate.IfStatement.Statement.Span;
-        foreach (var node in candidate.Block.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax reference
-                || reference.Identifier.Text != local.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(reference, token).Symbol, local))
-            {
-                continue;
-            }
-
-            if (!ReferenceIsAllowed(candidate.IsNegative, reference, conditionSpan, bodySpan))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        var state = new ReferenceCompatibilityState(
+            model,
+            local,
+            candidate.IfStatement.Condition.Span,
+            candidate.IfStatement.Statement.Span,
+            candidate.IsNegative,
+            token);
+        return DescendantTraversalHelper.VisitDescendants(
+            candidate.Block,
+            ref state,
+            static (IdentifierNameSyntax reference, ref ReferenceCompatibilityState state) =>
+                reference.Identifier.Text != state.Local.Name
+                    || ReferenceIsAllowed(state.IsNegative, reference, state.ConditionSpan, state.BodySpan)
+                    || !SymbolEqualityComparer.Default.Equals(state.Model.GetSymbolInfo(reference, state.CancellationToken).Symbol, state.Local));
     }
 
     /// <summary>Returns whether a single reference to the local keeps the fold behaviour-preserving.</summary>
@@ -379,4 +368,19 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
         TypeSyntax Type,
         IfStatementSyntax IfStatement,
         bool IsNegative);
+
+    /// <summary>Carries the local binding and allowed-use spans through reference validation.</summary>
+    /// <param name="Model">The semantic model used to bind matching names.</param>
+    /// <param name="Local">The local being folded into a pattern.</param>
+    /// <param name="ConditionSpan">The guard condition where the local can be read.</param>
+    /// <param name="BodySpan">The guarded body whose permitted reads depend on polarity.</param>
+    /// <param name="IsNegative">Whether the guard exits when the conversion fails.</param>
+    /// <param name="CancellationToken">A token that cancels binding.</param>
+    private readonly record struct ReferenceCompatibilityState(
+        SemanticModel Model,
+        ILocalSymbol Local,
+        TextSpan ConditionSpan,
+        TextSpan BodySpan,
+        bool IsNegative,
+        CancellationToken CancellationToken);
 }

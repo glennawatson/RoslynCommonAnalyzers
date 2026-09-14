@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1106 — an HttpClient request targets a cleartext <c>http://</c> URL literal.</summary>
-    public static readonly DiagnosticDescriptor CleartextHttpUrl = Create(
+    public static readonly DiagnosticDescriptor CleartextHttpUrl = DescriptorFactory.Create(
         "SES1106",
         "Do not send HttpClient requests to a cleartext http URL",
         "The request URL targets cleartext HTTP host '{0}'; data sent over http travels unencrypted and can be read or altered in transit -- use https",

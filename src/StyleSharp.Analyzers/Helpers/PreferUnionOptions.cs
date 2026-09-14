@@ -25,23 +25,5 @@ internal readonly record struct PreferUnionOptions(bool ReportValueTypePayloads)
     /// where the clarity is worth the boxing. An unset or unparsable value keeps the default.
     /// </remarks>
     internal static PreferUnionOptions Read(AnalyzerConfigOptions options) =>
-        new(ReadBool(options, ReportValueTypePayloadsRuleKey, ReportValueTypePayloadsGeneralKey, fallback: false));
-
-    /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured value, or <paramref name="fallback"/>.</returns>
-    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey, bool fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed)
-            ? parsed
-            : fallback;
-    }
+        new(AnalyzerOptionReader.ReadBool(options, ReportValueTypePayloadsRuleKey, ReportValueTypePayloadsGeneralKey, fallback: false));
 }

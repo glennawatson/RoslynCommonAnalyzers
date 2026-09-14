@@ -61,6 +61,112 @@ public class FunctionClassClientFieldAnalyzerUnitTest
         }
         """;
 
+    /// <summary>Verifies nullable client auto-properties and aliased full attribute names retain their identity.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NullableClientWithAliasedFunctionAttributeIsReportedAsync() =>
+        VerifyAsync("""
+            #nullable enable
+            using Worker = Microsoft.Azure.Functions.Worker;
+            class C
+            {
+                public System.Net.Http.HttpClient? {|PSH1420:Client|} { get; }
+                [Worker::FunctionAttribute("Run")] public void Run() { }
+            }
+            """);
+
+    /// <summary>Verifies accessors with bodies do not represent per-instance client storage.</summary>
+    /// <param name="accessors">The computed accessor body.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("get { return null; }")]
+    [Arguments("get => null;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ComputedAccessorsAreCleanAsync(string accessors) =>
+        VerifyAsync($$"""
+            class C
+            {
+                public System.Net.Http.HttpClient Client { {{accessors}} }
+                [Microsoft.Azure.Functions.Worker.Function("Run")] public void Run() { }
+            }
+            """);
+
+    /// <summary>Verifies non-client and lookalike properties remain clean beside a genuine client.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedAutoPropertiesAreCleanAsync() =>
+        VerifyAsync("""
+            namespace Other { public class HttpClient { } }
+            class C
+            {
+                public System.Net.Http.HttpClient {|PSH1420:Client|} { get; }
+                public Other.HttpClient Foreign { get; }
+                public int Count { get; }
+                [Microsoft.Azure.Functions.Worker.Function("Run")] public void Run() { }
+            }
+            """);
+
+    /// <summary>Verifies a lookalike function attribute does not cause client auto-properties to be reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ForeignFunctionAutoPropertyIsCleanAsync() =>
+        VerifyAsync("""
+            namespace Other { public class FunctionAttribute : System.Attribute { } }
+            class C
+            {
+                public System.Net.Http.HttpClient Client { get; }
+                [Other.Function] public void Run() { }
+            }
+            """);
+
+    /// <summary>Verifies an available HTTP client factory is included in the diagnostic's replacement advice.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task AvailableClientFactoryChangesAdviceAsync()
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = """
+                namespace System.Net.Http { public interface IHttpClientFactory { } }
+                class C
+                {
+                    public System.Net.Http.HttpClient {|#0:Client|} { get; }
+                    [Microsoft.Azure.Functions.Worker.Function("Run")] public void Run() { }
+                }
+                """,
+        };
+        test.TestState.Sources.Add(FunctionAttributeStubSource);
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic().WithLocation(0).WithArguments(
+            "HttpClient",
+            "inject an 'IHttpClientFactory' and create clients from it, or hold one shared 'static' client, instead"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an incomplete ref auto-property still reaches client classification without crashing.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IncompleteRefAutoPropertyRetainsClientDiagnosticAsync()
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = """
+                class C
+                {
+                    public ref System.Net.Http.HttpClient {|PSH1420:Client|} { get; }
+                    [Microsoft.Azure.Functions.Worker.Function("Run")] public void Run() { }
+                }
+                """,
+        };
+        test.TestState.Sources.Add(FunctionAttributeStubSource);
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies an instance HttpClient field of a function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

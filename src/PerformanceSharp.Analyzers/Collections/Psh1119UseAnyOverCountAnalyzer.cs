@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,8 +16,7 @@ namespace PerformanceSharp.Analyzers;
 /// <c>&lt; 1</c>, <c>&lt;= 0</c>) are recognized, and the predicate overload qualifies too.
 /// A receiver whose static type exposes an accessible constant-time <c>Count</c> or
 /// <c>Length</c> property is never reported — that receiver is PSH1103's territory. The rule
-/// is resolved once per compilation by probing for <c>System.Linq.Enumerable</c>, so it costs
-/// nothing when LINQ is absent.
+/// probes for <c>System.Linq.Enumerable</c> only after the comparison passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
@@ -29,14 +30,14 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
     /// <summary>The 64-bit count member name, which walks the sequence exactly as <c>Count</c> does.</summary>
     private const string LongCountMethodName = "LongCount";
 
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The message argument for comparisons that mean the sequence has elements.</summary>
     private const string AnyReplacementText = "Any()";
 
     /// <summary>The message argument for comparisons that mean the sequence is empty.</summary>
     private const string NegatedAnyReplacementText = "!Any()";
+
+    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAnyOverCount);
@@ -50,37 +51,29 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeComparison(nodeContext, enumerableType),
-                SyntaxKind.EqualsExpression,
-                SyntaxKind.NotEqualsExpression,
-                SyntaxKind.GreaterThanExpression,
-                SyntaxKind.GreaterThanOrEqualExpression,
-                SyntaxKind.LessThanExpression,
-                SyntaxKind.LessThanOrEqualExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeComparison,
+            SyntaxKind.EqualsExpression,
+            SyntaxKind.NotEqualsExpression,
+            SyntaxKind.GreaterThanExpression,
+            SyntaxKind.GreaterThanOrEqualExpression,
+            SyntaxKind.LessThanExpression,
+            SyntaxKind.LessThanOrEqualExpression);
     }
 
     /// <summary>Classifies an emptiness-shaped Count() comparison, before any binding.</summary>
     /// <param name="binary">The comparison to inspect.</param>
     /// <returns>The Count invocation and whether the check means "has elements", or <see langword="null"/>.</returns>
-    internal static (InvocationExpressionSyntax Invocation, bool HasElements)? TryGetComparisonShape(BinaryExpressionSyntax binary)
-    {
-        var shape = EmptinessComparisonClassifier.Classify(binary, TryGetCountInvocation(binary.Left), TryGetCountInvocation(binary.Right));
-        return shape is { } resolved ? (resolved.Count, resolved.HasElements) : null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static EmptinessComparison<InvocationExpressionSyntax>? TryGetComparisonShape(BinaryExpressionSyntax binary) =>
+        EmptinessComparisonClassifier.Classify(binary, TryGetCountInvocation(binary.Left), TryGetCountInvocation(binary.Right));
 
     /// <summary>Reports PSH1119 for an emptiness comparison of an Enumerable Count() result.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, LazyMetadataType typeCache)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonShape(binary) is not { } shape)
@@ -88,13 +81,14 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsEnumerableCountExtension(context.SemanticModel, shape.Invocation, enumerableType, context.CancellationToken))
+        if (typeCache.Get() is not { } enumerableType
+            || !EnumerableInvocationHelper.IsReducedExtensionOn(context.SemanticModel, shape.Count, enumerableType, context.CancellationToken))
         {
             return;
         }
 
-        var memberAccess = (MemberAccessExpressionSyntax)shape.Invocation.Expression;
-        if (shape.Invocation.ArgumentList.Arguments.Count == 0
+        var memberAccess = (MemberAccessExpressionSyntax)shape.Count.Expression;
+        if (shape.Count.ArgumentList.Arguments.Count == 0
             && context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type is { } receiverType
             && CollectionReceiverHelper.TryGetCountSourceName(receiverType, out _))
         {
@@ -117,18 +111,4 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
             && access.Name.Identifier.ValueText is CountMethodName or LongCountMethodName
             ? invocation
             : null;
-
-    /// <summary>Returns whether an invocation binds to a reduced <c>System.Linq.Enumerable</c> extension.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the call is a reduced Enumerable extension.</returns>
-    private static bool IsEnumerableCountExtension(
-        SemanticModel model,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType,
-        CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
-            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 }

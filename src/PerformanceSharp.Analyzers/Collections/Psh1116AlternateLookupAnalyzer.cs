@@ -46,33 +46,27 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(DictionaryMetadataName) is not { } dictionaryType
-                || dictionaryType.GetMembers(GetAlternateLookupMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, SupportsAlternateLookup),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1116 for a probe whose key is materialized from a char span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="types">The deferred framework support for alternate lookups.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationProbe types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.ArgumentList.Arguments.Count == 0
-            || invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText
-                is not (ContainsKeyMethodName or TryGetValueMethodName or ContainsMethodName or RemoveMethodName))
+        if (TryGetLookupAccess(invocation) is not { } access)
         {
             return;
         }
 
         var key = invocation.ArgumentList.Arguments[0].Expression;
         if (TryGetMaterialization(key) is not { } materialization
+            || !types.Get()
             || !IsCharSpan(context, materialization.Source)
             || !ReceiverSupportsAlternateLookup(context, access.Expression))
         {
@@ -86,21 +80,31 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
             materialization.Description));
     }
 
+    /// <summary>Gets a lookup member access with a key argument using syntax alone.</summary>
+    /// <param name="invocation">The invocation to inspect.</param>
+    /// <returns>The member access, or null when the syntax cannot match.</returns>
+    private static MemberAccessExpressionSyntax? TryGetLookupAccess(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count > 0
+            && invocation.Expression is MemberAccessExpressionSyntax access
+            && access.Name.Identifier.ValueText is ContainsKeyMethodName or TryGetValueMethodName or ContainsMethodName or RemoveMethodName
+            ? access
+            : null;
+
     /// <summary>Returns the span source and description of a key-materializing expression, before any binding.</summary>
     /// <param name="key">The key argument expression.</param>
     /// <returns>The materialization parts, or <see langword="null"/> when the shape does not match.</returns>
-    private static (ExpressionSyntax Source, string Description)? TryGetMaterialization(ExpressionSyntax key)
+    private static KeyMaterialization? TryGetMaterialization(ExpressionSyntax key)
     {
         if (key is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } toString
             && toString.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: nameof(ToString) } access)
         {
-            return (access.Expression, nameof(ToString));
+            return new KeyMaterialization(access.Expression, nameof(ToString));
         }
 
         return key is ObjectCreationExpressionSyntax { ArgumentList.Arguments: [var single] } creation
             && creation.Type is PredefinedTypeSyntax predefined
             && predefined.Keyword.IsKind(SyntaxKind.StringKeyword)
-            ? (single.Expression, "new string")
+            ? new KeyMaterialization(single.Expression, "new string")
             : null;
     }
 
@@ -132,4 +136,11 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
 
         return !receiverType.OriginalDefinition.GetMembers(GetAlternateLookupMethodName).IsEmpty;
     }
+
+    /// <summary>Returns whether the compilation's dictionary type exposes alternate lookup.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns><see langword="true"/> when the dictionary type exists and has GetAlternateLookup.</returns>
+    private static bool SupportsAlternateLookup(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(DictionaryMetadataName) is { } dictionaryType
+            && !dictionaryType.GetMembers(GetAlternateLookupMethodName).IsEmpty;
 }

@@ -13,6 +13,57 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1417ExpensiveDebugAssertArgumentAnalyzer"/> (PSH1417 expensive assertion arguments).</summary>
 public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 {
+    /// <summary>Verifies the missing Debug framework type is cached without reporting unresolved assertions.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingDebugFrameworkTypeIsCleanAsync()
+    {
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("class C { void M() { Debug.Assert(true, Read()); Debug.Assert(true, Read()); } }");
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("MissingDebug", [tree]);
+        var analyzers = Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzerExtensions.WithAnalyzers(compilation, [new Psh1417ExpensiveDebugAssertArgumentAnalyzer()]);
+        await Assert.That(await analyzers.GetAnalyzerDiagnosticsAsync()).IsEmpty();
+    }
+
+    /// <summary>Verifies subtree scanning distinguishes nested calls from cheap reads.</summary>
+    /// <param name="message">The assertion message with expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("{|PSH1417:\"value: \" + value.ToString()|}")]
+    [Arguments("{|PSH1417:flag ? value.ToString() : \"empty\"|}")]
+    [Arguments("flag ? text : \"empty\"")]
+    [Arguments("{|PSH1417:new string('x', 2)|}")]
+    [Arguments("{|PSH1417:new('x', 2)|}")]
+    [Arguments("$\"\"")]
+    public Task QualifiedAssertScansMessageExpressionsAsync(string message) =>
+        VerifyAsync($$"""class C { void M(bool flag, int value, string text) => System.Diagnostics.Debug.Assert(flag, {{message}}); }""");
+
+    /// <summary>Verifies interpolation is expensive when the framework has no deferred handler overload.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OlderFrameworkReportsEagerInterpolationAsync() =>
+        new Verify.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.NetStandard20,
+            TestCode = """class C { void M(int value) => System.Diagnostics.Debug.Assert(true, {|PSH1417:$"{value}"|}, {|PSH1417:$"{value.ToString()}"|}); }""",
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies unresolved, instance, and lookalike assertion targets are not reported.</summary>
+    /// <param name="source">The near-miss invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C { void M() => Debug.Assert(true, Get()); string Get() => null; }")]
+    [Arguments("class Debug { public static void Assert(bool value, string text) { } } class C { void M() => Debug.Assert(true, Get()); string Get() => null; }")]
+    [Arguments("class D { public void Assert(bool value, string text) { } } class C { void M(D Debug) => Debug.Assert(true, Get()); string Get() => null; }")]
+    [Arguments("class C { void M() => System.Diagnostics.Debug.Assert(); }")]
+    [Arguments("class C { void M() => System.Diagnostics.Debug.WriteLine(Get()); string Get() => null; }")]
+    [Arguments("class C { void M() => (Debug).Assert(true, Get()); string Get() => null; }")]
+    [Arguments("using static System.Diagnostics.Debug; class C { void M() => Assert(true, Get()); string Get() => null; }")]
+    public Task NonmatchingAssertionTargetsAreCleanAsync(string source) =>
+        new Verify.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies a call in the assertion condition is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

@@ -23,26 +23,15 @@ internal static class SecretScanningOptions
     /// <param name="options">The analyzer config options for the literal's tree.</param>
     /// <returns>The resolved settings; the default value reports every recognised shape.</returns>
     /// <remarks>
-    /// Both settings are off by default. A named list is the narrower of the two and says exactly which
-    /// literals a project vouches for; the marker switch trusts a convention a live credential can also
-    /// satisfy, so it stays a deliberate choice.
+    /// Both settings are off by default, and the marker switch is on only when the first key set holds
+    /// <c>true</c>. A named list is the narrower of the two and says exactly which literals a project vouches
+    /// for; the marker switch trusts a convention a live credential can also satisfy, so it stays a deliberate
+    /// choice.
     /// </remarks>
     internal static SecretScanningSettings Read(AnalyzerConfigOptions options) =>
-        new(ReadAllowDocumentationExamples(options), ReadAllowedExamples(options));
-
-    /// <summary>Reads whether any key carrying a published-sample marker is accepted.</summary>
-    /// <param name="options">The analyzer config options for the literal's tree.</param>
-    /// <returns><see langword="true"/> only when the option is set and parses as true.</returns>
-    private static bool ReadAllowDocumentationExamples(AnalyzerConfigOptions options)
-    {
-        if (!options.TryGetValue(AllowDocumentationExamplesRuleKey, out var value)
-            && !options.TryGetValue(AllowDocumentationExamplesGeneralKey, out value))
-        {
-            return false;
-        }
-
-        return bool.TryParse(value.Trim(), out var parsed) && parsed;
-    }
+        new(
+            AnalyzerOptionReader.ReadFirstSetBool(options, AllowDocumentationExamplesRuleKey, AllowDocumentationExamplesGeneralKey),
+            ReadAllowedExamples(options));
 
     /// <summary>Reads the exact sample values a project accepts.</summary>
     /// <param name="options">The analyzer config options for the literal's tree.</param>
@@ -53,39 +42,7 @@ internal static class SecretScanningOptions
     /// </remarks>
     private static string[]? ReadAllowedExamples(AnalyzerConfigOptions options)
     {
-        if (!options.TryGetValue(AllowedExamplesRuleKey, out var value)
-            && !options.TryGetValue(AllowedExamplesGeneralKey, out value))
-        {
-            return null;
-        }
-
-        var parts = value.Split(',');
-        var kept = new string[parts.Length];
-        var count = 0;
-        for (var i = 0; i < parts.Length; i++)
-        {
-            var entry = parts[i].Trim();
-            if (entry.Length == 0)
-            {
-                continue;
-            }
-
-            kept[count] = entry;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return null;
-        }
-
-        if (count == kept.Length)
-        {
-            return kept;
-        }
-
-        var trimmed = new string[count];
-        Array.Copy(kept, trimmed, count);
-        return trimmed;
+        var examples = AnalyzerOptionReader.ReadCommaSeparatedList(options, AllowedExamplesRuleKey, AllowedExamplesGeneralKey);
+        return examples.Length == 0 ? null : examples;
     }
 }

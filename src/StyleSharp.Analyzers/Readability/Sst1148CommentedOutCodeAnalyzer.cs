@@ -38,16 +38,34 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
         // file header after the first token and lose the exemption that keeps the header out of this rule.
         var firstTokenStart = root.GetFirstToken(includeZeroWidth: true).SpanStart;
         var text = context.Tree.GetText(context.CancellationToken);
-        foreach (var trivia in root.DescendantTrivia())
+        var state = new CommentTraversalState(context, text, firstTokenStart);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            root,
+            ref state,
+            static (in SyntaxToken token, ref CommentTraversalState state) =>
+            {
+                AnalyzeTriviaList(state, token.LeadingTrivia);
+                AnalyzeTriviaList(state, token.TrailingTrivia);
+                return true;
+            });
+    }
+
+    /// <summary>Reports code-like comments in one trivia list after the file header.</summary>
+    /// <param name="state">The analysis context, source text, and file-header boundary.</param>
+    /// <param name="triviaList">The trivia list to inspect.</param>
+    private static void AnalyzeTriviaList(in CommentTraversalState state, in SyntaxTriviaList triviaList)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
         {
-            if (trivia.SpanStart < firstTokenStart
+            var trivia = triviaList[i];
+            if (trivia.SpanStart < state.FirstTokenStart
                 || !trivia.IsKind(SyntaxKind.SingleLineCommentTrivia)
-                || !TryGetCodeSignal(text, trivia.Span, out var signal))
+                || !TryGetCodeSignal(state.Text, trivia.Span, out var signal))
             {
                 continue;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoCommentedOutCode, trivia.GetLocation(), signal));
+            state.Context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoCommentedOutCode, trivia.GetLocation(), signal));
         }
     }
 
@@ -164,4 +182,10 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
         StartsWith(text, start, end, "if (".AsSpan())
             || StartsWith(text, start, end, "for (".AsSpan())
             || StartsWith(text, start, end, "while (".AsSpan());
+
+    /// <summary>The context, source text, and header boundary used while visiting comments.</summary>
+    /// <param name="Context">The syntax tree analysis context.</param>
+    /// <param name="Text">The source text.</param>
+    /// <param name="FirstTokenStart">The first token's start, before which comments form the file header.</param>
+    private readonly record struct CommentTraversalState(SyntaxTreeAnalysisContext Context, SourceText Text, int FirstTokenStart);
 }

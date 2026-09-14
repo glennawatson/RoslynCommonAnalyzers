@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,33 +12,35 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(LinqUsageCodeFixProvider))]
 [Shared]
-public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class LinqUsageCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(CreateEdit);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         CollectionRules.CollapseLinqWhereTerminal.Id,
         CollectionRules.CollapseLinqTypeFilter.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CanRewrite, CreateEdit);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, CreateEdit);
-
-    /// <summary>Applies the collapse for one diagnostic to a document.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Creates the collapsed invocation for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original when no edit applies.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.Apply(document, root, diagnostic, CreateEdit);
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    internal static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var replacement = string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
+            ? CreateWhereTerminalFix(root, diagnostic.Location.SourceSpan, out var oldNode)
+            : CreateTypeFilterFix(root, diagnostic.Location.SourceSpan, out oldNode);
+
+        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+    }
 
     /// <summary>Returns the action wording matching the layer being collapsed.</summary>
     /// <param name="diagnostic">The diagnostic being fixed.</param>
@@ -50,17 +50,35 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
             ? "Move predicate to terminal call"
             : "Use one typed filter";
 
-    /// <summary>Creates the collapsed invocation for one diagnostic.</summary>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        var replacement = string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
-            ? CreateWhereTerminalFix(root, diagnostic.Location.SourceSpan, out var oldNode)
-            : CreateTypeFilterFix(root, diagnostic.Location.SourceSpan, out oldNode);
-
-        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+        var invocation = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>();
+        return string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
+            ? invocation is
+            {
+                ArgumentList.Arguments.Count: 0,
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Expression: InvocationExpressionSyntax
+                    {
+                        ArgumentList.Arguments.Count: 1,
+                        Expression: MemberAccessExpressionSyntax { Expression: { } },
+                    },
+                },
+            }
+            : invocation is
+            {
+                ArgumentList.Arguments.Count: 0,
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name: GenericNameSyntax { TypeArgumentList: { } },
+                    Expression: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: { } } },
+                },
+            };
     }
 
     /// <summary>Creates a collapsed <c>Where(predicate).Terminal()</c> invocation.</summary>
@@ -88,9 +106,9 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
             SyntaxKind.SimpleMemberAccessExpression,
             receiver.WithoutTrivia(),
             outerAccess.Name.WithoutTrivia());
-        return invocation
-            .WithExpression(memberAccess)
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(whereInvocation.ArgumentList.Arguments[0].WithoutTrivia())))
+        return invocation.Update(
+                memberAccess,
+                SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(whereInvocation.ArgumentList.Arguments[0].WithoutTrivia())))
             .WithTriviaFrom(invocation);
     }
 
@@ -120,8 +138,8 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
         }
 
         oldNode = invocation;
-        var ofTypeName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("OfType")).WithTypeArgumentList(typeArguments.WithoutTrivia());
-        var memberAccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, receiver.WithoutTrivia(), ofTypeName);
-        return invocation.WithExpression(memberAccess).WithTriviaFrom(invocation);
+        var ofTypeName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("OfType"), typeArguments.WithoutTrivia());
+        var memberAccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, receiver.WithoutTrailingTrivia(), ofTypeName);
+        return invocation.WithExpression(memberAccess);
     }
 }

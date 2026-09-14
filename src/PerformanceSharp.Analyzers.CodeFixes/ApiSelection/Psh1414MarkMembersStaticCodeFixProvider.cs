@@ -26,16 +26,19 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1414MarkMembersStaticCodeFixProvider))]
 [Shared]
-public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider
 {
     /// <summary>The code action title.</summary>
     private const string Title = "Make static";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.MarkMembersStatic.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -64,15 +67,23 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (TryPlan(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } plan)
         {
             return;
         }
 
-        ApplyPlan(editor, plan);
+        var qualified = plan.QualifiedReferences;
+        for (var i = 0; i < qualified.Count; i++)
+        {
+            editor.ReplaceNode(qualified[i], static (current, _) => Unqualify((MemberAccessExpressionSyntax)current));
+        }
+
+        editor.ReplaceNode(plan.Member, static (current, _) => AddStaticModifier((MemberDeclarationSyntax)current));
     }
 
     /// <summary>Applies the static rewrite to one member, for callers that already hold the root and model.</summary>
@@ -139,20 +150,6 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
         return TryCollectReferences(model, typeDeclaration, symbol, qualified)
             ? new StaticFixPlan(member, qualified)
             : null;
-    }
-
-    /// <summary>Queues the member's static modifier and the <c>this.</c> strips onto the editor.</summary>
-    /// <param name="editor">The document editor.</param>
-    /// <param name="plan">The resolved edit plan.</param>
-    private static void ApplyPlan(DocumentEditor editor, StaticFixPlan plan)
-    {
-        var qualified = plan.QualifiedReferences;
-        for (var i = 0; i < qualified.Count; i++)
-        {
-            editor.ReplaceNode(qualified[i], static (current, _) => Unqualify((MemberAccessExpressionSyntax)current));
-        }
-
-        editor.ReplaceNode(plan.Member, static (current, _) => AddStaticModifier((MemberDeclarationSyntax)current));
     }
 
     /// <summary>Rewrites <c>this.Foo</c> to <c>Foo</c>, keeping the surrounding trivia.</summary>

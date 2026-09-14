@@ -14,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// different members). A browser rejects a <c>SameSite=None</c> cookie that lacks the Secure attribute, and
 /// without it the cookie is also sent over plain HTTP. Detection is local to a single object initializer: a
 /// <c>Secure</c> flag set on a later statement is not tracked (no data-flow), so that form is intentionally not
-/// reported. The cookie types are probed once per compilation; a project without ASP.NET Core registers
-/// nothing and pays nothing.
+/// reported. The cookie types are resolved on first demand per compilation, after a matching initializer
+/// is found, so a project without candidates pays no metadata resolution cost.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyzer
@@ -56,30 +56,24 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var cookieTypes = GetCookieTypes(start.Compilation);
-            if (cookieTypes is not { } types)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeObjectCreation(nodeContext, types),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<CookieInitializerTypes?>(compilation, GetCookieTypes),
+            AnalyzeObjectCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Reports SES1504 for a gated cookie initializer that sets <c>SameSite = None</c> without securing the cookie.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated cookie types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in CookieInitializerTypes types)
+    /// <param name="markers">The cookie types resolved on first demand.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<CookieInitializerTypes?> markers)
     {
         // Syntactic prefilter: an initializer that contains a 'SameSite = <...>.None' member. No semantic
         // model is touched until this cheap shape check passes, so the clean path stays allocation-free.
         if (GetInitializer(context.Node) is not { } initializer
-            || GetSameSiteNoneMember(initializer) is not { } sameSiteMember)
+            || GetSameSiteNoneMember(initializer) is not { } sameSiteMember
+            || markers.Get() is not { } types)
         {
             return;
         }
@@ -154,7 +148,7 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
         for (var i = 0; i < expressions.Count; i++)
         {
             if (expressions[i] is AssignmentExpressionSyntax { Left: IdentifierNameSyntax { Identifier.ValueText: SameSiteMemberName } } assignment
-                && GetTrailingName(assignment.Right) is NoneFieldName)
+                && MemberReferenceName.Of(assignment.Right) is NoneFieldName)
             {
                 return assignment;
             }
@@ -229,20 +223,9 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
             || !SymbolEqualityComparer.Default.Equals(assigned, securePolicyNone);
     }
 
-    /// <summary>Returns the trailing simple name of a member access or identifier expression.</summary>
-    /// <param name="expression">The value expression to read.</param>
-    /// <returns>The trailing name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetTrailingName(ExpressionSyntax expression) =>
-        expression switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
     /// <summary>Resolves the cookie types and enum fields the rule gates on.</summary>
     /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>The resolved types, or <see langword="null"/> when the rule cannot apply.</returns>
+    /// <returns>The resolved types, or null when the rule cannot apply.</returns>
     private static CookieInitializerTypes? GetCookieTypes(Compilation compilation)
     {
         if (compilation.GetTypeByMetadataName(SameSiteModeMetadataName) is not { } sameSiteMode
@@ -268,7 +251,7 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <summary>Returns the named field of an enum type, if present.</summary>
     /// <param name="enumType">The enum type.</param>
     /// <param name="fieldName">The field name to resolve.</param>
-    /// <returns>The field symbol, or <see langword="null"/> when absent.</returns>
+    /// <returns>The field symbol, or null when absent.</returns>
     private static IFieldSymbol? GetEnumField(INamedTypeSymbol enumType, string fieldName)
     {
         var members = enumType.GetMembers(fieldName);

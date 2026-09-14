@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,7 +12,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1012EqualityComparerDefaultCodeFixProvider))]
 [Shared]
-public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvider
 {
     /// <summary>The simple name of the comparer type.</summary>
     private const string EqualityComparerTypeName = "EqualityComparer";
@@ -25,20 +23,27 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
     /// <summary>The fully qualified spelling used when the simple name does not resolve.</summary>
     private const string QualifiedEqualityComparerExpression = "global::System.Collections.Generic.EqualityComparer";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.UseEqualityComparerDefault.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use EqualityComparer<T>.Default", nameof(Psh1012EqualityComparerDefaultCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use EqualityComparer<T>.Default", nameof(Psh1012EqualityComparerDefaultCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax invocation
+            && Psh1012EqualityComparerDefaultAnalyzer.TryGetBoxingComparison(model, invocation, CancellationToken.None)is { };
 
     /// <summary>Resolves the reported call and builds its comparer-based replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -59,11 +64,13 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
         var target = SyntaxFactory.ParseExpression($"{comparerSpelling}<{comparison.TypeParameter.Name}>.Default.Equals");
 
         var replacement = SyntaxFactory.InvocationExpression(
-                target,
-                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(ImmutableArrays.Of(
+            target.WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SeparatedList(ImmutableArrays.Of(
                     SyntaxFactory.Argument(comparison.Left.WithoutTrivia()),
-                    SyntaxFactory.Argument(comparison.Right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space)))))
-            .WithTriviaFrom(invocation);
+                    SyntaxFactory.Argument(null, default, comparison.Right.WithoutTrailingTrivia().WithLeadingTrivia(SyntaxFactory.Space)))),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         return new NodeReplacement(invocation, replacement);
     }

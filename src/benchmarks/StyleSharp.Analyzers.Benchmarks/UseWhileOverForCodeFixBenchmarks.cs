@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -68,7 +69,7 @@ public class UseWhileOverForCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseWhileOverFor_ApplyFixAsync()
     {
-        var updated = Sst2245UseWhileOverForCodeFixProvider.Apply(_document, _root, _statement);
+        var updated = TargetCodeFix.Apply(_document, _root, _statement, Sst2245UseWhileOverForCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

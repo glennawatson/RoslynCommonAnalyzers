@@ -9,13 +9,16 @@ namespace StyleSharp.Analyzers;
 /// <summary>A code fix provider for the <see cref="Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer"/> analyzer.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
-public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Resolves the reported implicit object creation, including one passed as another call's argument, and splits its arguments.</summary>
+    internal static readonly UniqueLineFix<ImplicitObjectCreationExpressionSyntax> Fix = new(UniqueLineRewrites.ImplicitObjectCreationArguments, FindCreation);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesAnalyzer.DiagnosticId);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => Fix.FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -23,39 +26,14 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
             context,
             CodeFixResources.SST1150CodeFixTitle,
             $"{nameof(Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider)}-Add",
-            TryRewrite);
+            Fix.CanRewrite,
+            Fix.TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Rewrites the implicit object creation expression so each argument is placed on its own line.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root of the document.</param>
-    /// <param name="node">The implicit object creation expression to rewrite.</param>
-    /// <returns>A task producing the updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Task<Document> FixAsync(Document document, SyntaxNode root, ImplicitObjectCreationExpressionSyntax node) =>
-        Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
-
-    /// <summary>Resolves the reported implicit object creation expression and builds its arguments-on-unique-lines form.</summary>
+    /// <summary>Resolves the implicit object creation at a diagnostic, preferring the innermost node when spans tie.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
-               .FirstAncestorOrSelf<ImplicitObjectCreationExpressionSyntax>() is { } node
-            ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((ImplicitObjectCreationExpressionSyntax)current))
-            : null;
-
-    /// <summary>Builds the implicit object creation expression with each argument moved to its own line.</summary>
-    /// <param name="node">The implicit object creation expression to rewrite.</param>
-    /// <returns>The rewritten expression, or the original when it has no argument list.</returns>
+    /// <returns>The creation expression, or <see langword="null"/> when the shape no longer matches.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ImplicitObjectCreationExpressionSyntax Rewrite(ImplicitObjectCreationExpressionSyntax node) =>
-        UniqueLineCodeFixerHelperExtensions.SplitArgumentsOntoOwnLines(
-            node,
-            static inner => inner.ArgumentList,
-            static (inner, list) => inner.WithArgumentList(list));
+    private static ImplicitObjectCreationExpressionSyntax? FindCreation(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<ImplicitObjectCreationExpressionSyntax>();
 }

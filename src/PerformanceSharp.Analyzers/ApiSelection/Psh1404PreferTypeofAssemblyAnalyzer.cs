@@ -18,11 +18,11 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the stack-walking factory method this rule replaces.</summary>
     internal const string GetExecutingAssemblyMethodName = "GetExecutingAssembly";
 
-    /// <summary>The metadata name of the reflection assembly type.</summary>
-    private const string AssemblyMetadataName = "System.Reflection.Assembly";
-
     /// <summary>The compiler-synthesized type name used when top-level statements have no declared enclosing type.</summary>
     private const string TopLevelProgramTypeName = "Program";
+
+    /// <summary>The metadata name of the reflection assembly type.</summary>
+    private const string AssemblyMetadataName = "System.Reflection.Assembly";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.PreferTypeofAssembly);
@@ -36,16 +36,11 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var assemblyType = start.Compilation.GetTypeByMetadataName(AssemblyMetadataName);
-            if (assemblyType is null || !HasStaticGetExecutingAssembly(assemblyType))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, assemblyType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, AssemblyMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the argument-free <c>GetExecutingAssembly()</c> syntax shape.</summary>
@@ -61,34 +56,24 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     internal static string GetEnclosingTypeDisplayName(TypeDeclarationSyntax typeDeclaration)
     {
         var identifier = typeDeclaration.Identifier.ValueText;
-        if (typeDeclaration.TypeParameterList is not { Parameters.Count: > 0 } typeParameters)
-        {
-            return identifier;
-        }
-
-        var builder = new System.Text.StringBuilder(identifier);
-        _ = builder.Append('<');
-        for (var i = 0; i < typeParameters.Parameters.Count; i++)
-        {
-            if (i > 0)
-            {
-                _ = builder.Append(", ");
-            }
-
-            _ = builder.Append(typeParameters.Parameters[i].Identifier.ValueText);
-        }
-
-        _ = builder.Append('>');
-        return builder.ToString();
+        return typeDeclaration.TypeParameterList is { Parameters.Count: > 0 } typeParameters
+            ? TypeParameterNames.AppendJoined(new System.Text.StringBuilder(identifier).Append('<'), typeParameters, ", ").Append('>').ToString()
+            : identifier;
     }
 
     /// <summary>Reports PSH1404 for an invocation bound to <c>Assembly.GetExecutingAssembly()</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="assemblyType">The reflection assembly type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType)
+    /// <param name="types">The compilation's deferred reflection assembly type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsGetExecutingAssemblyShape(invocation))
+        {
+            return;
+        }
+
+        if (types.Get() is not { } assemblyType
+            || !SymbolFacts.HasStaticMethod(assemblyType, GetExecutingAssemblyMethodName, 0))
         {
             return;
         }
@@ -125,21 +110,4 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
         invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } typeDeclaration
             ? GetEnclosingTypeDisplayName(typeDeclaration)
             : context.ContainingSymbol?.ContainingType?.Name ?? TopLevelProgramTypeName;
-
-    /// <summary>Returns whether the assembly type exposes the static parameterless <c>GetExecutingAssembly</c> method.</summary>
-    /// <param name="assemblyType">The reflection assembly type to probe.</param>
-    /// <returns><see langword="true"/> when the probed method exists.</returns>
-    private static bool HasStaticGetExecutingAssembly(INamedTypeSymbol assemblyType)
-    {
-        var members = assemblyType.GetMembers(GetExecutingAssemblyMethodName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 0 })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

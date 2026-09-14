@@ -50,7 +50,7 @@ public sealed class Sst2449LambdaUnsubscriptionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
-        if (Unwrap(assignment.Right) is not AnonymousFunctionExpressionSyntax handler
+        if (ExpressionShapes.WalkDownParentheses(assignment.Right) is not AnonymousFunctionExpressionSyntax handler
             || GetTargetName(assignment.Left) is not { } name
             || !RemovesFromHandlerList(context, assignment.Left))
         {
@@ -96,17 +96,4 @@ public sealed class Sst2449LambdaUnsubscriptionAnalyzer : DiagnosticAnalyzer
         MemberAccessExpressionSyntax { Name: { } name } => name.Identifier.ValueText,
         _ => null,
     };
-
-    /// <summary>Removes any grouping parentheses around an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
 }

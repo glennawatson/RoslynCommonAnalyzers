@@ -45,18 +45,11 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var clockTypes = ClockPropertyAccess.ClockTypes.Resolve(start.Compilation);
-            if (!clockTypes.Any)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, clockTypes),
-                SyntaxKind.SimpleMemberAccessExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<ClockPropertyAccess.ClockTypes>(compilation, ClockPropertyAccess.ClockTypes.Resolve),
+            Analyze,
+            SyntaxKind.SimpleMemberAccessExpression);
     }
 
     /// <summary>Returns whether a local-clock read is being recorded rather than merely consulted.</summary>
@@ -76,8 +69,8 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one local-clock read that is being recorded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="clockTypes">The clock types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
+    /// <param name="clockTypes">The clock types resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ClockPropertyAccess.ClockTypes> clockTypes)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
@@ -91,7 +84,9 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!ClockPropertyAccess.BindsToLocalInstant(context.SemanticModel, access, shape, clockTypes, context.CancellationToken))
+        var resolved = clockTypes.Get();
+        if (!resolved.Any
+            || !ClockPropertyAccess.BindsToLocalInstant(context.SemanticModel, access, shape, resolved, context.CancellationToken))
         {
             return;
         }

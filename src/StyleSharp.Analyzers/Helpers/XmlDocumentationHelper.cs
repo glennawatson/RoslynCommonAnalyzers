@@ -232,7 +232,7 @@ internal static class XmlDocumentationHelper
             return string.Empty;
         }
 
-        var state = new NormalizeState(new System.Text.StringBuilder());
+        var state = new NormalizeState(new System.Text.StringBuilder(element.Span.Length));
         _ = DescendantTraversalHelper.VisitDescendantTokens(element, ref state, AppendNormalizedToken);
         return state.Builder.ToString();
     }
@@ -292,14 +292,9 @@ internal static class XmlDocumentationHelper
     /// <param name="character">The last non-whitespace character when found.</param>
     /// <param name="position">The absolute source position of that character when found.</param>
     /// <returns><see langword="true"/> when the node has text.</returns>
-    internal static bool TryGetLastTextCharacter(XmlNodeSyntax node, out char character, out int position)
-    {
-        var state = new LastCharacterState();
-        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordLastTextCharacter);
-        character = state.Character;
-        position = state.Position;
-        return position >= 0;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryGetLastTextCharacter(XmlNodeSyntax node, out char character, out int position) =>
+        TryGetTrailingCharacters(node, out character, out _, out position);
 
     /// <summary>
     /// Returns whether an element's leading prose begins with <paramref name="expected"/>.
@@ -351,11 +346,9 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when the element has text.</returns>
     internal static bool TryGetFirstTextCharacter(XmlElementSyntax element, out char character, out int position)
     {
-        var state = new FirstCharacterState();
-        _ = DescendantTraversalHelper.VisitDescendantTokens(element, ref state, RecordFirstTextCharacter);
-        character = state.Character;
-        position = state.Position;
-        return position >= 0;
+        character = default;
+        position = -1;
+        return FindFirstTextCharacter(element, ref character, ref position);
     }
 
     /// <summary>Returns the member declaration a documentation node belongs to (hopping out of the structured trivia).</summary>
@@ -364,6 +357,41 @@ internal static class XmlDocumentationHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static SyntaxNode? DocumentedMember(SyntaxNode nodeInDocumentation) =>
         nodeInDocumentation.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()?.ParentTrivia.Token.Parent;
+
+    /// <summary>Returns whether another part of a partial declaration already documents a type parameter.</summary>
+    /// <param name="model">The semantic model for the declaration's tree.</param>
+    /// <param name="declaration">The declaration part being checked.</param>
+    /// <param name="name">The type parameter's name.</param>
+    /// <param name="cancellationToken">A token that cancels binding.</param>
+    /// <returns><see langword="true"/> when a sibling part carries the <c>&lt;typeparam&gt;</c>.</returns>
+    /// <remarks>
+    /// The compiler rejects a second <c>&lt;typeparam&gt;</c> for the same name (CS1710), so a part is satisfied by the
+    /// documentation of whichever part carries it.
+    /// </remarks>
+    internal static bool IsTypeParameterDocumentedOnAnotherPart(SemanticModel model, SyntaxNode declaration, string name, CancellationToken cancellationToken)
+    {
+        if (model.GetDeclaredSymbol(declaration, cancellationToken) is not { } symbol)
+        {
+            return false;
+        }
+
+        var references = symbol.DeclaringSyntaxReferences;
+        for (var i = 0; i < references.Length; i++)
+        {
+            var part = references[i].GetSyntax(cancellationToken);
+            if (part == declaration)
+            {
+                continue;
+            }
+
+            if (GetDocumentationComment(part) is { } sibling && FindTypeParameterElement(sibling, name) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Returns the local name of an XML element or empty element, or <see langword="null"/> for other nodes.</summary>
     /// <param name="node">The node.</param>
@@ -448,11 +476,10 @@ internal static class XmlDocumentationHelper
     /// <returns><see langword="true"/> when the node has text.</returns>
     private static bool TryGetTrailingCharacters(XmlNodeSyntax node, out char last, out char secondLast, out int position)
     {
-        var state = new TrailingCharactersState();
-        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordTrailingCharacters);
-        last = state.Last;
-        secondLast = state.SecondLast;
-        position = state.Position;
+        last = default;
+        secondLast = default;
+        position = -1;
+        RecordTrailingCharacters(node, ref last, ref secondLast, ref position);
         return position >= 0;
     }
 
@@ -621,86 +648,98 @@ internal static class XmlDocumentationHelper
         return true;
     }
 
-    /// <summary>Records the first non-whitespace XML text character and its position, stopping the walk once found.</summary>
-    /// <param name="token">The visited token.</param>
-    /// <param name="state">The accumulating first-character state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> to stop.</returns>
-    private static bool RecordFirstTextCharacter(in SyntaxToken token, ref FirstCharacterState state)
+    /// <summary>Walks a node's tokens in document order for the first non-whitespace XML text character.</summary>
+    /// <param name="node">The node whose tokens are walked.</param>
+    /// <param name="character">Receives the first non-whitespace character when found.</param>
+    /// <param name="position">Receives the absolute source position of that character when found.</param>
+    /// <returns><see langword="true"/> once the character is found, which ends the walk.</returns>
+    private static bool FindFirstTextCharacter(SyntaxNode node, ref char character, ref int position)
     {
-        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            return true;
-        }
+            var child = children[i];
+            if (child.AsNode() is { } childNode)
+            {
+                if (FindFirstTextCharacter(childNode, ref character, ref position))
+                {
+                    return true;
+                }
 
-        var text = token.ValueText;
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (char.IsWhiteSpace(text[i]))
+                continue;
+            }
+
+            var token = child.AsToken();
+            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
             {
                 continue;
             }
 
-            state.Character = text[i];
-            state.Position = token.SpanStart + i;
-            return false;
+            var text = token.ValueText;
+            var index = NextNonWhitespace(text, 0);
+            if (index < 0)
+            {
+                continue;
+            }
+
+            character = text[index];
+            position = token.SpanStart + index;
+            return true;
         }
 
-        return true;
+        return false;
     }
 
-    /// <summary>Records the last non-whitespace XML text character and its position.</summary>
-    /// <param name="token">The visited token.</param>
-    /// <param name="state">The accumulating last-character state.</param>
-    /// <returns><see langword="true"/> to continue scanning.</returns>
-    private static bool RecordLastTextCharacter(in SyntaxToken token, ref LastCharacterState state)
+    /// <summary>Walks every token of a node, recording the last two non-whitespace XML text characters and the last one's position.</summary>
+    /// <param name="node">The node whose tokens are walked.</param>
+    /// <param name="last">The last non-whitespace character seen so far.</param>
+    /// <param name="secondLast">The character seen before <paramref name="last"/>.</param>
+    /// <param name="position">The absolute source position of <paramref name="last"/>.</param>
+    private static void RecordTrailingCharacters(SyntaxNode node, ref char last, ref char secondLast, ref int position)
     {
-        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            return true;
-        }
+            var child = children[i];
+            if (child.AsNode() is { } childNode)
+            {
+                RecordTrailingCharacters(childNode, ref last, ref secondLast, ref position);
+                continue;
+            }
 
-        var text = token.ValueText;
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (char.IsWhiteSpace(text[i]))
+            var token = child.AsToken();
+            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
             {
                 continue;
             }
 
-            state.Character = text[i];
+            var text = token.ValueText;
+            for (var index = NextNonWhitespace(text, 0); index >= 0; index = NextNonWhitespace(text, index + 1))
+            {
+                secondLast = last;
+                last = text[index];
 
-            // ValueText positions line up with the token span for XML text literals.
-            state.Position = token.SpanStart + i;
+                // ValueText positions line up with the token span for XML text literals.
+                position = token.SpanStart + index;
+            }
         }
-
-        return true;
     }
 
-    /// <summary>Records the last two non-whitespace XML text characters and the last one's position.</summary>
-    /// <param name="token">The visited token.</param>
-    /// <param name="state">The accumulating trailing-character state.</param>
-    /// <returns><see langword="true"/> to continue scanning.</returns>
-    private static bool RecordTrailingCharacters(in SyntaxToken token, ref TrailingCharactersState state)
+    /// <summary>Returns the index of the first non-whitespace character at or after a start index.</summary>
+    /// <param name="text">The text to scan.</param>
+    /// <param name="start">The index the scan starts at.</param>
+    /// <returns>The index of the character, or <c>-1</c> when only whitespace remains.</returns>
+    private static int NextNonWhitespace(string text, int start)
     {
-        if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        for (var i = start; i < text.Length; i++)
         {
-            return true;
-        }
-
-        var text = token.ValueText;
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (char.IsWhiteSpace(text[i]))
+            if (!char.IsWhiteSpace(text[i]))
             {
-                continue;
+                return i;
             }
-
-            state.SecondLast = state.Last;
-            state.Last = text[i];
-            state.Position = token.SpanStart + i;
         }
 
-        return true;
+        return -1;
     }
 
     /// <summary>Records whether the traversal encountered an inheritdoc element.</summary>
@@ -724,53 +763,5 @@ internal static class XmlDocumentationHelper
     {
         /// <summary>Gets or sets a value indicating whether a single collapsed space is owed before the next non-whitespace character.</summary>
         public bool PendingSpace { get; set; }
-    }
-
-    /// <summary>Mutable accumulator for the first non-whitespace XML text character and its position.</summary>
-    private record struct FirstCharacterState
-    {
-        /// <summary>Initializes a new instance of the <see cref="FirstCharacterState"/> struct.</summary>
-        public FirstCharacterState()
-        {
-        }
-
-        /// <summary>Gets or sets the first non-whitespace character found, or <c>'\0'</c>.</summary>
-        public char Character { get; set; }
-
-        /// <summary>Gets or sets the absolute source position of <see cref="Character"/>, or <c>-1</c>.</summary>
-        public int Position { get; set; } = -1;
-    }
-
-    /// <summary>Mutable accumulator for the last non-whitespace XML text character and its position.</summary>
-    private record struct LastCharacterState
-    {
-        /// <summary>Initializes a new instance of the <see cref="LastCharacterState"/> struct.</summary>
-        public LastCharacterState()
-        {
-        }
-
-        /// <summary>Gets or sets the last non-whitespace character found, or <c>'\0'</c>.</summary>
-        public char Character { get; set; }
-
-        /// <summary>Gets or sets the absolute source position of <see cref="Character"/>, or <c>-1</c>.</summary>
-        public int Position { get; set; } = -1;
-    }
-
-    /// <summary>Mutable accumulator for the last two non-whitespace XML text characters and the last one's position.</summary>
-    private record struct TrailingCharactersState
-    {
-        /// <summary>Initializes a new instance of the <see cref="TrailingCharactersState"/> struct.</summary>
-        public TrailingCharactersState()
-        {
-        }
-
-        /// <summary>Gets or sets the last non-whitespace character found, or <c>'\0'</c>.</summary>
-        public char Last { get; set; }
-
-        /// <summary>Gets or sets the character preceding <see cref="Last"/>, or <c>'\0'</c>.</summary>
-        public char SecondLast { get; set; }
-
-        /// <summary>Gets or sets the absolute source position of <see cref="Last"/>, or <c>-1</c>.</summary>
-        public int Position { get; set; } = -1;
     }
 }

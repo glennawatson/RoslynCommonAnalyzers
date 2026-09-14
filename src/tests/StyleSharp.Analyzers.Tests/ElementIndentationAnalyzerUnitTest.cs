@@ -11,6 +11,76 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the element-indentation rule (SST1137).</summary>
 public class ElementIndentationAnalyzerUnitTest
 {
+    /// <summary>Verifies enum siblings establish and retain one reference column.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EnumMembersUseTheFirstOwnLineIndentAsync() =>
+        VerifyIndentation.VerifyAnalyzerAsync(
+            """
+            enum E { Inline,
+                First,
+                  {|SST1137:Second|},
+                Third,
+            }
+            enum Empty { }
+            """);
+
+    /// <summary>Verifies namespace siblings are compared without counting declarations sharing a line.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NamespaceMembersUseTheFirstOwnLineIndentAsync() =>
+        VerifyIndentation.VerifyAnalyzerAsync(
+            """
+            namespace N { class Inline { }
+                class First { }
+                  {|SST1137:class|} Second { }
+                class Third { }
+            }
+            namespace Empty { }
+            """);
+
+    /// <summary>Verifies every supported type container compares its own members.</summary>
+    /// <param name="kind">The type declaration keyword.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class")]
+    [Arguments("struct")]
+    [Arguments("record")]
+    [Arguments("record struct")]
+    [Arguments("interface")]
+    public Task TypeMembersUseTheFirstOwnLineIndentAsync(string kind) =>
+        VerifyIndentation.VerifyAnalyzerAsync(
+            $$"""
+            {{kind}} C
+            {
+                int First { get; }
+                  {|SST1137:int|} Second { get; }
+                int Third { get; }
+            }
+            """);
+
+    /// <summary>Verifies same-line elements do not establish a reference indentation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SharedLinesAreIgnoredAndZeroIndentIsRetainedAsync() =>
+        VerifyIndentation.VerifyAnalyzerAsync(
+            """
+            class C { int First; int Second;
+            int Third;
+              {|SST1137:int|} Fourth;
+            void M() { int first = 0; int second = 0;
+            int third = 0;
+              {|SST1137:int|} fourth = 0;
+            }
+            }
+            enum E { First, Second }
+            namespace N { class First { } class Second { } }
+            """);
+
     /// <summary>Verifies a statement indented differently from its siblings is reported (SST1137).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

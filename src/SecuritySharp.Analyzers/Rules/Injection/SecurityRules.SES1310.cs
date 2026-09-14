@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1310 — a directory <c>DirectoryEntry</c> binds anonymously or without credentials.</summary>
-    public static readonly DiagnosticDescriptor AnonymousLdapBind = Create(
+    public static readonly DiagnosticDescriptor AnonymousLdapBind = DescriptorFactory.Create(
         "SES1310",
         "Do not bind to a directory without authenticating",
         AnonymousLdapBindMessage,

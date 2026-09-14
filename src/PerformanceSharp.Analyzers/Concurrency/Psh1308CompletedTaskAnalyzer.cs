@@ -38,55 +38,47 @@ public sealed class Psh1308CompletedTaskAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(TaskMetadataName) is not { } taskType
-                || taskType.GetMembers(CompletedTaskPropertyName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, taskType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(
+                compilation,
+                ResolveTaskType,
+                runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the <c>Task.FromResult(x)</c> syntax shape, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the member name is FromResult and the receiver's rightmost identifier is Task.</returns>
-    internal static bool IsTaskFromResultShape(InvocationExpressionSyntax invocation)
+    internal static bool IsTaskFromResultShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 1
+            && TypeNameReceiver.IsCallOnTypeName(invocation, FromResultMethodName, TaskTypeName);
+
+    /// <summary>Resolves the task type only when its completed-task property is available.</summary>
+    /// <param name="compilation">The compilation whose framework is inspected.</param>
+    /// <returns>The task type, or null when the replacement is unavailable.</returns>
+    private static INamedTypeSymbol? ResolveTaskType(Compilation compilation)
     {
-        if (invocation.ArgumentList.Arguments.Count != 1
-            || invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText != FromResultMethodName)
-        {
-            return false;
-        }
-
-        var receiver = access.Expression;
-        while (receiver is MemberAccessExpressionSyntax nested)
-        {
-            receiver = nested.Name;
-        }
-
-        return receiver is IdentifierNameSyntax identifier
-            && identifier.Identifier.ValueText == TaskTypeName;
+        var taskType = compilation.GetTypeByMetadataName(TaskMetadataName);
+        return taskType is not null && !taskType.GetMembers(CompletedTaskPropertyName).IsEmpty ? taskType : null;
     }
 
     /// <summary>Reports PSH1308 for a FromResult call that is consumed as the non-generic task.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
+    /// <param name="taskType">The non-generic task type, resolved only for a candidate.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> taskType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsTaskFromResultShape(invocation))
+        if (!IsTaskFromResultShape(invocation) || taskType.Get() is not { } resolvedType)
         {
             return;
         }
 
         var typeInfo = context.SemanticModel.GetTypeInfo(invocation, context.CancellationToken);
-        if (!SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, taskType)
+        if (!SymbolEqualityComparer.Default.Equals(typeInfo.ConvertedType, resolvedType)
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, taskType))
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedType))
         {
             return;
         }

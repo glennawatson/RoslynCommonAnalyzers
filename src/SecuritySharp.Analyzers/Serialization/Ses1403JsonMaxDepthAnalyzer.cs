@@ -17,8 +17,8 @@ namespace SecuritySharp.Analyzers;
 /// A value of 0 selects the framework default, and any value at or below the ceiling, or one whose size
 /// cannot be judged from the source, is left alone -- so only a deliberately raised constant is reported.
 /// This is a purely local shape: the value is the direct right-hand side, so no flow analysis is needed.
-/// The rule is gated on <c>JsonSerializerOptions</c> resolving in the compilation, so a target framework
-/// without <c>System.Text.Json</c> pays nothing and never receives a diagnostic it cannot act on.
+/// The JSON option types are resolved on first demand after a <c>MaxDepth</c> assignment is found,
+/// and cached per compilation, including when none are available.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
@@ -34,9 +34,6 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The project-wide ceiling key.</summary>
     private const string MaxDepthGeneralKey = "securitysharp.maxdepth";
-
-    /// <summary>The smallest ceiling that means anything: a ceiling below 1 would flag every positive depth.</summary>
-    private const int SmallestCeiling = 1;
 
     /// <summary>The metadata names of the JSON option types whose <c>MaxDepth</c> is guarded.</summary>
     private static readonly string[] JsonOptionMetadataNames =
@@ -58,22 +55,17 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var jsonTypes = GetJsonOptionTypes(start.Compilation);
-            if (jsonTypes is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, jsonTypes), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypeSet(compilation, JsonOptionMetadataNames),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1403 for a <c>MaxDepth</c> assignment whose constant value exceeds the ceiling.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="jsonTypes">The gated JSON option types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] jsonTypes)
+    /// <param name="types">The lazily resolved JSON option types for the compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSet types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -84,8 +76,10 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: MaxDepthPropertyName } property
-            || GetGatedJsonType(property.ContainingType, jsonTypes) is null)
+        var jsonTypes = types.Get();
+        if (jsonTypes.Length == 0
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: MaxDepthPropertyName } property
+            || !TypeRelations.IsOneOf(property.ContainingType, jsonTypes))
         {
             return;
         }
@@ -99,7 +93,11 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var ceiling = ReadMaxDepthCeiling(context.Options.AnalyzerConfigOptionsProvider.GetOptions(assignment.Right.SyntaxTree));
+        var ceiling = AnalyzerOptionReader.ReadPositiveInt(
+            context.Options.AnalyzerConfigOptionsProvider.GetOptions(assignment.Right.SyntaxTree),
+            MaxDepthRuleKey,
+            MaxDepthGeneralKey,
+            DefaultMaxDepthCeiling);
         if (depth <= ceiling)
         {
             return;
@@ -122,60 +120,4 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: MaxDepthPropertyName } or IdentifierNameSyntax { Identifier.ValueText: MaxDepthPropertyName } => true,
             _ => false,
         };
-
-    /// <summary>Returns the gated JSON option type when the property's container is one of them.</summary>
-    /// <param name="containingType">The bound <c>MaxDepth</c> property's containing type.</param>
-    /// <param name="jsonTypes">The gated JSON option types resolved for the compilation.</param>
-    /// <returns>The gated type, or <see langword="null"/> when the container is not gated.</returns>
-    private static INamedTypeSymbol? GetGatedJsonType(INamedTypeSymbol containingType, INamedTypeSymbol?[] jsonTypes)
-    {
-        for (var i = 0; i < jsonTypes.Length; i++)
-        {
-            if (jsonTypes[i] is { } jsonType && SymbolEqualityComparer.Default.Equals(jsonType, containingType))
-            {
-                return jsonType;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Reads the depth ceiling, preferring the rule-specific key over the project-wide key.</summary>
-    /// <param name="options">The analyzer config options for the value's tree.</param>
-    /// <returns>The configured ceiling, or <see cref="DefaultMaxDepthCeiling"/> when neither key parses to a sensible value.</returns>
-    private static int ReadMaxDepthCeiling(AnalyzerConfigOptions options)
-    {
-        if (options.TryGetValue(MaxDepthRuleKey, out var value)
-            && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
-            && parsed >= SmallestCeiling)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(MaxDepthGeneralKey, out value)
-            && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
-            && parsed >= SmallestCeiling
-            ? parsed
-            : DefaultMaxDepthCeiling;
-    }
-
-    /// <summary>Resolves the JSON option types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetJsonOptionTypes(Compilation compilation)
-    {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < JsonOptionMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(JsonOptionMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            types ??= new INamedTypeSymbol?[JsonOptionMetadataNames.Length];
-            types[i] = type;
-        }
-
-        return types;
-    }
 }

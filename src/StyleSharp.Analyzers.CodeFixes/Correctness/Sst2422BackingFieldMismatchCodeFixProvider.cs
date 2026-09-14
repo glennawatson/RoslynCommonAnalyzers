@@ -12,13 +12,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2422BackingFieldMismatchCodeFixProvider))]
 [Shared]
-public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.BackingFieldMismatch.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -30,24 +33,51 @@ public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider
             context,
             title,
             nameof(Sst2422BackingFieldMismatchCodeFixProvider),
+            CanRewrite,
             TryRewrite);
     }
 
-    /// <inheritdoc/>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryFindGetterRead(root, diagnostic, out _, out _);
 
     /// <summary>Resolves the getter's field read and repoints it at the setter's field.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) => !diagnostic.Properties.TryGetValue(Sst2422BackingFieldMismatchAnalyzer.SetterFieldKey, out var setterField)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryFindGetterRead(root, diagnostic, out var read, out var setterField)
+            ? new NodeReplacement(read, Repoint(read, setterField))
+            : null;
+
+    /// <summary>Resolves the field the reported getter reads and the field the setter writes.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="read">The getter's field-read expression.</param>
+    /// <param name="setterField">The name of the field the setter writes.</param>
+    /// <returns><see langword="true"/> when both still resolve.</returns>
+    private static bool TryFindGetterRead(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        [NotNullWhen(true)] out ExpressionSyntax? read,
+        [NotNullWhen(true)] out string? setterField)
+    {
+        read = null;
+        if (!diagnostic.Properties.TryGetValue(Sst2422BackingFieldMismatchAnalyzer.SetterFieldKey, out setterField)
             || setterField is null
-            || root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { AccessorList: { } accessors }
-            || GetterFieldRead(accessors) is not { } read
-        ? null
-        : new NodeReplacement(read, Repoint(read, setterField));
+            || root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { AccessorList: { } accessors })
+        {
+            return false;
+        }
+
+        read = GetterFieldRead(accessors);
+        return read is not null;
+    }
 
     /// <summary>Rebuilds a field reference to name a different field, keeping its trivia and receiver.</summary>
     /// <param name="read">The original field-reference expression.</param>
@@ -56,7 +86,7 @@ public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider
     private static ExpressionSyntax Repoint(ExpressionSyntax read, string fieldName) =>
         read is MemberAccessExpressionSyntax member
             ? member.WithName(SyntaxFactory.IdentifierName(fieldName))
-            : SyntaxFactory.IdentifierName(fieldName).WithTriviaFrom(read);
+            : SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(read.GetLeadingTrivia(), fieldName, read.GetTrailingTrivia()));
 
     /// <summary>Gets the single field a property's getter reads, when its body reduces to one.</summary>
     /// <param name="accessors">The property's accessor list.</param>
@@ -71,25 +101,9 @@ public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var getter = list[i];
-            if (getter.ExpressionBody is { Expression: { } expression })
-            {
-                return AsFieldReference(expression);
-            }
-
-            return getter.Body is { Statements: [ReturnStatementSyntax { Expression: { } returned }] } ? AsFieldReference(returned) : null;
+            return Sst2422BackingFieldMismatchAnalyzer.GetterFieldRead(list[i]);
         }
 
         return null;
     }
-
-    /// <summary>Reduces an expression to a plain field reference, if it is one.</summary>
-    /// <param name="expression">The expression.</param>
-    /// <returns>The field-reference expression, or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? AsFieldReference(ExpressionSyntax expression) => expression switch
-    {
-        IdentifierNameSyntax identifier => identifier,
-        MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } member => member,
-        _ => null,
-    };
 }

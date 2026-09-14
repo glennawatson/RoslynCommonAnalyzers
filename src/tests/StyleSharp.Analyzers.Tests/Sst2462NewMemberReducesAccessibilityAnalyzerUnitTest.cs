@@ -10,6 +10,107 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2462 (a <c>new</c> member that reduces the accessibility of the member it hides).</summary>
 public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 {
+    /// <summary>Verifies the strict subset relationship between all declared accessibility levels.</summary>
+    /// <param name="inherited">The base member accessibility.</param>
+    /// <param name="declared">The hiding member accessibility.</param>
+    /// <param name="reports">Whether the hiding member admits fewer callers.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("protected internal", "protected", true)]
+    [Arguments("protected internal", "internal", true)]
+    [Arguments("protected internal", "private protected", true)]
+    [Arguments("public", "protected internal", true)]
+    [Arguments("protected", "private protected", true)]
+    [Arguments("internal", "private protected", true)]
+    [Arguments("private protected", "private", true)]
+    [Arguments("private protected", "private protected", false)]
+    [Arguments("private protected", "protected", false)]
+    [Arguments("internal", "protected", false)]
+    [Arguments("protected internal", "public", false)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AccessibilityCallerSetsDetermineNarrowingAsync(string inherited, string declared, bool reports) =>
+        Verify.VerifyAnalyzerAsync($$"""
+            class Base { {{inherited}} void M() { } }
+            class Derived : Base { {{declared}} new void {{(reports ? "{|SST2462:M|}" : "M")}}() { } }
+            """);
+
+    /// <summary>Verifies signature arity, parameter count, ref kind, and member kind prevent unrelated hiding reports.</summary>
+    /// <param name="baseMember">The inherited declaration.</param>
+    /// <param name="derivedMember">The declaration with the same name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public void M<T>() { }", "private new void M() { }")]
+    [Arguments("public void M(int value) { }", "private new void M() { }")]
+    [Arguments("public void M(ref int value) { }", "private new void M(int value) { }")]
+    [Arguments("public int M;", "private new void M() { }")]
+    [Arguments("public void M() { }", "private new int M;")]
+    [Arguments("public class M<T> { }", "private new class M { }")]
+    [Arguments("public int M;", "private new class M { }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DifferentHidingShapesAreCleanAsync(string baseMember, string derivedMember) =>
+        Verify.VerifyAnalyzerAsync($"class Base {{ {baseMember} }} class Derived : Base {{ {derivedMember} }}");
+
+    /// <summary>Verifies matching parameter types and ref kinds permit a narrowing diagnostic.</summary>
+    /// <param name="parameters">The signature shared by the base and derived methods.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int first, string second")]
+    [Arguments("ref int first, out string second")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MatchingParameterSignaturesAreReportedAsync(string parameters) =>
+        Verify.VerifyAnalyzerAsync($$"""
+            class Base { public void M<T>({{parameters}}) { second = string.Empty; } }
+            class Derived : Base { private new void {|SST2462:M|}<T>({{parameters}}) { second = string.Empty; } }
+            """);
+
+    /// <summary>Verifies matching generic nested types are compared by accessibility.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NestedTypeWithMatchingArityIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync("class Base { public class Nested<T> { } } class Derived : Base { private new class {|SST2462:Nested|}<T> { } }");
+
+    /// <summary>Verifies method type parameters from distinct declarations currently do not match by ordinal.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GenericParameterSignatureCurrentlyDoesNotReportAsync() =>
+        Verify.VerifyAnalyzerAsync("class Base { public void M<T>(T value) { } } class Derived : Base { private new void M<T>(T value) { } }");
+
+    /// <summary>Verifies the nearest matching base declaration stops the search before a wider ancestor.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EqualNearestBaseMemberStopsSearchAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            class Root { public void M() { } }
+            class Middle : Root { protected new void {|SST2462:M|}() { } }
+            class Leaf : Middle { protected new void M() { } }
+            """);
+
+    /// <summary>Verifies a malformed duplicate signature still selects the most accessible inherited candidate.</summary>
+    /// <param name="first">The first candidate's accessibility.</param>
+    /// <param name="second">The second candidate's accessibility.</param>
+    /// <param name="expected">The accessibility named in the diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("protected", "public", "public")]
+    [Arguments("public", "protected", "public")]
+    [Arguments("protected", "protected", "protected")]
+    public async Task DuplicateBaseSignaturesSelectWidestAccessibilityAsync(string first, string second, string expected)
+    {
+        var test = new Verify.Test
+        {
+            TestCode = $$"""
+                class Base { {{first}} void M() { } {{second}} void M() { } }
+                class Derived : Base { private new void {|#0:M|}() { } }
+                """,
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+        };
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic().WithLocation(0).WithArguments("M", expected, "private", "Base"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a <c>new private</c> method hiding a <c>public</c> base method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

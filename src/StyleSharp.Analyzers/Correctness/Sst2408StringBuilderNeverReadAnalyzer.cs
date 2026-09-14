@@ -171,7 +171,7 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
     /// <param name="declaration">The variable declaration.</param>
     /// <returns><see langword="true"/> when the declared type, or the created one, is named <c>StringBuilder</c>.</returns>
     private static bool DeclaresStringBuilder(VariableDeclarationSyntax declaration) =>
-        NamesStringBuilder(declaration.Type) || (declaration.Type.IsVar && CreatesStringBuilder(declaration));
+        SyntaxNames.GetIdentifierName(declaration.Type) == StringBuilderName || (declaration.Type.IsVar && CreatesStringBuilder(declaration));
 
     /// <summary>Returns whether an implicitly typed declaration is initialized with a new builder.</summary>
     /// <param name="declaration">The variable declaration.</param>
@@ -181,7 +181,7 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
         var variables = declaration.Variables;
         for (var i = 0; i < variables.Count; i++)
         {
-            if (variables[i].Initializer?.Value is ObjectCreationExpressionSyntax creation && NamesStringBuilder(creation.Type))
+            if (variables[i].Initializer?.Value is ObjectCreationExpressionSyntax creation && SyntaxNames.GetIdentifierName(creation.Type) == StringBuilderName)
             {
                 return true;
             }
@@ -189,17 +189,6 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns whether a type is written with the builder's simple name.</summary>
-    /// <param name="type">The type as written.</param>
-    /// <returns><see langword="true"/> when the rightmost name matches.</returns>
-    private static bool NamesStringBuilder(TypeSyntax type) => type switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText == StringBuilderName,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText == StringBuilderName,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText == StringBuilderName,
-        _ => false,
-    };
 
     /// <summary>Returns whether a bound type is <see cref="System.Text.StringBuilder"/>.</summary>
     /// <param name="type">The local's type.</param>

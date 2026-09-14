@@ -54,15 +54,11 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation is a parameterless <c>Min</c>/<c>Max</c> member call, before any binding.</summary>
@@ -76,8 +72,8 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports PSH1122 for a sorted set whose extreme element is fetched through LINQ.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType typeCache)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsExtremeExtensionShape(invocation))
@@ -86,7 +82,8 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
         }
 
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-        if (!IsSourceOnlyEnumerableExtension(context, invocation, enumerableType)
+        if (typeCache.Get() is not { } enumerableType
+            || !EnumerableInvocationHelper.IsSourceOnlyExtensionOn(context.SemanticModel, invocation, enumerableType, context.CancellationToken)
             || !IsSortedSetReceiver(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type))
         {
             return;
@@ -100,18 +97,6 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
             isMinimum ? MinMemberName : MaxMemberName,
             isMinimum ? SmallestText : LargestText));
     }
-
-    /// <summary>Returns whether an invocation binds to an Enumerable extension whose only parameter is the source.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    /// <returns><see langword="true"/> when the call is a reduced source-only Enumerable extension.</returns>
-    private static bool IsSourceOnlyEnumerableExtension(
-        in SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType) =>
-        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
-            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 
     /// <summary>Returns whether a receiver's static type keeps its elements in sorted order.</summary>
     /// <param name="type">The receiver's static type.</param>

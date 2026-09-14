@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1512 — a sensitive framework diagnostic switch is enabled outside a development-environment guard.</summary>
-    public static readonly DiagnosticDescriptor SensitiveFrameworkDiagnosticsEnabled = Create(
+    public static readonly DiagnosticDescriptor SensitiveFrameworkDiagnosticsEnabled = DescriptorFactory.Create(
         "SES1512",
         "Sensitive framework diagnostics must be guarded by a development-environment check",
         "'{0}' enables sensitive framework logging (parameter values, personally identifiable information, or full security tokens) without a development-environment guard; confine it to development",

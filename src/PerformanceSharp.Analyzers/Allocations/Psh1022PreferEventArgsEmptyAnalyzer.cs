@@ -48,19 +48,12 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EventArgsMetadataName) is not { } eventArgsType
-                || !HasEmptyField(eventArgsType))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, eventArgsType),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveEventArgsType),
+            AnalyzeCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Returns whether an allocation is an argument-free <c>new</c> with nothing initialized, before any binding.</summary>
@@ -75,11 +68,13 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1022 for a construction of the base <c>EventArgs</c> the singleton could serve.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
-    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
+    /// <param name="types">The compilation's deferred <c>EventArgs</c> type.</param>
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> types)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
-        if (!IsParameterlessCreationShape(creation) || !IsNamedEventArgsOrImplicit(creation))
+        if (!IsParameterlessCreationShape(creation)
+            || !IsNamedEventArgsOrImplicit(creation)
+            || types.Get() is not { } eventArgsType)
         {
             return;
         }
@@ -87,7 +82,7 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
         var model = context.SemanticModel;
         if (model.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, eventArgsType)
-            || !CanWriteReplacement(creation, model, eventArgsType, context.CancellationToken))
+            || !SharedInstanceReplacement.CanWriteReplacement(creation, model, eventArgsType, EventArgsTypeName, context.CancellationToken))
         {
             return;
         }
@@ -107,74 +102,14 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool IsNamedEventArgsOrImplicit(BaseObjectCreationExpressionSyntax creation) =>
         creation is not ObjectCreationExpressionSyntax explicitCreation
-            || GetSimpleName(explicitCreation.Type) == EventArgsTypeName;
+            || SyntaxNames.GetSimpleName(explicitCreation.Type) == EventArgsTypeName;
 
-    /// <summary>Returns whether the fix can name <c>EventArgs</c> at the allocation's position.</summary>
-    /// <param name="creation">The allocation being reported.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when a compiling replacement exists.</returns>
-    /// <remarks>
-    /// An explicit allocation already spells the type out, and the fix reuses exactly what the author
-    /// wrote — <c>System.EventArgs</c> stays <c>System.EventArgs.Empty</c>. A target-typed <c>new()</c>
-    /// spells nothing out, so the fix has to write <c>EventArgs</c> itself, and that only compiles
-    /// where the simple name is in scope. Where it is not, the diagnostic would have no fix, so it is
-    /// not reported.
-    /// </remarks>
-    private static bool CanWriteReplacement(
-        BaseObjectCreationExpressionSyntax creation,
-        SemanticModel model,
-        INamedTypeSymbol eventArgsType,
-        CancellationToken cancellationToken)
+    /// <summary>Resolves the type and verifies that its singleton exists.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    /// <returns>The singleton-bearing type, or null when unavailable.</returns>
+    private static INamedTypeSymbol? ResolveEventArgsType(Compilation compilation)
     {
-        if (creation is ObjectCreationExpressionSyntax { Type: NameSyntax })
-        {
-            return true;
-        }
-
-        if (creation is ObjectCreationExpressionSyntax)
-        {
-            return false;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        foreach (var candidate in model.LookupNamespacesAndTypes(creation.SpanStart, name: EventArgsTypeName))
-        {
-            if (SymbolEqualityComparer.Default.Equals(candidate, eventArgsType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var type = compilation.GetTypeByMetadataName(EventArgsMetadataName);
+        return type is not null && SymbolFacts.HasStaticField(type, EmptyFieldName) ? type : null;
     }
-
-    /// <summary>Returns whether the compilation's <c>EventArgs</c> exposes the shared empty instance.</summary>
-    /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
-    /// <returns><see langword="true"/> when the static <c>Empty</c> field exists.</returns>
-    private static bool HasEmptyField(INamedTypeSymbol eventArgsType)
-    {
-        var members = eventArgsType.GetMembers(EmptyFieldName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IFieldSymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
 }

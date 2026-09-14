@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -9,58 +10,34 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a parameterless value-type construction with <c>default(T)</c> (SST1129).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1129DefaultValueTypeConstructorCodeFixProvider))]
 [Shared]
-public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(ReportedNode.Find<ObjectCreationExpressionSyntax>, static (current, _) => CreateDefault((ObjectCreationExpressionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.DefaultValueTypeConstructor.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use 'default'",
+            nameof(Sst1129DefaultValueTypeConstructorCodeFixProvider),
+            ReportedNode.Find<ObjectCreationExpressionSyntax>,
+            CreateDefault);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not ObjectCreationExpressionSyntax creation)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use 'default'",
-                    _ => Task.FromResult(Replace(context.Document, root, creation)),
-                    equivalenceKey: nameof(Sst1129DefaultValueTypeConstructorCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ObjectCreationExpressionSyntax creation)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(creation, SyntaxFactory.DefaultExpression(creation.Type.WithoutTrivia()).WithTriviaFrom(creation));
-    }
-
-    /// <summary>Replaces the construction with a <c>default(T)</c> expression.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Builds the <c>default(T)</c> expression that takes the construction's place and trivia.</summary>
     /// <param name="creation">The object-creation expression.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Replace(Document document, SyntaxNode root, ObjectCreationExpressionSyntax creation)
-    {
-        var replacement = SyntaxFactory.DefaultExpression(creation.Type.WithoutTrivia()).WithTriviaFrom(creation);
-        return document.WithSyntaxRoot(root.ReplaceNode(creation, replacement));
-    }
+    /// <returns>The default expression.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static DefaultExpressionSyntax CreateDefault(ObjectCreationExpressionSyntax creation) =>
+        SyntaxFactory.DefaultExpression(
+            SyntaxFactory.Token(creation.GetLeadingTrivia(), SyntaxKind.DefaultKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            creation.Type.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, creation.GetTrailingTrivia()));
 }

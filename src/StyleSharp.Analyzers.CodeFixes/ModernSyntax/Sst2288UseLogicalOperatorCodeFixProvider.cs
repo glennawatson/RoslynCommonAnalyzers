@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -12,14 +10,17 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2288UseLogicalOperatorCodeFixProvider))]
 [Shared]
-public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(ModernSyntaxRules.UseLogicalOperatorOverConditional.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -27,12 +28,16 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             context,
             "Use the logical operator",
             nameof(Sst2288UseLogicalOperatorCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ConditionalExpressionSyntax>()is { } conditional
+            && Sst2288UseLogicalOperatorAnalyzer.TryClassify(conditional, out var _, out var _, out var _);
 
     /// <summary>Resolves the reported conditional and replaces it with the equivalent logical expression.</summary>
     /// <param name="root">The syntax root.</param>
@@ -64,11 +69,10 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
         var replacement = SyntaxFactory.BinaryExpression(
-                conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression,
-                left,
-                operatorToken,
-                right)
-            .WithTriviaFrom(conditional);
+            conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression,
+            left.WithLeadingTrivia(conditional.GetLeadingTrivia()),
+            operatorToken,
+            right.WithTrailingTrivia(conditional.GetTrailingTrivia()));
 
         return new NodeReplacement(conditional, replacement);
     }
@@ -94,7 +98,7 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// <returns>The indentation to put in front of the operator.</returns>
     private static SyntaxTriviaList WhitespaceOf(SyntaxToken token)
     {
-        var kept = new List<SyntaxTrivia>();
+        var kept = new List<SyntaxTrivia>(token.LeadingTrivia.Count);
         foreach (var trivia in token.LeadingTrivia)
         {
             if (trivia.IsKind(SyntaxKind.WhitespaceTrivia))
@@ -116,10 +120,10 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// </remarks>
     private static ExpressionSyntax Negate(ExpressionSyntax condition)
     {
-        var inner = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        var inner = ExpressionShapes.WalkDownParentheses(condition);
         if (inner is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation)
         {
-            return ExpressionSimplificationAnalyzer.Unwrap(negation.Operand).WithoutTrivia();
+            return ExpressionShapes.WalkDownParentheses(negation.Operand).WithoutTrivia();
         }
 
         if (SupportsNotPattern(condition))
@@ -127,7 +131,10 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             switch (inner)
             {
                 case IsPatternExpressionSyntax pattern:
-                    return pattern.WithoutTrivia().WithPattern(PatternNegation.Negate(pattern.Pattern.WithoutTrivia()));
+                    return pattern.Update(
+                        pattern.Expression.WithoutLeadingTrivia(),
+                        pattern.IsKeyword,
+                        PatternNegation.Negate(pattern.Pattern.WithoutTrivia()));
 
                 case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression, Right: TypeSyntax type } typeTest:
                     return SyntaxFactory.IsPatternExpression(

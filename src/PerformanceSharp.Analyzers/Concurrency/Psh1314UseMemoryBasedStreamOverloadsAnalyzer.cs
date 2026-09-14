@@ -14,7 +14,7 @@ namespace PerformanceSharp.Analyzers;
 /// <para>
 /// The memory overloads are .NET Core 2.1+, so they are never assumed: <c>Memory&lt;byte&gt;</c>,
 /// <c>ReadOnlyMemory&lt;byte&gt;</c>, and a <c>Stream.ReadAsync</c> that actually takes one are
-/// all resolved at compilation start, and the rule registers nothing when the framework has none.
+/// all resolved once per compilation after an awaited array-overload candidate is found.
 /// The replacement overload is then resolved off the receiver's own type hierarchy, so a stream
 /// that does not expose one is not reported.
 /// </para>
@@ -72,15 +72,14 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (TryCreateGate(start.Compilation) is not { } gate)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, gate), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<MemoryOverloadGate?>(
+                compilation,
+                TryCreateGate,
+                runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the array-based stream call shape, before any binding.</summary>
@@ -153,20 +152,21 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
 
     /// <summary>Reports PSH1314 for an awaited array-based stream call whose memory overload exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The per-compilation gate state.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in MemoryOverloadGate gate)
+    /// <param name="gate">The per-compilation gate state resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<MemoryOverloadGate?> gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsArrayOverloadShape(invocation)
             || !IsDirectlyAwaited(invocation)
+            || gate.Get() is not { } resolvedGate
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsStreamType(method.ContainingType, gate.StreamType)
-            || !TakesArrayOffsetCount(method.Parameters, gate.CancellationTokenType))
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, resolvedGate.StreamType)
+            || !TakesArrayOffsetCount(method.Parameters, resolvedGate.CancellationTokenType))
         {
             return;
         }
 
-        var memoryType = method.Name == ReadAsyncMethodName ? gate.MemoryOfByte : gate.ReadOnlyMemoryOfByte;
+        var memoryType = method.Name == ReadAsyncMethodName ? resolvedGate.MemoryOfByte : resolvedGate.ReadOnlyMemoryOfByte;
         if (TryFindMemoryOverload(method.ContainingType, method.Name, memoryType) is null)
         {
             return;
@@ -177,23 +177,6 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
             invocation.SyntaxTree,
             invocation.Span,
             method.Name));
-    }
-
-    /// <summary>Returns whether a type is <c>System.IO.Stream</c> or derives from it.</summary>
-    /// <param name="type">The type declaring the called overload.</param>
-    /// <param name="streamType">The stream type in the current compilation.</param>
-    /// <returns><see langword="true"/> when the call really is a stream call.</returns>
-    private static bool IsStreamType(INamedTypeSymbol type, INamedTypeSymbol streamType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, streamType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a bound method takes the array, offset and count the rule replaces.</summary>

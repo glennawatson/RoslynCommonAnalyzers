@@ -77,13 +77,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeIsExpression, SyntaxKind.IsExpression);
     }
 
-    /// <summary>Gets whether a source node is parsed with at least the supplied C# language version.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the syntax tree supports the requested version.</returns>
-    internal static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
-
     /// <summary>Returns whether an expression can be evaluated without observable side effects.</summary>
     /// <param name="expression">The expression.</param>
     /// <param name="model">The semantic model.</param>
@@ -91,7 +84,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for literals, defaults, and local or parameter reads.</returns>
     internal static bool IsSideEffectFreeValue(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
     {
-        expression = ExpressionSimplificationAnalyzer.Unwrap(expression);
+        expression = ExpressionShapes.WalkDownParentheses(expression);
         if (expression is LiteralExpressionSyntax or DefaultExpressionSyntax)
         {
             return true;
@@ -110,7 +103,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for identifiers, <c>this</c>, and member-access chains rooted in those.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsSideEffectFreeTarget(ExpressionSyntax expression) =>
-        CompoundAssignmentOperators.IsSideEffectFreeTarget(ExpressionSimplificationAnalyzer.Unwrap(expression));
+        CompoundAssignmentOperators.IsSideEffectFreeTarget(ExpressionShapes.WalkDownParentheses(expression));
 
     /// <summary>Returns whether an interpolation can remove or fold a <c>ToString</c> call.</summary>
     /// <param name="interpolation">The interpolation.</param>
@@ -130,7 +123,12 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        replacement = interpolation.WithExpression(receiver.WithTriviaFrom(interpolation.Expression)).WithFormatClause(format);
+        replacement = interpolation.Update(
+            interpolation.OpenBraceToken,
+            receiver.WithTriviaFrom(interpolation.Expression),
+            interpolation.AlignmentClause,
+            format,
+            interpolation.CloseBraceToken);
         return true;
     }
 
@@ -174,6 +172,61 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
 
         reportNode = pattern;
         return IsObjectTypePattern(pattern);
+    }
+
+    /// <summary>Gets the previous statement in a block.</summary>
+    /// <param name="ifStatement">The if statement.</param>
+    /// <param name="previous">The previous statement.</param>
+    /// <returns><see langword="true"/> when there is a previous statement.</returns>
+    internal static bool TryGetPreviousStatement(IfStatementSyntax ifStatement, out StatementSyntax previous)
+    {
+        previous = null!;
+        if (ifStatement.Parent is not BlockSyntax block)
+        {
+            return false;
+        }
+
+        var statements = block.Statements;
+        for (var i = 1; i < statements.Count; i++)
+        {
+            if (statements[i] != ifStatement)
+            {
+                continue;
+            }
+
+            previous = statements[i - 1];
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets a simple assignment from a statement or single-statement block.</summary>
+    /// <param name="statement">The statement.</param>
+    /// <param name="target">The assignment target.</param>
+    /// <param name="value">The assigned value.</param>
+    /// <returns><see langword="true"/> when a simple assignment was found.</returns>
+    internal static bool TryGetEmbeddedAssignment(StatementSyntax statement, out ExpressionSyntax target, out ExpressionSyntax value)
+    {
+        target = null!;
+        value = null!;
+        var candidate = statement is BlockSyntax { Statements.Count: 1 } block ? block.Statements[0] : statement;
+        if (candidate is not ExpressionStatementSyntax
+            {
+                Expression: AssignmentExpressionSyntax
+                {
+                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                    Left: { } left,
+                    Right: { } right
+                }
+            })
+        {
+            return false;
+        }
+
+        target = left;
+        value = right;
+        return true;
     }
 
     /// <summary>Returns whether an expression is usable as an interpolation format.</summary>
@@ -269,7 +322,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsLanguageVersionAtLeast(statement, CSharp7)
+        if (!LanguageVersions.IsAtLeast(statement, CSharp7)
             || !IsIgnoredValueCandidate(statement.Expression)
             || context.SemanticModel.GetTypeInfo(statement.Expression, context.CancellationToken).Type is not { } type
             || type.SpecialType == SpecialType.System_Void)
@@ -285,7 +338,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context)
     {
         var local = (LocalDeclarationStatementSyntax)context.Node;
-        if (IsLanguageVersionAtLeast(local, CSharp7) && IsLocalFunctionCandidate(local, context.SemanticModel, context.CancellationToken))
+        if (LanguageVersions.IsAtLeast(local, CSharp7) && IsLocalFunctionCandidate(local, context.SemanticModel, context.CancellationToken))
         {
             context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseLocalFunction, local.Declaration.Variables[0].Identifier.GetLocation()));
             return;
@@ -320,7 +373,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             || assigned.Identifier.ValueText != variable.Identifier.ValueText
             || !IsSideEffectFreeValue(value, model, cancellationToken)
             || model.GetDeclaredSymbol(variable, cancellationToken) is not { } localSymbol
-            || ContainsReference(assignedValue, localSymbol, model, cancellationToken))
+            || IdentifierReferences.References(assignedValue, localSymbol, model, cancellationToken))
         {
             return false;
         }
@@ -342,8 +395,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         if (TryGetEmbeddedAssignment(ifStatement.Statement, out var target, out _)
-            && SyntaxFactory.AreEquivalent(ExpressionSimplificationAnalyzer.Unwrap(checkedExpression), ExpressionSimplificationAnalyzer.Unwrap(target))
-            && IsLanguageVersionAtLeast(ifStatement, CSharp8))
+            && SyntaxFactory.AreEquivalent(ExpressionShapes.WalkDownParentheses(checkedExpression), ExpressionShapes.WalkDownParentheses(target))
+            && LanguageVersions.IsAtLeast(ifStatement, CSharp8))
         {
             context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseCoalesceAssignment, ifStatement.IfKeyword.GetLocation()));
             return;
@@ -366,7 +419,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (foldKind == ThrowFold && !IsLanguageVersionAtLeast(ifStatement, CSharp7))
+        if (foldKind == ThrowFold && !LanguageVersions.IsAtLeast(ifStatement, CSharp7))
         {
             return;
         }
@@ -380,12 +433,12 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeCoalesceExpression(SyntaxNodeAnalysisContext context)
     {
         var coalesce = (BinaryExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(coalesce, CSharp8)
-            || ExpressionSimplificationAnalyzer.Unwrap(coalesce.Right) is not AssignmentExpressionSyntax assignment
+        if (!LanguageVersions.IsAtLeast(coalesce, CSharp8)
+            || ExpressionShapes.WalkDownParentheses(coalesce.Right) is not AssignmentExpressionSyntax assignment
             || assignment.RawKind != (int)SyntaxKind.SimpleAssignmentExpression
             || !SyntaxFactory.AreEquivalent(
-                ExpressionSimplificationAnalyzer.Unwrap(coalesce.Left),
-                ExpressionSimplificationAnalyzer.Unwrap(assignment.Left))
+                ExpressionShapes.WalkDownParentheses(coalesce.Left),
+                ExpressionShapes.WalkDownParentheses(assignment.Left))
             || !IsSideEffectFreeTarget(coalesce.Left))
         {
             return;
@@ -399,7 +452,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeAnonymousObject(SyntaxNodeAnalysisContext context)
     {
         var anonymous = (AnonymousObjectCreationExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(anonymous, CSharp7)
+        if (!LanguageVersions.IsAtLeast(anonymous, CSharp7)
             || anonymous.Initializers.Count < 2)
         {
             return;
@@ -433,39 +486,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// reported only when it is a local whose every use is a member access. Passing it anywhere,
     /// including to a generic method such as <c>Serialize&lt;T&gt;</c>, is an escape.
     /// </remarks>
-    private static bool IsConfinedToMemberReads(AnonymousObjectCreationExpressionSyntax anonymous)
-    {
-        if (anonymous.Parent is not EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
-            || declarator.Parent is not VariableDeclarationSyntax { Parent: LocalDeclarationStatementSyntax }
-            || anonymous.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
-        {
-            return false;
-        }
-
-        var scan = new LocalEscapeScan(declarator.Identifier.ValueText);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LocalEscapeScan>(scope, ref scan, VisitLocalUse);
-        return !scan.Escapes;
-    }
-
-    /// <summary>Records a use of the local that is not a member read.</summary>
-    /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once an escape is found, which stops the walk.</returns>
-    private static bool VisitLocalUse(IdentifierNameSyntax identifier, ref LocalEscapeScan scan)
-    {
-        if (identifier.Identifier.ValueText != scan.Name)
-        {
-            return true;
-        }
-
-        if (identifier.Parent is MemberAccessExpressionSyntax access && access.Expression == identifier)
-        {
-            return true;
-        }
-
-        scan.Escapes = true;
-        return false;
-    }
+    private static bool IsConfinedToMemberReads(AnonymousObjectCreationExpressionSyntax anonymous) =>
+        anonymous.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+            && declarator.Parent is VariableDeclarationSyntax { Parent: LocalDeclarationStatementSyntax }
+            && anonymous.FirstAncestorOrSelf<BlockSyntax>() is { } scope
+            && IdentifierReferences.IsOnlyMemberReceiver(scope, declarator.Identifier.ValueText);
 
     /// <summary>Reports foreach statements that hide runtime element casts.</summary>
     /// <param name="context">The syntax context.</param>
@@ -532,7 +557,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeIsPattern(SyntaxNodeAnalysisContext context)
     {
         var patternExpression = (IsPatternExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(patternExpression, CSharp9)
+        if (!LanguageVersions.IsAtLeast(patternExpression, CSharp9)
             || !TryGetBroadObjectNullPattern(patternExpression.Pattern, out var reportNode, out _)
             || !CanUseNullPatternFor(context.SemanticModel.GetTypeInfo(patternExpression.Expression, context.CancellationToken).Type))
         {
@@ -547,7 +572,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeIsExpression(SyntaxNodeAnalysisContext context)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(binary, CSharp9)
+        if (!LanguageVersions.IsAtLeast(binary, CSharp9)
             || !IsObjectType(binary.Right)
             || !CanUseNullPatternFor(context.SemanticModel.GetTypeInfo(binary.Left, context.CancellationToken).Type))
         {
@@ -575,33 +600,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <summary>Gets the previous statement in a block.</summary>
-    /// <param name="ifStatement">The if statement.</param>
-    /// <param name="previous">The previous statement.</param>
-    /// <returns><see langword="true"/> when there is a previous statement.</returns>
-    private static bool TryGetPreviousStatement(IfStatementSyntax ifStatement, out StatementSyntax previous)
-    {
-        previous = null!;
-        if (ifStatement.Parent is not BlockSyntax block)
-        {
-            return false;
-        }
-
-        var statements = block.Statements;
-        for (var i = 1; i < statements.Count; i++)
-        {
-            if (statements[i] != ifStatement)
-            {
-                continue;
-            }
-
-            previous = statements[i - 1];
-            return true;
-        }
-
-        return false;
-    }
-
     /// <summary>Reports an adjacent assignment overwritten before it is read.</summary>
     /// <param name="context">The syntax context.</param>
     /// <param name="statement">The assignment statement.</param>
@@ -615,7 +613,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             || !IsSideEffectFreeValue(assignment.Right, context.SemanticModel, context.CancellationToken)
             || context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not { } symbol
             || symbol.Kind == SymbolKind.Discard
-            || ContainsReference(nextValue, symbol, context.SemanticModel, context.CancellationToken))
+            || IdentifierReferences.References(nextValue, symbol, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -629,9 +627,9 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     {
         var returnStatement = (ReturnStatementSyntax)context.Node;
         if (returnStatement.Expression is not { } expression
-            || ExpressionSimplificationAnalyzer.Unwrap(expression) is not PostfixUnaryExpressionSyntax postfix
+            || ExpressionShapes.WalkDownParentheses(expression) is not PostfixUnaryExpressionSyntax postfix
             || !IsPostfixStep(postfix)
-            || ExpressionSimplificationAnalyzer.Unwrap(postfix.Operand) is not IdentifierNameSyntax operand
+            || ExpressionShapes.WalkDownParentheses(postfix.Operand) is not IdentifierNameSyntax operand
             || GetStepReturnScope(returnStatement) is not { } function
             || !TryGetRemovableStepLocal(postfix, operand, context.SemanticModel, context.CancellationToken, out var local)
             || !SymbolEqualityComparer.Default.Equals(
@@ -652,9 +650,9 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static bool TryReportSelfAssignedStep(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment)
     {
         if (assignment.Left is not IdentifierNameSyntax target
-            || ExpressionSimplificationAnalyzer.Unwrap(assignment.Right) is not PostfixUnaryExpressionSyntax postfix
+            || ExpressionShapes.WalkDownParentheses(assignment.Right) is not PostfixUnaryExpressionSyntax postfix
             || !IsPostfixStep(postfix)
-            || ExpressionSimplificationAnalyzer.Unwrap(postfix.Operand) is not IdentifierNameSyntax operand
+            || ExpressionShapes.WalkDownParentheses(postfix.Operand) is not IdentifierNameSyntax operand
             || operand.Identifier.ValueText != target.Identifier.ValueText
             || !TryGetRemovableStepLocal(postfix, operand, context.SemanticModel, context.CancellationToken, out _))
         {
@@ -773,7 +771,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static bool VisitEscapeCandidate(IdentifierNameSyntax identifier, ref EscapeScan scan)
     {
         if (identifier.Identifier.ValueText != scan.Local.Name
-            || (!IsAliasTarget(identifier) && !IsInsideNestedFunction(identifier, scan.Function))
+            || (!IsAliasTarget(identifier) && !NestedFunctionScope.IsInsideNestedFunction(identifier, scan.Function))
             || !SymbolEqualityComparer.Default.Equals(scan.Model.GetSymbolInfo(identifier, scan.CancellationToken).Symbol, scan.Local))
         {
             return true;
@@ -800,23 +798,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             PrefixUnaryExpressionSyntax prefix => prefix.RawKind == (int)SyntaxKind.AddressOfExpression,
             _ => false
         };
-    }
-
-    /// <summary>Returns whether a node sits inside a lambda or local function declared under the frame's function.</summary>
-    /// <param name="node">The node to test.</param>
-    /// <param name="function">The frame's function node.</param>
-    /// <returns><see langword="true"/> when a nested function sits between the node and the frame.</returns>
-    private static bool IsInsideNestedFunction(SyntaxNode node, SyntaxNode function)
-    {
-        for (var current = node.Parent; current is not null && current != function; current = current.Parent)
-        {
-            if (current is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Creates an interpolation format clause from a string literal expression.</summary>
@@ -869,27 +850,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         identifier = assigned;
         value = assignedValue;
         return true;
-    }
-
-    /// <summary>Returns whether an expression reads a symbol.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <param name="symbol">The symbol to find.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels analysis.</param>
-    /// <returns><see langword="true"/> when the expression contains a reference to the symbol.</returns>
-    private static bool ContainsReference(ExpressionSyntax expression, ISymbol symbol, SemanticModel model, CancellationToken cancellationToken)
-    {
-        foreach (var node in expression.DescendantNodesAndSelf())
-        {
-            if (node is IdentifierNameSyntax identifier
-                && identifier.Identifier.ValueText == symbol.Name
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, symbol))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a local delegate declaration can be represented as a local function.</summary>
@@ -1014,23 +974,23 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken,
         ref bool seenReference)
     {
-        foreach (var node in statement.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax identifier
-                || identifier.Identifier.ValueText != localSymbol.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, localSymbol))
+        var state = new DirectInvocationSearch(localSymbol, model, cancellationToken) { SeenReference = seenReference };
+        var completed = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, DirectInvocationSearch>(
+            statement,
+            ref state,
+            static (identifier, ref current) =>
             {
-                continue;
-            }
+                if (!IdentifierReferences.IsReferenceTo(identifier, current.Symbol, current.Model, current.CancellationToken))
+                {
+                    return true;
+                }
 
-            seenReference = true;
-            if (identifier.Parent is not InvocationExpressionSyntax invocation || invocation.Expression != identifier)
-            {
-                return false;
-            }
-        }
+                current.SeenReference = true;
+                return identifier.Parent is InvocationExpressionSyntax invocation && invocation.Expression == identifier;
+            });
 
-        return true;
+        seenReference = state.SeenReference;
+        return completed;
     }
 
     /// <summary>Returns whether an expression statement candidate produces a value that can be made explicit.</summary>
@@ -1050,24 +1010,28 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var node in invocation.ArgumentList.Arguments[0].DescendantNodesAndSelf())
-        {
-            if (node is not GenericNameSyntax genericName)
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants<GenericNameSyntax, bool>(
+            invocation.ArgumentList.Arguments[0],
+            ref found,
+            static (genericName, ref state) =>
             {
-                continue;
-            }
-
-            var arguments = genericName.TypeArgumentList.Arguments;
-            for (var i = 0; i < arguments.Count; i++)
-            {
-                if (!arguments[i].IsKind(SyntaxKind.OmittedTypeArgument))
+                var arguments = genericName.TypeArgumentList.Arguments;
+                for (var i = 0; i < arguments.Count; i++)
                 {
-                    return true;
-                }
-            }
-        }
+                    if (arguments[i].IsKind(SyntaxKind.OmittedTypeArgument))
+                    {
+                        continue;
+                    }
 
-        return false;
+                    state = true;
+                    return false;
+                }
+
+                return true;
+            });
+
+        return found;
     }
 
     /// <summary>Returns whether a pattern only checks for an <c>object</c> reference.</summary>
@@ -1075,6 +1039,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the pattern is a broad object type pattern.</returns>
     private static bool IsObjectTypePattern(PatternSyntax pattern)
     {
+        if (pattern is TypePatternSyntax { Type: { } type } && IsObjectType(type))
+        {
+            return true;
+        }
+
         if (pattern is DeclarationPatternSyntax { Type: { } declarationType } && IsObjectType(declarationType))
         {
             return true;
@@ -1108,7 +1077,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         out ExpressionSyntax checkedExpression)
     {
         checkedExpression = null!;
-        condition = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        condition = ExpressionShapes.WalkDownParentheses(condition);
         if (condition is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.EqualsExpression))
         {
             var leftNull = binary.Left.IsKind(SyntaxKind.NullLiteralExpression);
@@ -1136,34 +1105,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         checkedExpression = pattern.Expression;
-        return true;
-    }
-
-    /// <summary>Gets a simple assignment from a statement or single-statement block.</summary>
-    /// <param name="statement">The statement.</param>
-    /// <param name="target">The assignment target.</param>
-    /// <param name="value">The assigned value.</param>
-    /// <returns><see langword="true"/> when a simple assignment was found.</returns>
-    private static bool TryGetEmbeddedAssignment(StatementSyntax statement, out ExpressionSyntax target, out ExpressionSyntax value)
-    {
-        target = null!;
-        value = null!;
-        var candidate = statement is BlockSyntax { Statements.Count: 1 } block ? block.Statements[0] : statement;
-        if (candidate is not ExpressionStatementSyntax
-            {
-                Expression: AssignmentExpressionSyntax
-                {
-                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                    Left: { } left,
-                    Right: { } right
-                }
-            })
-        {
-            return false;
-        }
-
-        target = left;
-        value = right;
         return true;
     }
 
@@ -1211,7 +1152,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         if (!TryGetEmbeddedAssignment(statement, out var target, out var value)
-            || !SyntaxFactory.AreEquivalent(ExpressionSimplificationAnalyzer.Unwrap(target), ExpressionSimplificationAnalyzer.Unwrap(checkedExpression))
+            || !SyntaxFactory.AreEquivalent(ExpressionShapes.WalkDownParentheses(target), ExpressionShapes.WalkDownParentheses(checkedExpression))
             || !IsSideEffectFreeTarget(target))
         {
             return false;
@@ -1237,7 +1178,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         if (!TryGetEmbeddedAssignment(candidate, out var target, out _)
-            || !SyntaxFactory.AreEquivalent(ExpressionSimplificationAnalyzer.Unwrap(target), ExpressionSimplificationAnalyzer.Unwrap(checkedExpression)))
+            || !SyntaxFactory.AreEquivalent(ExpressionShapes.WalkDownParentheses(target), ExpressionShapes.WalkDownParentheses(checkedExpression)))
         {
             return false;
         }
@@ -1289,7 +1230,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static IConversionOperation? GetHighestExplicitConversion(SemanticModel model, CastExpressionSyntax cast, CancellationToken cancellationToken)
     {
         var expression = cast.Expression;
-        while (ExpressionSimplificationAnalyzer.Unwrap(expression) is { } unwrapped && unwrapped != expression)
+        while (ExpressionShapes.WalkDownParentheses(expression) is { } unwrapped && unwrapped != expression)
         {
             expression = unwrapped;
         }
@@ -1305,14 +1246,6 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         return highest;
-    }
-
-    /// <summary>The state threaded through the scan for uses of an anonymous-object local.</summary>
-    /// <param name="Name">The local's name.</param>
-    private record struct LocalEscapeScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the local is used as anything but a member read.</summary>
-        public bool Escapes { get; set; }
     }
 
     /// <summary>The state threaded through a local's escape scan.</summary>

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,45 +11,51 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2009UseExceptionFilterCodeFixProvider))]
 [Shared]
-public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider
 {
     /// <summary>The trivia count of an indentation-plus-line-break pair forming one blank line.</summary>
     private const int WhitespaceEolPairLength = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseExceptionFilter.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Move the condition into a 'when' filter", nameof(Sst2009UseExceptionFilterCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the catch clause with its <c>when</c>-filtered form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="catchClause">The catch clause to rewrite.</param>
-    /// <returns>The updated document, or the original document when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, CatchClauseSyntax catchClause) =>
-        BuildReplacement(catchClause) is { } replacement
-            ? document.WithSyntaxRoot(root.ReplaceNode(catchClause, replacement))
-            : document;
+        ReplaceNodeCodeFix.RegisterAsync(context, "Move the condition into a 'when' filter", nameof(Sst2009UseExceptionFilterCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Resolves the reported catch clause and builds its filtered form.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<CatchClauseSyntax>() is { } catchClause
             && BuildReplacement(catchClause) is { } replacement
             ? new NodeReplacement(catchClause, replacement, RewriteCurrent)
             : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<CatchClauseSyntax>()is not { Filter: null } clause)
+        {
+            return false;
+        }
+
+        var statements = clause.Block.Statements;
+        return statements.Count > 0
+            && statements[0] is IfStatementSyntax statement
+            && !DirectiveBoundaries.Cross(clause, clause.Span)
+            && Sst2009UseExceptionFilterAnalyzer.MatchesFilterShape(statement, statements.Count);
+    }
 
     /// <summary>Rewrites the current catch clause during batch FixAll composition.</summary>
     /// <param name="current">The current catch clause node.</param>
@@ -94,32 +98,39 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
             newStatements = RemainingStatements(statements);
         }
 
-        return WithFilter(catchClause, condition)
-            .WithBlock(catchClause.Block.WithStatements(newStatements))
+        return WithFilter(catchClause, condition, catchClause.Block.WithStatements(newStatements))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 
     /// <summary>Attaches a <c>when</c> filter to the catch clause, keeping the line break before the block.</summary>
     /// <param name="catchClause">The catch clause to extend.</param>
     /// <param name="condition">The trivia-free filter condition.</param>
+    /// <param name="block">The rewritten catch body.</param>
     /// <returns>The catch clause with the filter attached.</returns>
-    private static CatchClauseSyntax WithFilter(CatchClauseSyntax catchClause, ExpressionSyntax condition)
+    private static CatchClauseSyntax WithFilter(CatchClauseSyntax catchClause, ExpressionSyntax condition, BlockSyntax block)
     {
-        var filter = SyntaxFactory.CatchFilterClause(condition)
-            .WithWhenKeyword(SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.WhenKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)));
+        var filter = SyntaxFactory.CatchFilterClause(
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.WhenKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            condition,
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken));
 
         if (catchClause.Declaration is { } declaration)
         {
             var closeParen = declaration.CloseParenToken;
-            return catchClause
-                .WithDeclaration(declaration.WithCloseParenToken(closeParen.WithTrailingTrivia()))
-                .WithFilter(filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(closeParen.TrailingTrivia)));
+            return catchClause.Update(
+                catchClause.CatchKeyword,
+                declaration.WithCloseParenToken(closeParen.WithTrailingTrivia()),
+                filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(closeParen.TrailingTrivia)),
+                block);
         }
 
         var catchKeyword = catchClause.CatchKeyword;
-        return catchClause
-            .WithCatchKeyword(catchKeyword.WithTrailingTrivia())
-            .WithFilter(filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(catchKeyword.TrailingTrivia)));
+        return catchClause.Update(
+            catchKeyword.WithTrailingTrivia(),
+            catchClause.Declaration,
+            filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(catchKeyword.TrailingTrivia)),
+            block);
     }
 
     /// <summary>Returns the statements a surviving branch contributes to the new catch body.</summary>
@@ -198,16 +209,16 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     /// <returns>The trivia-free negated condition.</returns>
     private static ExpressionSyntax Negate(ExpressionSyntax condition)
     {
-        var unwrapped = Unwrap(condition);
+        var unwrapped = ExpressionShapes.WalkDownParentheses(condition);
         if (unwrapped is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } logicalNot)
         {
-            return Unwrap(logicalNot.Operand).WithoutTrivia();
+            return ExpressionShapes.WalkDownParentheses(logicalNot.Operand).WithoutTrivia();
         }
 
         if (unwrapped is BinaryExpressionSyntax binary && TryInvertComparison(binary.Kind(), out var invertedKind, out var invertedToken))
         {
             var operatorToken = SyntaxFactory.Token(binary.OperatorToken.LeadingTrivia, invertedToken, binary.OperatorToken.TrailingTrivia);
-            return SyntaxFactory.BinaryExpression(invertedKind, binary.Left, operatorToken, binary.Right).WithoutTrivia();
+            return SyntaxFactory.BinaryExpression(invertedKind, binary.Left.WithoutLeadingTrivia(), operatorToken, binary.Right.WithoutTrailingTrivia());
         }
 
         return SyntaxFactory.PrefixUnaryExpression(
@@ -273,18 +284,5 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
                 return false;
             }
         }
-    }
-
-    /// <summary>Removes enclosing parentheses around an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The unwrapped expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
     }
 }

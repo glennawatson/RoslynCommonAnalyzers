@@ -23,32 +23,27 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
-        {
-            var hasCollectionBuilderAttribute = CollectionExpressionAdvancedAnalysis.HasCollectionBuilderAttribute(start.Compilation);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeStackalloc(nodeContext, hasCollectionBuilderAttribute),
-                SyntaxKind.StackAllocArrayCreationExpression,
-                SyntaxKind.ImplicitStackAllocArrayCreationExpression);
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeBuilderLocal(nodeContext, hasCollectionBuilderAttribute),
-                SyntaxKind.LocalDeclarationStatement);
-        });
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => AnalyzeStackalloc(nodeContext),
+            SyntaxKind.StackAllocArrayCreationExpression,
+            SyntaxKind.ImplicitStackAllocArrayCreationExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => AnalyzeBuilderLocal(nodeContext),
+            SyntaxKind.LocalDeclarationStatement);
     }
 
     /// <summary>Reports stackalloc initializers that can be target-typed as collection expressions.</summary>
     /// <param name="context">The syntax context.</param>
-    /// <param name="hasCollectionBuilderAttribute">Whether the referenced framework supports C# 12 collection builders.</param>
-    private static void AnalyzeStackalloc(in SyntaxNodeAnalysisContext context, bool hasCollectionBuilderAttribute)
+    private static void AnalyzeStackalloc(in SyntaxNodeAnalysisContext context)
     {
-        if (!hasCollectionBuilderAttribute
-            || context.Node is not ExpressionSyntax expression
+        if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)
             || !CollectionExpressionAdvancedAnalysis.TryGetStackallocInitializer(expression, out var initializer)
             || initializer.Expressions.Count == 0
             || !CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, expression, out var target)
-            || !CollectionExpressionHelper.IsSpanTarget(target))
+            || !CollectionExpressionHelper.IsSpanTarget(target)
+            || !CollectionExpressionAdvancedAnalysis.HasCollectionBuilderAttribute(context.Compilation))
         {
             return;
         }
@@ -78,14 +73,13 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports short builder sequences that can be returned as collection expressions.</summary>
     /// <param name="context">The syntax context.</param>
-    /// <param name="hasCollectionBuilderAttribute">Whether the referenced framework supports C# 12 collection builders.</param>
-    private static void AnalyzeBuilderLocal(in SyntaxNodeAnalysisContext context, bool hasCollectionBuilderAttribute)
+    private static void AnalyzeBuilderLocal(in SyntaxNodeAnalysisContext context)
     {
         var local = (LocalDeclarationStatementSyntax)context.Node;
-        if (!hasCollectionBuilderAttribute
-            || !CollectionExpressionHelper.IsLanguageSupported(local)
+        if (!CollectionExpressionHelper.IsLanguageSupported(local)
             || !CollectionExpressionAdvancedAnalysis.TryGetBuilderSequence(local, out _, out var returnStatement)
             || local.Declaration.Variables[0].Initializer?.Value is not InvocationExpressionSyntax builderCreation
+            || !CollectionExpressionAdvancedAnalysis.HasCollectionBuilderAttribute(context.Compilation)
             || context.SemanticModel.GetSymbolInfo(builderCreation, context.CancellationToken).Symbol is not IMethodSymbol)
         {
             return;

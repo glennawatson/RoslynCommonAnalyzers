@@ -12,7 +12,7 @@ namespace SecuritySharp.Analyzers;
 /// reports the flag assigned <c>true</c> -- written directly (<c>options.SerializeAllClaims = true</c>) or as an
 /// object-initializer member -- matched by symbol and containing type via <see cref="BlazorFlagAssignment"/>. The
 /// <c>Microsoft.AspNetCore.Components.WebAssembly.Server.AuthenticationStateSerializationOptions</c> type is probed
-/// once per compilation and gates the rule, so a project without WebAssembly auth-state serialization pays nothing.
+/// only after an assignment passes the name-and-literal screen.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
@@ -21,8 +21,7 @@ public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
     private const string SerializeAllClaimsPropertyName = "SerializeAllClaims";
 
     /// <summary>The metadata name of the options type that carries <c>SerializeAllClaims</c>.</summary>
-    private const string AuthenticationStateSerializationOptionsMetadataName =
-        "Microsoft.AspNetCore.Components.WebAssembly.Server.AuthenticationStateSerializationOptions";
+    private const string AuthenticationStateSerializationOptionsMetadataName = "Microsoft.AspNetCore.Components.WebAssembly.Server.AuthenticationStateSerializationOptions";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.SerializeAllClaimsEnabled);
@@ -36,25 +35,29 @@ public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(AuthenticationStateSerializationOptionsMetadataName) is not { } serializationOptions)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, serializationOptions), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, AuthenticationStateSerializationOptionsMetadataName),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1709 for <c>SerializeAllClaims = true</c> on the gated serialization-options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="serializationOptions">The gated <c>AuthenticationStateSerializationOptions</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol serializationOptions)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
-        if (!BlazorFlagAssignment.AssignsFlag(
+        if (!assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression)
+            || assignment.Left is not (MemberAccessExpressionSyntax { Name.Identifier.ValueText: SerializeAllClaimsPropertyName }
+                or IdentifierNameSyntax { Identifier.ValueText: SerializeAllClaimsPropertyName }))
+        {
+            return;
+        }
+
+        if (frameworkType.Get() is not { } serializationOptions
+            || !BlazorFlagAssignment.AssignsFlag(
                 assignment,
                 SyntaxKind.TrueLiteralExpression,
                 SerializeAllClaimsPropertyName,

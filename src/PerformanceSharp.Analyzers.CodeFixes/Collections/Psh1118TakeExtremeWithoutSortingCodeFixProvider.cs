@@ -15,31 +15,52 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider))]
 [Shared]
-public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.TakeExtremeWithoutSorting.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Take the extreme element directly", nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Take the extreme element directly", nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Builds the extreme-scan invocation, dropping the terminal call.</summary>
+    /// <param name="invocation">The terminal invocation to rewrite; callers must have validated the shape.</param>
+    /// <returns>The rewritten invocation.</returns>
+    internal static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
+    {
+        var terminal = (MemberAccessExpressionSyntax)invocation.Expression;
+        var sort = (InvocationExpressionSyntax)terminal.Expression;
+        var sortAccess = (MemberAccessExpressionSyntax)sort.Expression;
+        var replacementName = Psh1118TakeExtremeWithoutSortingAnalyzer.GetReplacementName(invocation);
+        var newName = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            sortAccess.Name.GetLeadingTrivia(),
+            replacementName,
+            sortAccess.Name.GetTrailingTrivia()));
 
-    /// <summary>Replaces the reported chain with its extreme-scan form.</summary>
-    /// <param name="document">The document being fixed.</param>
+        var rewritten = sort.WithExpression(sortAccess.WithName(newName));
+        if (replacementName is Psh1118TakeExtremeWithoutSortingAnalyzer.MinMethodName or Psh1118TakeExtremeWithoutSortingAnalyzer.MaxMethodName)
+        {
+            rewritten = rewritten.WithArgumentList(sort.ArgumentList.WithArguments(default));
+        }
+
+        return rewritten
+            .WithTriviaFrom(invocation)
+            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The reported terminal invocation.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
-        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetTerminalInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported chain and builds its extreme-scan replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -62,39 +83,9 @@ public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixPro
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The invocation, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? TryGetTerminalInvocation(SyntaxNode root, Diagnostic diagnostic)
-    {
-        var node = root.FindNode(diagnostic.Location.SourceSpan);
-        for (var current = node; current is not null; current = current.Parent)
-        {
-            if (current is InvocationExpressionSyntax invocation)
-            {
-                return Psh1118TakeExtremeWithoutSortingAnalyzer.IsExtremeChainShape(invocation) ? invocation : null;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Builds the extreme-scan invocation, dropping the terminal call.</summary>
-    /// <param name="invocation">The terminal invocation to rewrite; callers must have validated the shape.</param>
-    /// <returns>The rewritten invocation.</returns>
-    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
-    {
-        var terminal = (MemberAccessExpressionSyntax)invocation.Expression;
-        var sort = (InvocationExpressionSyntax)terminal.Expression;
-        var sortAccess = (MemberAccessExpressionSyntax)sort.Expression;
-        var replacementName = Psh1118TakeExtremeWithoutSortingAnalyzer.GetReplacementName(invocation);
-        var newName = SyntaxFactory.IdentifierName(replacementName).WithTriviaFrom(sortAccess.Name);
-
-        var rewritten = sort.WithExpression(sortAccess.WithName(newName));
-        if (replacementName is Psh1118TakeExtremeWithoutSortingAnalyzer.MinMethodName or Psh1118TakeExtremeWithoutSortingAnalyzer.MaxMethodName)
-        {
-            rewritten = rewritten.WithArgumentList(sort.ArgumentList.WithArguments(default));
-        }
-
-        return rewritten
-            .WithTriviaFrom(invocation)
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static InvocationExpressionSyntax? TryGetTerminalInvocation(SyntaxNode root, Diagnostic diagnostic) =>
+        EnclosingInvocation.Find(root, diagnostic) is { } invocation && Psh1118TakeExtremeWithoutSortingAnalyzer.IsExtremeChainShape(invocation)
+            ? invocation
+            : null;
 }

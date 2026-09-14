@@ -140,7 +140,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         var line = text.Lines[lineNumber];
         var firstItem = items[0];
         LayoutHelpers.GetLineSpanOfOrLater(text, firstItem.SpanStart, firstItem.Span.End, ref lineNumber, ref line, out var firstStartLine, out var lastItemEndLine);
-        CheckFirstItem(context, firstItem, openLine, firstStartLine, lastItemEndLine);
+        CheckItem(context, firstItem, openLine, firstStartLine, lastItemEndLine, ReadabilityRules.ParameterListFollowsDeclaration);
 
         for (var index = 1; index < items.Count; index++)
         {
@@ -150,7 +150,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
 
             var item = items[index];
             LayoutHelpers.GetLineSpanOfOrLater(text, item.SpanStart, item.Span.End, ref lineNumber, ref line, out var startLine, out var endLine);
-            CheckTrailingItem(context, item, startLine, endLine, commaLine);
+            CheckItem(context, item, commaLine, startLine, endLine, ReadabilityRules.ParameterFollowsComma);
             lastItemEndLine = endLine;
         }
 
@@ -173,33 +173,24 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(DiagnosticHelper.Create(ReadabilityRules.OpeningParenOnDeclarationLine, open.SyntaxTree!, open.Span));
     }
 
-    /// <summary>Reports the first-item rules: spacing after the opening bracket and single-line layout.</summary>
+    /// <summary>Reports the item rules: a blank line between the item and the token it follows, and single-line layout.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="item">The parameter or argument node.</param>
-    /// <param name="openLine">The opening bracket's line.</param>
+    /// <param name="precedingLine">The line of the token the item follows: the opening bracket or the preceding comma.</param>
     /// <param name="startLine">The item's starting line.</param>
     /// <param name="endLine">The item's ending line.</param>
-    private static void CheckFirstItem(in SyntaxNodeAnalysisContext context, SyntaxNode item, int openLine, int startLine, int endLine)
+    /// <param name="followsRule">The rule reported when a blank line separates the item from that token.</param>
+    private static void CheckItem(
+        in SyntaxNodeAnalysisContext context,
+        SyntaxNode item,
+        int precedingLine,
+        int startLine,
+        int endLine,
+        DiagnosticDescriptor followsRule)
     {
-        if (startLine > openLine + 1)
+        if (startLine > precedingLine + 1)
         {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ReadabilityRules.ParameterListFollowsDeclaration, item.SyntaxTree, item.Span));
-        }
-
-        ReportIf(context, endLine != startLine && !SpansMultipleLinesByDesign(item), ReadabilityRules.ParameterMustNotSpanMultipleLines, item);
-    }
-
-    /// <summary>Reports the later-item rules: spacing after a comma and single-line layout.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="item">The parameter or argument node.</param>
-    /// <param name="startLine">The item's starting line.</param>
-    /// <param name="endLine">The item's ending line.</param>
-    /// <param name="lastCommaLine">The preceding comma's line.</param>
-    private static void CheckTrailingItem(in SyntaxNodeAnalysisContext context, SyntaxNode item, int startLine, int endLine, int lastCommaLine)
-    {
-        if (startLine > lastCommaLine + 1)
-        {
-            context.ReportDiagnostic(DiagnosticHelper.Create(ReadabilityRules.ParameterFollowsComma, item.SyntaxTree, item.Span));
+            context.ReportDiagnostic(DiagnosticHelper.Create(followsRule, item.SyntaxTree, item.Span));
         }
 
         ReportIf(context, endLine != startLine && !SpansMultipleLinesByDesign(item), ReadabilityRules.ParameterMustNotSpanMultipleLines, item);

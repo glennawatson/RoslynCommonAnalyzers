@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class RedundantInterpolatedStringCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative interpolated string passed to the code fix.</summary>
-    private InterpolatedStringExpressionSyntax _interpolated = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +47,8 @@ public class RedundantInterpolatedStringCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, RedundantInterpolatedStringBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _interpolated = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InterpolatedStringExpressionSyntax>(type, 0, static _ => true);
+        var interpolated = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InterpolatedStringExpressionSyntax>(type, 0, static _ => true);
+        _diagnostic = Diagnostic.Create(StringRules.RedundantInterpolatedString, interpolated.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +68,7 @@ public class RedundantInterpolatedStringCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> RedundantInterpolatedString_ApplyFixAsync()
     {
-        var updated = Psh1205RedundantInterpolatedStringCodeFixProvider.Apply(_document, _root, _interpolated);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1205RedundantInterpolatedStringCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

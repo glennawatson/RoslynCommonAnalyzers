@@ -34,13 +34,16 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1499MutableStaticFieldCodeFixProvider))]
 [Shared]
-public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
+public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly AsyncBatchEditFixAllProvider FixAll = new(RegisterEditsAsync);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.MutableStaticField.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -68,8 +71,12 @@ public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider, 
         }
     }
 
-    /// <inheritdoc/>
-    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
     {
         var field = await FindReadonlyCandidateAsync(editor.OriginalDocument, editor.OriginalRoot, diagnostic, cancellationToken).ConfigureAwait(false);
         if (field is null)

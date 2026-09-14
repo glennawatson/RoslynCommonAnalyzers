@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -40,12 +41,12 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var parameterConventionCache = new ParameterConventionCache();
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordClass(nodeContext, parameterConventionCache), SyntaxKind.RecordDeclaration);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeRecordStruct(nodeContext, parameterConventionCache), SyntaxKind.RecordStructDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new ParameterConventionCache(),
+            AnalyzeRecord,
+            SyntaxKind.RecordDeclaration,
+            SyntaxKind.RecordStructDeclaration);
     }
 
     /// <summary>Returns whether a record parameter name matches the specialized PascalCase fast path.</summary>
@@ -130,25 +131,21 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         _ => null,
     };
 
-    /// <summary>Applies the record-class rules to a single record declaration.</summary>
+    /// <summary>Applies the record rules to a single record class or record struct declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
-    private static void AnalyzeRecordClass(in SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
+    private static void AnalyzeRecord(in SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
     {
         var record = (RecordDeclarationSyntax)context.Node;
-        CheckSealedClass(context, record);
-        CheckPositionalParameters(context, record, parameterConventionCache);
-        CheckProperties(context, record);
-        CheckEmptyPositionalBody(context, record);
-    }
+        if (record.IsKind(SyntaxKind.RecordStructDeclaration))
+        {
+            CheckReadonlyStruct(context, record);
+        }
+        else
+        {
+            CheckSealedClass(context, record);
+        }
 
-    /// <summary>Applies the record-struct rules to a single record-struct declaration.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
-    private static void AnalyzeRecordStruct(in SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
-    {
-        var record = (RecordDeclarationSyntax)context.Node;
-        CheckReadonlyStruct(context, record);
         CheckPositionalParameters(context, record, parameterConventionCache);
         CheckProperties(context, record);
         CheckEmptyPositionalBody(context, record);
@@ -210,21 +207,20 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var descendant in container.DescendantNodes())
-        {
-            if (WrittenMemberAccess(descendant) is not { } access)
+        var state = new SymbolReferenceSearch(declared, context.SemanticModel, context.CancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants(
+            container,
+            ref state,
+            static (SyntaxNode descendant, ref SymbolReferenceSearch state) =>
             {
-                continue;
-            }
+                if (WrittenMemberAccess(descendant) is not { } access)
+                {
+                    return true;
+                }
 
-            var owner = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-            if (owner is not null && SymbolEqualityComparer.Default.Equals(owner.OriginalDefinition, declared))
-            {
-                return true;
-            }
-        }
-
-        return false;
+                var owner = state.Model.GetTypeInfo(access.Expression, state.CancellationToken).Type;
+                return owner is null || !SymbolEqualityComparer.Default.Equals(owner.OriginalDefinition, state.Symbol);
+            });
     }
 
     /// <summary>Returns whether a declaration carries an instance member that a readonly struct forbids.</summary>
@@ -327,7 +323,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The property declaration.</param>
     /// <param name="accessor">The set accessor to flag.</param>
-    [global::System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ReportSetAccessor(
         in SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,

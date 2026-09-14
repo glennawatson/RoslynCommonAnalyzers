@@ -34,13 +34,15 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeConstructor, SyntaxKind.ConstructorDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeOperator, SyntaxKind.OperatorDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeConversionOperator, SyntaxKind.ConversionOperatorDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeProperty, SyntaxKind.PropertyDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeIndexer, SyntaxKind.IndexerDeclaration);
-        context.RegisterSyntaxNodeAction(AnalyzeLocalFunction, SyntaxKind.LocalFunctionStatement);
+        context.RegisterSyntaxNodeAction(
+            Analyze,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.ConstructorDeclaration,
+            SyntaxKind.OperatorDeclaration,
+            SyntaxKind.ConversionOperatorDeclaration,
+            SyntaxKind.PropertyDeclaration,
+            SyntaxKind.IndexerDeclaration,
+            SyntaxKind.LocalFunctionStatement);
     }
 
     /// <summary>Gets the single expression a method's block body can collapse to.</summary>
@@ -133,131 +135,63 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     internal static bool AccessorListCollapsesToExpressionBody(AccessorListSyntax? accessorList) =>
         TryGetSoleGetAccessorExpression(accessorList, out _);
 
-    /// <summary>Reports a single-statement method that can use an expression body.</summary>
+    /// <summary>Reports a member whose block body can collapse to an expression body.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+    private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp6))
+        switch (context.Node)
         {
-            return;
-        }
+            case MethodDeclarationSyntax method when SupportsExpressionBody(method, LanguageVersion.CSharp6) && TryGetMethodExpression(method, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForMethod, method.Identifier);
+                    break;
+                }
 
-        var method = (MethodDeclarationSyntax)context.Node;
-        if (!TryGetMethodExpression(method, out _))
-        {
-            return;
-        }
+            case ConstructorDeclarationSyntax constructor when SupportsExpressionBody(constructor, LanguageVersion.CSharp7) && TryGetConstructorExpression(constructor, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForConstructor, constructor.Identifier);
+                    break;
+                }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForMethod, method.Identifier.GetLocation()));
+            case OperatorDeclarationSyntax operatorDeclaration when SupportsExpressionBody(operatorDeclaration, LanguageVersion.CSharp6) && TryGetOperatorExpression(operatorDeclaration, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForOperator, operatorDeclaration.OperatorToken);
+                    break;
+                }
+
+            case ConversionOperatorDeclarationSyntax conversion when SupportsExpressionBody(conversion, LanguageVersion.CSharp6) && TryGetConversionOperatorExpression(conversion, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForConversionOperator, conversion.OperatorKeyword);
+                    break;
+                }
+
+            case PropertyDeclarationSyntax property when SupportsExpressionBody(property, LanguageVersion.CSharp6) && TryGetPropertyExpression(property, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForProperty, property.Identifier);
+                    break;
+                }
+
+            case IndexerDeclarationSyntax indexer when SupportsExpressionBody(indexer, LanguageVersion.CSharp6) && TryGetIndexerExpression(indexer, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForIndexer, indexer.ThisKeyword);
+                    break;
+                }
+
+            case LocalFunctionStatementSyntax localFunction when SupportsExpressionBody(localFunction, LanguageVersion.CSharp7) && TryGetLocalFunctionExpression(localFunction, out _):
+                {
+                    Report(context, ModernSyntaxRules.UseExpressionBodyForLocalFunction, localFunction.Identifier);
+                    break;
+                }
+        }
     }
 
-    /// <summary>Reports a single-call constructor that can use an expression body.</summary>
+    /// <summary>Reports a rule at the token that names the member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeConstructor(SyntaxNodeAnalysisContext context)
-    {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp7))
-        {
-            return;
-        }
-
-        var constructor = (ConstructorDeclarationSyntax)context.Node;
-        if (!TryGetConstructorExpression(constructor, out _))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForConstructor, constructor.Identifier.GetLocation()));
-    }
-
-    /// <summary>Reports a single-return operator that can use an expression body.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeOperator(SyntaxNodeAnalysisContext context)
-    {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp6))
-        {
-            return;
-        }
-
-        var operatorDeclaration = (OperatorDeclarationSyntax)context.Node;
-        if (!TryGetOperatorExpression(operatorDeclaration, out _))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForOperator, operatorDeclaration.OperatorToken.GetLocation()));
-    }
-
-    /// <summary>Reports a single-return conversion operator that can use an expression body.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeConversionOperator(SyntaxNodeAnalysisContext context)
-    {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp6))
-        {
-            return;
-        }
-
-        var conversion = (ConversionOperatorDeclarationSyntax)context.Node;
-        if (!TryGetConversionOperatorExpression(conversion, out _))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForConversionOperator, conversion.OperatorKeyword.GetLocation()));
-    }
-
-    /// <summary>Reports a get-only property that can use a whole-member expression body.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeProperty(SyntaxNodeAnalysisContext context)
-    {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp6))
-        {
-            return;
-        }
-
-        var property = (PropertyDeclarationSyntax)context.Node;
-        if (!TryGetPropertyExpression(property, out _))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForProperty, property.Identifier.GetLocation()));
-    }
-
-    /// <summary>Reports a get-only indexer that can use a whole-member expression body.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeIndexer(SyntaxNodeAnalysisContext context)
-    {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp6))
-        {
-            return;
-        }
-
-        var indexer = (IndexerDeclarationSyntax)context.Node;
-        if (!TryGetIndexerExpression(indexer, out _))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForIndexer, indexer.ThisKeyword.GetLocation()));
-    }
-
-    /// <summary>Reports a single-statement local function that can use an expression body.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeLocalFunction(SyntaxNodeAnalysisContext context)
-    {
-        if (!SupportsExpressionBody(context.Node, LanguageVersion.CSharp7))
-        {
-            return;
-        }
-
-        var localFunction = (LocalFunctionStatementSyntax)context.Node;
-        if (!TryGetLocalFunctionExpression(localFunction, out _))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseExpressionBodyForLocalFunction, localFunction.Identifier.GetLocation()));
-    }
+    /// <param name="rule">The rule for the member's kind.</param>
+    /// <param name="token">The token that names the member.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken token) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(rule, token.GetLocation()));
 
     /// <summary>Gets the single value returned or evaluated by a block body.</summary>
     /// <param name="body">The block body.</param>
@@ -335,48 +269,29 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool WouldDropComment(SyntaxNode container, ExpressionSyntax expression)
     {
-        if (SpansAConditionalRegion(container))
+        if (InactivePreprocessorRegions.Contains(container))
         {
             return true;
         }
 
-        var expressionSpan = expression.Span;
-        var containerEnd = container.Span.End;
-        foreach (var trivia in container.DescendantTrivia())
-        {
-            if (!IsComment(trivia.Kind())
-                || expressionSpan.Contains(trivia.SpanStart)
-                || trivia.SpanStart >= containerEnd)
-            {
-                continue;
-            }
-
-            return true;
-        }
-
-        return false;
+        var state = new CommentLossScan(expression.Span, container.Span.End);
+        return !DescendantTraversalHelper.VisitDescendantTokens(
+            container,
+            ref state,
+            static (in token, ref current) => !DropsComment(token.LeadingTrivia, current) && !DropsComment(token.TrailingTrivia, current));
     }
 
-    /// <summary>Returns whether a body is split across preprocessor branches.</summary>
-    /// <param name="container">The block or accessor list being collapsed.</param>
-    /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the body.</returns>
-    /// <remarks>
-    /// The single-statement shape is only what this compilation can see. Another framework takes the other
-    /// branch, where the body may be several statements and no expression body fits — and the two shapes
-    /// cannot both be written. Collapsing on the strength of the visible branch also starts a fight with the
-    /// rules that inline a redundant local: introducing one to satisfy them restores this diagnostic, and
-    /// nothing satisfies both at once. A body that is only partly visible is left as a block.
-    /// </remarks>
-    private static bool SpansAConditionalRegion(SyntaxNode container)
+    /// <summary>Returns whether a trivia list holds a comment the collapse would drop.</summary>
+    /// <param name="triviaList">The leading or trailing trivia of one token.</param>
+    /// <param name="scan">The kept expression's span and the container's end.</param>
+    /// <returns><see langword="true"/> when a comment sits inside the container but outside the kept expression.</returns>
+    private static bool DropsComment(in SyntaxTriviaList triviaList, in CommentLossScan scan)
     {
-        if (!container.ContainsDirectives)
+        foreach (var trivia in triviaList)
         {
-            return false;
-        }
-
-        foreach (var trivia in container.DescendantTrivia(descendIntoTrivia: true))
-        {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            if (IsComment(trivia.Kind())
+                && !scan.ExpressionSpan.Contains(trivia.SpanStart)
+                && trivia.SpanStart < scan.ContainerEnd)
             {
                 return true;
             }

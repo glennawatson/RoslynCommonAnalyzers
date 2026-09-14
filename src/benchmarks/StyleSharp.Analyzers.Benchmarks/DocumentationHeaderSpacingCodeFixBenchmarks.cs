@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
@@ -14,8 +15,8 @@ namespace StyleSharp.Analyzers.Benchmarks;
 [ShortRunJob]
 public class DocumentationHeaderSpacingCodeFixBenchmarks
 {
-    /// <summary>The prepared benchmark document and representative documented member.</summary>
-    private DirectCodeFixBenchmarkContext<MethodDeclarationSyntax> _context = null!;
+    /// <summary>The prepared benchmark document and the diagnostic reported on the representative documented member.</summary>
+    private DirectCodeFixBenchmarkContext<Diagnostic> _context = null!;
 
     /// <summary>Gets or sets the synthetic member count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
@@ -28,7 +29,7 @@ public class DocumentationHeaderSpacingCodeFixBenchmarks
         _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             LayoutTriviaCodeFixBenchmarkSource.GenerateDocumentationHeaderSpacing,
-            static (_, root, index) => Task.FromResult(CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(root, index))).ConfigureAwait(false);
+            static (_, root, index) => Task.FromResult(FindTarget(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,7 +41,19 @@ public class DocumentationHeaderSpacingCodeFixBenchmarks
     [Benchmark]
     public async Task<int> DocumentationHeaderSpacing_ApplyFixAsync()
     {
-        var updated = await DocumentationHeaderSpacingCodeFixProvider.FixAsync(_context.Document, _context.Target, insertBefore: false, CancellationToken.None).ConfigureAwait(false);
+        var updated = await TextChangeCodeFix.ApplyAsync(
+            _context.Document,
+            _context.Target,
+            DocumentationHeaderSpacingCodeFixProvider.RegisterTextChanges,
+            CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
+
+    /// <summary>Creates the missing-blank-line diagnostic for the representative documented member.</summary>
+    /// <param name="root">The benchmark syntax root.</param>
+    /// <param name="index">The zero-based member index to select.</param>
+    /// <returns>The diagnostic reported on the selected member.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Diagnostic FindTarget(CompilationUnitSyntax root, int index) =>
+        Diagnostic.Create(LayoutRules.DocHeaderNotFollowedByBlankLine, CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(root, index).GetLocation());
 }

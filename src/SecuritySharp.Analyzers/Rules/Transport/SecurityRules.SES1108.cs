@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1108 — a custom server-certificate callback that always returns true disables TLS authentication.</summary>
-    public static readonly DiagnosticDescriptor AlwaysTrueServerCertificateValidation = Create(
+    public static readonly DiagnosticDescriptor AlwaysTrueServerCertificateValidation = DescriptorFactory.Create(
         "SES1108",
         "Do not accept every server certificate from a custom callback",
         "This 'ServerCertificateCustomValidationCallback' returns true for every certificate, disabling TLS server authentication and exposing the connection to man-in-the-middle attacks",

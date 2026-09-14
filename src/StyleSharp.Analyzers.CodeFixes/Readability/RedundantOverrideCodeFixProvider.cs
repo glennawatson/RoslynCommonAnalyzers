@@ -2,27 +2,23 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Deletes an <c>override</c> that only forwards to its base member (SST1181).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantOverrideCodeFixProvider))]
 [Shared]
-public sealed class RedundantOverrideCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class RedundantOverrideCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantOverride.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant override", nameof(RedundantOverrideCodeFixProvider), RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
 }

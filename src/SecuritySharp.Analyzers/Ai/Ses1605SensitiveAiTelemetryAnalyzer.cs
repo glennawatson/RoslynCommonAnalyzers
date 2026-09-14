@@ -14,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// and whose right-hand side is the compile-time constant <c>true</c>. Turning the switch on writes every
 /// prompt and completion verbatim to the telemetry backend, where it routinely carries secrets and PII. The
 /// value is the direct right-hand side, so the check is purely local with no flow analysis. The rule is
-/// gated on at least one of those instrumentation types resolving in the compilation, so a project without
-/// <c>Microsoft.Extensions.AI</c> registers nothing and pays nothing.
+/// gated on at least one of those instrumentation types resolving in the compilation. The types are
+/// resolved only after a candidate assignment's value is confirmed to be the constant <c>true</c>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
@@ -47,28 +47,23 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var instrumentationTypes = GetInstrumentationTypes(start.Compilation);
-            if (instrumentationTypes is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, instrumentationTypes), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypeSet(compilation, InstrumentationMetadataNames),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1605 for an <c>EnableSensitiveData = true</c> assignment on a gated instrumentation type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="instrumentationTypes">The gated instrumentation types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] instrumentationTypes)
+    /// <param name="instrumentationTypes">The instrumentation types resolved on first demand for the compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSet instrumentationTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: the left side names 'EnableSensitiveData', as either 'x.EnableSensitiveData'
         // or a bare 'EnableSensitiveData' object-initializer member.
-        if (!IsEnableSensitiveDataTarget(assignment.Left))
+        if (!IsEnableSensitiveDataTarget(assignment.Left) || assignment.Right.IsKind(SyntaxKind.FalseLiteralExpression))
         {
             return;
         }
@@ -80,8 +75,10 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: EnableSensitiveDataPropertyName } property
-            || GetGatedInstrumentationType(property.ContainingType, instrumentationTypes) is not { } instrumentationType)
+        // The embedding generator is generic, so compare against the unbound definition of the container.
+        if (instrumentationTypes.Get() is not { Length: > 0 } resolvedTypes
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: EnableSensitiveDataPropertyName } property
+            || !TypeRelations.IsOneOf(property.ContainingType.OriginalDefinition, resolvedTypes))
         {
             return;
         }
@@ -90,7 +87,7 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
             SecurityRules.SensitiveAiTelemetry,
             assignment.SyntaxTree,
             assignment.Span,
-            instrumentationType.Name));
+            property.ContainingType.Name));
     }
 
     /// <summary>Returns whether an assignment target syntactically names the <c>EnableSensitiveData</c> property.</summary>
@@ -102,43 +99,4 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: EnableSensitiveDataPropertyName } or IdentifierNameSyntax { Identifier.ValueText: EnableSensitiveDataPropertyName } => true,
             _ => false,
         };
-
-    /// <summary>Returns the gated instrumentation type when the property's container is one of them.</summary>
-    /// <param name="containingType">The bound <c>EnableSensitiveData</c> property's containing type.</param>
-    /// <param name="instrumentationTypes">The gated instrumentation types resolved for the compilation.</param>
-    /// <returns>The gated type, or <see langword="null"/> when the container is not gated.</returns>
-    private static INamedTypeSymbol? GetGatedInstrumentationType(INamedTypeSymbol containingType, INamedTypeSymbol?[] instrumentationTypes)
-    {
-        // The embedding generator is generic, so compare against the unbound definition of the container.
-        var definition = containingType.OriginalDefinition;
-        for (var i = 0; i < instrumentationTypes.Length; i++)
-        {
-            if (instrumentationTypes[i] is { } instrumentationType && SymbolEqualityComparer.Default.Equals(instrumentationType, definition))
-            {
-                return instrumentationType;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Resolves the AI instrumentation types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetInstrumentationTypes(Compilation compilation)
-    {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < InstrumentationMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(InstrumentationMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            types ??= new INamedTypeSymbol?[InstrumentationMetadataNames.Length];
-            types[i] = type;
-        }
-
-        return types;
-    }
 }

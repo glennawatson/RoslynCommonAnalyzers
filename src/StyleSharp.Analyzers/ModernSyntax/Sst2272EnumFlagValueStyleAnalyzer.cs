@@ -36,7 +36,11 @@ public sealed class Sst2272EnumFlagValueStyleAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.EnumDeclaration);
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.FlagsAttribute"),
+            Analyze,
+            SyntaxKind.EnumDeclaration);
     }
 
     /// <summary>Returns whether an expression is a canonical <c>1 &lt;&lt; n</c> single-flag shift.</summary>
@@ -52,21 +56,46 @@ public sealed class Sst2272EnumFlagValueStyleAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports the members of a <c>[Flags]</c> enum whose value form does not match the configured one.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
+    /// <param name="types">The flags attribute type resolved on demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var enumDeclaration = (EnumDeclarationSyntax)context.Node;
-        if (context.Compilation.GetTypeByMetadataName("System.FlagsAttribute") is not { } flagsAttribute
+        if (enumDeclaration.AttributeLists.Count == 0)
+        {
+            return;
+        }
+
+        var style = ModernSyntaxStyleOptions.ReadEnumFlagValueStyle(context.Options.AnalyzerConfigOptionsProvider.GetOptions(enumDeclaration.SyntaxTree));
+        if (!HasCandidateMember(enumDeclaration, style)
+            || types.Get() is not { } flagsAttribute
             || context.SemanticModel.GetDeclaredSymbol(enumDeclaration, context.CancellationToken) is not { } enumSymbol
             || !HasFlagsAttribute(enumSymbol, flagsAttribute))
         {
             return;
         }
 
-        var style = ModernSyntaxStyleOptions.ReadEnumFlagValueStyle(context.Options.AnalyzerConfigOptionsProvider.GetOptions(enumDeclaration.SyntaxTree));
         foreach (var member in enumDeclaration.Members)
         {
             AnalyzeMember(context, member, style);
         }
+    }
+
+    /// <summary>Checks for a member whose syntax could need normalization before resolving the flags marker.</summary>
+    /// <param name="enumDeclaration">The enum declaration to inspect.</param>
+    /// <param name="style">The configured value style.</param>
+    /// <returns>Whether any member has a candidate value expression.</returns>
+    private static bool HasCandidateMember(EnumDeclarationSyntax enumDeclaration, EnumFlagValueStyle style)
+    {
+        foreach (var member in enumDeclaration.Members)
+        {
+            if (member.EqualsValue is { Value: { } value }
+                && (style == EnumFlagValueStyle.Shift ? value.IsKind(SyntaxKind.NumericLiteralExpression) : IsSingleFlagShift(value)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports one enum member when its value form differs from the configured one.</summary>

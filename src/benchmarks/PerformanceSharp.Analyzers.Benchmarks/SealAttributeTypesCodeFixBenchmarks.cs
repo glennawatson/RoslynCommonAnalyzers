@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class SealAttributeTypesCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative class declaration passed to the code fix.</summary>
-    private ClassDeclarationSyntax _declaration = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -45,7 +46,8 @@ public class SealAttributeTypesCodeFixBenchmarks : IDisposable
         _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, SealAttributeTypesBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _declaration = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
+        var declaration = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
+        _diagnostic = Diagnostic.Create(ApiSelectionRules.SealAttributeTypes, declaration.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -65,7 +67,7 @@ public class SealAttributeTypesCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> SealAttributeTypes_ApplyFixAsync()
     {
-        var updated = Psh1401SealAttributeTypesCodeFixProvider.Apply(_document, _root, _declaration);
+        var updated = TargetCodeFix.Apply(_document, _root, ReportedNode.Ancestor<ClassDeclarationSyntax>(_root, _diagnostic)!, SealedModifierRewrite.AddSealed);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

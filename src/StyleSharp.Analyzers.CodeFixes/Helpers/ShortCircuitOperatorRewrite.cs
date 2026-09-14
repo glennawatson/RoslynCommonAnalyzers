@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -11,11 +13,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static class ShortCircuitOperatorRewrite
 {
+    /// <summary>Batches the rewrite across a document for every fix that short-circuits the reported operator.</summary>
+    internal static readonly BatchEditFixAllProvider FixAll = new(Find, static (current, _) => Rewrite((BinaryExpressionSyntax)current));
+
     /// <summary>Returns whether the resolved node is one of the eager operator kinds this rewrite handles.</summary>
     /// <param name="binary">The candidate expression.</param>
     /// <returns><see langword="true"/> for <c>&amp;</c> and <c>|</c> expressions.</returns>
     internal static bool IsFixableKind(BinaryExpressionSyntax binary) =>
         binary.RawKind is (int)SyntaxKind.BitwiseAndExpression or (int)SyntaxKind.BitwiseOrExpression;
+
+    /// <summary>Resolves the eager boolean operator a diagnostic was reported on.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The <c>&amp;</c> or <c>|</c> expression, or <see langword="null"/> when the reported node is not one.</returns>
+    internal static BinaryExpressionSyntax? Find(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BinaryExpressionSyntax binary && IsFixableKind(binary)
+            ? binary
+            : null;
+
+    /// <summary>Replaces the resolved eager operator with its short-circuiting form in the document.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root the operator belongs to.</param>
+    /// <param name="binary">The eager binary expression.</param>
+    /// <returns>The updated document.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary) =>
+        TargetCodeFix.Apply(document, root, binary, Rewrite);
 
     /// <summary>Builds the short-circuiting replacement, preserving the operator token's trivia.</summary>
     /// <param name="binary">The eager binary expression.</param>
@@ -29,7 +52,10 @@ internal static class ShortCircuitOperatorRewrite
             binary.OperatorToken.TrailingTrivia);
         var replacement = SyntaxFactory.BinaryExpression(isAnd ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression, binary.Left, operatorToken, binary.Right);
         return NeedsParentheses(binary.Parent)
-            ? SyntaxFactory.ParenthesizedExpression(replacement.WithoutTrivia()).WithTriviaFrom(replacement)
+            ? SyntaxFactory.ParenthesizedExpression(
+                SyntaxFactory.Token(replacement.GetLeadingTrivia(), SyntaxKind.OpenParenToken, default),
+                replacement.WithoutTrivia(),
+                SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, replacement.GetTrailingTrivia()))
             : replacement;
     }
 

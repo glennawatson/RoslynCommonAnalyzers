@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -107,6 +108,49 @@ public class ModernSyntaxStyleAnalyzerUnitTest
             }
         }
         """;
+
+    /// <summary>Verifies assignments retain their declared target and discards stay explicit.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AssignmentTargetsAreRecognizedAsync() =>
+        VerifyModernSyntaxStyle.VerifyCodeFixAsync(
+            "class C { C field; void M(C value) { value = new {|SST2202:C|}(); this.field = new {|SST2202:C|}(); _ = new C(); } }",
+            "class C { C field; void M(C value) { value = new(); this.field = new(); _ = new C(); } }");
+
+    /// <summary>Verifies named arguments before a params array retain their ordinary parameter target.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NamedAndPositionalArgumentsBeforeParamsAreReportedAsync() =>
+        VerifyModernSyntaxStyle.VerifyAnalyzerAsync(
+            "class C { void Take(int count, C item, params C[] rest) { } void M() { Take(count: 1, item: new {|SST2202:C|}()); Take(1, new {|SST2202:C|}(), new C()); } }");
+
+    /// <summary>Verifies a named argument that fills a params collection retains its explicit creation type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task NamedParamsCollectionRemainsExplicitAsync()
+    {
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = "using System.Collections.Generic; class C { void Take(params List<int> items) { } void M() { Take(items: new List<int>()); } }",
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies literal substring bounds and local string receivers support modern indexing.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task LiteralRangesAndLocalStringIndexesAreReportedAsync()
+    {
+        var test = new VerifyModernSyntaxStyle.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net80,
+            TestCode = "class C { void M(string input) { var text = input; _ = text[{|SST2203:text.Length - 1|}]; _ = {|SST2204:text.Substring|}(1); _ = {|SST2204:text.Substring|}(1, 2); } }",
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies repeated object creation types are removed when the target type is explicit.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

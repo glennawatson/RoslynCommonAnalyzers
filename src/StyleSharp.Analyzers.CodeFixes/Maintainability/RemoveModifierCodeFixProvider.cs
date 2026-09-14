@@ -7,15 +7,18 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes the modifier reported by SST1419 (redundant) or SST1427 (<c>protected</c> in a sealed type).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RemoveModifierCodeFixProvider))]
 [Shared]
-public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class RemoveModifierCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         MaintainabilityRules.NoRedundantModifier.Id,
         MaintainabilityRules.NoProtectedInSealed.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -29,9 +32,7 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixab
         for (var i = 0; i < context.Diagnostics.Length; i++)
         {
             var diagnostic = context.Diagnostics[i];
-            var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
-            if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration
-                || declaration.Modifiers.IndexOf(token) < 0)
+            if (!ReportedModifier.TryFind(root, diagnostic, out var declaration, out var token, out _))
             {
                 // A redundant 'checked'/'unchecked' context (SST1419) is not a member modifier; removing it
                 // is a structural rewrite, not a token deletion, so no fix is offered for that shape.
@@ -47,33 +48,20 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixab
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var token = editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start);
-        if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration)
-        {
-            return;
-        }
-
         // Remove by index, computed lazily against the current (tracked) node so a parent edit applied
         // first keeps the descendant's annotations — see BatchEditFixAllProvider. The token's absolute
         // span shifts under earlier edits, so we cannot match it directly at apply time.
-        var modifierIndex = declaration.Modifiers.IndexOf(token);
-        if (modifierIndex < 0)
+        if (!ReportedModifier.TryFind(editor.OriginalRoot, diagnostic, out var declaration, out _, out var modifierIndex))
         {
             return;
         }
 
-        // Removing the first modifier would otherwise drop the declaration's leading indentation, so
-        // carry it over. For a non-leading modifier this is a no-op.
-        editor.ReplaceNode(declaration, (current, _) =>
-        {
-            var member = (MemberDeclarationSyntax)current;
-            return member
-                .WithModifiers(member.Modifiers.RemoveAt(modifierIndex))
-                .WithLeadingTrivia(member.GetLeadingTrivia());
-        });
+        editor.ReplaceNode(declaration, (current, _) => ModifierRemoval.RemoveAt((MemberDeclarationSyntax)current, modifierIndex));
     }
 
     /// <summary>Removes the reported modifier token from the declaration.</summary>
@@ -84,11 +72,7 @@ public sealed class RemoveModifierCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <returns>The updated document.</returns>
     internal static Document RemoveModifier(Document document, SyntaxNode root, MemberDeclarationSyntax declaration, SyntaxToken token)
     {
-        // Removing the first modifier would otherwise drop the declaration's leading indentation, so
-        // carry it over. For a non-leading modifier this is a no-op.
-        var updated = declaration
-            .WithModifiers(declaration.Modifiers.Remove(token))
-            .WithLeadingTrivia(declaration.GetLeadingTrivia());
+        var updated = ModifierRemoval.RemoveAt(declaration, declaration.Modifiers.IndexOf(token));
         return document.WithSyntaxRoot(root.ReplaceNode(declaration, updated));
     }
 }

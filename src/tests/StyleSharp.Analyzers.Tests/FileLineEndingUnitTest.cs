@@ -4,10 +4,13 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Composition.Hosting;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 
@@ -28,6 +31,59 @@ public class FileLineEndingUnitTest
 {
     /// <summary>The sample class source written with line-feed endings throughout.</summary>
     private const string SourceWithLineFeedEndings = "internal class C\n{\n}\n";
+
+    /// <summary>Verifies registered actions normalize mixed endings and leave matching text intact.</summary>
+    /// <param name="source">The exact original line endings.</param>
+    /// <param name="target">The requested newline sequence.</param>
+    /// <param name="expected">The exact resulting source.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C\r\n{\n}\r", "\n", "class C\n{\n}\n")]
+    [Arguments("class C\n{\r\n}", "\r\n", "class C\r\n{\r\n}")]
+    [Arguments("class C\n{\n}\n", "\n", "class C\n{\n}\n")]
+    public async Task RegisteredActionNormalizesEndingsAsync(string source, string target, string expected)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(Sst1532ConsistentLineEndingsAnalyzer.LineEndingProperty, target);
+        var diagnostic = Diagnostic.Create(LayoutRules.ConsistentLineEndings, root.GetLocation(), properties);
+        using var container = new ContainerConfiguration().WithPart<Sst1532ConsistentLineEndingsCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        await Assert.That(provider.FixableDiagnosticIds).Contains("SST1532");
+        await Assert.That(provider.GetFixAllProvider()).IsNotNull();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(1);
+        var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
+        var changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
+        await Assert.That((await changed.GetTextAsync()).ToString()).IsEqualTo(expected);
+    }
+
+    /// <summary>Verifies missing or null newline properties register no action or text changes.</summary>
+    /// <param name="includeProperty">Whether the diagnostic includes a null-valued property.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task MissingTargetIsIgnoredAsync(bool includeProperty)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", SourceWithLineFeedEndings);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var properties = includeProperty
+            ? ImmutableDictionary<string, string?>.Empty.Add(Sst1532ConsistentLineEndingsAnalyzer.LineEndingProperty, null)
+            : ImmutableDictionary<string, string?>.Empty;
+        var diagnostic = Diagnostic.Create(LayoutRules.ConsistentLineEndings, root.GetLocation(), properties);
+        using var container = new ContainerConfiguration().WithPart<Sst1532ConsistentLineEndingsCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var changes = new List<TextChange>();
+        Sst1532ConsistentLineEndingsCodeFixProvider.RegisterTextChanges(await document.GetTextAsync(), root, diagnostic, changes);
+        await Assert.That(changes).IsEmpty();
+    }
 
     /// <summary>Verifies carriage-return/line-feed endings are reported and normalised to line feed by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -93,7 +149,7 @@ public class FileLineEndingUnitTest
         var text = await document.GetTextAsync(CancellationToken.None);
         var root = (await document.GetSyntaxRootAsync(CancellationToken.None))!;
         List<TextChange> changes = [];
-        ((ITextChangeBatchableCodeFix)new Sst1532ConsistentLineEndingsCodeFixProvider()).RegisterTextChanges(text, root, diagnostics[0], changes);
+        Sst1532ConsistentLineEndingsCodeFixProvider.RegisterTextChanges(text, root, diagnostics[0], changes);
         await Assert.That(text.WithChanges(changes).ToString()).IsEqualTo(expectedFixed);
     }
 }

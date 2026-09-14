@@ -50,7 +50,7 @@ public sealed class Sst2485NotImplementedExceptionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         if (GetThrownExpression(context.Node) is not ObjectCreationExpressionSyntax creation
-            || GetSimpleName(creation.Type) != NotImplementedExceptionName)
+            || SyntaxNames.GetIdentifierName(creation.Type) != NotImplementedExceptionName)
         {
             return;
         }
@@ -73,17 +73,6 @@ public sealed class Sst2485NotImplementedExceptionAnalyzer : DiagnosticAnalyzer
     {
         ThrowStatementSyntax statement => statement.Expression,
         ThrowExpressionSyntax expression => expression.Expression,
-        _ => null,
-    };
-
-    /// <summary>Gets the rightmost name of a possibly qualified type.</summary>
-    /// <param name="type">The type as written.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the type is not a plain name.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
         _ => null,
     };
 

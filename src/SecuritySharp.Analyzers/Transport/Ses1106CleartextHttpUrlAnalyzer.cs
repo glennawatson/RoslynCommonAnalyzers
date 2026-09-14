@@ -22,11 +22,17 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the HTTP client whose request sinks are guarded.</summary>
-    private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
-
     /// <summary>The name of the <c>HttpClient.BaseAddress</c> property whose assignment is inspected.</summary>
     private const string BaseAddressPropertyName = "BaseAddress";
+
+    /// <summary>The name of the request URL parameter, the first parameter of every guarded request method.</summary>
+    private const string RequestUriParameterName = "requestUri";
+
+    /// <summary>The name of the URI string parameter, the first parameter of the guarded <c>Uri</c> constructors.</summary>
+    private const string UriStringParameterName = "uriString";
+
+    /// <summary>The metadata name of the HTTP client whose request sinks are guarded.</summary>
+    private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
 
     /// <summary>The HttpClient request methods whose URL argument is inspected (allocated once).</summary>
     private static readonly HashSet<string> RequestMethodNames = new(StringComparer.Ordinal)
@@ -54,23 +60,17 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var httpClientType = start.Compilation.GetTypeByMetadataName(HttpClientMetadataName);
-            if (httpClientType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, httpClientType), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, httpClientType), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyMetadataType(compilation, HttpClientMetadataName),
+            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]),
+            new(AnalyzeAssignment, [SyntaxKind.SimpleAssignmentExpression]));
     }
 
     /// <summary>Reports SES1106 for an HttpClient request method given a cleartext URL literal.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
+    /// <param name="types">The compilation-scoped HTTP client type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -78,26 +78,27 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
             || !RequestMethodNames.Contains(memberAccess.Name.Identifier.ValueText)
             || invocation.ArgumentList.Arguments.Count == 0
-            || GetUrlArgument(invocation.ArgumentList) is not { } urlArgument
+            || ArgumentLookup.Find(invocation.ArgumentList.Arguments, RequestUriParameterName, 0)?.Expression is not { } urlArgument
             || GetCleartextHttpLiteral(urlArgument, out var host) is not { } literal)
         {
             return;
         }
 
         // Semantic confirmation only after the cheap syntactic path has already matched a cleartext literal.
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (types.Get() is not { } httpClientType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, httpClientType))
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host.ToString()));
     }
 
     /// <summary>Reports SES1106 for a <c>HttpClient.BaseAddress = new Uri("http://…")</c> assignment.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
+    /// <param name="types">The compilation-scoped HTTP client type cache.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -109,38 +110,21 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         }
 
         // Semantic confirmation: the assigned member is HttpClient.BaseAddress (the property is Uri-typed).
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: BaseAddressPropertyName } property
+        if (types.Get() is not { } httpClientType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: BaseAddressPropertyName } property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, httpClientType))
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host));
-    }
-
-    /// <summary>Returns the request URL argument, honouring an explicit <c>requestUri:</c> name.</summary>
-    /// <param name="argumentList">The invocation's argument list.</param>
-    /// <returns>The URL argument expression, or <see langword="null"/> when it cannot be identified positionally.</returns>
-    private static ExpressionSyntax? GetUrlArgument(ArgumentListSyntax argumentList)
-    {
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: "requestUri" })
-            {
-                return arguments[i].Expression;
-            }
-        }
-
-        // The request URL is the first parameter of every guarded overload, so a leading positional argument is it.
-        return arguments[0].NameColon is null ? arguments[0].Expression : null;
+        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host.ToString()));
     }
 
     /// <summary>Returns the cleartext-http literal reached through a URL argument (direct string or <c>new Uri(...)</c>).</summary>
     /// <param name="urlArgument">The request URL argument expression.</param>
     /// <param name="host">When matched, the parsed non-loopback host of the URL.</param>
     /// <returns>The cleartext-http string literal, or <see langword="null"/> when the argument is not one.</returns>
-    private static LiteralExpressionSyntax? GetCleartextHttpLiteral(ExpressionSyntax urlArgument, out string host)
+    private static LiteralExpressionSyntax? GetCleartextHttpLiteral(ExpressionSyntax urlArgument, out ReadOnlySpan<char> host)
     {
         if (urlArgument is LiteralExpressionSyntax stringLiteral && IsCleartextHttpLiteral(stringLiteral, out host))
         {
@@ -152,7 +136,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
             return GetUriCreationLiteral(objectCreation, out host);
         }
 
-        host = string.Empty;
+        host = default;
         return null;
     }
 
@@ -160,32 +144,15 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The candidate <c>new Uri(...)</c> expression.</param>
     /// <param name="host">When matched, the parsed non-loopback host of the URL.</param>
     /// <returns>The cleartext-http string literal, or <see langword="null"/> when the shape does not match.</returns>
-    private static LiteralExpressionSyntax? GetUriCreationLiteral(ExpressionSyntax expression, out string host)
+    private static LiteralExpressionSyntax? GetUriCreationLiteral(ExpressionSyntax expression, out ReadOnlySpan<char> host)
     {
-        host = string.Empty;
+        host = default;
         return expression is not ObjectCreationExpressionSyntax { ArgumentList: { } argumentList }
             || argumentList.Arguments.Count == 0
-            || GetUriStringArgument(argumentList) is not LiteralExpressionSyntax stringLiteral
+            || ArgumentLookup.Find(argumentList.Arguments, UriStringParameterName, 0)?.Expression is not LiteralExpressionSyntax stringLiteral
             || !IsCleartextHttpLiteral(stringLiteral, out host)
             ? null
             : stringLiteral;
-    }
-
-    /// <summary>Returns the URI-string argument of a <c>new Uri(...)</c>, honouring an explicit <c>uriString:</c> name.</summary>
-    /// <param name="argumentList">The object-creation argument list.</param>
-    /// <returns>The URI-string argument expression, or <see langword="null"/> when it cannot be identified positionally.</returns>
-    private static ExpressionSyntax? GetUriStringArgument(ArgumentListSyntax argumentList)
-    {
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: "uriString" })
-            {
-                return arguments[i].Expression;
-            }
-        }
-
-        return arguments[0].NameColon is null ? arguments[0].Expression : null;
     }
 
     /// <summary>Returns whether an assignment target names the <c>BaseAddress</c> member.</summary>
@@ -202,9 +169,9 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <param name="literal">The candidate string literal.</param>
     /// <param name="host">When matched, the parsed non-loopback host.</param>
     /// <returns><see langword="true"/> for a reportable cleartext-http literal.</returns>
-    private static bool IsCleartextHttpLiteral(LiteralExpressionSyntax literal, out string host)
+    private static bool IsCleartextHttpLiteral(LiteralExpressionSyntax literal, out ReadOnlySpan<char> host)
     {
-        host = string.Empty;
+        host = default;
         if (!literal.IsKind(SyntaxKind.StringLiteralExpression))
         {
             return false;
@@ -218,7 +185,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         }
 
         var parsedHost = CleartextUrl.ExtractHost(text);
-        if (parsedHost.Length == 0 || CleartextUrl.IsLoopbackHost(parsedHost))
+        if (parsedHost.IsEmpty || CleartextUrl.IsLoopbackHost(parsedHost))
         {
             return false;
         }

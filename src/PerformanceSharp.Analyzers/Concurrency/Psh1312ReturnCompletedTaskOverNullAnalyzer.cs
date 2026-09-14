@@ -23,15 +23,6 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <summary>The replacement expression text for the non-generic task return type.</summary>
     internal const string CompletedTaskText = "Task.CompletedTask";
 
-    /// <summary>The metadata name of the non-generic task type.</summary>
-    private const string TaskMetadataName = "System.Threading.Tasks.Task";
-
-    /// <summary>The metadata name of the generic task type.</summary>
-    private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
-
-    /// <summary>The name of the cached completed-task property the non-generic fix moves to.</summary>
-    private const string CompletedTaskPropertyName = "CompletedTask";
-
     /// <summary>The replacement text preceding the result type for generic task return types.</summary>
     private const string FromResultTextPrefix = "Task.FromResult<";
 
@@ -44,9 +35,21 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <summary>The replacement text closing an explicit default expression for targets below C# 7.1.</summary>
     private const string FromResultExplicitDefaultClose = "))";
 
+    /// <summary>The metadata name of the non-generic task type.</summary>
+    private const string TaskMetadataName = "System.Threading.Tasks.Task";
+
+    /// <summary>The metadata name of the generic task type.</summary>
+    private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
+
+    /// <summary>The name of the cached completed-task property the non-generic fix moves to.</summary>
+    private const string CompletedTaskPropertyName = "CompletedTask";
+
     /// <summary>Cached diagnostic properties suggesting the non-generic completed task.</summary>
     private static readonly ImmutableDictionary<string, string?> CompletedTaskProperties =
         ImmutableDictionary<string, string?>.Empty.Add(ReplacementKey, CompletedTaskText);
+
+    /// <summary>The non-generic and generic task metadata names, in slot order.</summary>
+    private static readonly string[] TaskMetadataNames = [TaskMetadataName, TaskOfTMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.ReturnCompletedTaskOverNull);
@@ -60,18 +63,11 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(TaskMetadataName) is not { } taskType
-                || taskType.GetMembers(CompletedTaskPropertyName).IsEmpty
-                || start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName) is not { } taskOfTType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeReturnStatement(nodeContext, taskType, taskOfTType), SyntaxKind.ReturnStatement);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeArrowClause(nodeContext, taskType, taskOfTType), SyntaxKind.ArrowExpressionClause);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, TaskMetadataNames),
+            new(AnalyzeReturnStatement, [SyntaxKind.ReturnStatement]),
+            new(AnalyzeArrowClause, [SyntaxKind.ArrowExpressionClause]));
     }
 
     /// <summary>Returns whether an expression is a null literal, default literal, or <c>default(T)</c>, before any binding.</summary>
@@ -84,9 +80,8 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports PSH1312 for a return statement handing back null/default where a task is declared.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type definition.</param>
-    private static void AnalyzeReturnStatement(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol taskOfTType)
+    /// <param name="taskTypes">The task types resolved on demand for this compilation.</param>
+    private static void AnalyzeReturnStatement(in SyntaxNodeAnalysisContext context, LazyMetadataTypes taskTypes)
     {
         var returnStatement = (ReturnStatementSyntax)context.Node;
         if (returnStatement.Expression is not { } expression
@@ -96,14 +91,13 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
             return;
         }
 
-        AnalyzeReturnedExpression(context, expression, returnTypeSyntax, taskType, taskOfTType);
+        AnalyzeReturnedExpression(context, expression, returnTypeSyntax, taskTypes);
     }
 
     /// <summary>Reports PSH1312 for an expression-bodied member whose body is null/default where a task is declared.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type definition.</param>
-    private static void AnalyzeArrowClause(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol taskOfTType)
+    /// <param name="taskTypes">The task types resolved on demand for this compilation.</param>
+    private static void AnalyzeArrowClause(in SyntaxNodeAnalysisContext context, LazyMetadataTypes taskTypes)
     {
         var arrow = (ArrowExpressionClauseSyntax)context.Node;
         if (!IsNullOrDefaultShape(arrow.Expression) || GetArrowOwnerReturnType(arrow) is not { } returnTypeSyntax)
@@ -111,7 +105,7 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
             return;
         }
 
-        AnalyzeReturnedExpression(context, arrow.Expression, returnTypeSyntax, taskType, taskOfTType);
+        AnalyzeReturnedExpression(context, arrow.Expression, returnTypeSyntax, taskTypes);
     }
 
     /// <summary>Finds the declared return type of the non-async function enclosing a return statement.</summary>
@@ -168,16 +162,16 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The returned null/default expression.</param>
     /// <param name="returnTypeSyntax">The enclosing member's declared return type.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type definition.</param>
+    /// <param name="taskTypes">The task types resolved on demand for this compilation.</param>
     private static void AnalyzeReturnedExpression(
         in SyntaxNodeAnalysisContext context,
         ExpressionSyntax expression,
         TypeSyntax returnTypeSyntax,
-        INamedTypeSymbol taskType,
-        INamedTypeSymbol taskOfTType)
+        LazyMetadataTypes taskTypes)
     {
-        if (context.SemanticModel.GetTypeInfo(returnTypeSyntax, context.CancellationToken).Type is not INamedTypeSymbol returnType)
+        if (taskTypes.Get() is not [{ } taskType, { } taskOfTType]
+            || taskType.GetMembers(CompletedTaskPropertyName).IsEmpty
+            || context.SemanticModel.GetTypeInfo(returnTypeSyntax, context.CancellationToken).Type is not INamedTypeSymbol returnType)
         {
             return;
         }

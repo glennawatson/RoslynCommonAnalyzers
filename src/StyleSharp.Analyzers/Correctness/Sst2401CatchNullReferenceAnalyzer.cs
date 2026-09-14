@@ -42,7 +42,7 @@ public sealed class Sst2401CatchNullReferenceAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var catchClause = (CatchClauseSyntax)context.Node;
-        if (catchClause.Declaration?.Type is { } declared && IsNullReferenceName(declared))
+        if (catchClause.Declaration?.Type is { } declared && SyntaxNames.GetIdentifierName(declared) == NullReferenceExceptionName)
         {
             ReportWhenNullReference(context, declared);
             return;
@@ -108,17 +108,6 @@ public sealed class Sst2401CatchNullReferenceAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.CatchNullReference, type.GetLocation(), NullReferenceExceptionName));
     }
-
-    /// <summary>Returns whether a type is written with the caught type's simple name.</summary>
-    /// <param name="type">The type as written.</param>
-    /// <returns><see langword="true"/> when the rightmost name matches, aliases and qualifiers aside.</returns>
-    private static bool IsNullReferenceName(TypeSyntax type) => type switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText == NullReferenceExceptionName,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText == NullReferenceExceptionName,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText == NullReferenceExceptionName,
-        _ => false,
-    };
 
     /// <summary>Returns whether a bound symbol is <see cref="NullReferenceException"/> itself.</summary>
     /// <param name="symbol">The bound symbol.</param>

@@ -355,6 +355,142 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies implicit public accessibility reaches the bound void-returning fast path.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceVoidTestIsCleanAsync() =>
+        VerifyAsync(XunitStubs + """
+
+            public interface Tests
+            {
+                [Xunit.Fact] void Case();
+            }
+            """);
+
+    /// <summary>Verifies all four awaited definitions remain runnable when reused in one compilation.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AwaitedReturnDefinitionsAreReusedAsync() =>
+        VerifyAsync(XunitStubs + """
+
+            public class Tests
+            {
+                [Xunit.Fact] public System.Threading.Tasks.Task First() => null;
+                [Xunit.Fact] public System.Threading.Tasks.Task Second() => null;
+                [Xunit.Theory] public System.Threading.Tasks.Task<T> Generic<T>(T value) => null;
+                [Xunit.Fact] public System.Threading.Tasks.ValueTask Third() => default;
+                [Xunit.Theory] public System.Threading.Tasks.ValueTask<T> Fourth<T>(T value) => default;
+            }
+            """);
+
+    /// <summary>Verifies custom awaitables and unrelated types named Task are outside the accepted return definitions.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UncachedAwaitableAndTaskLookalikeAreReportedAsync() =>
+        VerifyAsync(XunitStubs + """
+
+            public class Task
+            {
+                public System.Runtime.CompilerServices.TaskAwaiter GetAwaiter() => default;
+            }
+            public class Tests
+            {
+                [Xunit.Fact] public Task {|SST2509:Lookalike|}() => null;
+                [Xunit.Fact] public System.Runtime.CompilerServices.YieldAwaitable {|SST2509:Yielding|}() => default;
+            }
+            """);
+
+    /// <summary>Verifies TUnit accepts bound awaited and unresolved returns after the accessibility fast path declines.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task PrivateTUnitReturnShapesAreClassifiedAsync() =>
+        VerifyIgnoringCompilerDiagnosticsAsync(TUnitStubs + """
+
+            public class Tests
+            {
+                [TUnit.Core.Test] private System.Threading.Tasks.Task First() => null;
+                [TUnit.Core.Test] private System.Threading.Tasks.Task<int> Second() => null;
+                [TUnit.Core.Test] private System.Threading.Tasks.ValueTask Third() => default;
+                [TUnit.Core.Test] private System.Threading.Tasks.ValueTask<int> Fourth() => default;
+                [TUnit.Core.Test] private Undefined Unresolved() => default;
+                [TUnit.Core.Test] private void Generic<T>(T value) { }
+                [TUnit.Core.Test] private int {|SST2509:Invalid|}() => 0;
+            }
+            """);
+
+    /// <summary>Verifies ordinary attributes before and after real markers do not hide the framework's public requirement.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MixedAttributeListsKeepPublicRequirementAsync() =>
+        VerifyAsync(XunitStubs + TUnitStubs + MsTestStubs + """
+
+            public class Tests
+            {
+                [System.Obsolete][TUnit.Core.Test, Xunit.Fact, System.CLSCompliant(false)]
+                private void {|SST2509:Mixed|}() { }
+                [Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute]
+                private void {|SST2509:Data|}() { }
+            }
+            """);
+
+    /// <summary>Verifies unresolved and non-method attribute targets are classified without assuming method attribute data exists.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InvalidAttributeTargetsAndBindingsAreHandledAsync() =>
+        VerifyIgnoringCompilerDiagnosticsAsync(XunitStubs + """
+
+            public class Tests
+            {
+                [Fact] private int Unresolved() => 0;
+                [Xunit.Fact(1)] private int MissingConstructor() => 0;
+                [return: System.Obsolete][Xunit.Fact]
+                private int {|SST2509:ReturnTarget|}() => 0;
+                [return: Xunit.Fact]
+                private int {|SST2509:ReturnMarker|}() => 0;
+            }
+            """);
+
+    /// <summary>Verifies framework markers on partial declarations can be matched despite attributes from another tree.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task PartialMethodAttributesAcrossTreesAreClassifiedAsync()
+    {
+        var test = new VerifyTest.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90 };
+        test.TestState.Sources.Add(XunitStubs + """
+
+            public partial class Tests
+            {
+                [System.Obsolete] private partial void Case();
+            }
+            """);
+        test.TestState.Sources.Add("""
+            public partial class Tests
+            {
+                [Xunit.Fact] private partial void {|SST2509:Case|}() { }
+            }
+            """);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies aliased marker names bind to the real framework attribute.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AliasQualifiedTestMarkerIsReportedAsync() =>
+        VerifyAsync("""
+            using X = Xunit;
+            public class Tests
+            {
+                [X::FactAttribute] private void {|SST2509:Case|}() { }
+            }
+            """ + XunitStubs);
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies with the source's own framework stubs.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

@@ -15,75 +15,54 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1103UseCountPropertyCodeFixProvider))]
 [Shared]
-public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.UseCountProperty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => FindInvocation(root, diagnostic) is null ? null : $"Use '{GetPropertyName(diagnostic)}'",
+            static _ => nameof(Psh1103UseCountPropertyCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
-            {
-                continue;
-            }
-
-            var propertyName = GetPropertyName(diagnostic);
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use '{propertyName}'",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation, propertyName)),
-                    equivalenceKey: nameof(Psh1103UseCountPropertyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
-        {
-            return;
-        }
-
-        var (target, replacement) = CreateReplacement(invocation, GetPropertyName(diagnostic));
-        editor.ReplaceNode(target, replacement);
-    }
-
-    /// <summary>Replaces the reported Enumerable call with the receiver's count property form.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported enumeration call and builds its property-based replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The reported invocation.</param>
-    /// <param name="propertyName">The count property name suggested by the analyzer.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation, string propertyName)
-    {
-        var (target, replacement) = CreateReplacement(invocation, propertyName);
-        return document.WithSyntaxRoot(root.ReplaceNode(target, replacement));
-    }
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the call no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        FindInvocation(root, diagnostic) is { } invocation
+            ? CreateReplacement(invocation, GetPropertyName(diagnostic))
+            : null;
+
+    /// <summary>Resolves the reported member-access invocation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The reported invocation, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static InvocationExpressionSyntax? FindInvocation(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
+            ? invocation
+            : null;
 
     /// <summary>Computes the node to replace and its property-read replacement.</summary>
     /// <param name="invocation">The reported invocation.</param>
     /// <param name="propertyName">The count property name suggested by the analyzer.</param>
     /// <returns>The replaced node (the invocation, or its enclosing logical-not) and the replacement expression.</returns>
-    private static (SyntaxNode Target, ExpressionSyntax Replacement) CreateReplacement(InvocationExpressionSyntax invocation, string propertyName)
+    private static NodeReplacement CreateReplacement(InvocationExpressionSyntax invocation, string propertyName)
     {
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
         var propertyAccess = memberAccess.WithName(SyntaxFactory.IdentifierName(propertyName));
         if (memberAccess.Name.Identifier.ValueText == "Count")
         {
-            return (invocation, propertyAccess.WithTriviaFrom(invocation));
+            return new(invocation, propertyAccess.WithTriviaFrom(invocation));
         }
 
         if (invocation.Parent is PrefixUnaryExpressionSyntax unary
@@ -91,11 +70,11 @@ public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider, IB
             && unary.Operand == invocation)
         {
             var equality = CreateComparison(propertyAccess, SyntaxKind.EqualsExpression, SyntaxKind.EqualsEqualsToken);
-            return (unary, ParenthesizeInsideExpression(equality, unary).WithTriviaFrom(unary));
+            return new(unary, ParenthesizeInsideExpression(equality, unary).WithTriviaFrom(unary));
         }
 
         var comparison = CreateComparison(propertyAccess, SyntaxKind.GreaterThanExpression, SyntaxKind.GreaterThanToken);
-        return (invocation, ParenthesizeInsideExpression(comparison, invocation).WithTriviaFrom(invocation));
+        return new(invocation, ParenthesizeInsideExpression(comparison, invocation).WithTriviaFrom(invocation));
     }
 
     /// <summary>Builds a zero comparison against the receiver's count property with conventional spacing.</summary>

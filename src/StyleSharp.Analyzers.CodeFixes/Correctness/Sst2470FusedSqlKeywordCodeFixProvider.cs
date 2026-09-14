@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,22 +13,33 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2470FusedSqlKeywordCodeFixProvider))]
 [Shared]
-public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.FusedSqlKeyword.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Add a space between the concatenated string literals", nameof(Sst2470FusedSqlKeywordCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Add a space between the concatenated string literals", nameof(Sst2470FusedSqlKeywordCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan)is { } node
+            && (node as BinaryExpressionSyntax ?? node.FirstAncestorOrSelf<BinaryExpressionSyntax>())is { } binary
+            && binary.IsKind(SyntaxKind.AddExpression)
+            && Sst2470FusedSqlKeywordAnalyzer.TryGetFusedSeam(binary.Left, binary.Right)is not null)
+            && (!(binary.Right is not LiteralExpressionSyntax rightLiteral
+            || !rightLiteral.Token.IsKind(SyntaxKind.StringLiteralToken)
+            || IsVerbatim(rightLiteral.Token)));
 
     /// <summary>Resolves the reported concatenation and gives its right literal a leading space.</summary>
     /// <param name="root">The syntax root.</param>
@@ -65,7 +74,12 @@ public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBa
     private static LiteralExpressionSyntax WithLeadingSpace(LiteralExpressionSyntax literal)
     {
         var token = literal.Token;
-        var spaced = SyntaxFactory.Literal($" {token.ValueText}").WithTriviaFrom(token);
+        var value = $" {token.ValueText}";
+        var spaced = SyntaxFactory.Literal(
+            token.LeadingTrivia,
+            Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: true),
+            value,
+            token.TrailingTrivia);
         return literal.WithToken(spaced);
     }
 }

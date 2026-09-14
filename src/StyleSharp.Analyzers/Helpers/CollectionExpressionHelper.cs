@@ -56,7 +56,7 @@ internal static class CollectionExpressionHelper
         }
 
         return converted is IArrayTypeSymbol { Rank: 1 }
-            || (converted is INamedTypeSymbol named && ContainsTarget(targets, named.OriginalDefinition));
+            || (converted is INamedTypeSymbol named && TypeRelations.IsOneOf(named.OriginalDefinition, targets));
     }
 
     /// <summary>Gets the converted type only when the expression has an explicit target context.</summary>
@@ -175,22 +175,5 @@ internal static class CollectionExpressionHelper
 
         targets[count] = type;
         count++;
-    }
-
-    /// <summary>Returns whether the accepted target array contains the supplied original definition.</summary>
-    /// <param name="targets">The accepted target definitions.</param>
-    /// <param name="candidate">The candidate original definition.</param>
-    /// <returns><see langword="true"/> when the candidate is accepted.</returns>
-    private static bool ContainsTarget(INamedTypeSymbol[] targets, INamedTypeSymbol candidate)
-    {
-        for (var i = 0; i < targets.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(targets[i], candidate))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

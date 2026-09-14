@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -28,76 +26,47 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1473FloatingPointEqualityCodeFixProvider))]
 [Shared]
-public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvider
 {
     /// <summary>The name of the method that answers whether a value is NaN.</summary>
     private const string IsNaNMethodName = "IsNaN";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.FloatingPointEquality.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            static _ => nameof(Sst1473FloatingPointEqualityCodeFixProvider),
+            TryRewrite);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
+        if (!TryGetRewrite(editor.OriginalRoot, diagnostic, out var binary, out var keyword, out var negated))
         {
             return;
         }
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetRewrite(root, diagnostic, out var binary, out var keyword, out var fixKind))
-            {
-                continue;
-            }
-
-            var negated = fixKind == Sst1473FloatingPointEqualityAnalyzer.NotIsNaNFixKind;
-            var title = negated
-                ? $"Use '!{keyword}.{IsNaNMethodName}(...)'"
-                : $"Use '{keyword}.{IsNaNMethodName}(...)'";
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title,
-                    _ => Task.FromResult(Apply(context.Document, root, binary!, keyword, negated)),
-                    equivalenceKey: nameof(Sst1473FloatingPointEqualityCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetRewrite(editor.OriginalRoot, diagnostic, out var binary, out var keyword, out var fixKind))
-        {
-            return;
-        }
-
-        var negated = fixKind == Sst1473FloatingPointEqualityAnalyzer.NotIsNaNFixKind;
         editor.ReplaceNode(binary!, (current, _) => Rewrite((BinaryExpressionSyntax)current, keyword, negated));
     }
-
-    /// <summary>Replaces one NaN comparison with the matching <c>IsNaN</c> call.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="binary">The reported comparison.</param>
-    /// <param name="keyword">The <c>float</c> or <c>double</c> keyword to call <c>IsNaN</c> on.</param>
-    /// <param name="negated">Whether the call is negated.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary, string keyword, bool negated) =>
-        document.WithSyntaxRoot(root.ReplaceNode(binary, Rewrite(binary, keyword, negated)));
 
     /// <summary>Resolves a diagnostic to the comparison it reported and the rewrite the analyzer chose.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="binary">The reported comparison, when the shape still matches.</param>
     /// <param name="keyword">The <c>float</c> or <c>double</c> keyword.</param>
-    /// <param name="fixKind">The rewrite the analyzer chose.</param>
+    /// <param name="negated">Whether the rewrite the analyzer chose negates the <c>IsNaN</c> call.</param>
     /// <returns><see langword="true"/> when the diagnostic carries a rewrite this fix can apply.</returns>
     /// <remarks>
     /// A diagnostic with no rewrite properties is the general tolerance case, which has no fix — that is how
@@ -108,11 +77,11 @@ public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvide
         Diagnostic diagnostic,
         out BinaryExpressionSyntax? binary,
         out string keyword,
-        out string fixKind)
+        out bool negated)
     {
         binary = null;
         keyword = string.Empty;
-        fixKind = string.Empty;
+        negated = false;
 
         if (!diagnostic.Properties.TryGetValue(Sst1473FloatingPointEqualityAnalyzer.TypeKeywordKey, out var storedKeyword)
             || !diagnostic.Properties.TryGetValue(Sst1473FloatingPointEqualityAnalyzer.FixKindKey, out var storedFixKind)
@@ -130,9 +99,27 @@ public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvide
 
         binary = found;
         keyword = storedKeyword;
-        fixKind = storedFixKind;
+        negated = storedFixKind == Sst1473FloatingPointEqualityAnalyzer.NotIsNaNFixKind;
         return true;
     }
+
+    /// <summary>Words the action for the reported comparison, when it still rewrites to an <c>IsNaN</c> call.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the comparison no longer matches.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        !TryGetRewrite(root, diagnostic, out _, out var keyword, out var negated)
+            ? null
+            : $"Use '{(negated ? "!" : string.Empty)}{keyword}.{IsNaNMethodName}(...)'";
+
+    /// <summary>Resolves the reported comparison and builds its <c>IsNaN</c> replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the comparison no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetRewrite(root, diagnostic, out var binary, out var keyword, out var negated)
+            ? new NodeReplacement(binary!, Rewrite(binary!, keyword, negated))
+            : null;
 
     /// <summary>Builds the <c>IsNaN</c> call that replaces the comparison.</summary>
     /// <param name="binary">The reported comparison.</param>

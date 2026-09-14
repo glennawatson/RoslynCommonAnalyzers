@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -31,10 +33,9 @@ namespace StyleSharp.Analyzers;
 /// <c>System.Collections.Generic.List`1</c>), which declares that narrowing to it is a sanctioned fast path.
 /// </para>
 /// <para>
-/// The clean path allocates nothing: the syntactic dispatch rejects every node that is not one of the four
-/// narrowing shapes (an <c>is</c> pattern that is not a declaration pattern binds nothing), and the assembly
-/// check, the allow-list read, and the message's display strings run only once a cross-assembly violation is
-/// confirmed.
+/// Syntax rejects targets that cannot be concrete implementations before binding. Owned and allow-listed
+/// targets are rejected before enumerating substituted interfaces. Allow-lists are parsed once per option
+/// value, with metadata resolutions shared across the compilation; display strings are built only to report.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -46,6 +47,15 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.InterfaceToConcreteCast);
 
+    /// <summary>The narrowing syntax kinds shared by every compilation registration.</summary>
+    private static readonly SyntaxKind[] AnalyzedKinds =
+    [
+        SyntaxKind.CastExpression,
+        SyntaxKind.AsExpression,
+        SyntaxKind.IsExpression,
+        SyntaxKind.IsPatternExpression,
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -54,62 +64,36 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var currentAssembly = start.Compilation.Assembly;
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, currentAssembly),
-                SyntaxKind.CastExpression,
-                SyntaxKind.AsExpression,
-                SyntaxKind.IsExpression,
-                SyntaxKind.IsPatternExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new AllowedTypes(compilation),
+            Analyze,
+            AnalyzedKinds);
     }
 
     /// <summary>Reports one narrowing of an interface reference to a concrete implementation type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="currentAssembly">The assembly being compiled, whose own concrete types are not coupling.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, IAssemblySymbol currentAssembly)
+    /// <param name="types">The allow-list types resolved on demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, AllowedTypes types)
     {
-        if (!TryGetOperandAndTarget(context.Node, out var operand, out var targetType))
+        if (!TryGetOperandAndTarget(context.Node, out var operand, out var targetType)
+            || !CanBeConcreteTarget(targetType))
         {
             return;
         }
 
         var semanticModel = context.SemanticModel;
         var cancellationToken = context.CancellationToken;
-
-        // The operand's declared static type must be a genuine interface. A type parameter, object, or dynamic
-        // is not an INamedTypeSymbol interface and drops out here, so those shapes never reach the target check.
-        if (semanticModel.GetTypeInfo(operand, cancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceType)
+        if (semanticModel.GetTypeInfo(operand, cancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceType
+            || semanticModel.GetTypeInfo(targetType, cancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsAbstract: false } concreteType)
         {
             return;
         }
 
-        // The target must be a concrete (non-abstract) class: an interface, struct, enum, object, or abstract
-        // base is not a specific implementation to couple to.
-        if (semanticModel.GetTypeInfo(targetType, cancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsAbstract: false } concreteType)
-        {
-            return;
-        }
-
-        // Only report when the concrete type genuinely implements the interface. An unrelated narrowing either
-        // fails to compile or is left open for a subclass — not this rule's business, and reporting it would be noise.
-        if (!ImplementsInterface(concreteType, interfaceType))
-        {
-            return;
-        }
-
-        // A concrete type declared in this same assembly is one the author owns: narrowing to it is a closed,
-        // in-house choice among your own implementations, not coupling to someone else's. Leave it alone.
-        if (SymbolEqualityComparer.Default.Equals(concreteType.ContainingAssembly, currentAssembly))
-        {
-            return;
-        }
-
-        // A specifically allow-listed external type is a sanctioned narrowing — a documented fast path over a
-        // concrete implementation the project deliberately depends on.
-        if (IsAllowedType(context, concreteType))
+        // Reject owned implementations before constructing their substituted interface lists.
+        if (SymbolEqualityComparer.Default.Equals(concreteType.ContainingAssembly, semanticModel.Compilation.Assembly)
+            || IsAllowedType(context, concreteType, types)
+            || !TypeRelations.Implements(concreteType, interfaceType))
         {
             return;
         }
@@ -121,43 +105,17 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
             concreteType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
     }
 
-    /// <summary>Returns whether a concrete type is named in the <c>allowed_types</c> editorconfig list for the file.</summary>
+    /// <summary>Returns whether a concrete type is named in the file's allowed_types option.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="concreteType">The confirmed cross-assembly concrete target type.</param>
-    /// <returns><see langword="true"/> when the type's original definition matches an allow-list entry.</returns>
-    /// <remarks>
-    /// Each list entry is resolved through <see cref="Compilation.GetTypeByMetadataName(string)"/>, which parses the
-    /// arity-encoded metadata name (<c>List`1</c>) exactly, and compared by symbol — so the option is robust to how
-    /// the type is spelt at the use site. This runs only for a cross-assembly candidate that has already passed every
-    /// other check, so the parse and lookups stay off the clean path.
-    /// </remarks>
-    private static bool IsAllowedType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType)
+    /// <param name="concreteType">The cross-assembly concrete target type.</param>
+    /// <param name="types">The cache shared by all file-specific allow-lists in this compilation.</param>
+    /// <returns>Whether the type's original definition matches an allow-list entry.</returns>
+    private static bool IsAllowedType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType, AllowedTypes types)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
-        if (!options.TryGetValue(AllowedTypesOptionKey, out var value) || value.Length == 0)
-        {
-            return false;
-        }
-
-        var compilation = context.SemanticModel.Compilation;
-        var definition = concreteType.OriginalDefinition;
-        var start = 0;
-        while (start <= value.Length)
-        {
-            var comma = value.IndexOf(',', start);
-            var end = comma < 0 ? value.Length : comma;
-            var entry = value.Substring(start, end - start).Trim();
-            if (entry.Length > 0
-                && compilation.GetTypeByMetadataName(entry) is { } allowed
-                && SymbolEqualityComparer.Default.Equals(allowed, definition))
-            {
-                return true;
-            }
-
-            start = end + 1;
-        }
-
-        return false;
+        return options.TryGetValue(AllowedTypesOptionKey, out var value)
+            && value.Length > 0
+            && types.Contains(value, concreteType.OriginalDefinition);
     }
 
     /// <summary>Splits a narrowing node into the operand being narrowed and the target type syntax, on syntax alone.</summary>
@@ -205,21 +163,88 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Returns whether a concrete type implements a specific interface.</summary>
-    /// <param name="concreteType">The concrete class.</param>
-    /// <param name="interfaceType">The interface the operand is statically typed as.</param>
-    /// <returns><see langword="true"/> when the interface is among the concrete type's implemented interfaces.</returns>
-    private static bool ImplementsInterface(INamedTypeSymbol concreteType, INamedTypeSymbol interfaceType)
+    /// <summary>Rejects target syntax that cannot denote a concrete implementing class.</summary>
+    /// <param name="targetType">The narrowing target's syntax.</param>
+    /// <returns>Whether semantic type checks are still necessary.</returns>
+    private static bool CanBeConcreteTarget(TypeSyntax targetType) =>
+        targetType is not (ArrayTypeSyntax or TupleTypeSyntax or PointerTypeSyntax or FunctionPointerTypeSyntax)
+        && (targetType is not PredefinedTypeSyntax predefined || predefined.Keyword.IsKind(SyntaxKind.StringKeyword));
+
+    /// <summary>Parses allow-lists on demand and shares resolved entries across the compilation.</summary>
+    /// <param name="compilation">The compilation whose allow-list types are resolved.</param>
+    private sealed class AllowedTypes(Compilation compilation)
     {
-        var interfaces = concreteType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
+        /// <summary>Serializes parsing and metadata resolution on a cache miss.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The published lists keyed by their original, unsplit option strings.</summary>
+        private ImmutableDictionary<string, ImmutableArray<INamedTypeSymbol>> _resolved = ImmutableDictionary<string, ImmutableArray<INamedTypeSymbol>>.Empty.WithComparers(StringComparer.Ordinal);
+
+        /// <summary>Metadata results shared across lists, accessed only while holding the gate.</summary>
+        private Dictionary<string, INamedTypeSymbol?>? _metadata;
+
+        /// <summary>Checks a parsed allow-list without allocating entry substrings on cache hits.</summary>
+        /// <param name="value">The file's complete allow-list option.</param>
+        /// <param name="definition">The candidate type's original definition.</param>
+        /// <returns>Whether the definition is one of the allowed types.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Contains(string value, INamedTypeSymbol definition)
         {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
+            var entries = Volatile.Read(ref _resolved).TryGetValue(value, out var cached) ? cached : Resolve(value);
+            for (var i = 0; i < entries.Length; i++)
             {
-                return true;
+                if (SymbolEqualityComparer.Default.Equals(entries[i], definition))
+                {
+                    return true;
+                }
             }
+
+            return false;
         }
 
-        return false;
+        /// <summary>Parses each option once and resolves each distinct metadata name once.</summary>
+        /// <param name="value">The file's complete allow-list option.</param>
+        /// <returns>The resolved entries for this option.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private ImmutableArray<INamedTypeSymbol> Resolve(string value)
+        {
+            lock (_gate)
+            {
+                if (_resolved.TryGetValue(value, out var cached))
+                {
+                    return cached;
+                }
+
+                var entries = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                var start = 0;
+                while (start <= value.Length)
+                {
+                    var comma = value.IndexOf(',', start);
+                    var end = comma < 0 ? value.Length : comma;
+                    var segment = AnalyzerOptionReader.TrimSegment(value, start, end);
+                    if (!segment.IsEmpty)
+                    {
+                        var entry = segment.Length == value.Length ? value : segment.ToString();
+                        _metadata ??= new(StringComparer.Ordinal);
+                        if (!_metadata.TryGetValue(entry, out var type))
+                        {
+                            type = compilation.GetTypeByMetadataName(entry);
+                            _metadata.Add(entry, type);
+                        }
+
+                        if (type is not null)
+                        {
+                            entries.Add(type);
+                        }
+                    }
+
+                    start = end + 1;
+                }
+
+                cached = entries.ToImmutable();
+                Volatile.Write(ref _resolved, _resolved.Add(value, cached));
+                return cached;
+            }
+        }
     }
 }

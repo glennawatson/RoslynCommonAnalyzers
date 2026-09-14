@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1404 — an Activator by-name overload instantiates a type whose name comes from non-constant data.</summary>
-    public static readonly DiagnosticDescriptor NonConstantActivatorTypeName = Create(
+    public static readonly DiagnosticDescriptor NonConstantActivatorTypeName = DescriptorFactory.Create(
         "SES1404",
         "A type must not be instantiated by name from non-constant data",
         "'{0}' instantiates the type named by this non-constant argument; an attacker who controls the type name can construct an unexpected or dangerous type",

@@ -12,6 +12,22 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2439 (an exception passed as a message value) and its fix.</summary>
 public class LoggerExceptionAsTemplateArgumentAnalyzerUnitTest
 {
+    /// <summary>Verifies a caught exception passed as a value is not also classified as discarded.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CaughtExceptionAsValueReportsOnlyItsPlacementAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            class C
+            {
+                void M(ILogger logger)
+                {
+                    try { }
+                    catch (System.Exception ex) { logger.LogError("{Error}", {|SST2439:ex|}); }
+                }
+            }
+            """));
+
     /// <summary>Verifies an exception passed as a value is hoisted into the exception argument.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

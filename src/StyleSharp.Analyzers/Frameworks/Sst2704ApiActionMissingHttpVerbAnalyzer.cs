@@ -12,7 +12,7 @@ namespace StyleSharp.Analyzers;
 /// that does declare a verb. A method marked <c>[NonAction]</c>, one that already declares a verb, a static
 /// method, a property accessor, and an override inherited from <c>object</c> are all left alone. The rule is
 /// scoped to <c>[ApiController]</c> types to keep false positives low, is gated on the ASP.NET Core MVC types
-/// resolving in the referenced framework so a non-web project pays nothing, and has no code fix because the
+/// resolving in the referenced framework once an action candidate is found, and has no code fix because the
 /// intended verb cannot be inferred.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -45,32 +45,45 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var apiControllerAttribute = start.Compilation.GetTypeByMetadataName(ApiControllerAttributeMetadataName);
-            var controllerBase = start.Compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
-            var httpMethodAttribute = start.Compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
-            if (apiControllerAttribute is null || controllerBase is null || httpMethodAttribute is null)
-            {
-                return;
-            }
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<MvcMarkers?>(
+                compilation,
+                ResolveMarkers,
+                runOnce: true),
+            AnalyzeType,
+            SymbolKind.NamedType);
+    }
 
-            var actionHttpMethodProvider = start.Compilation.GetTypeByMetadataName(ActionHttpMethodProviderMetadataName);
-            var nonActionAttribute = start.Compilation.GetTypeByMetadataName(NonActionAttributeMetadataName);
-            var markers = new MvcMarkers(apiControllerAttribute, controllerBase, httpMethodAttribute, actionHttpMethodProvider, nonActionAttribute);
-            start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, markers), SymbolKind.NamedType);
-        });
+    /// <summary>Resolves MVC marker types once an eligible action needs them.</summary>
+    /// <param name="compilation">The compilation whose MVC references are inspected.</param>
+    /// <returns>The MVC markers, or null when a required type is unavailable.</returns>
+    private static MvcMarkers? ResolveMarkers(Compilation compilation)
+    {
+        var apiControllerAttribute = compilation.GetTypeByMetadataName(ApiControllerAttributeMetadataName);
+        var controllerBase = compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
+        var httpMethodAttribute = compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
+        if (apiControllerAttribute is null || controllerBase is null || httpMethodAttribute is null)
+        {
+            return null;
+        }
+
+        var actionHttpMethodProvider = compilation.GetTypeByMetadataName(ActionHttpMethodProviderMetadataName);
+        var nonActionAttribute = compilation.GetTypeByMetadataName(NonActionAttributeMetadataName);
+        return new MvcMarkers(apiControllerAttribute, controllerBase, httpMethodAttribute, actionHttpMethodProvider, nonActionAttribute);
     }
 
     /// <summary>Reports SST2704 for each verb-less public action on an <c>[ApiController]</c> type.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="markers">The resolved MVC marker types the rule gates on.</param>
-    private static void AnalyzeType(in SymbolAnalysisContext context, in MvcMarkers markers)
+    /// <param name="markerCache">The MVC markers, resolved only for a class with an eligible action.</param>
+    private static void AnalyzeType(in SymbolAnalysisContext context, LazyCompilationValue<MvcMarkers?> markerCache)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class
-            || !HasApiControllerAttribute(type, markers.ApiControllerAttribute)
-            || !IsOrDerivesFrom(type, markers.ControllerBase))
+            || !HasActionCandidate(type)
+            || markerCache.Get() is not { } markers
+            || !SymbolFacts.HasAttributeDerivedFromInHierarchy(type, markers.ApiControllerAttribute)
+            || !TypeRelations.IsOrDerivesFrom(type, markers.ControllerBase))
         {
             return;
         }
@@ -87,6 +100,22 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>Rejects classes with no reportable method before resolving MVC types.</summary>
+    /// <param name="type">The candidate controller type.</param>
+    /// <returns>True when at least one declared method has the shape of an action.</returns>
+    private static bool HasActionCandidate(INamedTypeSymbol type)
+    {
+        foreach (var member in type.GetMembers())
+        {
+            if (member is IMethodSymbol method && IsActionCandidate(method))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns whether a method is a public action that declares no HTTP verb and is not opted out.</summary>
     /// <param name="method">The candidate method.</param>
     /// <param name="markers">The resolved MVC marker types.</param>
@@ -98,13 +127,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The candidate method.</param>
     /// <returns><see langword="true"/> for a public, non-static, non-generic, ordinary method that is not an <c>object</c> override.</returns>
     private static bool IsActionCandidate(IMethodSymbol method) =>
-        method.DeclaredAccessibility == Accessibility.Public
-            && !method.IsStatic
-            && !method.IsAbstract
-            && !method.IsGenericMethod
-            && method.MethodKind == MethodKind.Ordinary
-            && !method.Locations.IsEmpty
-            && !OverridesObjectMethod(method);
+        !method.Locations.IsEmpty && ControllerActionShape.IsRoutable(method);
 
     /// <summary>Returns whether a method already declares its HTTP verbs or opts out of action discovery.</summary>
     /// <param name="method">The candidate method.</param>
@@ -120,7 +143,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
             }
 
             if (SuppliesHttpVerb(attributeClass, markers)
-                || (markers.NonActionAttribute is not null && IsOrDerivesFrom(attributeClass, markers.NonActionAttribute)))
+                || (markers.NonActionAttribute is not null && TypeRelations.IsOrDerivesFrom(attributeClass, markers.NonActionAttribute)))
             {
                 return true;
             }
@@ -135,7 +158,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the attribute derives from the verb base or implements the verb-provider interface.</returns>
     private static bool SuppliesHttpVerb(INamedTypeSymbol attributeClass, in MvcMarkers markers)
     {
-        if (IsOrDerivesFrom(attributeClass, markers.HttpMethodAttribute))
+        if (TypeRelations.IsOrDerivesFrom(attributeClass, markers.HttpMethodAttribute))
         {
             return true;
         }
@@ -148,62 +171,6 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
         foreach (var implemented in attributeClass.AllInterfaces)
         {
             if (SymbolEqualityComparer.Default.Equals(implemented, markers.ActionHttpMethodProvider))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a method overrides a member that is ultimately declared on <c>object</c>.</summary>
-    /// <param name="method">The candidate method.</param>
-    /// <returns><see langword="true"/> for an override of <c>ToString</c>, <c>Equals</c>, <c>GetHashCode</c>, and the like.</returns>
-    private static bool OverridesObjectMethod(IMethodSymbol method)
-    {
-        if (!method.IsOverride)
-        {
-            return false;
-        }
-
-        var root = method;
-        while (root.OverriddenMethod is { } overridden)
-        {
-            root = overridden;
-        }
-
-        return root.ContainingType?.SpecialType == SpecialType.System_Object;
-    }
-
-    /// <summary>Returns whether a type carries the <c>[ApiController]</c> attribute on itself or a base type.</summary>
-    /// <param name="type">The candidate controller type.</param>
-    /// <param name="apiControllerAttribute">The resolved <c>ApiControllerAttribute</c> type.</param>
-    /// <returns><see langword="true"/> when the attribute is present anywhere in the type's hierarchy.</returns>
-    private static bool HasApiControllerAttribute(INamedTypeSymbol type, INamedTypeSymbol apiControllerAttribute)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            foreach (var attribute in current.GetAttributes())
-            {
-                if (attribute.AttributeClass is { } attributeClass && IsOrDerivesFrom(attributeClass, apiControllerAttribute))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the supplied base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to test against.</param>
-    /// <returns><see langword="true"/> when the type is the base type or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
             {
                 return true;
             }

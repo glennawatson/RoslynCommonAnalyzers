@@ -58,11 +58,11 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var compilation = context.Compilation;
-        var positionalTypes = new Lazy<PositionalConstructorTypes>(
-            () => PositionalConstructorTypes.Create(compilation),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        var settingsByTree = new ConcurrentDictionary<SyntaxTree, MagicNumberSettings>();
+        var positionalTypes = new LazyCompilationValue<PositionalConstructorTypes>(
+            context.Compilation,
+            PositionalConstructorTypes.Create,
+            runOnce: true);
+        var settingsByTree = new ConcurrentDictionary<SyntaxTree, MagicNumberSettings>(concurrencyLevel: 4, capacity: 31);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, settingsByTree, positionalTypes),
             SyntaxKind.NumericLiteralExpression);
@@ -75,7 +75,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree,
-        Lazy<PositionalConstructorTypes> positionalTypes)
+        LazyCompilationValue<PositionalConstructorTypes> positionalTypes)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
         if (IsBitPattern(literal.Token.Text))
@@ -83,7 +83,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var settings = GetSettings(context, settingsByTree);
+        var settings = TreeOptionsCache.GetOrRead(settingsByTree, context, ReadSettings);
         var node = Unwrap(literal, out var negated);
         if (!TryGetValue(literal.Token, negated, out var value)
             || MagicNumberOptions.Contains(settings.Allowed, value)
@@ -96,24 +96,6 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.MagicNumber, node.GetLocation(), node.ToString()));
-    }
-
-    /// <summary>Reads the settings for the literal's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="settingsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static MagicNumberSettings GetSettings(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (settingsByTree.TryGetValue(tree, out var settings))
-        {
-            return settings;
-        }
-
-        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
-        settings = new(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
-        _ = settingsByTree.TryAdd(tree, settings);
-        return settings;
     }
 
     /// <summary>Returns whether the literal is the capacity a collection is constructed with.</summary>
@@ -472,8 +454,14 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     private static bool IsPositionalConstructorArgument(
         ExpressionSyntax node,
         in SyntaxNodeAnalysisContext context,
-        Lazy<PositionalConstructorTypes> positionalTypes) =>
+        LazyCompilationValue<PositionalConstructorTypes> positionalTypes) =>
         node.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: BaseObjectCreationExpressionSyntax creation } }
             && context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol constructor
-            && positionalTypes.Value.Contains(constructor.ContainingType);
+            && positionalTypes.Get().Contains(constructor.ContainingType);
+
+    /// <summary>Reads the magic-number settings from one tree's options.</summary>
+    /// <param name="options">The tree's analyzer options.</param>
+    /// <returns>The allowed values and whether capacity arguments are exempt.</returns>
+    private static MagicNumberSettings ReadSettings(AnalyzerConfigOptions options) =>
+        new(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
 }

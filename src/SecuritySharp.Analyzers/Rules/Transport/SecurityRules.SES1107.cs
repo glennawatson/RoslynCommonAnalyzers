@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1107 — a SQL connection is configured to bypass certificate trust or transport encryption.</summary>
-    public static readonly DiagnosticDescriptor WeakenedSqlTransportSecurity = Create(
+    public static readonly DiagnosticDescriptor WeakenedSqlTransportSecurity = DescriptorFactory.Create(
         "SES1107",
         "Do not weaken SQL connection transport security",
         "The SQL connection is configured with '{0}', which bypasses server-certificate validation or transport encryption and exposes the connection to interception or tampering",

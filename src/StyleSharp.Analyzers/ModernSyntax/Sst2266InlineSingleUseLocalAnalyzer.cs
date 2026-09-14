@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -35,13 +36,13 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var optionsByTree = new ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions>();
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, optionsByTree),
-                SyntaxKind.LocalDeclarationStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions>(
+                concurrencyLevel: 1,
+                capacity: ((CSharpCompilation)compilation).SyntaxTrees.Length),
+            Analyze,
+            SyntaxKind.LocalDeclarationStatement);
     }
 
     /// <summary>Returns whether inlining an initializer keeps the meaning its declaration gave it.</summary>
@@ -105,34 +106,41 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="block">The block holding the local's scope.</param>
     /// <param name="local">The local symbol.</param>
+    /// <param name="cancellationToken">A token that cancels reference binding.</param>
     /// <returns>The single reference, or <see langword="null"/> when there is not exactly one.</returns>
     /// <remarks>
     /// A block holding an inactive <c>#if</c> region reports no reference at all. The identifiers in that
     /// region are trivia rather than nodes, so they cannot be counted — and a local that reads once here and
     /// several times there would lose its declaration for every other configuration.
     /// </remarks>
-    internal static IdentifierNameSyntax? FindSingleReference(SemanticModel model, BlockSyntax block, ILocalSymbol local)
+    internal static IdentifierNameSyntax? FindSingleReference(SemanticModel model, BlockSyntax block, ILocalSymbol local, CancellationToken cancellationToken = default)
     {
-        if (HasInactiveRegion(block))
+        if (InactivePreprocessorRegions.Contains(block))
         {
             return null;
         }
 
-        IdentifierNameSyntax? reference = null;
-        var count = 0;
-        foreach (var descendant in block.DescendantNodes())
-        {
-            if (descendant is not IdentifierNameSyntax identifier || identifier.Identifier.Text != local.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, local))
+        var state = new SingleReferenceSearch(model, local, cancellationToken);
+        var completed = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, SingleReferenceSearch>(
+            block,
+            ref state,
+            static (identifier, ref current) =>
             {
-                continue;
-            }
+                if (!IdentifierReferences.IsReferenceTo(identifier, current.Local, current.Model, current.CancellationToken))
+                {
+                    return true;
+                }
 
-            reference = identifier;
-            count++;
-        }
+                if (current.Reference is not null)
+                {
+                    return false;
+                }
 
-        return count == 1 ? reference : null;
+                current.Reference = identifier;
+                return true;
+            });
+
+        return completed ? state.Reference : null;
     }
 
     /// <summary>Returns whether a reference writes to, or takes an alias of, the local rather than reading it.</summary>
@@ -145,23 +153,6 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression),
         _ => false,
     };
-
-    /// <summary>Returns whether a reference sits inside a nested function relative to a boundary block.</summary>
-    /// <param name="reference">The reference to inspect.</param>
-    /// <param name="boundary">The block that bounds the local's scope.</param>
-    /// <returns><see langword="true"/> when a lambda or local function encloses the reference within the boundary.</returns>
-    internal static bool IsCaptured(SyntaxNode reference, BlockSyntax boundary)
-    {
-        for (var node = reference.Parent; node is not null && node != boundary; node = node.Parent)
-        {
-            if (node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether inlining would move work that costs something into a loop that repeats it.</summary>
     /// <param name="value">The initializer that would be inlined.</param>
@@ -184,55 +175,23 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     internal static bool HasSideEffectBeforeReference(StatementSyntax statement, SyntaxNode reference)
     {
         var referenceStart = reference.Span.Start;
-        foreach (var node in statement.DescendantNodes())
-        {
-            if (node.Span.End <= referenceStart && IsSideEffecting(node))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return !DescendantTraversalHelper.VisitDescendants<SyntaxNode, int>(
+            statement,
+            ref referenceStart,
+            static (node, ref start) => node.Span.End > start || !IsSideEffecting(node));
     }
 
     /// <summary>Returns whether a loop encloses a reference within the local's scope.</summary>
     /// <param name="reference">The reference to inspect.</param>
     /// <param name="boundary">The block that bounds the local's scope.</param>
     /// <returns><see langword="true"/> when a <c>for</c>, <c>foreach</c>, <c>while</c>, or <c>do</c> encloses the reference.</returns>
-    private static bool IsInsideLoop(SyntaxNode reference, BlockSyntax boundary)
-    {
-        for (var candidate = reference.Parent; candidate is not null && candidate != boundary; candidate = candidate.Parent)
-        {
-            if (candidate is ForStatementSyntax or ForEachStatementSyntax or ForEachVariableStatementSyntax
-                or WhileStatementSyntax or DoStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a block holds source that this configuration compiled out.</summary>
-    /// <param name="block">The block holding the local's scope.</param>
-    /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the block.</returns>
-    private static bool HasInactiveRegion(BlockSyntax block)
-    {
-        if (!block.ContainsDirectives)
-        {
-            return false;
-        }
-
-        foreach (var trivia in block.DescendantTrivia(descendIntoTrivia: true))
-        {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsInsideLoop(SyntaxNode reference, BlockSyntax boundary) =>
+        SyntaxAncestry.HasAncestorBefore(
+            reference,
+            boundary,
+            static candidate => candidate is ForStatementSyntax or ForEachStatementSyntax or ForEachVariableStatementSyntax
+                or WhileStatementSyntax or DoStatementSyntax);
 
     /// <summary>Returns whether an expression is a leaf that reads state without any operation.</summary>
     /// <param name="expression">The expression to classify.</param>
@@ -286,7 +245,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the enclosing block, declarator and initializer when a declaration can start an inline.</summary>
     /// <param name="local">The local declaration statement.</param>
     /// <returns>The block, declarator and initializer, or <see langword="null"/> when the shape does not match.</returns>
-    private static (BlockSyntax Block, VariableDeclaratorSyntax Declarator, ExpressionSyntax Value)? GetInlinableShape(
+    private static InlinableLocal? GetInlinableShape(
         LocalDeclarationStatementSyntax local) => local.Modifiers.Any(SyntaxKind.ConstKeyword)
             || local.Parent is not BlockSyntax block
             || local.Declaration is not { Variables.Count: 1 } declaration
@@ -294,26 +253,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
             || declaration.Variables[0].Initializer is not { } equalsValue
             || !IsPureInlinable(equalsValue.Value)
             ? null
-            : (block, declaration.Variables[0], equalsValue.Value);
-
-    /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static InlineSingleUseLocalOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = InlineSingleUseLocalOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
+            : new InlinableLocal(block, declaration.Variables[0], equalsValue.Value);
 
     /// <summary>Returns whether a local's one reference is a plain, uncaptured read this fix can safely inline into.</summary>
     /// <param name="model">The semantic model.</param>
@@ -321,19 +261,32 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="useStatement">The statement immediately after the declaration.</param>
     /// <param name="symbol">The local symbol.</param>
     /// <param name="value">The initializer that would be inlined.</param>
+    /// <param name="cancellationToken">A token that cancels reference binding.</param>
     /// <returns><see langword="true"/> when inlining preserves behaviour.</returns>
     private static bool IsSafeSingleUse(
         SemanticModel model,
         BlockSyntax block,
         StatementSyntax useStatement,
         ILocalSymbol symbol,
-        ExpressionSyntax value) =>
-        FindSingleReference(model, block, symbol) is { } reference
+        ExpressionSyntax value,
+        CancellationToken cancellationToken) =>
+        FindSingleReference(model, block, symbol, cancellationToken) is { } reference
             && useStatement.Span.Contains(reference.Span)
             && !IsWriteOrAlias(reference)
-            && !IsCaptured(reference, block)
+            && !NestedFunctionScope.IsInsideNestedFunction(reference, block)
             && !RepeatsWorkInLoop(value, reference, block)
             && !HasSideEffectBeforeReference(useStatement, reference);
+
+    /// <summary>Checks whether the next statement contains any identifier that could read the local.</summary>
+    /// <param name="statement">The statement immediately following the declaration.</param>
+    /// <param name="name">The declared local's identifier text.</param>
+    /// <returns>Whether binding could find a reference in the only statement eligible for inlining.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasPossibleReference(StatementSyntax statement, string name) =>
+        !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, string>(
+            statement,
+            ref name,
+            static (identifier, ref localName) => identifier.Identifier.ValueText != localName);
 
     /// <summary>Reports a single-use local whose initializer can be safely inlined into its one read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -356,15 +309,16 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         }
 
         // Width is the cheapest of the remaining tests, and the only one that needs neither the model nor a scan.
-        if (value.Span.Length > GetOptions(context, optionsByTree).MaxInitializerLength)
+        if (value.Span.Length > TreeOptionsCache.GetOrRead(optionsByTree, context, InlineSingleUseLocalOptions.Read).MaxInitializerLength)
         {
             return;
         }
 
         var useStatement = block.Statements[declarationIndex + 1];
-        if (context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
+        if (!HasPossibleReference(useStatement, declarator.Identifier.ValueText)
+            || context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
             || !PreservesDeclaredMeaning(context.SemanticModel, value, symbol, context.CancellationToken)
-            || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol, value))
+            || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol, value, context.CancellationToken))
         {
             return;
         }

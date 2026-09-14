@@ -91,6 +91,34 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>Removes explicit parameter types from a lambda.</summary>
+    /// <param name="lambda">The lambda.</param>
+    /// <returns>The updated lambda.</returns>
+    internal static ParenthesizedLambdaExpressionSyntax RemoveLambdaParameterTypes(ParenthesizedLambdaExpressionSyntax lambda)
+    {
+        var parametersWithSeparators = lambda.ParameterList.Parameters.GetWithSeparators();
+        var rewritten = new SyntaxNodeOrToken[parametersWithSeparators.Count];
+        for (var i = 0; i < parametersWithSeparators.Count; i++)
+        {
+            rewritten[i] = parametersWithSeparators[i].AsNode() is ParameterSyntax parameter
+                ? parameter.Update(parameter.AttributeLists, parameter.Modifiers, type: null, parameter.Identifier, parameter.Default)
+                : parametersWithSeparators[i];
+        }
+
+        var parameterList = lambda.ParameterList.Update(
+            lambda.ParameterList.OpenParenToken,
+            SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten),
+            lambda.ParameterList.CloseParenToken);
+        return lambda.Update(
+            lambda.AttributeLists,
+            lambda.Modifiers,
+            lambda.ReturnType,
+            parameterList,
+            lambda.ArrowToken,
+            lambda.Block,
+            lambda.ExpressionBody);
+    }
+
     /// <summary>Reports lambdas whose parameter types are already supplied by the target delegate.</summary>
     /// <param name="context">The syntax context.</param>
     private static void AnalyzeLambda(SyntaxNodeAnalysisContext context)
@@ -289,22 +317,5 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
         }
 
         return count;
-    }
-
-    /// <summary>Removes explicit parameter types from a lambda.</summary>
-    /// <param name="lambda">The lambda.</param>
-    /// <returns>The updated lambda.</returns>
-    private static ParenthesizedLambdaExpressionSyntax RemoveLambdaParameterTypes(ParenthesizedLambdaExpressionSyntax lambda)
-    {
-        var parametersWithSeparators = lambda.ParameterList.Parameters.GetWithSeparators();
-        var rewritten = new SyntaxNodeOrToken[parametersWithSeparators.Count];
-        for (var i = 0; i < parametersWithSeparators.Count; i++)
-        {
-            rewritten[i] = parametersWithSeparators[i].AsNode() is ParameterSyntax parameter
-                ? parameter.WithType(null)
-                : parametersWithSeparators[i];
-        }
-
-        return lambda.WithParameterList(lambda.ParameterList.WithParameters(SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten)));
     }
 }

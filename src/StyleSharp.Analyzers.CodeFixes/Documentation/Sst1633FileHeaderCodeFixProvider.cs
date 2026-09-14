@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Collections.Generic;
 
 using Microsoft.CodeAnalysis.Text;
@@ -11,37 +12,31 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds the configured file header, replacing an existing (e.g. outdated) header rather than stacking on top of it (SST1633).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1633FileHeaderCodeFixProvider))]
 [Shared]
-public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.FileHeader.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!diagnostic.Properties.TryGetValue(FileHeaderHelper.HeaderProperty, out var header) || string.IsNullOrEmpty(header))
-            {
-                continue;
-            }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static diagnostic => diagnostic.Properties.TryGetValue(FileHeaderHelper.HeaderProperty, out var header) && !string.IsNullOrEmpty(header) ? "Add file header" : null,
+            nameof(Sst1633FileHeaderCodeFixProvider),
+            RegisterTextChanges);
 
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add file header",
-                    cancellationToken => AddHeaderAsync(context.Document, header!, cancellationToken),
-                    equivalenceKey: nameof(Sst1633FileHeaderCodeFixProvider)),
-                diagnostic);
-        }
-
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!diagnostic.Properties.TryGetValue(FileHeaderHelper.HeaderProperty, out var header) || string.IsNullOrEmpty(header))
         {
@@ -49,23 +44,6 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider, ITextCha
         }
 
         changes.Add(BuildChange(text, root, header!));
-    }
-
-    /// <summary>
-    /// Replaces an existing file-header comment block with the rendered header (re-joined with the
-    /// file's newline), or inserts it at the top when no header is present. Replacing — rather than
-    /// always prepending — is what makes the fix usable for bumping an outdated copyright year instead
-    /// of stacking a second header on top of the stale one.
-    /// </summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="header">The rendered header, lines joined by "\n".</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> AddHeaderAsync(Document document, string header, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithText(text.WithChanges(BuildChange(text, root, header)));
     }
 
     /// <summary>Builds the change that replaces any existing header block with the rendered header.</summary>
@@ -76,9 +54,38 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider, ITextCha
     private static TextChange BuildChange(SourceText text, SyntaxNode? root, string header)
     {
         var newLine = DetectNewLine(text);
-        var headerBlock = header.Replace("\n", newLine) + newLine;
         var existingEnd = root is null ? 0 : ExistingHeaderEnd(root.GetLeadingTrivia());
-        return new(TextSpan.FromBounds(0, existingEnd), headerBlock);
+        var span = TextSpan.FromBounds(0, existingEnd);
+        if (newLine == "\n")
+        {
+            return new(span, header + newLine);
+        }
+
+        var buffer = ArrayPool<char>.Shared.Rent((header.Length + 1) * newLine.Length);
+        try
+        {
+            var length = 0;
+            foreach (var character in header)
+            {
+                if (character == '\n')
+                {
+                    newLine.CopyTo(0, buffer, length, newLine.Length);
+                    length += newLine.Length;
+                }
+                else
+                {
+                    buffer[length] = character;
+                    length++;
+                }
+            }
+
+            newLine.CopyTo(0, buffer, length, newLine.Length);
+            return new(span, new string(buffer, 0, length + newLine.Length));
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>

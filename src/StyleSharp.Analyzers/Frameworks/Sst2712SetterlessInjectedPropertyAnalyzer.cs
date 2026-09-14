@@ -11,11 +11,10 @@ namespace StyleSharp.Analyzers;
 /// <c>NullReferenceException</c> at first use.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on the <c>Microsoft.AspNetCore.Components.InjectAttribute</c> or
-/// <c>CascadingParameterAttribute</c> marker resolving; a project that references neither registers nothing and
-/// pays nothing. The clean path is symbol-only and short-circuits on the cheap flags first — a property that has
-/// a setter, is an indexer, or is static is dismissed before its attributes are examined — so only a setter-less
-/// instance property is bound to a marker.
+/// The <c>Microsoft.AspNetCore.Components.InjectAttribute</c> and <c>CascadingParameterAttribute</c> markers are
+/// resolved only after a candidate attribute is found. The clean path is symbol-only and short-circuits on the
+/// cheap flags first — a property that has a setter, is an indexer, or is static is dismissed before its attributes
+/// are examined — so only a setter-less instance property is bound to a marker.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2712SetterlessInjectedPropertyAnalyzer : DiagnosticAnalyzer
@@ -29,6 +28,13 @@ public sealed class Sst2712SetterlessInjectedPropertyAnalyzer : DiagnosticAnalyz
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.SetterlessInjectedProperty);
 
+    /// <summary>The metadata names BindingMarkers resolves, in slot order.</summary>
+    private static readonly string[] BindingMarkersMetadataNames =
+    [
+        InjectAttributeMetadataName,
+        CascadingParameterAttributeMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -38,25 +44,17 @@ public sealed class Sst2712SetterlessInjectedPropertyAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var compilation = start.Compilation;
-            var inject = compilation.GetTypeByMetadataName(InjectAttributeMetadataName);
-            var cascading = compilation.GetTypeByMetadataName(CascadingParameterAttributeMetadataName);
-            if (inject is null && cascading is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, inject, cascading), SymbolKind.Property);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, BindingMarkersMetadataNames),
+            AnalyzeProperty,
+            SymbolKind.Property);
     }
 
     /// <summary>Reports a setter-less property that carries an injection or cascading marker.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="inject">The resolved injection attribute type, if present.</param>
-    /// <param name="cascading">The resolved cascading-parameter attribute type, if present.</param>
-    private static void AnalyzeProperty(in SymbolAnalysisContext context, INamedTypeSymbol? inject, INamedTypeSymbol? cascading)
+    /// <param name="markers">The injection and cascading markers resolved on demand.</param>
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, LazyMetadataTypes markers)
     {
         var property = (IPropertySymbol)context.Symbol;
         if (property.SetMethod is not null || property.IsIndexer || property.IsStatic)
@@ -64,7 +62,7 @@ public sealed class Sst2712SetterlessInjectedPropertyAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        if (!HasBindingMarker(property, inject, cascading))
+        if (!HasBindingMarker(property, markers))
         {
             return;
         }
@@ -74,15 +72,22 @@ public sealed class Sst2712SetterlessInjectedPropertyAnalyzer : DiagnosticAnalyz
 
     /// <summary>Returns whether a property carries the injection or cascading marker attribute.</summary>
     /// <param name="property">The property to inspect.</param>
-    /// <param name="inject">The resolved injection attribute type, if present.</param>
-    /// <param name="cascading">The resolved cascading-parameter attribute type, if present.</param>
+    /// <param name="markers">The injection and cascading markers resolved on demand.</param>
     /// <returns><see langword="true"/> when a marker is present.</returns>
-    private static bool HasBindingMarker(IPropertySymbol property, INamedTypeSymbol? inject, INamedTypeSymbol? cascading)
+    private static bool HasBindingMarker(IPropertySymbol property, LazyMetadataTypes markers)
     {
         var attributes = property.GetAttributes();
         for (var i = 0; i < attributes.Length; i++)
         {
             var attributeClass = attributes[i].AttributeClass;
+            if (attributeClass?.Name is not ("InjectAttribute" or "CascadingParameterAttribute"))
+            {
+                continue;
+            }
+
+            var types = markers.Get();
+            var inject = types[0];
+            var cascading = types[1];
             if ((inject is not null && SymbolEqualityComparer.Default.Equals(attributeClass, inject))
                 || (cascading is not null && SymbolEqualityComparer.Default.Equals(attributeClass, cascading)))
             {

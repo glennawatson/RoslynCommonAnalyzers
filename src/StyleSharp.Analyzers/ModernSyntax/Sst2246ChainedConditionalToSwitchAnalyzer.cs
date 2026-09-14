@@ -155,7 +155,7 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
 
             var constantExpression = ((BinaryExpressionSyntax)current.Condition).Right;
             var constant = model.GetConstantValue(constantExpression, cancellationToken);
-            if (!constant.HasValue || ContainsConstant(constants, constant.Value))
+            if (!constant.HasValue || constants.Contains(constant.Value))
             {
                 return false;
             }
@@ -252,23 +252,6 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
         return type.TypeKind == TypeKind.Enum
             || special == SpecialType.System_String
             || (special is >= SpecialType.System_Char and <= SpecialType.System_UInt64);
-    }
-
-    /// <summary>Returns whether a collected constant value already appears in the chain.</summary>
-    /// <param name="constants">The constant values seen so far.</param>
-    /// <param name="value">The candidate value.</param>
-    /// <returns><see langword="true"/> when the value duplicates an earlier arm.</returns>
-    private static bool ContainsConstant(List<object?> constants, object? value)
-    {
-        for (var i = 0; i < constants.Count; i++)
-        {
-            if (Equals(constants[i], value))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether the rewritten switch expression binds to the type the chain converts to.</summary>

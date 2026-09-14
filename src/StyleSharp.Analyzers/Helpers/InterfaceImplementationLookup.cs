@@ -22,25 +22,42 @@ internal static class InterfaceImplementationLookup
     internal static bool ImplementsInterfaceMember(ISymbol symbol)
     {
         var containingType = symbol.ContainingType;
-        if (containingType is null || containingType.TypeKind == TypeKind.Interface)
-        {
-            return false;
-        }
+        return containingType is not null
+            && containingType.TypeKind != TypeKind.Interface
+            && FindImplementedInterfaceMember(containingType, symbol) is not null;
+    }
 
+    /// <summary>Returns the interface member a member implicitly implements, whatever kind of type declares it.</summary>
+    /// <param name="symbol">The declared member.</param>
+    /// <returns>The implemented interface member, or <see langword="null"/> when the member implements none.</returns>
+    internal static ISymbol? FindImplementedInterfaceMember(ISymbol symbol) =>
+        symbol.ContainingType is { } containingType ? FindImplementedInterfaceMember(containingType, symbol) : null;
+
+    /// <summary>Returns the interface member a member of <paramref name="containingType"/> implicitly implements.</summary>
+    /// <param name="containingType">The type that declares <paramref name="symbol"/>.</param>
+    /// <param name="symbol">The declared member.</param>
+    /// <returns>The implemented interface member, or <see langword="null"/> when the member implements none.</returns>
+    /// <remarks>
+    /// Only same-named interface members of the same symbol kind are resolved: an implementation always
+    /// shares both with the member it implements, so every other candidate is skipped without a lookup.
+    /// </remarks>
+    internal static ISymbol? FindImplementedInterfaceMember(INamedTypeSymbol containingType, ISymbol symbol)
+    {
         var interfaces = containingType.AllInterfaces;
         for (var i = 0; i < interfaces.Length; i++)
         {
             var candidates = interfaces[i].GetMembers(symbol.Name);
             for (var j = 0; j < candidates.Length; j++)
             {
-                var implementation = containingType.FindImplementationForInterfaceMember(candidates[j]);
-                if (SymbolEqualityComparer.Default.Equals(implementation, symbol))
+                var candidate = candidates[j];
+                if (candidate.Kind == symbol.Kind
+                    && SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidate), symbol))
                 {
-                    return true;
+                    return candidate;
                 }
             }
         }
 
-        return false;
+        return null;
     }
 }

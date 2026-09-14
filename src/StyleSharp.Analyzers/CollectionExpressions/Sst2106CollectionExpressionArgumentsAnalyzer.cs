@@ -29,25 +29,18 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var targets = CollectionExpressionArgumentTargets.Resolve(start.Compilation);
-            if (targets is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, targets),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<CollectionExpressionArgumentTargets?>(compilation, CollectionExpressionArgumentTargets.Resolve),
+            Analyze,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Reports one collection creation whose arguments are pure configuration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="targets">The resolved collection and comparer symbols.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, CollectionExpressionArgumentTargets targets)
+    /// <param name="targets">The collection and comparer symbols resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<CollectionExpressionArgumentTargets?> targets)
     {
         if (!LanguageVersions.SupportsCSharp15(context.Node))
         {
@@ -60,12 +53,12 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
             return;
         }
 
-        if (!HasExplicitTarget(creation))
+        if (!HasExplicitTarget(creation) || targets.Get() is not { } resolved)
         {
             return;
         }
 
-        var created = ConfiguredCollection(context, creation, targets);
+        var created = ConfiguredCollection(context, creation, resolved);
         if (created is null)
         {
             return;

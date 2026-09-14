@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -73,7 +74,7 @@ public class MemberQualificationRequireThisCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> MemberQualificationRequireThis_ApplyFixAsync()
     {
-        var updated = NameSimplificationCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, NameSimplificationCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

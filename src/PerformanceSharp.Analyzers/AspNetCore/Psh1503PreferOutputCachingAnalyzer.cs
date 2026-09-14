@@ -12,8 +12,8 @@ namespace PerformanceSharp.Analyzers;
 /// <c>UseOutputCache()</c> / <c>CacheOutput()</c>.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on the output-caching API resolving, so a project that
-/// cannot adopt the suggestion — or is not a web app at all — registers no syntax action and pays nothing.
+/// The output-caching API is resolved once per compilation, only after a matching invocation is found,
+/// so a project without a candidate does not pay for metadata resolution.
 /// The clean path is a method-name token comparison; only a name-matched invocation is bound, and its
 /// containing type must be the response-caching extension class, so a same-named method of your own is
 /// never confused with it.
@@ -57,25 +57,11 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(OutputCacheServiceExtensionsMetadataName) is null
-                && start.Compilation.GetTypeByMetadataName(OutputCacheOptionsMetadataName) is null)
-            {
-                return;
-            }
-
-            var servicesExtensions = start.Compilation.GetTypeByMetadataName(ResponseCachingServicesExtensionsMetadataName);
-            var builderExtensions = start.Compilation.GetTypeByMetadataName(ResponseCachingBuilderExtensionsMetadataName);
-            if (servicesExtensions is null && builderExtensions is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, servicesExtensions, builderExtensions),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?[]>(compilation, ResolveExtensions),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns the member name an invocation targets, without binding it.</summary>
@@ -91,9 +77,8 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1503 for a call that registers the legacy response-caching middleware.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="servicesExtensions">The response-caching service extensions, when referenced.</param>
-    /// <param name="builderExtensions">The response-caching application-builder extensions, when referenced.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? servicesExtensions, INamedTypeSymbol? builderExtensions)
+    /// <param name="markers">The caching types resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?[]> markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var methodName = GetInvokedMethodName(invocation.Expression);
@@ -102,7 +87,8 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (markers.Get() is not [var servicesExtensions, var builderExtensions]
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || (!SymbolEqualityComparer.Default.Equals(method.ContainingType, servicesExtensions)
                 && !SymbolEqualityComparer.Default.Equals(method.ContainingType, builderExtensions)))
         {
@@ -116,5 +102,23 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
             invocation.Span,
             methodName,
             replacement));
+    }
+
+    /// <summary>Resolves response-caching extensions when the replacement API is available.</summary>
+    /// <param name="compilation">The compilation to probe.</param>
+    /// <returns>The extension types, or an empty array when output caching is unavailable.</returns>
+    private static INamedTypeSymbol?[] ResolveExtensions(Compilation compilation)
+    {
+        if (compilation.GetTypeByMetadataName(OutputCacheServiceExtensionsMetadataName) is null
+            && compilation.GetTypeByMetadataName(OutputCacheOptionsMetadataName) is null)
+        {
+            return [];
+        }
+
+        var servicesExtensions = compilation.GetTypeByMetadataName(ResponseCachingServicesExtensionsMetadataName);
+        var builderExtensions = compilation.GetTypeByMetadataName(ResponseCachingBuilderExtensionsMetadataName);
+        return servicesExtensions is null && builderExtensions is null
+            ? []
+            : [servicesExtensions, builderExtensions];
     }
 }

@@ -28,7 +28,7 @@ namespace PerformanceSharp.Analyzers;
 /// at all, so the view and the copy answer every question the same way.
 /// </para>
 /// <para>
-/// The rule is switched off at compilation start when <c>MemoryExtensions</c> has no
+/// After a range-indexer candidate is found, the rule checks that <c>MemoryExtensions</c> has a
 /// <see cref="Range"/>-taking slice, and the rewritten call is bound speculatively before anything is
 /// reported, so a target framework that cannot express the fix never sees the diagnostic.
 /// </para>
@@ -82,15 +82,11 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (!HasRangeSlice(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeElementAccess, SyntaxKind.ElementAccessExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, HasRangeSlice),
+            AnalyzeElementAccess,
+            SyntaxKind.ElementAccessExpression);
     }
 
     /// <summary>Returns whether an element access is a plain <c>x[a..b]</c>, before any binding.</summary>
@@ -154,10 +150,11 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1019 for an array range indexer whose result is consumed as a read-only view.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeElementAccess(SyntaxNodeAnalysisContext context)
+    /// <param name="rangeSlice">Whether the compilation's <c>MemoryExtensions</c> has a range-taking slice.</param>
+    private static void AnalyzeElementAccess(in SyntaxNodeAnalysisContext context, LazyCompilationProbe rangeSlice)
     {
         var access = (ElementAccessExpressionSyntax)context.Node;
-        if (!IsRangeIndexerShape(access))
+        if (!IsRangeIndexerShape(access) || !rangeSlice.Get())
         {
             return;
         }

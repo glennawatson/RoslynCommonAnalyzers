@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,7 +17,7 @@ namespace StyleSharp.Analyzers;
 /// The clean path is a syntax check: a parameter with no attribute lists returns before the semantic model is
 /// touched, and only an attribute whose simple name is <c>DefaultValue</c>/<c>DefaultValueAttribute</c> and
 /// that lands on the parameter itself (no target, or <c>[param:]</c>) is bound. <c>DefaultValueAttribute</c>
-/// is resolved once per compilation and the whole rule is gated on it. An attribute retargeted to the record's
+/// is resolved on first demand per compilation after the name and target checks pass. An attribute retargeted to the record's
 /// generated property or field with <c>[property:]</c>/<c>[field:]</c> reaches a home that really does read it
 /// and is left alone.
 /// </remarks>
@@ -52,22 +54,18 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Registers the parameter walk only when the designer attribute resolves.</summary>
+    /// <summary>Registers the parameter walk with deferred designer-attribute resolution.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        if (context.Compilation.GetTypeByMetadataName(DefaultValueMetadataName) is not { } defaultValueAttribute)
-        {
-            return;
-        }
-
+        var defaultValueAttribute = new LazyMetadataType(context.Compilation, DefaultValueMetadataName);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, defaultValueAttribute), SyntaxKind.Parameter);
     }
 
     /// <summary>Reports the designer attribute on a parameter that no call site reads.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="defaultValueAttribute">The resolved designer attribute symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol defaultValueAttribute)
+    /// <param name="defaultValueAttribute">The designer attribute resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType defaultValueAttribute)
     {
         var parameter = (ParameterSyntax)context.Node;
         var attributeLists = parameter.AttributeLists;
@@ -93,8 +91,7 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
-                    || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, defaultValueAttribute))
+                if (!IsDesignerAttribute(context, parameter, attribute, defaultValueAttribute))
                 {
                     continue;
                 }
@@ -107,20 +104,60 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>Confirms the designer attribute after excluding unrelated declaration attributes.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="parameter">The parameter carrying the attribute.</param>
+    /// <param name="attribute">The candidate attribute syntax.</param>
+    /// <param name="defaultValueAttribute">The cached designer attribute type.</param>
+    /// <returns>Whether the attribute constructor belongs to the designer attribute.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsDesignerAttribute(
+        in SyntaxNodeAnalysisContext context,
+        ParameterSyntax parameter,
+        AttributeSyntax attribute,
+        LazyMetadataType defaultValueAttribute) =>
+        defaultValueAttribute.Get() is { } attributeType
+            && !IsUnrelatedAttribute(context, parameter, attribute, attributeType)
+            && context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
+            && SymbolEqualityComparer.Default.Equals(constructor.ContainingType, attributeType);
+
+    /// <summary>Excludes an unrelated attribute using declaration data before creating an attribute semantic model.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="parameter">The parameter carrying the attribute.</param>
+    /// <param name="attribute">The candidate attribute syntax.</param>
+    /// <param name="attributeType">The resolved designer attribute type.</param>
+    /// <returns>Whether the declaration has already resolved the candidate to a different attribute type.</returns>
+    private static bool IsUnrelatedAttribute(
+        in SyntaxNodeAnalysisContext context,
+        ParameterSyntax parameter,
+        AttributeSyntax attribute,
+        INamedTypeSymbol attributeType)
+    {
+        if (context.SemanticModel.GetDeclaredSymbol(parameter, context.CancellationToken) is not { } symbol)
+        {
+            return false;
+        }
+
+        var attributes = symbol.GetAttributes();
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            var candidate = attributes[i];
+            if (candidate.ApplicationSyntaxReference is { } reference
+                && reference.SyntaxTree == attribute.SyntaxTree
+                && reference.Span == attribute.Span)
+            {
+                return candidate.AttributeClass is { } candidateType
+                    && candidateType.TypeKind != TypeKind.Error
+                    && !SymbolEqualityComparer.Default.Equals(candidateType, attributeType);
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Returns whether an attribute name is spelled <c>DefaultValue</c> or <c>DefaultValueAttribute</c>.</summary>
     /// <param name="name">The attribute name syntax.</param>
     /// <returns><see langword="true"/> when the simple name matches either spelling.</returns>
     private static bool IsDefaultValueName(NameSyntax name) =>
-        GetSimpleName(name) is DefaultValueName or DefaultValueSuffixedName;
-
-    /// <summary>Reduces an attribute name to its rightmost identifier text.</summary>
-    /// <param name="name">The attribute name syntax.</param>
-    /// <returns>The simple identifier text, or <see langword="null"/> for an unexpected shape.</returns>
-    private static string? GetSimpleName(NameSyntax name) => name switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-        _ => null,
-    };
+        SyntaxNames.GetIdentifierName(name) is DefaultValueName or DefaultValueSuffixedName;
 }

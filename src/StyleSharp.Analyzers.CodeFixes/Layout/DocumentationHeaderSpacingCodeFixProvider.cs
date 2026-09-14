@@ -13,45 +13,33 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(DocumentationHeaderSpacingCodeFixProvider))]
 [Shared]
-public sealed class DocumentationHeaderSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class DocumentationHeaderSpacingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.DocHeaderPrecededByBlankLine.Id,
         LayoutRules.DocHeaderNotFollowedByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            nameof(DocumentationHeaderSpacingCodeFixProvider),
+            RegisterTextChanges);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member
-                || !LayoutHelpers.TryGetDocHeader(member, out _))
-            {
-                continue;
-            }
-
-            var insertBefore = diagnostic.Id == LayoutRules.DocHeaderPrecededByBlankLine.Id;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    insertBefore ? "Insert blank line before documentation" : "Remove blank line after documentation",
-                    cancellationToken => FixAsync(context.Document, member, insertBefore, cancellationToken),
-                    equivalenceKey: nameof(DocumentationHeaderSpacingCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member
             || !LayoutHelpers.TryGetDocHeader(member, out _))
@@ -61,18 +49,6 @@ public sealed class DocumentationHeaderSpacingCodeFixProvider : CodeFixProvider,
 
         var insertBefore = diagnostic.Id == LayoutRules.DocHeaderPrecededByBlankLine.Id;
         changes.Add(BuildChange(text, member, insertBefore));
-    }
-
-    /// <summary>Applies the blank-line insertion or removal around the member's documentation header.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="member">The documented member.</param>
-    /// <param name="insertBefore">When <see langword="true"/>, inserts a blank line before the header; otherwise removes the blank line after it.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> FixAsync(Document document, MemberDeclarationSyntax member, bool insertBefore, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithText(text.WithChanges(BuildChange(text, member, insertBefore)));
     }
 
     /// <summary>Builds the change that inserts or removes the blank line around the member's documentation header.</summary>
@@ -96,4 +72,19 @@ public sealed class DocumentationHeaderSpacingCodeFixProvider : CodeFixProvider,
         var span = TextSpan.FromBounds(text.Lines[headerLastLine + 1].Start, text.Lines[memberLine].Start);
         return new(span, string.Empty);
     }
+
+    /// <summary>Words the action for a documented member whose header spacing the diagnostic reports.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the member no longer carries a documentation header.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is { } member && LayoutHelpers.TryGetDocHeader(member, out _)
+            ? TitleFor(diagnostic.Id)
+            : null;
+
+    /// <summary>Words the action for the reported spacing rule.</summary>
+    /// <param name="diagnosticId">The reported rule id.</param>
+    /// <returns>The code action title.</returns>
+    private static string TitleFor(string diagnosticId) =>
+        diagnosticId == LayoutRules.DocHeaderPrecededByBlankLine.Id ? "Insert blank line before documentation" : "Remove blank line after documentation";
 }

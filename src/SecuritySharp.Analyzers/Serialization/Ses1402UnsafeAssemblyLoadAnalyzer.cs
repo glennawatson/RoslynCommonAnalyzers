@@ -13,18 +13,12 @@ namespace SecuritySharp.Analyzers;
 /// of scope). The safe <c>Assembly.Load(string)</c> / <c>Load(AssemblyName)</c> identity overloads are told
 /// apart by their first parameter type and are never reported. For the in-memory shapes, a source argument
 /// that is directly <c>&lt;assembly&gt;.GetManifestResourceStream(...)</c> -- a trusted embedded resource -- is
-/// left silent. The rule resolves <c>System.Reflection.Assembly</c> once per compilation and registers nothing
-/// when it is absent, so a project that cannot call these APIs pays nothing.
+/// left silent. The rule resolves its framework types only after a call passes the syntax prefilter
+/// and reports nothing when <c>System.Reflection.Assembly</c> is absent.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type that owns the reflection load methods.</summary>
-    private const string AssemblyMetadataName = "System.Reflection.Assembly";
-
-    /// <summary>The metadata name of the load context that owns <c>LoadFromStream</c>.</summary>
-    private const string AssemblyLoadContextMetadataName = "System.Runtime.Loader.AssemblyLoadContext";
-
     /// <summary>The name of the <c>Assembly.Load</c> method (raw-bytes overload is guarded).</summary>
     private const string LoadMethodName = "Load";
 
@@ -42,6 +36,15 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The name of the trusted embedded-resource accessor that suppresses the diagnostic.</summary>
     private const string ManifestResourceStreamMethodName = "GetManifestResourceStream";
+
+    /// <summary>The metadata name of the type that owns the reflection load methods.</summary>
+    private const string AssemblyMetadataName = "System.Reflection.Assembly";
+
+    /// <summary>The metadata name of the load context that owns <c>LoadFromStream</c>.</summary>
+    private const string AssemblyLoadContextMetadataName = "System.Runtime.Loader.AssemblyLoadContext";
+
+    /// <summary>The assembly and load-context metadata names, in slot order.</summary>
+    private static readonly string[] AssemblyMetadataNames = [AssemblyMetadataName, AssemblyLoadContextMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UnsafeAssemblyLoad);
@@ -68,26 +71,17 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var assemblyType = start.Compilation.GetTypeByMetadataName(AssemblyMetadataName);
-            if (assemblyType is null)
-            {
-                return;
-            }
-
-            var loadContextType = start.Compilation.GetTypeByMetadataName(AssemblyLoadContextMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, assemblyType, loadContextType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, AssemblyMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1402 for a guarded assembly-load call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="assemblyType">The resolved <c>System.Reflection.Assembly</c> type.</param>
-    /// <param name="loadContextType">The resolved <c>AssemblyLoadContext</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType, INamedTypeSymbol? loadContextType)
+    /// <param name="types">The compilation-scoped framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -100,7 +94,8 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
+        if (types.Get() is not [{ } assemblyType, var loadContextType]
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
         {
             return;
         }

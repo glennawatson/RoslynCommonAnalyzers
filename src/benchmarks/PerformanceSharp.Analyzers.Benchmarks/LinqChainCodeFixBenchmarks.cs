@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -71,7 +72,7 @@ public class LinqChainCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> LinqChain_ApplyFixAsync()
     {
-        var updated = LinqChainCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, LinqChainCodeFixProvider.CreateEdit);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

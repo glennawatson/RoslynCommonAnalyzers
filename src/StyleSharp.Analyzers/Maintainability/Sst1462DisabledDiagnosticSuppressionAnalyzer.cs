@@ -12,6 +12,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The category and check id required by a suppression attribute.</summary>
+    private const int MinimumArgumentCount = 2;
+
     /// <summary>The metadata name for <c>SuppressMessageAttribute</c>.</summary>
     private const string SuppressMessageAttributeMetadataName = "System.Diagnostics.CodeAnalysis.SuppressMessageAttribute";
 
@@ -27,28 +30,23 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var suppressMessageAttribute = start.Compilation.GetTypeByMetadataName(SuppressMessageAttributeMetadataName);
-            if (suppressMessageAttribute is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAttribute(nodeContext, suppressMessageAttribute),
-                SyntaxKind.Attribute);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, SuppressMessageAttributeMetadataName),
+            AnalyzeAttribute,
+            SyntaxKind.Attribute);
     }
 
     /// <summary>Reports a suppression for a disabled diagnostic id.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="suppressMessageAttribute">The suppression attribute symbol.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
+    /// <param name="suppressMessageAttribute">The suppression attribute symbol, resolved on first demand.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, LazyMetadataType suppressMessageAttribute)
     {
         var attribute = (AttributeSyntax)context.Node;
-        if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: var attributeType }
-            || !SymbolEqualityComparer.Default.Equals(attributeType, suppressMessageAttribute)
+        if (!IsPossibleSuppression(attribute, context.SemanticModel, context.CancellationToken)
+            || suppressMessageAttribute.Get() is not { } resolved
+            || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: var attributeType }
+            || !SymbolEqualityComparer.Default.Equals(attributeType, resolved)
             || TryGetCheckId(attribute.ArgumentList, context.SemanticModel, context.CancellationToken) is not { } diagnosticId
             || !DiagnosticSeverityConfiguration.IsOff(diagnosticId, attribute.SyntaxTree, context.Options, context.Compilation, context.CancellationToken))
         {
@@ -61,6 +59,32 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
             diagnosticId));
     }
 
+    /// <summary>Checks the argument shape and written name before requesting the suppression type.</summary>
+    /// <param name="attribute">The attribute to inspect.</param>
+    /// <param name="model">The semantic model, used only to preserve differently named aliases.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns>Whether the attribute can be a suppression.</returns>
+    private static bool IsPossibleSuppression(AttributeSyntax attribute, SemanticModel model, CancellationToken cancellationToken)
+    {
+        if (attribute.ArgumentList is not { Arguments.Count: >= MinimumArgumentCount } arguments
+            || arguments.Arguments[1].NameEquals is not null)
+        {
+            return false;
+        }
+
+        var name = attribute.Name switch
+        {
+            SimpleNameSyntax simple => simple.Identifier.ValueText,
+            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
+            AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
+            _ => string.Empty,
+        };
+
+        // An alias can spell the attribute differently and still bind to the framework type.
+        return name is "SuppressMessage" or "SuppressMessageAttribute"
+            || model.GetAliasInfo(attribute.Name, cancellationToken) is not null;
+    }
+
     /// <summary>Reads the diagnostic id from the second positional suppression argument.</summary>
     /// <param name="argumentList">The attribute argument list.</param>
     /// <param name="model">The semantic model.</param>
@@ -71,7 +95,7 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        if (argumentList is null || argumentList.Arguments.Count < 2)
+        if (argumentList is null || argumentList.Arguments.Count < MinimumArgumentCount)
         {
             return null;
         }

@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -17,42 +16,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1661CodeTagContentCodeFixProvider))]
 [Shared]
-public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DocumentationRules.CodeTagContent.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => TryGetSwap(root, diagnostic, out _, out var target) ? $"Use the '<{target}>' tag" : null,
+            nameof(Sst1661CodeTagContentCodeFixProvider),
+            RegisterTextChanges);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetSwap(root, diagnostic, out _, out var target))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use the '<{target}>' tag",
-                    cancellationToken => SwapAsync(context.Document, diagnostic, cancellationToken),
-                    equivalenceKey: nameof(Sst1661CodeTagContentCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryGetSwap(root, diagnostic, out var element, out var target))
         {
@@ -61,22 +50,6 @@ public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider, ITex
 
         changes.Add(new(element.StartTag.Name.Span, target));
         changes.Add(new(element.EndTag.Name.Span, target));
-    }
-
-    /// <summary>Applies the tag-name swap to the document.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> SwapAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
-    {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return root is null || !TryGetSwap(root, diagnostic, out var element, out var target)
-            ? document
-            : document.WithText(text.WithChanges(
-            new TextChange(element.StartTag.Name.Span, target),
-            new TextChange(element.EndTag.Name.Span, target)));
     }
 
     /// <summary>Resolves the element to rename and the tag name to rename it to.</summary>
@@ -90,8 +63,7 @@ public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider, ITex
         element = null!;
         target = string.Empty;
 
-        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } found
+        if (DocumentationElementFix.FindElement(root, diagnostic) is not { } found
             || !diagnostic.Properties.TryGetValue(Sst1661CodeTagContentAnalyzer.TargetTagKey, out var tag)
             || string.IsNullOrEmpty(tag))
         {

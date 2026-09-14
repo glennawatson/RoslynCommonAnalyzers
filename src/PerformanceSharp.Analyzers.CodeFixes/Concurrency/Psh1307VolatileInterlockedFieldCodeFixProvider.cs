@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1307VolatileInterlockedFieldCodeFixProvider))]
 [Shared]
-public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProvider
 {
     /// <summary>The simple name of the volatile type.</summary>
     private const string VolatileTypeName = "Volatile";
@@ -31,59 +33,31 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
     /// <summary>The fully qualified spelling used when the simple name does not resolve.</summary>
     private const string QualifiedVolatileExpression = "global::System.Threading.Volatile";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.VolatileInterlockedField.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    rewrite.Title,
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
-                    equivalenceKey: nameof(Psh1307VolatileInterlockedFieldCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } rewrite)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(rewrite.Original, rewrite.Replacement);
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, _, diagnostic) => TryCreateTitle(root, diagnostic),
+            static _ => nameof(Psh1307VolatileInterlockedFieldCodeFixProvider),
+            TryRewrite);
 
     /// <summary>Resolves the reported access and builds its Volatile wrapper.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The rewrite parts, or <see langword="null"/> for unfixable access shapes.</returns>
-    private static (SyntaxNode Original, SyntaxNode Replacement, string Title)? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    /// <returns>The replacement, or <see langword="null"/> for unfixable access shapes.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
-        if (root.FindNode(diagnostic.Location.SourceSpan) is not ExpressionSyntax usage
-            || usage is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+        if (TryGetUsage(root, diagnostic) is not { } usage)
         {
             return null;
         }
@@ -91,26 +65,19 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
         var volatileSpelling = ResolvesVolatile(model, usage.SpanStart) ? VolatileTypeName : QualifiedVolatileExpression;
         if (usage.Parent is AssignmentExpressionSyntax assignment && assignment.Left == usage)
         {
-            if (!assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
-            {
-                return null;
-            }
-
             var write = BuildVolatileCall(
                 volatileSpelling,
                 WriteMethodName,
                 usage,
-                SyntaxFactory.Argument(assignment.Right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space));
-            return (assignment, write.WithTriviaFrom(assignment), "Use Volatile.Write");
-        }
-
-        if (Psh1307VolatileInterlockedFieldAnalyzer.IsWriteAccess(usage))
-        {
-            return null;
+                SyntaxFactory.Argument(
+                    nameColon: null,
+                    refKindKeyword: default,
+                    assignment.Right.WithLeadingTrivia(SyntaxFactory.Space).WithoutTrailingTrivia()));
+            return new NodeReplacement(assignment, write.WithTriviaFrom(assignment));
         }
 
         var read = BuildVolatileCall(volatileSpelling, ReadMethodName, usage, extraArgument: null);
-        return (usage, read.WithTriviaFrom(usage), "Use Volatile.Read");
+        return new NodeReplacement(usage, read.WithTriviaFrom(usage));
     }
 
     /// <summary>Builds a <c>Volatile.X(ref field[, value])</c> invocation.</summary>
@@ -125,8 +92,10 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
         ExpressionSyntax field,
         ArgumentSyntax? extraArgument)
     {
-        var refArgument = SyntaxFactory.Argument(field.WithoutTrivia())
-            .WithRefOrOutKeyword(SyntaxFactory.Token(default, SyntaxKind.RefKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)));
+        var refArgument = SyntaxFactory.Argument(
+            nameColon: null,
+            SyntaxFactory.Token(default, SyntaxKind.RefKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            field.WithoutTrivia());
         var arguments = extraArgument is null
             ? SyntaxFactory.SingletonSeparatedList(refArgument)
             : SyntaxFactory.SeparatedList(ImmutableArrays.Of(refArgument, extraArgument));
@@ -143,16 +112,39 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="position">The lookup position.</param>
     /// <returns><see langword="true"/> when the simple spelling binds.</returns>
-    private static bool ResolvesVolatile(SemanticModel model, int position)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ResolvesVolatile(SemanticModel model, int position) =>
+        TypeNameLookup.ResolvesIn(model, position, VolatileTypeName, ThreadingNamespace);
+
+    /// <summary>Finds an access that can be wrapped without changing a read-modify-write operation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The reported access.</param>
+    /// <returns>The fixable access, or null for compound writes and unsupported shapes.</returns>
+    private static ExpressionSyntax? TryGetUsage(SyntaxNode root, Diagnostic diagnostic)
     {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: VolatileTypeName))
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not ExpressionSyntax usage
+            || usage is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
         {
-            if (candidate is INamedTypeSymbol named && named.ContainingNamespace.ToDisplayString() == ThreadingNamespace)
-            {
-                return true;
-            }
+            return null;
         }
 
-        return false;
+        if (usage.Parent is AssignmentExpressionSyntax assignment && assignment.Left == usage)
+        {
+            return assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) ? usage : null;
+        }
+
+        return Psh1307VolatileInterlockedFieldAnalyzer.IsWriteAccess(usage) ? null : usage;
     }
+
+    /// <summary>Words the action for the reported field usage: a write for an assignment target, otherwise a read.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the usage no longer resolves.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetUsage(root, diagnostic) switch
+        {
+            null => null,
+            { Parent: AssignmentExpressionSyntax assignment } usage when assignment.Left == usage => "Use Volatile.Write",
+            _ => "Use Volatile.Read",
+        };
 }

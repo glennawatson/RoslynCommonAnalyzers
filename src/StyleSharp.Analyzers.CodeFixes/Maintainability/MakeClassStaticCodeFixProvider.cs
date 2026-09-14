@@ -9,79 +9,32 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds the <c>static</c> modifier to a class whose members are all static (SST1432).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(MakeClassStaticCodeFixProvider))]
 [Shared]
-public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(
+        DiagnosticEnclosingNode.Find<ClassDeclarationSyntax>,
+        static (current, _) => MakeStatic((ClassDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.MakeClassStatic.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>() is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Mark the class 'static'",
-                    _ => Task.FromResult(Apply(context.Document, root, declaration)),
-                    equivalenceKey: nameof(MakeClassStaticCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>() is not { } declaration)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, static (current, _) => MakeStatic((ClassDeclarationSyntax)current));
-    }
-
-    /// <summary>Inserts <c>static</c> after the access modifiers, moving leading trivia when the list is empty.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="declaration">The class declaration to mark static.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration) =>
-        document.WithSyntaxRoot(root.ReplaceNode(declaration, MakeStatic(declaration)));
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Mark the class 'static'",
+            nameof(MakeClassStaticCodeFixProvider),
+            DiagnosticEnclosingNode.Find<ClassDeclarationSyntax>,
+            MakeStatic);
 
     /// <summary>Builds the class declaration with <c>static</c> inserted after the access modifiers.</summary>
     /// <param name="declaration">The class declaration to mark static.</param>
     /// <returns>The rewritten declaration.</returns>
-    private static ClassDeclarationSyntax MakeStatic(ClassDeclarationSyntax declaration)
-    {
-        if (declaration.Modifiers.Count == 0)
-        {
-            // No modifiers: move the declaration's leading trivia onto 'static' and re-indent the keyword.
-            var staticToken = SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration
-                .WithKeyword(declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-                .WithModifiers(SyntaxFactory.TokenList(staticToken));
-        }
-
-        // 'partial' must stay last in the modifier list, so 'static' goes in front of it.
-        var inserted = SyntaxFactory.Token(default, SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        var partialIndex = declaration.Modifiers.IndexOf(SyntaxKind.PartialKeyword);
-        var modifiers = partialIndex < 0
-            ? declaration.Modifiers.Add(inserted)
-            : declaration.Modifiers.Insert(partialIndex, inserted);
-        return declaration.WithModifiers(modifiers);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ClassDeclarationSyntax MakeStatic(ClassDeclarationSyntax declaration) =>
+        ClassModifierInsertion.InsertBeforePartial(declaration, SyntaxKind.StaticKeyword, takePartialIndentation: false);
 }

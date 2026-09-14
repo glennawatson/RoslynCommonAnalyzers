@@ -11,7 +11,7 @@ using VerifySpacing = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
 namespace StyleSharp.Analyzers.Tests;
 
 /// <summary>Unit tests for the trivia spacing rules (SST1005/SST1025/SST1027/SST1028).</summary>
-public class SpacingAnalyzerUnitTest
+public partial class SpacingAnalyzerUnitTest
 {
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";

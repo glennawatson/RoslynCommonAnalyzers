@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1004 — a secret is produced from <c>Guid.NewGuid()</c> rather than a cryptographic RNG.</summary>
-    public static readonly DiagnosticDescriptor GuidAsSecret = Create(
+    public static readonly DiagnosticDescriptor GuidAsSecret = DescriptorFactory.Create(
         "SES1004",
         "A secret must not be produced from Guid.NewGuid()",
         "'{0}' takes its value from Guid.NewGuid(); a GUID is an identifier, not a cryptographically strong secret -- produce it with RandomNumberGenerator instead",

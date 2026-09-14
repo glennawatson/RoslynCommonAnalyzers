@@ -16,43 +16,34 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EmbeddedStatementBraceCodeFixProvider))]
 [Shared]
-public sealed class EmbeddedStatementBraceCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class EmbeddedStatementBraceCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.BracesRequired.Id,
         LayoutRules.BracesForMultiLineChild.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<StatementSyntax>(
+            context,
+            "Add braces",
+            nameof(EmbeddedStatementBraceCodeFixProvider),
+            TryGetUnbracedChild,
+            WrapAsync);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetUnbracedChild(root, diagnostic, out var child))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add braces",
-                    cancellationToken => WrapAsync(context.Document, child, cancellationToken),
-                    equivalenceKey: nameof(EmbeddedStatementBraceCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryGetUnbracedChild(root, diagnostic, out var child))
         {

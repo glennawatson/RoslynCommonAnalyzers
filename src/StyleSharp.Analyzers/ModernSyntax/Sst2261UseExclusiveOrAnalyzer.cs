@@ -38,8 +38,8 @@ public sealed class Sst2261UseExclusiveOrAnalyzer : DiagnosticAnalyzer
         y = null!;
 
         var andKind = binary.IsKind(SyntaxKind.LogicalOrExpression) ? SyntaxKind.LogicalAndExpression : SyntaxKind.BitwiseAndExpression;
-        if (Unparenthesize(binary.Left) is not BinaryExpressionSyntax left || !left.IsKind(andKind)
-            || Unparenthesize(binary.Right) is not BinaryExpressionSyntax right || !right.IsKind(andKind)
+        if (ExpressionShapes.WalkDownParentheses(binary.Left) is not BinaryExpressionSyntax left || !left.IsKind(andKind)
+            || ExpressionShapes.WalkDownParentheses(binary.Right) is not BinaryExpressionSyntax right || !right.IsKind(andKind)
             || !TrySplit(left, out var positiveLeft, out var negatedLeft)
             || !TrySplit(right, out var positiveRight, out var negatedRight)
             || !IsPureMirror(positiveLeft, negatedLeft, positiveRight, negatedRight))
@@ -93,8 +93,8 @@ public sealed class Sst2261UseExclusiveOrAnalyzer : DiagnosticAnalyzer
         positive = null!;
         negated = null!;
 
-        var left = Unparenthesize(conjunction.Left);
-        var right = Unparenthesize(conjunction.Right);
+        var left = ExpressionShapes.WalkDownParentheses(conjunction.Left);
+        var right = ExpressionShapes.WalkDownParentheses(conjunction.Right);
         var leftNegated = TryGetNegated(left, out var leftInner);
         var rightNegated = TryGetNegated(right, out var rightInner);
         if (leftNegated == rightNegated)
@@ -124,7 +124,7 @@ public sealed class Sst2261UseExclusiveOrAnalyzer : DiagnosticAnalyzer
     {
         if (expression is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation)
         {
-            inner = Unparenthesize(negation.Operand);
+            inner = ExpressionShapes.WalkDownParentheses(negation.Operand);
             return true;
         }
 
@@ -139,17 +139,4 @@ public sealed class Sst2261UseExclusiveOrAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for <see langword="bool"/>.</returns>
     private static bool IsBoolean(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
         model.GetTypeInfo(expression, cancellationToken).Type?.SpecialType == SpecialType.System_Boolean;
-
-    /// <summary>Strips redundant parentheses from an operand.</summary>
-    /// <param name="expression">The operand.</param>
-    /// <returns>The operand with any surrounding parentheses removed.</returns>
-    private static ExpressionSyntax Unparenthesize(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
 }

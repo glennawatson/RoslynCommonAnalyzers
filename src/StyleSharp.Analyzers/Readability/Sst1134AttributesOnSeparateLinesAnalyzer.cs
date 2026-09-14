@@ -2,9 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -48,18 +45,11 @@ public sealed class Sst1134AttributesOnSeparateLinesAnalyzer : DiagnosticAnalyze
         }
 
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        if (LineOf(text, list.CloseBracketToken.Span.End) != LineOf(text, next.SpanStart))
+        if (LayoutHelpers.LineOf(text, list.CloseBracketToken.Span.End) != LayoutHelpers.LineOf(text, next.SpanStart))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.AttributesOnSeparateLines, list.GetLocation()));
     }
-
-    /// <summary>Returns the zero-based line number for a position.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="position">The position to look up.</param>
-    /// <returns>The line number.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 }

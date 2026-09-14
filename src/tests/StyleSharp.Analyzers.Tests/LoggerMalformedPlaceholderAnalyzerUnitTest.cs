@@ -11,6 +11,80 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2441 (a message template placeholder with no valid property name).</summary>
 public class LoggerMalformedPlaceholderAnalyzerUnitTest
 {
+    /// <summary>Verifies an unresolved logging method is left to the compiler.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnresolvedLogCallIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            class C { void M(ILogger logger) { logger.{|CS1061:LogMissing|}("{}"); } }
+            """));
+
+    /// <summary>Verifies conditional and static calls still locate malformed template spans.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConditionalAndStaticCallsAreAnalyzedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            class C
+            {
+                void M(ILogger logger)
+                {
+                    logger?.LogInformation("{|SST2441:{}|}", 1);
+                    LoggerExtensions.LogInformation(logger, "{|SST2441:{}|}", 1);
+                }
+            }
+            """));
+
+    /// <summary>Verifies malformed-shaped calls must resolve to a supported template signature.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsupportedLoggingSignaturesAreCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync("""
+            using Microsoft.Extensions.Logging;
+            namespace Microsoft.Extensions.Logging
+            {
+                public interface ILogger { }
+                public static class LoggerExtensions
+                {
+                    public static int Value;
+                    public static void LogPlain(this ILogger logger, string message) { }
+                    public static void LogOnly(params object[] args) { }
+                    public static void LogNumber(this ILogger logger, int number, params object[] args) { }
+                    public static void LogTemplate(this ILogger logger, string message, params object[] args) { }
+                    public static void LogOptional(this ILogger logger, string prefix, string message = "", params object[] args) { }
+                }
+            }
+            class C
+            {
+                void M(ILogger logger, string template)
+                {
+                    logger.LogPlain("{}");
+                    LoggerExtensions.LogOnly("{}");
+                    logger.LogNumber(1, "{}");
+                    logger.LogTemplate(template, "{}");
+                    logger.LogTemplate(null, "{}");
+                    logger.LogOptional("prefix");
+                    System.Action<string> action = _ => { };
+                    ((System.Action<string>)action)("{}");
+                }
+            }
+            """);
+
+    /// <summary>Verifies logger-shaped calls stay silent when logging metadata is unavailable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MissingLoggingMetadataIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync("""
+            class C
+            {
+                void Log(string template, params object[] values) { }
+                void M() { Log("{}", 1); }
+            }
+            """);
+
     /// <summary>Verifies an empty placeholder is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

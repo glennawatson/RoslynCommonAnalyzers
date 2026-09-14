@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1603 — a model-facing tool declared read-only or non-destructive calls a state-changing API.</summary>
-    public static readonly DiagnosticDescriptor NonDestructiveToolMutation = Create(
+    public static readonly DiagnosticDescriptor NonDestructiveToolMutation = DescriptorFactory.Create(
         "SES1603",
         "An AI tool declared read-only or non-destructive must not call a state-changing API",
         NonDestructiveToolMutationMessage,

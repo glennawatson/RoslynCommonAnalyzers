@@ -15,43 +15,36 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SingleLineBlockReflowCodeFixProvider))]
 [Shared]
-public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.StatementOnOwnLine.Id,
         LayoutRules.ElementOnOwnLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Expand onto multiple lines",
+            nameof(SingleLineBlockReflowCodeFixProvider),
+            static (root, diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is BlockSyntax { Statements.Count: > 0 } block
+                ? block
+                : null,
+            ReflowAsync);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not BlockSyntax { Statements.Count: > 0 } block)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Expand onto multiple lines",
-                    cancellationToken => ReflowAsync(context.Document, block, cancellationToken),
-                    equivalenceKey: nameof(SingleLineBlockReflowCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not BlockSyntax { Statements.Count: > 0 } block)
         {

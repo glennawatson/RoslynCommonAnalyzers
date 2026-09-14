@@ -29,6 +29,13 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.RemovePassThroughStateMachine);
 
+    /// <summary>The metadata names TaskTypes resolves, in slot order.</summary>
+    private static readonly string[] TaskTypesMetadataNames =
+    [
+        TaskMetadataName,
+        TaskOfTMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -38,20 +45,12 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var taskType = start.Compilation.GetTypeByMetadataName(TaskMetadataName);
-            if (taskType is null)
-            {
-                return;
-            }
-
-            var taskOfTType = start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeDeclaration(nodeContext, taskType, taskOfTType),
-                SyntaxKind.MethodDeclaration,
-                SyntaxKind.LocalFunctionStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, TaskTypesMetadataNames),
+            AnalyzeDeclaration,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.LocalFunctionStatement);
     }
 
     /// <summary>Returns whether a declaration has the async single-tail-await syntax shape, before any binding.</summary>
@@ -150,9 +149,8 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
 
     /// <summary>Reports PSH1311 for an async declaration whose whole body forwards one task of the declared return type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type, when it exists.</param>
-    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
+    /// <param name="taskTypes">The deferred task definitions for this compilation.</param>
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, LazyMetadataTypes taskTypes)
     {
         var node = context.Node;
         if (!TryGetShape(node, out var asyncKeyword, out var awaitExpression, out var isStatementAwait))
@@ -167,20 +165,18 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not IMethodSymbol declared)
+        var types = taskTypes.Get();
+        if (types[0] is not { } taskType
+            || context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not IMethodSymbol declared)
         {
             return;
         }
 
         var returnType = declared.ReturnType;
         var isPlainTask = SymbolEqualityComparer.Default.Equals(returnType, taskType);
-        if (!isPlainTask && !IsGenericTask(returnType, taskOfTType))
-        {
-            return;
-        }
 
         // A lone `await X;` statement can only forward when the declaration returns the non-generic Task.
-        if (isStatementAwait && !isPlainTask)
+        if (!isPlainTask && (isStatementAwait || !IsGenericTask(returnType, types[1])))
         {
             return;
         }

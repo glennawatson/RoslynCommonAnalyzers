@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,9 +17,9 @@ namespace PerformanceSharp.Analyzers;
 /// false positive and never fires on an already-materialized collection.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>Microsoft.AspNetCore.Builder.WebApplication</c> or
-/// <c>Microsoft.AspNetCore.Mvc.ControllerBase</c> resolving; a project that references neither registers no
-/// syntax action. The clean path fails fast on a syntactic prefilter (a map-method name with a lambda
+/// The framework types are resolved on first demand and cached per compilation. The rule requires
+/// <c>Microsoft.AspNetCore.Builder.WebApplication</c> or <c>Microsoft.AspNetCore.Mvc.ControllerBase</c>.
+/// The clean path fails fast on a syntactic prefilter (a map-method name with a lambda
 /// argument, or a public generic-returning method) before the semantic model is consulted, and the deferred
 /// expression is bound only once the return type gate has already passed.
 /// </remarks>
@@ -57,34 +59,11 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var compilation = start.Compilation;
-            var webApplication = compilation.GetTypeByMetadataName(WebApplicationMetadataName);
-            var controllerBase = compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
-            if (webApplication is null && controllerBase is null)
-            {
-                return;
-            }
-
-            var model = new DeferredResultModel(
-                controllerBase,
-                compilation.GetTypeByMetadataName(QueryableMarkerMetadataName),
-                compilation.GetTypeByMetadataName(EnumerableMetadataName),
-                compilation.GetTypeByMetadataName(QueryableMetadataName),
-                compilation.GetTypeByMetadataName(TaskMetadataName),
-                compilation.GetTypeByMetadataName(ValueTaskMetadataName));
-
-            if (webApplication is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMapInvocation(nodeContext, model), SyntaxKind.InvocationExpression);
-            }
-
-            if (controllerBase is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAction(nodeContext, model), SyntaxKind.MethodDeclaration);
-            }
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyCompilationValue<DeferredResultModel?>(compilation, ResolveModel),
+            new(AnalyzeMapInvocation, [SyntaxKind.InvocationExpression]),
+            new(AnalyzeAction, [SyntaxKind.MethodDeclaration]));
     }
 
     /// <summary>Returns whether a simple name is one of the route-handler map methods.</summary>
@@ -107,8 +86,8 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1502 for a route-handler lambda passed to an ASP.NET Core map method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void AnalyzeMapInvocation(in SyntaxNodeAnalysisContext context, DeferredResultModel model)
+    /// <param name="models">The compilation's lazily resolved deferred-sequence types.</param>
+    private static void AnalyzeMapInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DeferredResultModel?> models)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
@@ -118,7 +97,8 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         }
 
         var lambda = FindLambdaArgument(invocation.ArgumentList);
-        if (lambda is null)
+        if (lambda is null
+            || models.Get() is not { HasWebApplication: true } model)
         {
             return;
         }
@@ -140,11 +120,12 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1502 for a public action method on a controller that returns a deferred sequence.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void AnalyzeAction(in SyntaxNodeAnalysisContext context, DeferredResultModel model)
+    /// <param name="models">The compilation's lazily resolved deferred-sequence types.</param>
+    private static void AnalyzeAction(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DeferredResultModel?> models)
     {
         var method = (MethodDeclarationSyntax)context.Node;
-        if (!IsCandidateActionShape(method))
+        if (!IsCandidateActionShape(method)
+            || models.Get() is not { ControllerBaseType: not null } model)
         {
             return;
         }
@@ -152,7 +133,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not IMethodSymbol methodSymbol
             || methodSymbol.DeclaredAccessibility != Accessibility.Public
             || methodSymbol.IsStatic
-            || !DerivesFromControllerBase(methodSymbol.ContainingType, model.ControllerBaseType)
+            || !TypeRelations.IsOrDerivesFrom(methodSymbol.ContainingType, model.ControllerBaseType)
             || !IsLazyEnumerableReturnType(methodSymbol.ReturnType, model))
         {
             return;
@@ -310,35 +291,9 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a method carries an attribute that excludes it from being an action.</summary>
     /// <param name="method">The method declaration to inspect.</param>
     /// <returns><see langword="true"/> when a <c>NonAction</c> attribute is written on the method.</returns>
-    private static bool HasNonActionAttribute(MethodDeclarationSyntax method)
-    {
-        var lists = method.AttributeLists;
-        for (var i = 0; i < lists.Count; i++)
-        {
-            var attributes = lists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
-            {
-                var name = GetSimpleAttributeName(attributes[j].Name);
-                if (name is "NonAction" or "NonActionAttribute")
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns the rightmost identifier of a written attribute name.</summary>
-    /// <param name="name">The attribute name syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple identifier.</returns>
-    private static string? GetSimpleAttributeName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleAttributeName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleAttributeName(alias.Name),
-        _ => null,
-    };
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasNonActionAttribute(MethodDeclarationSyntax method) =>
+        SyntaxNames.AnyAttributeNamed(method.AttributeLists, static name => name is "NonAction" or "NonActionAttribute");
 
     /// <summary>Returns whether a namespace is <c>Microsoft.AspNetCore.Builder</c>.</summary>
     /// <param name="ns">The namespace to test.</param>
@@ -348,23 +303,6 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
             && ns.ContainingNamespace is { Name: "AspNetCore" } aspNetCore
             && aspNetCore.ContainingNamespace is { Name: "Microsoft" } microsoft
             && microsoft.ContainingNamespace is { IsGlobalNamespace: true };
-
-    /// <summary>Returns whether a type derives from (or is) the MVC controller base.</summary>
-    /// <param name="type">The containing type of the analyzed method.</param>
-    /// <param name="controllerBase">The resolved controller base type; always non-null while the action analysis is registered.</param>
-    /// <returns><see langword="true"/> when the type is a controller.</returns>
-    private static bool DerivesFromControllerBase(INamedTypeSymbol? type, INamedTypeSymbol? controllerBase)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, controllerBase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a return type, after unwrapping a task wrapper, is exactly <c>IEnumerable&lt;T&gt;</c>.</summary>
     /// <param name="returnType">The declared or inferred return type.</param>
@@ -396,7 +334,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     private static bool IsDeferredSequence(SemanticModel semanticModel, ExpressionSyntax expression, DeferredResultModel model, CancellationToken cancellationToken)
     {
         var type = semanticModel.GetTypeInfo(expression, cancellationToken).Type;
-        if (type is not null && model.QueryableMarker is not null && ImplementsQueryable(type, model.QueryableMarker))
+        if (type is not null && model.QueryableMarker is not null && TypeRelations.IsOrImplements(type, model.QueryableMarker))
         {
             return true;
         }
@@ -404,29 +342,6 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         return expression is InvocationExpressionSyntax invocation
             && semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
             && IsDeferredLinqOperator(method, model);
-    }
-
-    /// <summary>Returns whether a type is, or implements, the non-generic queryable marker.</summary>
-    /// <param name="type">The value's type.</param>
-    /// <param name="queryableMarker">The resolved <c>System.Linq.IQueryable</c> marker.</param>
-    /// <returns><see langword="true"/> when the value is a queryable.</returns>
-    private static bool ImplementsQueryable(ITypeSymbol type, INamedTypeSymbol queryableMarker)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, queryableMarker))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], queryableMarker))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a bound method is a deferred <c>System.Linq</c> operator.</summary>
@@ -441,10 +356,30 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
             && IsDeferredOperatorName(method.Name);
     }
 
+    /// <summary>Resolves the framework gates and the types used to classify deferred results.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    /// <returns>The resolved model, or null when neither web framework type exists.</returns>
+    private static DeferredResultModel? ResolveModel(Compilation compilation)
+    {
+        var webApplication = compilation.GetTypeByMetadataName(WebApplicationMetadataName);
+        var controllerBase = compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
+        return webApplication is null && controllerBase is null
+            ? null
+            : new(
+                webApplication is not null,
+                controllerBase,
+                compilation.GetTypeByMetadataName(QueryableMarkerMetadataName),
+                compilation.GetTypeByMetadataName(EnumerableMetadataName),
+                compilation.GetTypeByMetadataName(QueryableMetadataName),
+                compilation.GetTypeByMetadataName(TaskMetadataName),
+                compilation.GetTypeByMetadataName(ValueTaskMetadataName));
+    }
+
     /// <summary>Holds the types PSH1502 resolves once per compilation to classify a deferred return.</summary>
     private sealed class DeferredResultModel
     {
         /// <summary>Initializes a new instance of the <see cref="DeferredResultModel"/> class.</summary>
+        /// <param name="hasWebApplication">Whether the minimal-API host type resolves.</param>
         /// <param name="controllerBaseType">The resolved MVC controller base, when referenced.</param>
         /// <param name="queryableMarker">The resolved non-generic queryable marker, when referenced.</param>
         /// <param name="enumerableType">The resolved in-memory LINQ operator holder, when referenced.</param>
@@ -452,6 +387,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         /// <param name="taskOfT">The resolved <c>Task&lt;T&gt;</c> definition, when referenced.</param>
         /// <param name="valueTaskOfT">The resolved <c>ValueTask&lt;T&gt;</c> definition, when referenced.</param>
         internal DeferredResultModel(
+            bool hasWebApplication,
             INamedTypeSymbol? controllerBaseType,
             INamedTypeSymbol? queryableMarker,
             INamedTypeSymbol? enumerableType,
@@ -459,6 +395,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
             INamedTypeSymbol? taskOfT,
             INamedTypeSymbol? valueTaskOfT)
         {
+            HasWebApplication = hasWebApplication;
             ControllerBaseType = controllerBaseType;
             QueryableMarker = queryableMarker;
             EnumerableType = enumerableType;
@@ -466,6 +403,9 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
             TaskOfT = taskOfT;
             ValueTaskOfT = valueTaskOfT;
         }
+
+        /// <summary>Gets a value indicating whether the minimal-API host type resolves.</summary>
+        internal bool HasWebApplication { get; }
 
         /// <summary>Gets the resolved MVC controller base, when referenced.</summary>
         internal INamedTypeSymbol? ControllerBaseType { get; }

@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyDelegateCreation = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2258RemoveRedundantDelegateCreationAnalyzer,
     StyleSharp.Analyzers.Sst2258RemoveRedundantDelegateCreationCodeFixProvider>;
@@ -12,6 +16,50 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2258RemoveRedundantDelegateCreationAnalyzer"/> and its code fix (SST2258).</summary>
 public class RemoveRedundantDelegateCreationAnalyzerUnitTest
 {
+    /// <summary>Verifies malformed wrappers and incompatible overloaded method groups do not suggest removal.</summary>
+    /// <param name="creation">The creation expression to inspect.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("new Action()")]
+    [Arguments("new Action(M, M)")]
+    [Arguments("new Action(M) { }")]
+    [Arguments("new Action(method: M)")]
+    [Arguments("new Action(ref existing)")]
+    [Arguments("new Action(M)")]
+    [Arguments("new Action(Missing)")]
+    [Arguments("new Missing(M)")]
+    [Arguments("new Action(this[null])")]
+    public async Task InvalidDelegateWrapperIsIgnoredAsync(string creation)
+    {
+        var tree = CSharpSyntaxTree.ParseText($$"""
+            using System;
+            class C
+            {
+                void M(int value) { }
+                void M(string value) { }
+                public Action this[string key] => null;
+                public Action this[Type key] => null;
+                Action Make(Action existing) => {{creation}};
+            }
+            """);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2258RemoveRedundantDelegateCreationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies return, arrow, cast, and assignment contexts provide a delegate target.</summary>
+    /// <param name="member">The member containing the reported wrapper.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Action Make() => {|SST2258:new Action(M)|};")]
+    [Arguments("Action Make() { return {|SST2258:new Action(M)|}; }")]
+    [Arguments("object Make() => (Action){|SST2258:new Action(M)|};")]
+    [Arguments("void Set(Action value) { value = {|SST2258:new Action(M)|}; }")]
+    [Arguments("void Set(Action value) { value -= {|SST2258:new Action(M)|}; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task TargetTypedWrapperIsReportedAsync(string member) =>
+        VerifyDelegateCreation.VerifyAnalyzerAsync($"using System; class C {{ void M() {{ }} {member} }}");
+
     /// <summary>Verifies a delegate wrapper in a local initializer is reported and unwrapped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

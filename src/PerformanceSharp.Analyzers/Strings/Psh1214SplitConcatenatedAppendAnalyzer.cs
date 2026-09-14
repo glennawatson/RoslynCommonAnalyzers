@@ -11,8 +11,7 @@ namespace PerformanceSharp.Analyzers;
 /// <c>StringBuilder</c>, the argument is a built-in string concatenation, and the
 /// argument is not a compile-time constant — the compiler folds all-constant
 /// concatenations already. User-defined <c>+</c> operators are never reported.
-/// The <c>StringBuilder</c> type is probed once per compilation, so the rule costs
-/// nothing where it is missing.
+/// The <c>StringBuilder</c> type is probed only after an invocation passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
@@ -32,25 +31,22 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(StringBuilderMetadataName) is not { } builderType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, StringBuilderMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1214 for a concatenated Append or AppendLine argument.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The resolved string builder type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetConcatenationArgument(invocation, out var concatenation)
-            || !IsStringBuilderAppendString(context.SemanticModel, invocation, builderType, context.CancellationToken)
+            || frameworkType.Get() is not { } builderType
+            || !StringBuilderInvocation.BindsToStringOverload(context.SemanticModel, invocation, builderType, context.CancellationToken)
             || !IsBuiltInStringConcatenation(context.SemanticModel, concatenation!, context.CancellationToken)
             || context.SemanticModel.GetConstantValue(concatenation!, context.CancellationToken).HasValue)
         {
@@ -84,20 +80,6 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
         concatenation = binary;
         return true;
     }
-
-    /// <summary>Runs the receiver semantic check: the invocation must bind to a one-string-parameter <c>StringBuilder</c> method.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The candidate invocation.</param>
-    /// <param name="builderType">The resolved string builder type.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the invocation binds to <c>Append(string)</c> or <c>AppendLine(string)</c>.</returns>
-    private static bool IsStringBuilderAppendString(
-        SemanticModel model,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol builderType,
-        CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: false, Parameters: [{ Type.SpecialType: SpecialType.System_String }] } method
-            && SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType);
 
     /// <summary>Runs the argument semantic check: the <c>+</c> must be the built-in string concatenation operator.</summary>
     /// <param name="model">The semantic model.</param>

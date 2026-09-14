@@ -37,7 +37,7 @@ internal static class WhileLoopCounter
 
         var name = declarator.Identifier.ValueText;
         if (!HasTrailingStep(body, name, out var step)
-            || !MentionsIdentifier(loop.Condition, name)
+            || !IdentifierReferences.MentionsName(loop.Condition, name)
             || HasContinueTargetingLoop(body))
         {
             return false;
@@ -57,12 +57,12 @@ internal static class WhileLoopCounter
     /// <param name="enclosing">The block holding both statements.</param>
     /// <param name="loop">The while statement.</param>
     /// <returns>The declaration statement and its one declarator, or nulls when the shape does not match.</returns>
-    private static (LocalDeclarationStatementSyntax? Declaration, VariableDeclaratorSyntax? Declarator) TryGetCounterDeclarator(
+    private static CounterDeclaration TryGetCounterDeclarator(
         BlockSyntax enclosing,
         WhileStatementSyntax loop) => TryGetPrecedingDeclaration(enclosing, loop) is not { Declaration.Variables: { Count: 1 } variables } declaration
             || variables[0].Initializer is null
-            ? (null, null)
-            : (declaration, variables[0]);
+            ? new(null, null)
+            : new(declaration, variables[0]);
 
     /// <summary>Gets the loop body's last statement when it steps the counter.</summary>
     /// <param name="body">The loop body.</param>
@@ -104,7 +104,7 @@ internal static class WhileLoopCounter
         PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression } prefix
             => IsNamed(prefix.Operand, name),
         AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.AddAssignmentExpression or (int)SyntaxKind.SubtractAssignmentExpression } assignment
-            => IsNamed(assignment.Left, name) && !MentionsIdentifier(assignment.Right, name),
+            => IsNamed(assignment.Left, name) && !IdentifierReferences.MentionsName(assignment.Right, name),
         _ => false,
     };
 
@@ -115,35 +115,6 @@ internal static class WhileLoopCounter
     private static bool IsNamed(ExpressionSyntax expression, string name) =>
         expression is IdentifierNameSyntax identifier && string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal);
 
-    /// <summary>Returns whether an expression mentions the named identifier anywhere.</summary>
-    /// <param name="expression">The expression to scan.</param>
-    /// <param name="name">The counter's name.</param>
-    /// <returns><see langword="true"/> when the name appears.</returns>
-    private static bool MentionsIdentifier(ExpressionSyntax expression, string name)
-    {
-        if (IsNamed(expression, name))
-        {
-            return true;
-        }
-
-        var state = (Name: name, Found: false);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string Name, bool Found)>(
-            expression,
-            ref state,
-            static (node, ref current) =>
-            {
-                if (!string.Equals(node.Identifier.ValueText, current.Name, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-
-                current.Found = true;
-                return false;
-            });
-
-        return state.Found;
-    }
-
     /// <summary>Returns whether the body holds a <c>continue</c> that targets this loop.</summary>
     /// <param name="body">The loop body.</param>
     /// <returns><see langword="true"/> when a <c>continue</c> would skip the trailing step.</returns>
@@ -153,8 +124,14 @@ internal static class WhileLoopCounter
     /// </remarks>
     private static bool HasContinueTargetingLoop(SyntaxNode body)
     {
-        foreach (var child in body.ChildNodes())
+        var children = body.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
+            if (children[i].AsNode() is not { } child)
+            {
+                continue;
+            }
+
             if (child is ContinueStatementSyntax)
             {
                 return true;
@@ -227,22 +204,7 @@ internal static class WhileLoopCounter
     {
         for (var i = start; i < statements.Count; i++)
         {
-            var state = (Name: name, Found: false);
-            _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string Name, bool Found)>(
-                statements[i],
-                ref state,
-                static (node, ref current) =>
-                {
-                    if (!string.Equals(node.Identifier.ValueText, current.Name, StringComparison.Ordinal))
-                    {
-                        return true;
-                    }
-
-                    current.Found = true;
-                    return false;
-                });
-
-            if (state.Found)
+            if (IdentifierReferences.MentionsName(statements[i], name))
             {
                 return true;
             }

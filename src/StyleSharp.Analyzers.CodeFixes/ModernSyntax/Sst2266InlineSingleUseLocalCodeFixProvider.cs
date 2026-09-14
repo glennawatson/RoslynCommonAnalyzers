@@ -10,13 +10,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2266InlineSingleUseLocalCodeFixProvider))]
 [Shared]
-public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.InlineSingleUseLocal.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -44,16 +47,15 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (Resolve(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } edit)
+        if (Resolve(editor.OriginalRoot, editor.SemanticModel, diagnostic) is { } edit)
         {
-            return;
+            AddEdits(editor, edit);
         }
-
-        editor.ReplaceNode(edit.Reference, edit.Inlined);
-        editor.RemoveNode(edit.Declaration, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
     /// <summary>Applies one inline by replacing the reference and removing the declaration.</summary>
@@ -64,12 +66,20 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
     private static async Task<Document> ApplyAsync(Document document, InlineEdit edit, CancellationToken cancellationToken)
     {
         var editor = await DocumentEditor.CreateAsync(document, cancellationToken).ConfigureAwait(false);
-        editor.ReplaceNode(edit.Reference, edit.Inlined);
-        editor.RemoveNode(edit.Declaration, SyntaxRemoveOptions.KeepNoTrivia);
+        AddEdits(editor, edit);
         return editor.GetChangedDocument();
     }
 
-    /// <summary>Resolves the reported declaration into the reference, its replacement, and the statement to drop.</summary>
+    /// <summary>Queues the inline: the read takes the initializer's place and the declaration is removed.</summary>
+    /// <param name="editor">The document editor.</param>
+    /// <param name="edit">The resolved edit.</param>
+    private static void AddEdits(DocumentEditor editor, InlineEdit edit)
+    {
+        editor.ReplaceNode(edit.Reference, Inline(edit.Initializer, edit.Reference).WithTriviaFrom(edit.Reference));
+        editor.RemoveNode(edit.Declaration, SyntaxRemoveOptions.KeepNoTrivia);
+    }
+
+    /// <summary>Resolves the declaration, its single reference, and its original initializer without building syntax.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
@@ -84,7 +94,7 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             || Sst2266InlineSingleUseLocalAnalyzer.FindSingleReference(model, block, symbol) is not { } reference
             || CrossesADirective(local, reference)
             ? null
-            : new InlineEdit(local, reference, Inline(equalsValue.Value, reference).WithTriviaFrom(reference));
+            : new InlineEdit(local, reference, equalsValue.Value);
 
     /// <summary>Returns whether a directive stands between the declaration and the read it folds into.</summary>
     /// <param name="local">The declaration being removed.</param>
@@ -105,12 +115,12 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             ? SyntaxFactory.ParenthesizedExpression(value.WithoutTrivia())
             : value.WithoutTrivia();
 
-    /// <summary>The declaration to remove, the reference to replace, and its inlined replacement.</summary>
+    /// <summary>The declaration to remove, its single reference, and the original initializer.</summary>
     /// <param name="Declaration">The single-use local declaration being removed.</param>
     /// <param name="Reference">The one read being replaced.</param>
-    /// <param name="Inlined">The initializer spliced into the read's place.</param>
+    /// <param name="Initializer">The value to inline when the fix is applied.</param>
     internal readonly record struct InlineEdit(
         LocalDeclarationStatementSyntax Declaration,
         IdentifierNameSyntax Reference,
-        ExpressionSyntax Inlined);
+        ExpressionSyntax Initializer);
 }

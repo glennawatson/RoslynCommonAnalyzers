@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class AvoidDoubleLookupCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative guarded if statement passed to the code fix.</summary>
-    private IfStatementSyntax _ifStatement = null!;
+    /// <summary>The diagnostic reported on the representative guarded if statement.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -47,7 +48,7 @@ public class AvoidDoubleLookupCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
         var method = (MethodDeclarationSyntax)type.Members[1];
-        _ifStatement = (IfStatementSyntax)method.Body!.Statements[0];
+        _diagnostic = Diagnostic.Create(CollectionRules.AvoidDoubleLookup, method.Body!.Statements[0].GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -67,7 +68,7 @@ public class AvoidDoubleLookupCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> AvoidDoubleLookup_ApplyFixAsync()
     {
-        var updated = Psh1105AvoidDoubleLookupCodeFixProvider.Apply(_document, _root, _ifStatement);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1105AvoidDoubleLookupCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1505 — the request body size limit is removed, allowing an unbounded upload.</summary>
-    public static readonly DiagnosticDescriptor RequestBodySizeLimitRemoval = Create(
+    public static readonly DiagnosticDescriptor RequestBodySizeLimitRemoval = DescriptorFactory.Create(
         "SES1505",
         "The request body size limit must not be removed",
         RequestBodySizeLimitRemovalMessage,

@@ -16,7 +16,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1210Utf8SequenceEqualCodeFixProvider))]
 [Shared]
-public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider
 {
     /// <summary>The suffix that turns a string literal into a UTF-8 literal.</summary>
     private const string Utf8Suffix = "u8";
@@ -33,20 +33,29 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
     /// <summary>The fully qualified spelling used when the simple name does not resolve.</summary>
     private const string QualifiedMemoryExtensionsExpression = "global::System.MemoryExtensions";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.UseUtf8SequenceEqual.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Compare the bytes with SequenceEqual", nameof(Psh1210Utf8SequenceEqualCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Compare the bytes with SequenceEqual", nameof(Psh1210Utf8SequenceEqualCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is BinaryExpressionSyntax binary
+            && Psh1210Utf8SequenceEqualAnalyzer.TryGetComparisonParts(binary)is { } parts
+            && model.GetConstantValue(parts.Constant).Value is string value
+            && Psh1210Utf8SequenceEqualAnalyzer.CanCompareAsUtf8Literal(value);
 
     /// <summary>Resolves the reported comparison and builds its byte-comparison replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -131,18 +140,9 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="position">The lookup position.</param>
     /// <returns><see langword="true"/> when extension-method syntax binds.</returns>
-    private static bool ResolvesMemoryExtensions(SemanticModel model, int position)
-    {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: MemoryExtensionsTypeName))
-        {
-            if (candidate is INamedTypeSymbol { ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ResolvesMemoryExtensions(SemanticModel model, int position) =>
+        SpanRewriteGuard.ResolvesInSystem(model, position, MemoryExtensionsTypeName);
 
     /// <summary>Wraps an expression in parentheses when using it as a member-access receiver could reparse.</summary>
     /// <param name="expression">The expression to protect.</param>

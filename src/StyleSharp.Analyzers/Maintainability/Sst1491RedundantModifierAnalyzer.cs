@@ -153,7 +153,7 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
         if (member.Parent is not InterfaceDeclarationSyntax
             || member.SyntaxTree.Options is not CSharpParseOptions options
             || options.LanguageVersion < CSharp8
-            || HasExplicitInterfaceSpecifier(member))
+            || ExplicitInterfaceSpecifiers.IsPresent(member))
         {
             return false;
         }
@@ -171,18 +171,6 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
         var hasBody = HasBody(member);
         return kind is SyntaxKind.AbstractKeyword ? !hasBody : hasBody;
     }
-
-    /// <summary>Returns whether a member names the interface it belongs to.</summary>
-    /// <param name="member">The member declaration.</param>
-    /// <returns><see langword="true"/> for a member written as <c>IFoo.Bar</c>.</returns>
-    private static bool HasExplicitInterfaceSpecifier(MemberDeclarationSyntax member) => member switch
-    {
-        MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is not null,
-        PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is not null,
-        IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
-        EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is not null,
-        _ => false,
-    };
 
     /// <summary>Returns whether a member's <c>readonly</c> restates the <c>readonly</c> of its struct.</summary>
     /// <param name="member">The member declaration.</param>
@@ -207,7 +195,7 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// nested inside an unsafe one, which is rare enough to keep it off any hot path.
     /// </remarks>
     private static bool IsRedundantUnsafe(MemberDeclarationSyntax member) =>
-        IsInsideUnsafeContext(member) && ContainsUnsafeSyntax(member);
+        IsInsideUnsafeContext(member) && UnsafeContextSyntax.Contains(member);
 
     /// <summary>Returns whether a member declares a body.</summary>
     /// <param name="member">The member declaration.</param>
@@ -215,67 +203,9 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     private static bool HasBody(MemberDeclarationSyntax member) => member switch
     {
         MethodDeclarationSyntax method => method.Body is not null || method.ExpressionBody is not null,
-        PropertyDeclarationSyntax property => property.ExpressionBody is not null || HasAccessorBody(property.AccessorList),
-        IndexerDeclarationSyntax indexer => indexer.ExpressionBody is not null || HasAccessorBody(indexer.AccessorList),
-        EventDeclarationSyntax @event => HasAccessorBody(@event.AccessorList),
+        PropertyDeclarationSyntax property => property.ExpressionBody is not null || AccessorBodies.AnyHasBody(property.AccessorList),
+        IndexerDeclarationSyntax indexer => indexer.ExpressionBody is not null || AccessorBodies.AnyHasBody(indexer.AccessorList),
+        EventDeclarationSyntax @event => AccessorBodies.AnyHasBody(@event.AccessorList),
         _ => false,
     };
-
-    /// <summary>Returns whether any accessor in a list declares a body.</summary>
-    /// <param name="accessors">The accessor list, if the member declares one.</param>
-    /// <returns><see langword="true"/> when an accessor supplies an implementation.</returns>
-    private static bool HasAccessorBody(AccessorListSyntax? accessors)
-    {
-        if (accessors is null)
-        {
-            return false;
-        }
-
-        var list = accessors.Accessors;
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (list[i].Body is not null || list[i].ExpressionBody is not null)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a declaration contains syntax that requires an unsafe context.</summary>
-    /// <param name="member">The member declaration.</param>
-    /// <returns><see langword="true"/> when the member really does need an unsafe context.</returns>
-    private static bool ContainsUnsafeSyntax(MemberDeclarationSyntax member)
-    {
-        var found = false;
-        _ = DescendantTraversalHelper.VisitDescendants(
-            member,
-            ref found,
-            static (SyntaxNode node, ref bool state) =>
-            {
-                if (!RequiresUnsafeContext(node))
-                {
-                    return true;
-                }
-
-                state = true;
-                return false;
-            });
-
-        return found;
-    }
-
-    /// <summary>Returns whether a node is one of the syntax forms only an unsafe context allows.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <returns><see langword="true"/> for pointer, fixed, and address-of forms.</returns>
-    private static bool RequiresUnsafeContext(SyntaxNode node) =>
-        node.Kind() is SyntaxKind.PointerType
-            or SyntaxKind.FunctionPointerType
-            or SyntaxKind.FixedStatement
-            or SyntaxKind.SizeOfExpression
-            or SyntaxKind.PointerIndirectionExpression
-            or SyntaxKind.PointerMemberAccessExpression
-            or SyntaxKind.AddressOfExpression
-            or SyntaxKind.UnsafeStatement;
 }

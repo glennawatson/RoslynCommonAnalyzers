@@ -15,7 +15,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1227PreferDedicatedCallCodeFixProvider))]
 [Shared]
-public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider
 {
     /// <summary>The index of the <c>StringComparison</c> argument the <c>CompareOrdinal</c> rewrite drops.</summary>
     private const int ComparisonArgumentIndex = 2;
@@ -23,20 +23,28 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
     /// <summary>The index of the always-false condition argument the <c>Debug.Fail</c> rewrite drops.</summary>
     private const int ConditionArgumentIndex = 0;
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.PreferDedicatedCall.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the purpose-built call", nameof(Psh1227PreferDedicatedCallCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the purpose-built call", nameof(Psh1227PreferDedicatedCallCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax)
+            && ((Psh1227PreferDedicatedCallAnalyzer.IsCompareOrdinalShape(invocation))
+            || (Psh1227PreferDedicatedCallAnalyzer.IsDebugFailShape(invocation)));
 
     /// <summary>Resolves the reported invocation and builds its purpose-built replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -72,8 +80,10 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
         string replacementName,
         int dropIndex)
     {
+        const int partsPerArgument = 2;
         var arguments = invocation.ArgumentList.Arguments;
-        var parts = new List<SyntaxNodeOrToken>();
+        var parts = new SyntaxNodeOrToken[((arguments.Count - 1) * partsPerArgument) - 1];
+        var write = 0;
         for (var i = 0; i < arguments.Count; i++)
         {
             if (i == dropIndex)
@@ -81,18 +91,20 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
                 continue;
             }
 
-            if (parts.Count > 0)
+            if (write > 0)
             {
-                parts.Add(CommaWithTrailingSpace());
+                parts[write] = CommaWithTrailingSpace();
+                write++;
             }
 
-            parts.Add(arguments[i].WithoutTrivia());
+            parts[write] = arguments[i].WithoutTrivia();
+            write++;
         }
 
         var renamedAccess = access.WithName(SyntaxFactory.IdentifierName(replacementName));
-        return invocation
-            .WithExpression(renamedAccess)
-            .WithArgumentList(invocation.ArgumentList.WithArguments(SyntaxFactory.SeparatedList<ArgumentSyntax>(parts)))
+        return invocation.Update(
+            renamedAccess,
+            invocation.ArgumentList.WithArguments(SyntaxFactory.SeparatedList<ArgumentSyntax>(parts)))
             .WithTriviaFrom(invocation);
     }
 

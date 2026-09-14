@@ -3,6 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyOwnsDisposable = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2315OwnsDisposableFieldAnalyzer,
     StyleSharp.Analyzers.Sst2315OwnsDisposableFieldCodeFixProvider>;
@@ -140,4 +146,144 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
     [Test]
     public Task FactoryFieldFixedToDisposableAsync() =>
         VerifyOwnsDisposable.VerifyCodeFixAsync(FactoryFieldSource, FactoryFieldFixed);
+
+    /// <summary>Verifies static, constant, injected and non-owning members remain clean.</summary>
+    /// <param name="member">The members to inspect.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("static Res field = Res.Create();")]
+    [Arguments("const string Name = null;")]
+    [Arguments("static Res Value { get; } = new Res();")]
+    [Arguments("Res field = new();")]
+    [Arguments("Res Value => Res.Create();")]
+    [Arguments("Res Value { get { return Res.Create(); } }")]
+    [Arguments("Res Value { get => Res.Create(); }")]
+    [Arguments("static Res injected = new Res(); Res Value { get; } = injected;")]
+    [Arguments("static Factory factory = new Factory(); Res field = factory.Create(); class Factory { public Res Create() => new Res(); }")]
+    [Arguments("System.Collections.Generic.List<int> values = new(); void Add() => values.Add(1);")]
+    [Arguments("System.Collections.Generic.List<Res> values = new(); void Add(Res injected) => values.Add(injected);")]
+    [Arguments("System.Collections.Generic.List<Res> values = new(); void Add() { System.GC.KeepAlive(values); values.Clear(); }")]
+    [Arguments("System.Collections.Generic.List<Res> values = new(); void Add(System.Collections.Generic.List<Res> other) => other.Add(new Res());")]
+    [Arguments("System.Collections.Generic.List<Res> values = new(); void Add() { Helper(); } static void Helper() { }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonOwningMembersAreCleanAsync(string member) =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync($"class C {{ {member} }}{Resource}");
+
+    /// <summary>Verifies non-owning members are skipped even after another member starts the ownership scan.</summary>
+    /// <param name="member">A member preceding the owned resource.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Res injected;")]
+    [Arguments("Res Injected { get; }")]
+    [Arguments("static Res shared = Res.Create();")]
+    [Arguments("const string Name = null;")]
+    [Arguments("static Res Shared { get; } = new Res();")]
+    [Arguments("Res Computed => Res.Create();")]
+    [Arguments("int number = 1;")]
+    [Arguments("static Res shared = Res.Create(); Res injected = shared;")]
+    [Arguments("Res injected = null;")]
+    [Arguments("Res Injected { get; } = null;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonOwningMembersDoNotHideOwnedResourceAsync(string member) =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync($"class {{|SST2315:C|}} {{ {member} Res Owned {{ get; }} = new(); }}{Resource}");
+
+    /// <summary>Verifies malformed computed properties and unresolved factories do not establish ownership.</summary>
+    /// <param name="member">A malformed initializer or computed property.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Res Value => Res.Create() = new Res();")]
+    [Arguments("Res Value { get { return Res.Create(); } } = new Res();")]
+    [Arguments("Res Value { get => Res.Create(); } = new Res();")]
+    [Arguments("Res field = Missing();")]
+    public async Task UnresolvedOwnershipIsCleanAsync(string member)
+    {
+        var test = new VerifyOwnsDisposable.Test { TestCode = $"class C {{ {member} object candidate = new object(); }}{Resource}", CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies ref structs are exempt despite a candidate owned resource.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RefStructOwnershipIsCleanAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync($"ref struct C {{ Res field = Res.Create(); public C() {{ }} }}{Resource}");
+
+    /// <summary>Verifies nullable concrete ownership is reported while constrained generic creation currently remains unreported.</summary>
+    /// <param name="member">The owned generic or nullable auto-property.</param>
+    /// <param name="typeName">The containing type name, marked when a diagnostic is expected.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("T Owned { get; } = new T();", "C")]
+    [Arguments("Res? MaybeOwned { get; } = Res.Create();", "{|SST2315:C|}")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NullableAndGenericOwnershipFollowCurrentBehaviorAsync(string member, string typeName) =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync($$"""
+            #nullable enable
+            class {{typeName}}<T> where T : class, System.IDisposable, new()
+            {
+                {{member}}
+            }
+            {{Resource}}
+            """);
+
+    /// <summary>Verifies async-only and mixed ownership cannot supply synchronous disposal fix metadata.</summary>
+    /// <param name="members">The resources owned by the type.</param>
+    /// <param name="expectedMembers">The synchronous disposal metadata.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Res first = Res.Create(), second = Res.Create();", "first,second")]
+    [Arguments("AsyncRes Owned { get; } = new();", "")]
+    [Arguments("Res first = Res.Create(); AsyncRes Owned { get; } = new();", "")]
+    [Arguments("System.Collections.Generic.List<Res> values = new(); void Add() => values.Add(new());", "")]
+    public async Task OwnershipDeterminesFixMetadataAsync(string members, string expectedMembers)
+    {
+        var source = $$"""
+            class C { {{members}} }
+            {{Resource}}
+            class AsyncRes : System.IAsyncDisposable
+            {
+                public System.Threading.Tasks.ValueTask DisposeAsync() => default;
+            }
+            """;
+        var compilation = CSharpCompilation.Create(
+            "OwnershipMetadata",
+            [CSharpSyntaxTree.ParseText(source)],
+            RuntimeMetadataReferences.Platform,
+            new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2315OwnsDisposableFieldAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST2315");
+        await Assert.That(diagnostics[0].Properties[Sst2315OwnsDisposableFieldAnalyzer.MembersToDisposeKey]).IsEqualTo(expectedMembers);
+    }
+
+    /// <summary>Verifies absent framework disposal or collection metadata does not crash ownership analysis.</summary>
+    /// <param name="framework">The minimal disposal interface, if present.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("namespace System { public interface IDisposable { void Dispose(); } }")]
+    public async Task MissingFrameworkTypesAreCleanAsync(string framework)
+    {
+        var compilation = CSharpCompilation.Create("MissingOwnershipFramework", [CSharpSyntaxTree.ParseText($"class C {{ object value = new object(); }}{framework}")]);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2315OwnsDisposableFieldAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies a generated expression-bodied property with an initializer is not treated as auto-storage.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ExpressionBodiedPropertyWithInitializerIsCleanAsync()
+    {
+        var root = await CSharpSyntaxTree.ParseText($"class C {{ Res Value => Res.Create(); object candidate = new object(); }}{Resource}").GetRootAsync();
+        var property = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().First();
+        var initializer = SyntaxFactory.EqualsValueClause(SyntaxFactory.ParseExpression("new Res()"));
+        var changedRoot = root.ReplaceNode(property, property.WithInitializer(initializer));
+        var compilation = CSharpCompilation.Create(
+            "ComputedOwnership",
+            [CSharpSyntaxTree.Create((CSharpSyntaxNode)changedRoot)],
+            RuntimeMetadataReferences.Platform,
+            new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2315OwnsDisposableFieldAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
 }

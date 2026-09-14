@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -70,7 +71,7 @@ public class ExceptionNeverThrownCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ExceptionNeverThrown_ApplyFixAsync()
     {
-        var updated = Sst1480ExceptionNeverThrownCodeFixProvider.Apply(_document, _root, _statement);
+        var updated = TargetCodeFix.Apply(_document, _root, _statement, Sst1480ExceptionNeverThrownCodeFixProvider.BuildThrow);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

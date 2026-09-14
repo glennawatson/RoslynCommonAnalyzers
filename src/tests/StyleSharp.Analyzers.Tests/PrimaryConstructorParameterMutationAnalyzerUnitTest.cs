@@ -14,6 +14,84 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1425 (do not reassign captured primary-constructor parameters).</summary>
 public class PrimaryConstructorParameterMutationAnalyzerUnitTest
 {
+    /// <summary>Verifies every registered compound assignment and unary mutation reports the parameter.</summary>
+    /// <param name="mutation">The mutation expression with its expected diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("{|SST1425:count|} += 1")]
+    [Arguments("{|SST1425:count|} -= 1")]
+    [Arguments("{|SST1425:count|} *= 2")]
+    [Arguments("{|SST1425:count|} /= 2")]
+    [Arguments("{|SST1425:count|} %= 2")]
+    [Arguments("{|SST1425:count|} &= 1")]
+    [Arguments("{|SST1425:count|} ^= 1")]
+    [Arguments("{|SST1425:count|} |= 1")]
+    [Arguments("{|SST1425:count|} <<= 1")]
+    [Arguments("{|SST1425:count|} >>= 1")]
+    [Arguments("++{|SST1425:count|}")]
+    [Arguments("--{|SST1425:count|}")]
+    [Arguments("{|SST1425:count|}--")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CompoundAndUnaryMutationsAreReportedAsync(string mutation) =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync($"class C(int count) {{ void M() {{ {mutation}; }} }}");
+
+    /// <summary>Verifies nullable and generic primary parameters remain mutation candidates.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NullableAndGenericParametersAreReportedAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync("""
+            #nullable enable
+            class C<T>(int first, T value, int? count) where T : class
+            {
+                void M(T replacement)
+                {
+                    {|SST1425:value|} = replacement;
+                    {|SST1425:count|} ??= 1;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a matching name must bind to the primary parameter rather than shadowing state.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ShadowingAndReadOnlyArgumentsAreCleanAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync("""
+            class C(int count, int value)
+            {
+                void Parameter(int count) { count = 0; }
+                void Local() { int count = 0; count++; }
+                void Lambda() { System.Action<int> action = count => count++; action(0); }
+                int Property { set { value = 0; } }
+                void Read() { Consume(count); Observe(in count); }
+                void Member() { this.Value = 0; }
+                int Value;
+                static void Consume(int value) { }
+                static void Observe(in int value) { }
+                class Nested { void M(int count) { count = 0; } }
+            }
+            """);
+
+    /// <summary>Verifies detached names and interface-contained expressions have no primary constructor.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ExpressionsWithoutClassOrStructParametersAreRejectedAsync()
+    {
+        var detached = SyntaxFactory.IdentifierName("count");
+        var root = SyntaxFactory.ParseCompilationUnit("interface I { void M(int count) { count = 0; } }");
+        var assignment = root.DescendantNodes().OfType<AssignmentExpressionSyntax>().Single();
+        await Assert.That(Sst1425PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(detached)).IsFalse();
+        await Assert.That(Sst1425PrimaryConstructorParameterMutationAnalyzer.CouldReferencePrimaryConstructorParameter(assignment.Left)).IsFalse();
+    }
+
+    /// <summary>Verifies an empty primary constructor does not turn method parameters into captured state.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EmptyPrimaryConstructorIsCleanAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync("class C() { void M(int count) { count = 0; } }");
+
     /// <summary>Verifies the syntax precheck rejects non-matching identifiers before semantic binding.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

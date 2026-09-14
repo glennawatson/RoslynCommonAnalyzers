@@ -14,42 +14,30 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2247MemberCopyDeconstructionCodeFixProvider))]
 [Shared]
-public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.DeconstructMemberCopies.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction>(
+            context,
+            "Fold the member copies into a deconstruction",
+            nameof(Sst2247MemberCopyDeconstructionCodeFixProvider),
+            TryResolve,
+            Apply);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryResolve(root, model, diagnostic, context.CancellationToken, out var candidate))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Fold the member copies into a deconstruction",
-                    _ => Task.FromResult(Apply(context.Document, root, candidate)),
-                    equivalenceKey: nameof(Sst2247MemberCopyDeconstructionCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (!TryResolve(editor.OriginalRoot, editor.SemanticModel, diagnostic, CancellationToken.None, out var candidate))
         {
@@ -87,7 +75,7 @@ public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProv
     /// <param name="root">The syntax root.</param>
     /// <param name="candidate">The resolved run.</param>
     /// <returns>The updated document.</returns>
-    private static Document Apply(Document document, SyntaxNode root, in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
+    private static Document Apply(Document document, SyntaxNode root, Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
     {
         var block = candidate.Block;
         var statements = new List<StatementSyntax>(block.Statements.Count - candidate.Count + 1);
@@ -111,8 +99,12 @@ public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProv
     /// <param name="candidate">The resolved run.</param>
     /// <returns>The deconstruction statement carrying the run's outer trivia.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static StatementSyntax BuildDeconstruction(in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate) =>
-        SyntaxFactory.ParseStatement($"var ({string.Join(", ", candidate.Names)}) = {candidate.SourceName};")
-            .WithLeadingTrivia(candidate.FirstStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(candidate.LastStatement.GetTrailingTrivia());
+    private static ExpressionStatementSyntax BuildDeconstruction(in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
+    {
+        var statement = (ExpressionStatementSyntax)SyntaxFactory.ParseStatement($"var ({string.Join(", ", candidate.Names)}) = {candidate.SourceName};");
+        return statement.Update(
+            statement.AttributeLists,
+            statement.Expression.WithLeadingTrivia(candidate.FirstStatement.GetLeadingTrivia()),
+            statement.SemicolonToken.WithTrailingTrivia(candidate.LastStatement.GetTrailingTrivia()));
+    }
 }

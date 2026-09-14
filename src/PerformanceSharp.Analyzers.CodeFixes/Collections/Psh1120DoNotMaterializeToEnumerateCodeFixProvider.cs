@@ -13,31 +13,36 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider))]
 [Shared]
-public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.DoNotMaterializeToEnumerate.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the source directly", nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the source directly", nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
+    /// <summary>Builds the receiver-only replacement for a materialization invocation.</summary>
+    /// <param name="invocation">The invocation to rewrite; callers must have validated the shape.</param>
+    /// <returns>The receiver expression carrying the invocation's trailing trivia.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    internal static ExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
+        ((MemberAccessExpressionSyntax)invocation.Expression).Expression
+            .WithTrailingTrivia(invocation.GetTrailingTrivia())
+            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 
-    /// <summary>Removes the reported materialization call, leaving its receiver as the loop source.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The ToList/ToArray invocation to remove.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
-        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetMaterializeInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported materialization call and builds its receiver-only replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -52,19 +57,11 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The invocation, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? TryGetMaterializeInvocation(SyntaxNode root, Diagnostic diagnostic)
-    {
-        var node = root.FindNode(diagnostic.Location.SourceSpan);
-        for (var current = node; current is not null; current = current.Parent)
-        {
-            if (current is InvocationExpressionSyntax invocation)
-            {
-                return Psh1120DoNotMaterializeToEnumerateAnalyzer.IsMaterializeInvocationShape(invocation) ? invocation : null;
-            }
-        }
-
-        return null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static InvocationExpressionSyntax? TryGetMaterializeInvocation(SyntaxNode root, Diagnostic diagnostic) =>
+        EnclosingInvocation.Find(root, diagnostic) is { } invocation && Psh1120DoNotMaterializeToEnumerateAnalyzer.IsMaterializeInvocationShape(invocation)
+            ? invocation
+            : null;
 
     /// <summary>Rewrites the current materialization invocation during batch FixAll composition.</summary>
     /// <param name="current">The current invocation node.</param>
@@ -72,13 +69,4 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExpressionSyntax RewriteCurrent(SyntaxNode current) =>
         Rewrite((InvocationExpressionSyntax)current);
-
-    /// <summary>Builds the receiver-only replacement for a materialization invocation.</summary>
-    /// <param name="invocation">The invocation to rewrite; callers must have validated the shape.</param>
-    /// <returns>The receiver expression carrying the invocation's trailing trivia.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
-        ((MemberAccessExpressionSyntax)invocation.Expression).Expression
-            .WithTrailingTrivia(invocation.GetTrailingTrivia())
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 }

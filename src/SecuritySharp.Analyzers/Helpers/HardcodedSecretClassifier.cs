@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -153,6 +155,14 @@ internal static class HardcodedSecretClassifier
             : ClassifyPrefixed(value) ?? ClassifyEmbedded(value);
     }
 
+    /// <summary>Returns the credential kind a string literal matches under its tree's secret-scanning settings.</summary>
+    /// <param name="literal">The string literal.</param>
+    /// <param name="options">The analyzer options carrying the <c>.editorconfig</c> settings.</param>
+    /// <returns>A kind label from this class, or <see langword="null"/> when the literal is not a recognised secret.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string? ClassifyLiteral(LiteralExpressionSyntax literal, AnalyzerOptions options) =>
+        Classify(literal.Token.ValueText, SecretScanningOptions.Read(options.AnalyzerConfigOptionsProvider.GetOptions(literal.SyntaxTree)));
+
     /// <summary>Matches the fixed-prefix families by dispatching on the first character.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns>The matched kind label, or <see langword="null"/>.</returns>
@@ -213,72 +223,32 @@ internal static class HardcodedSecretClassifier
     /// <summary>Returns whether the content is an OpenAI-style <c>sk-</c> key of at least 20 base62 characters.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content matches.</returns>
-    private static bool IsOpenAiKey(string value)
-    {
-        if (!HasPrefix(value, "sk-"))
-        {
-            return false;
-        }
-
-        var run = CountClassRun(value, OpenAiBodyStart, Base62Mask);
-        return run >= OpenAiMinBodyLength && IsHighEntropyBody(value, OpenAiBodyStart, OpenAiBodyStart + run);
-    }
+    private static bool IsOpenAiKey(string value) =>
+        HasPrefix(value, "sk-") && HasHighEntropyRun(value, OpenAiBodyStart, Base62Mask, OpenAiMinBodyLength);
 
     /// <summary>Returns whether the content is an <c>AKIA</c> AWS access key id (16 trailing upper-case alphanumerics).</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content matches.</returns>
-    private static bool IsAwsAccessKeyId(string value)
-    {
-        if (!HasPrefix(value, "AKIA"))
-        {
-            return false;
-        }
-
-        var run = CountClassRun(value, FourCharPrefixBodyStart, UpperAlphanumericMask);
-        return run >= AwsKeyIdLength && IsHighEntropyBody(value, FourCharPrefixBodyStart, FourCharPrefixBodyStart + run);
-    }
+    private static bool IsAwsAccessKeyId(string value) =>
+        HasPrefix(value, "AKIA") && HasHighEntropyRun(value, FourCharPrefixBodyStart, UpperAlphanumericMask, AwsKeyIdLength);
 
     /// <summary>Returns whether the content is an <c>AIza</c> Google API key (35 trailing url-safe characters).</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content matches.</returns>
-    private static bool IsGoogleApiKey(string value)
-    {
-        if (!HasPrefix(value, "AIza"))
-        {
-            return false;
-        }
-
-        var run = CountClassRun(value, FourCharPrefixBodyStart, UrlSafeMask);
-        return run >= GoogleKeyLength && IsHighEntropyBody(value, FourCharPrefixBodyStart, FourCharPrefixBodyStart + run);
-    }
+    private static bool IsGoogleApiKey(string value) =>
+        HasPrefix(value, "AIza") && HasHighEntropyRun(value, FourCharPrefixBodyStart, UrlSafeMask, GoogleKeyLength);
 
     /// <summary>Returns whether the content is a GitHub token (<c>ghp_</c>/<c>gho_</c>/<c>ghu_</c>/<c>ghs_</c>/<c>ghr_</c> + 36 base62).</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content matches.</returns>
-    private static bool IsGitHubToken(string value)
-    {
-        if (!HasAnyPrefix(value, GitHubPrefixes))
-        {
-            return false;
-        }
-
-        var run = CountClassRun(value, FourCharPrefixBodyStart, Base62Mask);
-        return run >= GitHubTokenLength && IsHighEntropyBody(value, FourCharPrefixBodyStart, FourCharPrefixBodyStart + run);
-    }
+    private static bool IsGitHubToken(string value) =>
+        HasAnyPrefix(value, GitHubPrefixes) && HasHighEntropyRun(value, FourCharPrefixBodyStart, Base62Mask, GitHubTokenLength);
 
     /// <summary>Returns whether the content is a Slack token (<c>xox</c> + type + <c>-</c> + a token body).</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content matches.</returns>
-    private static bool IsSlackToken(string value)
-    {
-        if (!HasAnyPrefix(value, SlackPrefixes))
-        {
-            return false;
-        }
-
-        var run = CountClassRun(value, SlackBodyStart, SlackBodyMask);
-        return run >= SlackMinBodyLength && IsHighEntropyBody(value, SlackBodyStart, SlackBodyStart + run);
-    }
+    private static bool IsSlackToken(string value) =>
+        HasAnyPrefix(value, SlackPrefixes) && HasHighEntropyRun(value, SlackBodyStart, SlackBodyMask, SlackMinBodyLength);
 
     /// <summary>Returns whether the content contains a PEM private-key header/footer pair.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -312,9 +282,19 @@ internal static class HardcodedSecretClassifier
             return false;
         }
 
-        var start = marked + marker.Length;
-        var run = CountClassRun(value, start, Base64Mask);
-        return run >= AzureMinKeyLength && IsHighEntropyBody(value, start, start + run);
+        return HasHighEntropyRun(value, marked + marker.Length, Base64Mask, AzureMinKeyLength);
+    }
+
+    /// <summary>Returns whether the run of in-class characters starting at an index is long enough and reads as a real secret.</summary>
+    /// <param name="value">The decoded literal content.</param>
+    /// <param name="start">The index the body starts at.</param>
+    /// <param name="classMask">The class mask the body's characters must stay within.</param>
+    /// <param name="minimumLength">The fewest in-class characters the body needs.</param>
+    /// <returns><see langword="true"/> when the run is at least <paramref name="minimumLength"/> long and has high entropy.</returns>
+    private static bool HasHighEntropyRun(string value, int start, int classMask, int minimumLength)
+    {
+        var run = CountClassRun(value, start, classMask);
+        return run >= minimumLength && IsHighEntropyBody(value, start, start + run);
     }
 
     /// <summary>Returns whether the content is a connection string that carries a non-placeholder password value.</summary>
@@ -365,7 +345,7 @@ internal static class HardcodedSecretClassifier
     /// <param name="end">The exclusive end of the password span.</param>
     /// <returns><see langword="true"/> when the span reads as a placeholder.</returns>
     private static bool IsPlaceholderPassword(string value, int start, int end) =>
-        IsSingleRepeatedCharacter(value, start, end) || IsPlaceholderWord(value, start, end);
+        IsSingleRepeatedCharacter(value, start, end) || AsciiText.RegionEqualsAnyLowercase(value, start, end, PlaceholderPasswords);
 
     /// <summary>Returns whether a span is one character repeated for its whole length.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -383,24 +363,6 @@ internal static class HardcodedSecretClassifier
         }
 
         return true;
-    }
-
-    /// <summary>Returns whether a span equals one of the spelled-out placeholder password words.</summary>
-    /// <param name="value">The decoded literal content.</param>
-    /// <param name="start">The inclusive start of the span.</param>
-    /// <param name="end">The exclusive end of the span.</param>
-    /// <returns><see langword="true"/> when the span is a placeholder word.</returns>
-    private static bool IsPlaceholderWord(string value, int start, int end)
-    {
-        for (var i = 0; i < PlaceholderPasswords.Length; i++)
-        {
-            if (RegionEqualsIgnoreCase(value, start, end, PlaceholderPasswords[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a keyed body has enough distinct characters and no long identical run to be a real secret.</summary>
@@ -511,46 +473,13 @@ internal static class HardcodedSecretClassifier
         return distinct;
     }
 
-    /// <summary>Returns whether a span equals a lower-case placeholder word, comparing ASCII case-insensitively.</summary>
-    /// <param name="value">The decoded literal content.</param>
-    /// <param name="start">The inclusive start of the span.</param>
-    /// <param name="end">The exclusive end of the span.</param>
-    /// <param name="word">The lower-case word to compare against.</param>
-    /// <returns><see langword="true"/> when the span equals the word.</returns>
-    private static bool RegionEqualsIgnoreCase(string value, int start, int end, string word)
-    {
-        if (end - start != word.Length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < word.Length; i++)
-        {
-            if (ToLowerAscii(value[start + i]) != word[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>Returns whether the value starts with any of the supplied prefixes, comparing ordinally.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <param name="prefixes">The prefixes to test.</param>
     /// <returns><see langword="true"/> when the value starts with one of the prefixes.</returns>
-    private static bool HasAnyPrefix(string value, string[] prefixes)
-    {
-        for (var i = 0; i < prefixes.Length; i++)
-        {
-            if (HasPrefix(value, prefixes[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasAnyPrefix(string value, string[] prefixes) =>
+        ListScan.Any(prefixes, value, static (prefix, candidate) => HasPrefix(candidate, prefix));
 
     /// <summary>Returns whether the value starts with a prefix, comparing ordinally.</summary>
     /// <param name="value">The decoded literal content. Callers pass a value at least <see cref="MinCandidateLength"/> long, which exceeds every prefix.</param>
@@ -591,12 +520,6 @@ internal static class HardcodedSecretClassifier
     /// <returns><see langword="true"/> when the character is in the class.</returns>
     private static bool IsInClass(char c, int classMask) =>
         c < AsciiRange && (CharacterClassTable[c] & classMask) != 0;
-
-    /// <summary>Lower-cases an ASCII letter, leaving every other character untouched.</summary>
-    /// <param name="c">The character to fold.</param>
-    /// <returns>The lower-cased character.</returns>
-    private static char ToLowerAscii(char c) =>
-        c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 
     /// <summary>Builds the per-character class-flag table for the ASCII range.</summary>
     /// <returns>The table, indexed by code point.</returns>

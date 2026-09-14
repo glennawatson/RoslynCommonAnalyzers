@@ -12,6 +12,13 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1177 (redundant base types) and its fix.</summary>
 public class RedundantInheritanceListAnalyzerUnitTest
 {
+    /// <summary>Verifies an unresolved base type is left to the compiler.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnresolvedBaseIsCleanAsync() =>
+        VerifyInheritance.VerifyAnalyzerAsync("class C : {|CS0246:Missing|} { }");
+
     /// <summary>Verifies an explicit <c>object</c> base is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -43,7 +43,7 @@ public sealed class Sst2264UseNamedEnumMemberAnalyzer : DiagnosticAnalyzer
     {
         memberAccessText = string.Empty;
 
-        if (Unparenthesize(cast.Expression) is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
+        if (ExpressionShapes.WalkDownParentheses(cast.Expression) is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
             || model.GetTypeInfo(cast.Type, cancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
         {
             return false;
@@ -120,17 +120,4 @@ public sealed class Sst2264UseNamedEnumMemberAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for the integral types.</returns>
     private static bool IsIntegral(object value) =>
         value is byte or sbyte or short or ushort or int or uint or long or ulong;
-
-    /// <summary>Strips redundant parentheses from the cast operand.</summary>
-    /// <param name="expression">The operand.</param>
-    /// <returns>The operand with any surrounding parentheses removed.</returns>
-    private static ExpressionSyntax Unparenthesize(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
 }

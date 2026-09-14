@@ -57,15 +57,12 @@ public sealed class Psh1216UseEqualsOverCompareAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName("System.StringComparison") is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeComparison, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.StringComparison"),
+            AnalyzeComparison,
+            SyntaxKind.EqualsExpression,
+            SyntaxKind.NotEqualsExpression);
     }
 
     /// <summary>Splits a comparison into its ordering call and its literal-zero operand, syntactically.</summary>
@@ -92,11 +89,13 @@ public sealed class Psh1216UseEqualsOverCompareAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1216 for an equality test of a string ordering call against zero.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context)
+    /// <param name="comparisonType">The comparison enum resolved on first demand.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, LazyMetadataType comparisonType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryGetOrderingCall(binary, out var invocation, out var methodName)
-            || !BindsToStringOrderingMethod(context.SemanticModel, invocation!, methodName!, context.CancellationToken))
+            || !BindsToStringOrderingMethod(context.SemanticModel, invocation!, methodName!, context.CancellationToken)
+            || comparisonType.Get() is null)
         {
             return;
         }

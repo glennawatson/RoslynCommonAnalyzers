@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,40 +18,31 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider))]
 [Shared]
-public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.CallAsyncInAsyncContext.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            static _ => nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider),
+            TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces a reported synchronous call with its awaited async sibling.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="blocking">The synchronous call to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, ExpressionSyntax blocking) =>
-        TryGetReplacement(model, blocking) is { } replacement
-            ? document.WithSyntaxRoot(root.ReplaceNode(blocking, replacement))
-            : document;
-
-    /// <summary>Resolves the reported synchronous call and builds its awaited replacement.</summary>
+    /// <summary>Resolves the reported blocking call and builds the awaited async sibling that replaces it.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+    /// <returns>The nodes to swap, or <see langword="null"/> when no async sibling binds.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
             && TryGetReplacement(model, blocking) is { } replacement
             ? new NodeReplacement(blocking, replacement)
@@ -68,6 +57,18 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
             || TryBuildSiblingCall(model, invocation) is not { } sibling
         ? null
         : AwaitExpressionRewrite.WrapInAwait(sibling, blocking);
+
+    /// <summary>Words the action when the reported call sits in an async function and an async sibling binds.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when no awaited sibling applies.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
+            && Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(invocation)
+            && TryBuildSiblingCall(model, invocation) is not null
+            ? "Await the async overload"
+            : null;
 
     /// <summary>Builds the async sibling call for a reported synchronous invocation, and proves it binds.</summary>
     /// <param name="model">The semantic model.</param>
@@ -98,7 +99,7 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
             _ => invocation.Expression,
         };
 
-        var candidate = invocation.WithExpression(callee).WithoutTrivia();
+        var candidate = invocation.Update(callee.WithoutLeadingTrivia(), invocation.ArgumentList.WithoutTrailingTrivia());
         return BindsToSibling(model, invocation.SpanStart, candidate, sibling) ? candidate : null;
     }
 

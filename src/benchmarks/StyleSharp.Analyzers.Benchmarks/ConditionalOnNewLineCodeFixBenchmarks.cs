@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
@@ -17,6 +18,9 @@ public class ConditionalOnNewLineCodeFixBenchmarks
     /// <summary>Stores the prepared benchmark document and representative method declaration.</summary>
     private StructuralCodeFixBenchmarkContext<MethodDeclarationSyntax> _context = null!;
 
+    /// <summary>The diagnostic reported on the representative independent if statement.</summary>
+    private Diagnostic _diagnostic = null!;
+
     /// <summary>Gets or sets the synthetic member count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
@@ -24,11 +28,15 @@ public class ConditionalOnNewLineCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative independent if statement.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
     [GlobalSetup]
-    public async Task SetupAsync() =>
+    public async Task SetupAsync()
+    {
         _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             StructuralCodeFixBenchmarkSource.GenerateConditionalOnNewLine,
             CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>).ConfigureAwait(false);
+        var targetIf = (IfStatementSyntax)_context.Node.Body!.Statements[1];
+        _diagnostic = Diagnostic.Create(ReadabilityRules.ConditionalOnNewLine, targetIf.IfKeyword.GetLocation());
+    }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,8 +48,7 @@ public class ConditionalOnNewLineCodeFixBenchmarks
     [Benchmark]
     public async Task<int> ConditionalOnNewLine_ApplyFixAsync()
     {
-        var targetIf = (IfStatementSyntax)_context.Node.Body!.Statements[1];
-        var updated = await Sst1146ConditionalOnNewLineCodeFixProvider.MoveAsync(_context.Document, _context.Root, targetIf.IfKeyword, CancellationToken.None).ConfigureAwait(false);
+        var updated = await TextChangeCodeFix.ApplyAsync(_context.Document, _diagnostic, Sst1146ConditionalOnNewLineCodeFixProvider.RegisterTextChanges, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

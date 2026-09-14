@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -17,7 +16,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider))]
 [Shared]
-public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFixProvider
 {
     /// <summary>The metadata name of the memory type the reading overload takes.</summary>
     private const string MemoryMetadataName = "System.Memory`1";
@@ -28,38 +27,25 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFi
     /// <summary>The index of the trailing cancellation-token argument in the array overload.</summary>
     private const int TokenArgumentIndex = 3;
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.UseMemoryBasedStreamOverloads.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         ReplaceNodeCodeFix.RegisterAsync(context, "Use the Memory overload", nameof(Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces a reported array-based stream call with its memory-based form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The stream call to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, InvocationExpressionSyntax invocation) =>
-        TryGetReplacement(model, invocation, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(invocation, replacement!))
-            : document;
 
     /// <summary>Resolves the reported stream call and builds its memory-based replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && TryGetReplacement(model, invocation, out var replacement)
             ? new NodeReplacement(invocation, replacement!)
@@ -94,9 +80,12 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFi
             ? new[] { SyntaxFactory.Argument(asMemory), arguments[TokenArgumentIndex].WithoutTrivia() }
             : [SyntaxFactory.Argument(asMemory)];
 
-        var candidate = invocation
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(replacementArguments)))
-            .WithTriviaFrom(invocation);
+        var candidate = invocation.Update(
+            invocation.Expression,
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SeparatedList(replacementArguments),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         if (!BindsToMemoryOverload(model, invocation.SpanStart, candidate))
         {

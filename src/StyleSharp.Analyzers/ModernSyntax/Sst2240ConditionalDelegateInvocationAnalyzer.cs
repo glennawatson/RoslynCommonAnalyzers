@@ -58,11 +58,11 @@ public sealed class Sst2240ConditionalDelegateInvocationAnalyzer : DiagnosticAna
     /// <returns><see langword="true"/> for supported not-null checks.</returns>
     private static bool TryGetNullCheckedExpression(ExpressionSyntax condition, out ExpressionSyntax checkedExpression)
     {
-        condition = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        condition = ExpressionShapes.WalkDownParentheses(condition);
         if (condition is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.NotEqualsExpression))
         {
-            var left = ExpressionSimplificationAnalyzer.Unwrap(binary.Left);
-            var right = ExpressionSimplificationAnalyzer.Unwrap(binary.Right);
+            var left = ExpressionShapes.WalkDownParentheses(binary.Left);
+            var right = ExpressionShapes.WalkDownParentheses(binary.Right);
             if (right.IsKind(SyntaxKind.NullLiteralExpression))
             {
                 checkedExpression = left;

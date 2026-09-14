@@ -29,7 +29,13 @@ public sealed class Sst2245UseWhileOverForAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(AnalyzeForStatement, SyntaxKind.ForStatement);
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => NodeTokenReport.WhenMatches<ForStatementSyntax>(
+                nodeContext,
+                IsConditionOnlyLoop,
+                static statement => statement.ForKeyword,
+                ModernSyntaxRules.UseWhileOverFor),
+            SyntaxKind.ForStatement);
     }
 
     /// <summary>Returns whether a <c>for</c> statement is a <c>while</c> loop wearing empty clauses.</summary>
@@ -40,17 +46,4 @@ public sealed class Sst2245UseWhileOverForAnalyzer : DiagnosticAnalyzer
             && statement.Declaration is null
             && statement.Initializers.Count == 0
             && statement.Incrementors.Count == 0;
-
-    /// <summary>Reports a condition-only <c>for</c> loop.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeForStatement(SyntaxNodeAnalysisContext context)
-    {
-        var statement = (ForStatementSyntax)context.Node;
-        if (!IsConditionOnlyLoop(statement))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.UseWhileOverFor, statement.ForKeyword.GetLocation()));
-    }
 }

@@ -4,7 +4,6 @@
 
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -18,43 +17,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1662ThrownExceptionDocumentationCodeFixProvider))]
 [Shared]
-public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (text, root, diagnostic) => TryBuildChange(text, root, diagnostic, out _) ? "Add <exception> documentation for the thrown types" : null,
+            nameof(Sst1662ThrownExceptionDocumentationCodeFixProvider),
+            RegisterTextChanges);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryBuildChange(text, root, diagnostic, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add <exception> documentation for the thrown types",
-                    cancellationToken => AddAsync(context.Document, diagnostic, cancellationToken),
-                    equivalenceKey: nameof(Sst1662ThrownExceptionDocumentationCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryBuildChange(text, root, diagnostic, out var change))
         {
@@ -62,18 +50,6 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
         }
 
         changes.Add(change);
-    }
-
-    /// <summary>Applies the <c>&lt;exception&gt;</c> insertion to the document.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> AddAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
-    {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return root is null || !TryBuildChange(text, root, diagnostic, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the text change that appends the missing <c>&lt;exception&gt;</c> elements.</summary>
@@ -139,20 +115,43 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
     /// </remarks>
     private static string BuildElements(string joined, string? joinedDescriptions, string indent, string newLine)
     {
-        var crefs = joined.Split('\n');
-        var descriptions = (joinedDescriptions ?? string.Empty).Split('\n');
-        var builder = new StringBuilder();
-        for (var i = 0; i < crefs.Length; i++)
+        var crefCount = 1;
+        foreach (var character in joined)
         {
-            var crefText = crefs[i];
-            var description = i < descriptions.Length ? descriptions[i] : string.Empty;
-            if (crefText.Length == 0 || description.Length == 0)
+            if (character == '\n')
             {
-                continue;
+                crefCount++;
+            }
+        }
+
+        var descriptions = joinedDescriptions ?? string.Empty;
+        var elementLength = indent.Length + "/// <exception cref=\"".Length + "\">".Length + "</exception>".Length + newLine.Length;
+        var capacity = joined.Length + descriptions.Length + (crefCount * elementLength);
+        var builder = new StringBuilder(capacity);
+        var crefStart = 0;
+        var descriptionStart = 0;
+        while (crefStart < joined.Length)
+        {
+            var crefEnd = joined.IndexOf('\n', crefStart);
+            if (crefEnd < 0)
+            {
+                crefEnd = joined.Length;
             }
 
-            _ = builder.Append(indent).Append("/// <exception cref=\"").Append(crefText).Append("\">")
-                .Append(description).Append("</exception>").Append(newLine);
+            var descriptionEnd = descriptions.IndexOf('\n', descriptionStart);
+            if (descriptionEnd < 0)
+            {
+                descriptionEnd = descriptions.Length;
+            }
+
+            if (crefEnd > crefStart && descriptionEnd > descriptionStart)
+            {
+                _ = builder.Append(indent).Append("/// <exception cref=\"").Append(joined, crefStart, crefEnd - crefStart).Append("\">")
+                    .Append(descriptions, descriptionStart, descriptionEnd - descriptionStart).Append("</exception>").Append(newLine);
+            }
+
+            crefStart = crefEnd + 1;
+            descriptionStart = descriptionEnd < descriptions.Length ? descriptionEnd + 1 : descriptions.Length;
         }
 
         return builder.ToString();

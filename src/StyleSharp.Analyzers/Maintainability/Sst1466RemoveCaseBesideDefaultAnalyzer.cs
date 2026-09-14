@@ -37,7 +37,7 @@ public sealed class Sst1466RemoveCaseBesideDefaultAnalyzer : DiagnosticAnalyzer
         for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
         {
             var labels = sections[sectionIndex].Labels;
-            if (labels.Count < 2 || !HasDefaultLabel(labels))
+            if (labels.Count < 2 || !SwitchLabels.ContainsDefault(labels))
             {
                 continue;
             }
@@ -60,22 +60,6 @@ public sealed class Sst1466RemoveCaseBesideDefaultAnalyzer : DiagnosticAnalyzer
                 }
             }
         }
-    }
-
-    /// <summary>Returns whether a switch section's label list contains the default label.</summary>
-    /// <param name="labels">The section's labels.</param>
-    /// <returns><see langword="true"/> when a default label is present.</returns>
-    private static bool HasDefaultLabel(SyntaxList<SwitchLabelSyntax> labels)
-    {
-        for (var labelIndex = 0; labelIndex < labels.Count; labelIndex++)
-        {
-            if (labels[labelIndex].IsKind(SyntaxKind.DefaultSwitchLabel))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether the switch contains a 'goto case' or 'goto default' statement anywhere inside it.</summary>

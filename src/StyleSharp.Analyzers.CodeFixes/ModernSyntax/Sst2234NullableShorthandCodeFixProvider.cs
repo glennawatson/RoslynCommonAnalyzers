@@ -13,59 +13,34 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2234NullableShorthandCodeFixProvider))]
 [Shared]
-public sealed class Sst2234NullableShorthandCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2234NullableShorthandCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UseNullableShorthand.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => TryGetSpelling(root, diagnostic, out _, out _) ? "Use the T? shorthand" : null,
+            static _ => nameof(Sst2234NullableShorthandCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetSpelling(root, diagnostic, out var spelling, out var argument))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the T? shorthand",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, spelling!, argument!)),
-                    equivalenceKey: nameof(Sst2234NullableShorthandCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetSpelling(editor.OriginalRoot, diagnostic, out var spelling, out var argument))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(spelling!, BuildShorthand(spelling!, argument!));
-    }
-
-    /// <summary>Rewrites the reported spelling in the document.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported spelling and builds its shorthand replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="spelling">The full name node to replace.</param>
-    /// <param name="argument">The nullable value type argument.</param>
-    /// <returns>The updated document.</returns>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the spelling was not found.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, TypeSyntax spelling, TypeSyntax argument) =>
-        document.WithSyntaxRoot(root.ReplaceNode(spelling, BuildShorthand(spelling, argument)));
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetSpelling(root, diagnostic, out var spelling, out var argument)
+            ? new NodeReplacement(spelling!, BuildShorthand(spelling!, argument!))
+            : null;
 
     /// <summary>Resolves the diagnostic to the replaceable spelling and its type argument.</summary>
     /// <param name="root">The syntax root.</param>
@@ -99,6 +74,11 @@ public sealed class Sst2234NullableShorthandCodeFixProvider : CodeFixProvider, I
     /// <param name="argument">The nullable value type argument.</param>
     /// <returns>The shorthand type syntax.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static NullableTypeSyntax BuildShorthand(TypeSyntax spelling, TypeSyntax argument) =>
-        SyntaxFactory.NullableType(argument.WithoutTrivia()).WithTriviaFrom(spelling);
+    private static NullableTypeSyntax BuildShorthand(TypeSyntax spelling, TypeSyntax argument)
+    {
+        var elementType = argument.WithoutTrivia();
+        return SyntaxFactory.NullableType(
+            elementType.WithLeadingTrivia(spelling.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.QuestionToken, spelling.GetTrailingTrivia()));
+    }
 }

@@ -12,22 +12,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2259RemoveStrayEmptyStatementCodeFixProvider))]
 [Shared]
-public sealed class Sst2259RemoveStrayEmptyStatementCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2259RemoveStrayEmptyStatementCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.RemoveStrayEmptyStatement.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the stray semicolon", nameof(Sst2259RemoveStrayEmptyStatementCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the stray semicolon", nameof(Sst2259RemoveStrayEmptyStatementCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        return (token.IsKind(SyntaxKind.SemicolonToken))
+            && (token.Parent is BaseTypeDeclarationSyntax type
+            && Sst2259RemoveStrayEmptyStatementAnalyzer.HasStraySemicolon(type));
+    }
 
     /// <summary>Resolves the reported semicolon and rebuilds its declaration without it.</summary>
     /// <param name="root">The syntax root.</param>
@@ -53,6 +63,48 @@ public sealed class Sst2259RemoveStrayEmptyStatementCodeFixProvider : CodeFixPro
     {
         var closeBrace = type.CloseBraceToken;
         var newCloseBrace = closeBrace.WithTrailingTrivia(closeBrace.TrailingTrivia.AddRange(type.SemicolonToken.TrailingTrivia));
-        return type.WithCloseBraceToken(newCloseBrace).WithSemicolonToken(default);
+        return type switch
+        {
+            RecordDeclarationSyntax declaration => RemoveRecordSemicolon(declaration, newCloseBrace),
+            TypeDeclarationSyntax declaration => TypeDeclarationRewrite.WithBody(
+                declaration,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.Members,
+                newCloseBrace,
+                default) ?? type,
+            EnumDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.EnumKeyword,
+                declaration.Identifier,
+                declaration.BaseList,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                newCloseBrace,
+                default),
+            _ => type,
+        };
     }
+
+    /// <summary>Removes a record's semicolon while retaining its declaration children.</summary>
+    /// <param name="declaration">The record declaration.</param>
+    /// <param name="closeBrace">The closing brace carrying the semicolon's trailing trivia.</param>
+    /// <returns>The record without its trailing semicolon.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RecordDeclarationSyntax RemoveRecordSemicolon(RecordDeclarationSyntax declaration, SyntaxToken closeBrace) =>
+        declaration.Update(
+            declaration.AttributeLists,
+            declaration.Modifiers,
+            declaration.Keyword,
+            declaration.ClassOrStructKeyword,
+            declaration.Identifier,
+            declaration.TypeParameterList,
+            declaration.ParameterList,
+            declaration.BaseList,
+            declaration.ConstraintClauses,
+            declaration.OpenBraceToken,
+            declaration.Members,
+            closeBrace,
+            default);
 }

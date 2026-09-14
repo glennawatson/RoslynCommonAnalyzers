@@ -15,58 +15,27 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2301SealEquatableTypeCodeFixProvider))]
 [Shared]
-public sealed class Sst2301SealEquatableTypeCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2301SealEquatableTypeCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindDeclaration, static (current, _) => MakeSealed((ClassDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DesignRules.EquatableTypeShouldBeSealed.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(context, "Seal the type", nameof(Sst2301SealEquatableTypeCodeFixProvider), FindDeclaration, MakeSealed);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindDeclaration(root, diagnostic) is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Seal the type",
-                    _ => Task.FromResult(Apply(context.Document, root, declaration)),
-                    equivalenceKey: nameof(Sst2301SealEquatableTypeCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (FindDeclaration(editor.OriginalRoot, diagnostic) is not { } declaration)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, static (current, _) => MakeSealed((ClassDeclarationSyntax)current));
-    }
-
-    /// <summary>Applies the fix for one unsealed equatable class.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Builds the class declaration with <c>sealed</c> inserted after the access modifiers.</summary>
     /// <param name="declaration">The class declaration to seal.</param>
-    /// <returns>The updated document.</returns>
+    /// <returns>The rewritten declaration.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration) =>
-        document.WithSyntaxRoot(root.ReplaceNode(declaration, MakeSealed(declaration)));
+    internal static ClassDeclarationSyntax MakeSealed(ClassDeclarationSyntax declaration) =>
+        ClassModifierInsertion.InsertBeforePartial(declaration, SyntaxKind.SealedKeyword, takePartialIndentation: true);
 
     /// <summary>Resolves the diagnostic's span to the class it was reported on.</summary>
     /// <param name="root">The syntax root.</param>
@@ -75,34 +44,4 @@ public sealed class Sst2301SealEquatableTypeCodeFixProvider : CodeFixProvider, I
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ClassDeclarationSyntax? FindDeclaration(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>();
-
-    /// <summary>Builds the class declaration with <c>sealed</c> inserted after the access modifiers.</summary>
-    /// <param name="declaration">The class declaration to seal.</param>
-    /// <returns>The rewritten declaration.</returns>
-    private static ClassDeclarationSyntax MakeSealed(ClassDeclarationSyntax declaration)
-    {
-        var modifiers = declaration.Modifiers;
-        if (modifiers.Count == 0)
-        {
-            // No modifiers: move the declaration's leading trivia onto 'sealed' and re-indent the keyword.
-            var lone = SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.SealedKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration
-                .WithKeyword(declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-                .WithModifiers(SyntaxFactory.TokenList(lone));
-        }
-
-        var partialIndex = modifiers.IndexOf(SyntaxKind.PartialKeyword);
-        if (partialIndex < 0)
-        {
-            var appended = SyntaxFactory.Token(default, SyntaxKind.SealedKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration.WithModifiers(modifiers.Add(appended));
-        }
-
-        // 'partial' stays last in the list, so 'sealed' goes in front of it — and takes over its leading
-        // trivia, which is the declaration's own indentation whenever 'partial' is the first modifier.
-        var partial = modifiers[partialIndex];
-        var inserted = SyntaxFactory.Token(partial.LeadingTrivia, SyntaxKind.SealedKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        var reindented = modifiers.Replace(partial, partial.WithLeadingTrivia(SyntaxFactory.TriviaList()));
-        return declaration.WithModifiers(reindented.Insert(partialIndex, inserted));
-    }
 }

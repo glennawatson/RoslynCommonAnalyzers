@@ -15,7 +15,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2243UseRawStringLiteralCodeFixProvider))]
 [Shared]
-public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider
 {
     /// <summary>The smallest raw string delimiter the language allows.</summary>
     private const int MinimumDelimiterLength = 3;
@@ -23,57 +23,32 @@ public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider,
     /// <summary>The character count of a CRLF line-break pair.</summary>
     private const int CrlfLength = 2;
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UseRawStringLiteral.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Use a raw string literal",
+            nameof(Sst2243UseRawStringLiteralCodeFixProvider),
+            static (root, diagnostic) => TryGetLiteral(root, diagnostic, out _),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetLiteral(root, diagnostic, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use a raw string literal",
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: nameof(Sst2243UseRawStringLiteralCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetLiteral(editor.OriginalRoot, diagnostic, out var literal))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(literal!, BuildReplacement(literal!));
-    }
-
-    /// <summary>Applies the raw-string rewrite for one diagnostic.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported verbatim literal and builds its raw string replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the diagnostic no longer resolves.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         TryGetLiteral(root, diagnostic, out var literal)
-            ? document.WithSyntaxRoot(root.ReplaceNode(literal!, BuildReplacement(literal!)))
-            : document;
+            ? new NodeReplacement(literal!, BuildReplacement(literal!))
+            : null;
 
     /// <summary>Resolves the diagnostic to the reported verbatim string literal.</summary>
     /// <param name="root">The syntax root.</param>

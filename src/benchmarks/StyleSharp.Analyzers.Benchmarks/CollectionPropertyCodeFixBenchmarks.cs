@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class CollectionPropertyCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative settable collection property passed to the code fix.</summary>
-    private PropertyDeclarationSyntax _property = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -45,10 +46,10 @@ public class CollectionPropertyCodeFixBenchmarks : IDisposable
         _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, CollectionPropertyBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _property = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<PropertyDeclarationSyntax>(
+        _diagnostic = Diagnostic.Create(DesignRules.CollectionPropertyShouldBeReadOnly, CodeFixBenchmarkSyntaxLookup.GetNthDescendant<PropertyDeclarationSyntax>(
             _root,
             Nodes / MiddleNodeDivisor,
-            static property => Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property) is not null);
+            static property => Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property) is not null).GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -68,7 +69,7 @@ public class CollectionPropertyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> CollectionProperty_ApplyFixAsync()
     {
-        var updated = Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider.Apply(_document, _root, _property);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

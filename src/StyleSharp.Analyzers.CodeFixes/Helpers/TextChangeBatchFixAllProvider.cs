@@ -9,22 +9,28 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// A <see cref="DocumentBasedFixAllProvider"/> for fixes that edit the document's text. It computes
-/// every diagnostic's <see cref="TextChange"/>s against the original text, drops any that overlap an
-/// already-kept change, and applies the rest in a single <see cref="SourceText.WithChanges(IEnumerable{TextChange})"/>
-/// call — instead of <see cref="WellKnownFixAllProviders.BatchFixer"/> cloning and re-parsing the
-/// document once per diagnostic. This is where the highest-frequency layout and spacing rules live.
-/// </summary>
+/// <summary>Applies every diagnostic's text changes to a document in one pass, dropping changes that overlap one already kept.</summary>
 internal sealed class TextChangeBatchFixAllProvider : DocumentBasedFixAllProvider
 {
-    /// <summary>The shared provider instance.</summary>
-    public static readonly TextChangeBatchFixAllProvider Instance = new();
+    /// <summary>Adds one diagnostic's text changes.</summary>
+    private readonly Action<SourceText, SyntaxNode, Diagnostic, List<TextChange>> _registerTextChanges;
+
+    /// <summary>Initializes a new instance of the <see cref="TextChangeBatchFixAllProvider"/> class.</summary>
+    /// <param name="registerTextChanges">Adds the text changes that fix one diagnostic, computed against the original text and root.</param>
+    internal TextChangeBatchFixAllProvider(Action<SourceText, SyntaxNode, Diagnostic, List<TextChange>> registerTextChanges) =>
+        _registerTextChanges = registerTextChanges;
+
+    /// <summary>Initializes a new instance of the <see cref="TextChangeBatchFixAllProvider"/> class from a provider's change appender.</summary>
+    /// <param name="tryAppendChanges">Adds the text changes that fix one diagnostic and reports whether the reported shape still matched.</param>
+    internal TextChangeBatchFixAllProvider(Func<SourceText, SyntaxNode, Diagnostic, List<TextChange>, bool> tryAppendChanges)
+        : this((text, root, diagnostic, changes) => { _ = tryAppendChanges(text, root, diagnostic, changes); })
+    {
+    }
 
     /// <inheritdoc/>
     protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
     {
-        if (diagnostics.IsEmpty || fixAllContext.CodeFixProvider is not ITextChangeBatchableCodeFix fix)
+        if (diagnostics.IsEmpty)
         {
             return document;
         }
@@ -36,10 +42,10 @@ internal sealed class TextChangeBatchFixAllProvider : DocumentBasedFixAllProvide
             return document;
         }
 
-        var changes = new List<TextChange>();
+        var changes = new List<TextChange>(diagnostics.Length);
         foreach (var diagnostic in BatchEditFixAllProvider.UniqueDiagnostics(diagnostics))
         {
-            fix.RegisterTextChanges(text, root, diagnostic, changes);
+            _registerTextChanges(text, root, diagnostic, changes);
         }
 
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(Merge(changes)));

@@ -21,21 +21,12 @@ public sealed class Sst1148CommentedOutCodeCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var span = diagnostic.Location.SourceSpan;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the commented-out code",
-                    cancellationToken => RemoveAsync(context.Document, span, cancellationToken),
-                    equivalenceKey: nameof(Sst1148CommentedOutCodeCodeFixProvider)),
-                diagnostic);
-        }
-
-        return Task.CompletedTask;
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove the commented-out code",
+            nameof(Sst1148CommentedOutCodeCodeFixProvider),
+            static (document, diagnostic, cancellationToken) => RemoveAsync(document, diagnostic.Location.SourceSpan, cancellationToken));
 
     /// <summary>Removes the reported comment, and its line when nothing else is on it.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -49,27 +40,11 @@ public sealed class Sst1148CommentedOutCodeCodeFixProvider : CodeFixProvider
         var before = text.ToString(TextSpan.FromBounds(line.Start, span.Start));
         var after = text.ToString(TextSpan.FromBounds(span.End, line.End));
 
-        var removal = IsBlank(before) && IsBlank(after)
+        var removal = ObsoleteAttributeFacts.IsBlank(before) && ObsoleteAttributeFacts.IsBlank(after)
             ? TextSpan.FromBounds(line.Start, line.EndIncludingLineBreak)
             : TextSpan.FromBounds(span.Start - TrailingBlankLength(before), span.End);
 
         return document.WithText(text.WithChanges(new TextChange(removal, string.Empty)));
-    }
-
-    /// <summary>Returns whether a stretch of text is empty or whitespace.</summary>
-    /// <param name="value">The text.</param>
-    /// <returns><see langword="true"/> when nothing visible is in it.</returns>
-    private static bool IsBlank(string value)
-    {
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (!char.IsWhiteSpace(value[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>Counts the whitespace at the end of a stretch of text.</summary>

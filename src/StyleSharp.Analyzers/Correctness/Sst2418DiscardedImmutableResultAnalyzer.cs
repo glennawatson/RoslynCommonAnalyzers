@@ -22,6 +22,15 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DiscardedImmutableResult);
 
+    /// <summary>The metadata names SpanTypes resolves, in slot order.</summary>
+    private static readonly string[] SpanTypesMetadataNames =
+    [
+        "System.Span`1",
+        "System.ReadOnlySpan`1",
+        "System.Memory`1",
+        "System.ReadOnlyMemory`1"
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -33,24 +42,18 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Resolves the span-like types once, then analyzes each expression statement.</summary>
+    /// <summary>Defers resolving span-like types until a discarded result needs them.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var spanTypes = new[]
-        {
-            context.Compilation.GetTypeByMetadataName("System.Span`1"),
-            context.Compilation.GetTypeByMetadataName("System.ReadOnlySpan`1"),
-            context.Compilation.GetTypeByMetadataName("System.Memory`1"),
-            context.Compilation.GetTypeByMetadataName("System.ReadOnlyMemory`1"),
-        };
+        var spanTypes = new LazyMetadataTypes(context.Compilation, SpanTypesMetadataNames);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, spanTypes), SyntaxKind.ExpressionStatement);
     }
 
     /// <summary>Reports one discarded immutable-value result.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="spanTypes">The resolved span and memory type definitions.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] spanTypes)
+    /// <param name="spanTypes">The span and memory types resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataTypes spanTypes)
     {
         if (((ExpressionStatementSyntax)context.Node).Expression is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
         {
@@ -76,33 +79,16 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
         container.SpecialType == SpecialType.System_String
             || method.Name == "TryParse"
             || (container.Name == "Enumerable" && container.ContainingNamespace?.ToDisplayString() == "System.Linq")
-            || HasPureAttribute(method);
-
-    /// <summary>Returns whether a method carries a purity attribute.</summary>
-    /// <param name="method">The method.</param>
-    /// <returns><see langword="true"/> when the method is marked <c>[Pure]</c>.</returns>
-    private static bool HasPureAttribute(IMethodSymbol method)
-    {
-        var attributes = method.GetAttributes();
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (attributes[i].AttributeClass?.Name == "PureAttribute")
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+            || SymbolFacts.HasAttributeNamed(method.GetAttributes(), "PureAttribute");
 
     /// <summary>Returns whether the call's only effect is a discarded immutable value.</summary>
     /// <param name="method">The resolved method.</param>
     /// <param name="container">The method's containing type.</param>
-    /// <param name="spanTypes">The resolved span and memory type definitions.</param>
+    /// <param name="spanTypes">The span and memory types resolved on first demand.</param>
     /// <returns><see langword="true"/> when the discarded result makes the call pointless.</returns>
-    private static bool IsDiscardedImmutableResult(IMethodSymbol method, INamedTypeSymbol container, INamedTypeSymbol?[] spanTypes) =>
+    private static bool IsDiscardedImmutableResult(IMethodSymbol method, INamedTypeSymbol container, LazyMetadataTypes spanTypes) =>
         IsStatelessHelper(method, container)
-            || IsSpanLike(method.ReturnType, spanTypes)
+            || IsSpanLike(method.ReturnType, spanTypes.Get())
             || IsFallbackImmutableValueType(container)
             || IsReadonlyStructSelfReturn(method, container);
 

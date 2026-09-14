@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -18,9 +19,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the .NET 9 lock type.</summary>
-    private const string LockMetadataName = "System.Threading.Lock";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.PreferLockType);
 
@@ -46,16 +44,11 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(LockMetadataName) is null)
-            {
-                return;
-            }
-
-            var analyzedTypes = new ConcurrentDictionary<TypeDeclarationSyntax, byte>();
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeField(nodeContext, analyzedTypes), SyntaxKind.FieldDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LockAnalysisState(compilation),
+            AnalyzeField,
+            SyntaxKind.FieldDeclaration);
     }
 
     /// <summary>Returns the single syntax-only candidate field when the containing type has an unambiguous fast-path shape.</summary>
@@ -76,7 +69,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         {
             if (type.Members[i] is not FieldDeclarationSyntax field
                 || !HasPrivateReadonlyModifiers(field.Modifiers)
-                || !IsUnambiguousObjectType(field.Declaration.Type)
+                || !ObjectTypeSyntax.IsUnambiguousObjectType(field.Declaration.Type)
                 || field.Declaration.Variables is not [var candidate]
                 || candidate.Initializer is null
                 || !IsParameterlessNew(candidate.Initializer.Value))
@@ -104,34 +97,35 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when every matching identifier is a direct lock target and at least one exists.</returns>
     internal static bool HasOnlyUnshadowedLockUses(TypeDeclarationSyntax type, string fieldName)
     {
-        var hasLockUse = false;
-        foreach (var token in type.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.IdentifierToken)
-                || token.ValueText != fieldName)
+        var state = new LockUseScanState(type, fieldName);
+        return DescendantTraversalHelper.VisitDescendantTokens(
+            type,
+            ref state,
+            static (in SyntaxToken token, ref LockUseScanState current) =>
             {
-                continue;
-            }
-
-            switch (ClassifyFieldNameToken(type, token, fieldName))
-            {
-                case FieldNameTokenKind.Ignore:
+                if (!token.IsKind(SyntaxKind.IdentifierToken)
+                    || token.ValueText != current.FieldName)
                 {
-                    continue;
+                    return true;
                 }
 
-                case FieldNameTokenKind.LockUse:
+                switch (ClassifyFieldNameToken(current.Type, token, current.FieldName))
                 {
-                    hasLockUse = true;
-                    continue;
+                    case FieldNameTokenKind.Ignore:
+                        break;
+
+                    case FieldNameTokenKind.LockUse:
+                    {
+                        current.HasLockUse = true;
+                        break;
+                    }
+
+                    case FieldNameTokenKind.Conflict:
+                        return false;
                 }
 
-                case FieldNameTokenKind.Conflict:
-                    return false;
-            }
-        }
-
-        return hasLockUse;
+                return true;
+            }) && state.HasLockUse;
     }
 
     /// <summary>Classifies how a matching identifier token affects the syntax-only lock-use fast path.</summary>
@@ -157,16 +151,16 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1300 for a candidate field's containing type once per compilation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="analyzedTypes">The containing types already analyzed in this compilation.</param>
+    /// <param name="state">The compilation's lazily resolved lock support and analyzed types.</param>
     private static void AnalyzeField(
         in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<TypeDeclarationSyntax, byte> analyzedTypes)
+        LockAnalysisState state)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         if (!LanguageVersions.SupportsCSharp13(field)
-            || !CouldBeCandidateLockField(field)
+            || !IsCandidateLockField(field, out _)
             || field.Parent is not TypeDeclarationSyntax type
-            || !analyzedTypes.TryAdd(type, 0))
+            || !state.TryBeginAnalysis(type))
         {
             return;
         }
@@ -242,6 +236,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         }
 
         candidate.HasLockUse = true;
+        candidates[candidate.Variable.Identifier.ValueText] = candidate;
         return true;
     }
 
@@ -286,7 +281,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         {
             PredefinedTypeSyntax predefined when predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword) => true,
             IdentifierNameSyntax { Identifier.ValueText: "Object" } => true,
-            QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } => IsSystemNamespace(left),
+            QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } => ObjectTypeSyntax.IsSystemNamespace(left),
             _ => false
         };
 
@@ -327,13 +322,6 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
             _ => FieldNameTokenKind.Ignore
         };
 
-    /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
-    /// <param name="type">The type syntax.</param>
-    /// <returns><see langword="true"/> for unambiguous object spellings.</returns>
-    private static bool IsUnambiguousObjectType(TypeSyntax type) =>
-        (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
-            || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
-
     /// <summary>Returns whether a modifier list contains both <c>private</c> and <c>readonly</c>.</summary>
     /// <param name="modifiers">The modifier list to inspect.</param>
     /// <returns><see langword="true"/> when both required modifiers are present.</returns>
@@ -364,13 +352,6 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
 
         return hasPrivate && hasReadonly;
     }
-
-    /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
-    /// <param name="name">The syntax to inspect.</param>
-    /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
-    private static bool IsSystemNamespace(NameSyntax name) =>
-        name is IdentifierNameSyntax { Identifier.ValueText: "System" }
-            or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 
     /// <summary>Returns whether every reference to the field within the type is a lock target (and there is at least one).</summary>
     /// <param name="model">The semantic model.</param>
@@ -447,11 +428,23 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         if (IsLockTarget(identifier))
         {
             candidate.HasLockUse = true;
-            return true;
+        }
+        else
+        {
+            candidate.HasNonLockUse = true;
         }
 
-        candidate.HasNonLockUse = true;
+        state.Candidates[identifier.Identifier.ValueText] = candidate;
         return true;
+    }
+
+    /// <summary>Tracks whether matching field names are exclusively unshadowed lock uses.</summary>
+    /// <param name="Type">The declaring type used to classify each token.</param>
+    /// <param name="FieldName">The candidate field name.</param>
+    private record struct LockUseScanState(TypeDeclarationSyntax Type, string FieldName)
+    {
+        /// <summary>Gets or sets whether a direct lock use has been found.</summary>
+        public bool HasLockUse { get; set; }
     }
 
     /// <summary>Captures the state required while scanning candidate field references.</summary>
@@ -463,28 +456,44 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         Dictionary<string, CandidateFieldState> Candidates,
         CancellationToken CancellationToken);
 
-    /// <summary>Tracks the lock-only usage state for one candidate field.</summary>
-    private sealed class CandidateFieldState
+    /// <summary>Tracks the lock-only usage state for one candidate field within the candidate dictionary.</summary>
+    /// <param name="FieldSymbol">The candidate field symbol.</param>
+    /// <param name="Variable">The candidate variable declarator.</param>
+    private record struct CandidateFieldState(IFieldSymbol FieldSymbol, VariableDeclaratorSyntax Variable)
     {
-        /// <summary>Initializes a new instance of the <see cref="CandidateFieldState"/> class.</summary>
-        /// <param name="fieldSymbol">The candidate field symbol.</param>
-        /// <param name="variable">The candidate variable declarator.</param>
-        public CandidateFieldState(IFieldSymbol fieldSymbol, VariableDeclaratorSyntax variable)
-        {
-            FieldSymbol = fieldSymbol;
-            Variable = variable;
-        }
-
-        /// <summary>Gets the candidate field symbol.</summary>
-        public IFieldSymbol FieldSymbol { get; }
-
-        /// <summary>Gets the candidate variable declarator.</summary>
-        public VariableDeclaratorSyntax Variable { get; }
-
         /// <summary>Gets or sets a value indicating whether a qualifying lock use was found.</summary>
         public bool HasLockUse { get; set; }
 
         /// <summary>Gets or sets a value indicating whether a non-lock use was found.</summary>
         public bool HasNonLockUse { get; set; }
+    }
+
+    /// <summary>Defers lock availability and type tracking until the first candidate field.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class LockAnalysisState(Compilation compilation)
+    {
+        /// <summary>The metadata name of the .NET 9 lock type.</summary>
+        private const string LockMetadataName = "System.Threading.Lock";
+
+        /// <summary>The initial number of lock stripes for concurrent candidate callbacks.</summary>
+        private const int InitialConcurrencyLevel = 4;
+
+        /// <summary>The initial capacity for tracked containing types.</summary>
+        private const int InitialTypeCapacity = 31;
+
+        /// <summary>Publishes one shared dictionary so concurrent fields cannot analyze the same type twice.</summary>
+        private readonly LazyCompilationValue<ConcurrentDictionary<TypeDeclarationSyntax, byte>?> _analyzedTypes = new(
+            compilation,
+            static current => current.GetTypeByMetadataName(LockMetadataName) is null
+                ? null
+                : new ConcurrentDictionary<TypeDeclarationSyntax, byte>(InitialConcurrencyLevel, InitialTypeCapacity),
+            runOnce: true);
+
+        /// <summary>Checks lock availability and claims a candidate's containing type once.</summary>
+        /// <param name="type">The containing type to analyze.</param>
+        /// <returns>True when the lock type exists and this containing type has not been analyzed.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryBeginAnalysis(TypeDeclarationSyntax type) =>
+            _analyzedTypes.Get() is { } analyzedTypes && analyzedTypes.TryAdd(type, 0);
     }
 }

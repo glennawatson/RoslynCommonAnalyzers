@@ -2,13 +2,20 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Wraps an expression in parentheses to make its precedence explicit (SST1407, SST1408, SST1418).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(PrecedenceCodeFixProvider))]
 [Shared]
-public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class PrecedenceCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(
+        FindExpression,
+        static (current, _) => ExpressionParentheses.Wrap((ExpressionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         MaintainabilityRules.ArithmeticPrecedence.Id,
@@ -16,7 +23,7 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
         MaintainabilityRules.NullCoalescingPrecedence.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -29,7 +36,7 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not ExpressionSyntax expression)
+            if (FindExpression(root, diagnostic) is not { } expression)
             {
                 continue;
             }
@@ -43,28 +50,15 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ExpressionSyntax expression)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(expression, static (current, _) => SyntaxFactory.ParenthesizedExpression(((ExpressionSyntax)current).WithoutTrivia()).WithTriviaFrom(current));
-    }
-
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="expression">The expression to parenthesize.</param>
     /// <returns>The updated document.</returns>
     /// <remarks>The rewrite is a pure syntax edit over a root the caller already has, so there is nothing to cancel.</remarks>
-    internal static Task<Document> AddParenthesesAsync(Document document, SyntaxNode root, ExpressionSyntax expression)
-    {
-        var parenthesized = SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression);
-        return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, parenthesized)));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<Document> AddParenthesesAsync(Document document, SyntaxNode root, ExpressionSyntax expression) =>
+        Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, ExpressionParentheses.Wrap(expression))));
 
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -76,4 +70,12 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         return await AddParenthesesAsync(document, root!, expression).ConfigureAwait(false);
     }
+
+    /// <summary>Resolves a diagnostic to the expression whose precedence it reported.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The expression, or <see langword="null"/> when the shape no longer matches.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax? FindExpression(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) as ExpressionSyntax;
 }

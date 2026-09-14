@@ -108,7 +108,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
             : expressionStatement.Expression;
 
         return expression is InvocationExpressionSyntax invocation
-            && GetInvokedName(invocation) is { } name
+            && InvokedName.Of(invocation.Expression) is { } name
             && IsLoggingName(name)
             ? invocation
             : null;
@@ -128,7 +128,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
         }
 
         return caught is not null
-            && GetInvokedName(invocation) is { } name
+            && InvokedName.Of(invocation.Expression) is { } name
             && IsStrongLoggingName(name)
             && ArgumentsReferenceCaught(context, invocation, caught);
     }
@@ -154,7 +154,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
         var arguments = invocation.ArgumentList.Arguments;
         for (var i = 0; i < arguments.Count; i++)
         {
-            if (ExpressionReferencesCaught(context, arguments[i].Expression, caught))
+            if (IdentifierReferences.References(arguments[i].Expression, caught, context.SemanticModel, context.CancellationToken))
             {
                 return true;
             }
@@ -162,48 +162,6 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns whether an expression references the caught exception local.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="expression">The expression to scan.</param>
-    /// <param name="caught">The caught exception local.</param>
-    /// <returns><see langword="true"/> when the local is referenced anywhere in the expression.</returns>
-    private static bool ExpressionReferencesCaught(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol caught)
-    {
-        if (expression is IdentifierNameSyntax identifier)
-        {
-            return BindsToCaught(context, identifier, caught);
-        }
-
-        var scan = new CaughtScan(context.SemanticModel, caught, caught.Name, context.CancellationToken);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, CaughtScan>(expression, ref scan, VisitCaughtReference);
-        return scan.Found;
-    }
-
-    /// <summary>Records the first identifier that binds to the caught local, stopping the walk.</summary>
-    /// <param name="identifier">The identifier.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once the caught local is found.</returns>
-    private static bool VisitCaughtReference(IdentifierNameSyntax identifier, ref CaughtScan scan)
-    {
-        if (identifier.Identifier.ValueText != scan.Name
-            || !SymbolEqualityComparer.Default.Equals(scan.Model.GetSymbolInfo(identifier, scan.CancellationToken).Symbol, scan.Caught))
-        {
-            return true;
-        }
-
-        scan.Found = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an identifier binds to the caught local.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="identifier">The identifier.</param>
-    /// <param name="caught">The caught exception local.</param>
-    /// <returns><see langword="true"/> when the identifier is the caught local.</returns>
-    private static bool BindsToCaught(in SyntaxNodeAnalysisContext context, IdentifierNameSyntax identifier, ISymbol caught) =>
-        identifier.Identifier.ValueText == caught.Name
-            && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol, caught);
 
     /// <summary>Reads the caught exception local a catch declares, when it names one.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -213,18 +171,6 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
         catchClause.Declaration is { Identifier.ValueText.Length: > 0 } declaration
             ? context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)
             : null;
-
-    /// <summary>Returns the invoked member's simple name.</summary>
-    /// <param name="invocation">The invocation.</param>
-    /// <returns>The name text, or <see langword="null"/> when the callee is not a named member.</returns>
-    private static string? GetInvokedName(InvocationExpressionSyntax invocation) =>
-        invocation.Expression switch
-        {
-            MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Returns whether a member name is one a logging call uses.</summary>
     /// <param name="name">The invoked member's name.</param>
@@ -273,15 +219,4 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a name a logging abstraction uses.</returns>
     private static bool IsLoggerName(string name) =>
         name == "ILog" || name.EndsWith("Logger", System.StringComparison.Ordinal);
-
-    /// <summary>The state threaded through a caught-local reference scan.</summary>
-    /// <param name="Model">The semantic model.</param>
-    /// <param name="Caught">The caught exception local.</param>
-    /// <param name="Name">The caught local's name.</param>
-    /// <param name="CancellationToken">A token that cancels analysis.</param>
-    private record struct CaughtScan(SemanticModel Model, ISymbol Caught, string Name, CancellationToken CancellationToken)
-    {
-        /// <summary>Gets or sets a value indicating whether the caught local was found.</summary>
-        public bool Found { get; set; }
-    }
 }

@@ -3,11 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2273PreferGuardClauseAnalyzer,
     StyleSharp.Analyzers.Sst2273PreferGuardClauseCodeFixProvider>;
+using VerifyGuardAnalyzer = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2273PreferGuardClauseAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
 
@@ -17,6 +20,83 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class PreferGuardClauseAnalyzerUnitTest
 {
+    /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>Verifies declarations can be lifted when no sibling scope uses their names.</summary>
+    /// <param name="body">The guarded statements declaring names.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int.TryParse(\"1\", out var item); _ = item;")]
+    [Arguments("void Local(int item) { } Local(1);")]
+    [Arguments("foreach (var item in new[] { 1 }) { } Work();")]
+    [Arguments("try { Work(); } catch (System.Exception item) { _ = item; } Work();")]
+    [Arguments("System.Action<int> action = item => { }; action(1);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DistinctGuardedDeclarationsAreReportedAsync(string body) =>
+        VerifyReportedAsync($$"""
+            class C
+            {
+                void M(bool ready)
+                {
+                    {|SST2273:if|} (ready) { {{body}} }
+                }
+                void Work() { }
+            }
+            """);
+
+    /// <summary>Verifies lifting declarations cannot collide with a name in a sibling block.</summary>
+    /// <param name="body">The guarded statements declaring the sibling name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int.TryParse(\"1\", out var item); _ = item;")]
+    [Arguments("void item() { } item();")]
+    [Arguments("foreach (var item in new[] { 1 }) { } Work();")]
+    [Arguments("try { Work(); } catch (System.Exception item) { _ = item; } Work();")]
+    [Arguments("System.Action<int> action = item => { }; action(1);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConflictingGuardedDeclarationsAreCleanAsync(string body) =>
+        VerifyCleanAsync($$"""
+            class C
+            {
+                void M(bool ready)
+                {
+                    if (ready) { int item = 1; _ = item; }
+                    if (ready) { {{body}} }
+                }
+                void Work() { }
+            }
+            """);
+
+    /// <summary>Verifies every accessor that returns no value accepts an early return guard.</summary>
+    /// <param name="member">The member containing the accessor.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int P { init { {|SST2273:if|} (value > 0) { Work(); Work(); } } }")]
+    [Arguments("event System.Action E { add { {|SST2273:if|} (value != null) { Work(); Work(); } } remove { } }")]
+    [Arguments("event System.Action E { add { } remove { {|SST2273:if|} (value != null) { Work(); Work(); } } }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ValueFreeAccessorsAreReportedAsync(string member) =>
+        VerifyReportedAsync($"class C {{ {member} void Work() {{ }} }}");
+
+    /// <summary>Verifies a getter's value requirement prevents a bare return guard.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GetterGuardIsCleanAsync() =>
+        VerifyCleanAsync("class C { int P { get { if (true) { return 1; } } } }");
+
+    /// <summary>Verifies declarations in a top-level block do not imply a member exit boundary.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TopLevelBlockHasNoGuardExitAsync()
+    {
+        var root = SyntaxFactory.ParseCompilationUnit("{ if (true) { int item = 1; } }");
+        var statement = root.DescendantNodes().OfType<IfStatementSyntax>().Single();
+        await Assert.That(Sst2273PreferGuardClauseAnalyzer.TryGetGuard(statement, out var jump)).IsFalse();
+        await Assert.That(jump).IsEqualTo(SyntaxKind.None);
+    }
+
     /// <summary>Verifies a trailing wrapping <c>if</c> in a void method becomes a <c>return</c> guard.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -979,6 +1059,16 @@ public class PreferGuardClauseAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Runs an analyzer-only verification with the disabled rule enabled.</summary>
+    /// <param name="source">The markup source.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    private static async Task VerifyReportedAsync(string source)
+    {
+        var test = new VerifyGuardAnalyzer.Test { TestCode = source };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, CreateConfig(null)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Creates a verifier test with SST2273 enabled and any extra option applied.</summary>
     /// <param name="source">The markup source.</param>
     /// <param name="optionLine">An optional extra <c>.editorconfig</c> option line.</param>
@@ -986,21 +1076,24 @@ public class PreferGuardClauseAnalyzerUnitTest
     private static VerifyGuard.Test CreateTest(string source, string? optionLine)
     {
         var test = new VerifyGuard.Test { TestCode = source, };
-
-        var config = """
-                     root = true
-
-                     [*.cs]
-                     dotnet_diagnostic.SST2273.severity = warning
-
-                     """;
-        if (optionLine is not null)
-        {
-            config += $"{optionLine}\n";
-        }
-
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        var config = CreateConfig(optionLine);
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         return test;
+    }
+
+    /// <summary>Creates the <c>.editorconfig</c> text that enables SST2273 with any extra option applied.</summary>
+    /// <param name="optionLine">An optional extra <c>.editorconfig</c> option line.</param>
+    /// <returns>The configuration text.</returns>
+    private static string CreateConfig(string? optionLine)
+    {
+        const string Config = """
+                              root = true
+
+                              [*.cs]
+                              dotnet_diagnostic.SST2273.severity = warning
+
+                              """;
+        return optionLine is null ? Config : $"{Config}{optionLine}\n";
     }
 }

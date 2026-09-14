@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -18,40 +17,27 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider))]
 [Shared]
-public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.UseAnyAsyncOverCountAsync.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         ReplaceNodeCodeFix.RegisterAsync(context, "Use AnyAsync()", nameof(Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported comparison with its AnyAsync() form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="comparison">The comparison expression to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, BinaryExpressionSyntax comparison) =>
-        TryGetReplacement(model, comparison, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
-            : document;
 
     /// <summary>Resolves the reported comparison and builds its AnyAsync() replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is BinaryExpressionSyntax binary
             && TryGetReplacement(model, binary, out var replacement)
             ? new NodeReplacement(binary, replacement!)
@@ -66,14 +52,21 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixPro
     {
         replacement = null;
         if (Psh1126UseAnyAsyncOverCountAsyncAnalyzer.TryGetComparisonShape(binary) is not { } shape
-            || shape.Invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            || shape.Count.Expression is not MemberAccessExpressionSyntax memberAccess)
         {
             return false;
         }
 
-        var anyAsyncCall = shape.Invocation
-            .WithExpression(memberAccess.WithName(SyntaxFactory.IdentifierName(Psh1126UseAnyAsyncOverCountAsyncAnalyzer.AnyAsyncMethodName)))
-            .WithoutTrivia();
+        var arguments = shape.Count.ArgumentList;
+        var anyAsyncCall = shape.Count.Update(
+            memberAccess.Update(
+                memberAccess.Expression.WithoutLeadingTrivia(),
+                memberAccess.OperatorToken,
+                SyntaxFactory.IdentifierName(Psh1126UseAnyAsyncOverCountAsyncAnalyzer.AnyAsyncMethodName)),
+            arguments.Update(
+                arguments.OpenParenToken,
+                arguments.Arguments,
+                arguments.CloseParenToken.WithTrailingTrivia(binary.GetTrailingTrivia())));
 
         if (!BindsToAnySibling(model, binary.SpanStart, anyAsyncCall))
         {
@@ -81,14 +74,20 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixPro
         }
 
         ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            SyntaxFactory.Token(
+                shape.HasElements ? binary.GetLeadingTrivia() : default,
+                SyntaxKind.AwaitKeyword,
+                SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             anyAsyncCall);
         if (!shape.HasElements)
         {
-            result = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, result);
+            result = SyntaxFactory.PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.Token(binary.GetLeadingTrivia(), SyntaxKind.ExclamationToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                result);
         }
 
-        replacement = result.WithTriviaFrom(binary).WithAdditionalAnnotations(Formatter.Annotation);
+        replacement = result.WithAdditionalAnnotations(Formatter.Annotation);
         return true;
     }
 

@@ -13,9 +13,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on an expected-exception attribute type and at least one
-/// test-framework marker resolving. A compilation that references neither — most modern NUnit code, which
-/// dropped the attribute in NUnit 3 — registers nothing and pays nothing.
+/// The expected-exception and test-framework markers are resolved once per compilation, only after a
+/// method passes the syntactic prepass. Compilations without a candidate never resolve those markers.
 /// </para>
 /// <para>
 /// The clean path is a syntactic prepass: a method must syntactically carry an attribute named
@@ -42,18 +41,7 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
     ];
 
     /// <summary>The metadata names of the test-method markers across the supported frameworks.</summary>
-    private static readonly string[] TestMarkerMetadataNames =
-    [
-        "Xunit.FactAttribute",
-        "Xunit.TheoryAttribute",
-        "NUnit.Framework.TestAttribute",
-        "NUnit.Framework.TestCaseAttribute",
-        "NUnit.Framework.TestCaseSourceAttribute",
-        "NUnit.Framework.TheoryAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
-        "TUnit.Core.TestAttribute",
-    ];
+    private static readonly string[] TestMarkerMetadataNames = TestAttributeNames.CreateMarkerMetadataNames();
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.ExpectedException);
@@ -69,30 +57,29 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Registers the rule only when an expected-exception attribute and a test marker both resolve.</summary>
+    /// <summary>Registers method analysis with marker resolution deferred until a candidate is found.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var expectedExceptionMarkers = Resolve(context.Compilation, ExpectedExceptionMetadataNames);
-        if (expectedExceptionMarkers.IsEmpty)
-        {
-            return;
-        }
-
-        var testMarkers = Resolve(context.Compilation, TestMarkerMetadataNames);
-        if (testMarkers.IsEmpty)
-        {
-            return;
-        }
-
-        var facts = new TestingFacts(expectedExceptionMarkers, testMarkers);
+        var facts = new LazyCompilationValue<TestingFacts>(context.Compilation, ResolveFacts, runOnce: true);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, facts), SyntaxKind.MethodDeclaration);
+    }
+
+    /// <summary>Resolves the expected-exception and test markers for a candidate compilation.</summary>
+    /// <param name="compilation">The compilation to resolve against.</param>
+    /// <returns>The resolved markers, including empty arrays when a framework is absent.</returns>
+    private static TestingFacts ResolveFacts(Compilation compilation)
+    {
+        var expectedExceptionMarkers = MetadataTypeLookup.ResolveAll(compilation, ExpectedExceptionMetadataNames);
+        return new(
+            expectedExceptionMarkers,
+            expectedExceptionMarkers.Length == 0 ? [] : MetadataTypeLookup.ResolveAll(compilation, TestMarkerMetadataNames));
     }
 
     /// <summary>Reports a test method whose expected failure is declared with an expected-exception attribute.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="facts">The resolved expected-exception and test-marker attribute types.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, TestingFacts facts)
+    /// <param name="facts">The lazily resolved expected-exception and test-marker attribute types.</param>
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, LazyCompilationValue<TestingFacts> facts)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (FindExpectedExceptionAttribute(method) is not { } expectedExceptionAttribute)
@@ -100,31 +87,15 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { } symbol
-            || !IsExpectedExceptionOnTest(symbol, facts))
+        var resolved = facts.Get();
+        if (resolved.ExpectedExceptionMarkers.Length == 0 || resolved.TestMarkers.Length == 0
+            || context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { } symbol
+            || !IsExpectedExceptionOnTest(symbol, resolved))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(TestingRules.ExpectedException, expectedExceptionAttribute.GetLocation()));
-    }
-
-    /// <summary>Resolves the metadata names that are present in the compilation.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <param name="metadataNames">The metadata names to resolve.</param>
-    /// <returns>The resolved types; empty when none are present.</returns>
-    private static ImmutableArray<INamedTypeSymbol> Resolve(Compilation compilation, string[] metadataNames)
-    {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>(metadataNames.Length);
-        for (var i = 0; i < metadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(metadataNames[i]) is { } type)
-            {
-                builder.Add(type);
-            }
-        }
-
-        return builder.ToImmutable();
     }
 
     /// <summary>Returns the first attribute a method syntactically writes as <c>ExpectedException</c>.</summary>
@@ -173,12 +144,12 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < attributes.Length; i++)
         {
             var attributeClass = attributes[i].AttributeClass;
-            if (!hasExpectedException && MatchesAny(attributeClass, facts.ExpectedExceptionMarkers))
+            if (!hasExpectedException && TypeRelations.IsOrDerivesFromAny(attributeClass, facts.ExpectedExceptionMarkers))
             {
                 hasExpectedException = true;
             }
 
-            if (!hasTestMarker && MatchesAny(attributeClass, facts.TestMarkers))
+            if (!hasTestMarker && TypeRelations.IsOrDerivesFromAny(attributeClass, facts.TestMarkers))
             {
                 hasTestMarker = true;
             }
@@ -192,30 +163,10 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a type is, or derives from, one of the marker types.</summary>
-    /// <param name="type">The attribute type to test.</param>
-    /// <param name="markers">The resolved marker types.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> matches or derives from a marker.</returns>
-    private static bool MatchesAny(INamedTypeSymbol? type, ImmutableArray<INamedTypeSymbol> markers)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            for (var j = 0; j < markers.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(current, markers[j]))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>The resolved expected-exception and test-marker attribute types for one compilation.</summary>
     /// <param name="ExpectedExceptionMarkers">The expected-exception attribute types present in the compilation.</param>
     /// <param name="TestMarkers">The test-method marker attribute types present in the compilation.</param>
     private readonly record struct TestingFacts(
-        ImmutableArray<INamedTypeSymbol> ExpectedExceptionMarkers,
-        ImmutableArray<INamedTypeSymbol> TestMarkers);
+        INamedTypeSymbol[] ExpectedExceptionMarkers,
+        INamedTypeSymbol[] TestMarkers);
 }

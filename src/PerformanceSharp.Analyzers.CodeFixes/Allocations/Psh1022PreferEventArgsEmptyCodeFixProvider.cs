@@ -18,13 +18,16 @@ namespace PerformanceSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1022PreferEventArgsEmptyCodeFixProvider))]
 [Shared]
-public sealed class Psh1022PreferEventArgsEmptyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1022PreferEventArgsEmptyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.PreferEventArgsEmpty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -32,12 +35,16 @@ public sealed class Psh1022PreferEventArgsEmptyCodeFixProvider : CodeFixProvider
             context,
             "Use EventArgs.Empty",
             nameof(Psh1022PreferEventArgsEmptyCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BaseObjectCreationExpressionSyntax creation
+            && Psh1022PreferEventArgsEmptyAnalyzer.IsParameterlessCreationShape(creation);
 
     /// <summary>Resolves the reported allocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -52,16 +59,7 @@ public sealed class Psh1022PreferEventArgsEmptyCodeFixProvider : CodeFixProvider
     /// <summary>Builds the <c>EventArgs.Empty</c> access, reusing the type name the author wrote.</summary>
     /// <param name="creation">The reported allocation.</param>
     /// <returns>The replacement expression.</returns>
-    private static MemberAccessExpressionSyntax Rewrite(BaseObjectCreationExpressionSyntax creation)
-    {
-        var type = creation is ObjectCreationExpressionSyntax { Type: NameSyntax name }
-            ? TypeNameExpression.From(name.WithoutTrivia())
-            : SyntaxFactory.IdentifierName(Psh1022PreferEventArgsEmptyAnalyzer.EventArgsTypeName);
-
-        return SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            type,
-            SyntaxFactory.IdentifierName(Psh1022PreferEventArgsEmptyAnalyzer.EmptyFieldName))
-            .WithTriviaFrom(creation);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MemberAccessExpressionSyntax Rewrite(BaseObjectCreationExpressionSyntax creation) =>
+        StaticMemberAccessRewrite.FromCreation(creation, Psh1022PreferEventArgsEmptyAnalyzer.EventArgsTypeName, Psh1022PreferEventArgsEmptyAnalyzer.EmptyFieldName);
 }

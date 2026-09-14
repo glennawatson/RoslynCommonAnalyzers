@@ -44,13 +44,11 @@ public sealed class Sst2322ReadonlyMutableCollectionFieldAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var mutableTypes = new MutableCollectionTypes(start.Compilation);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, mutableTypes),
-                SyntaxKind.FieldDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new MutableCollectionTypes(compilation),
+            Analyze,
+            SyntaxKind.FieldDeclaration);
     }
 
     /// <summary>Reports each declarator of a visible instance readonly field that holds a mutable collection.</summary>

@@ -15,6 +15,122 @@ public class LanguageStyleAnalyzerUnitTest
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
 
+    /// <summary>Checks an incomplete interface construction is still classified from its bound enumerable type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task IncompleteEnumerableConstructionUsesItsBoundTypeAsync()
+    {
+        var test = new VerifyLanguageStyle.Test
+        {
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+            TestCode = """
+                using System.Collections;
+                class C
+                {
+                    void M() { var values = {|SST1194:new IEnumerable()|}; values.Add(1); }
+                }
+                static class Extensions
+                {
+                    public static void Add(this IEnumerable values, int item) { }
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks reversed null checks, inequality, and mismatched conditional branches.</summary>
+    /// <param name="expression">The conditional expression with expected markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("{|SST1195:null != x ? x : y|}")]
+    [Arguments("{|SST1196:null == x ? null : x.P|}")]
+    [Arguments("x == null ? y : x.P")]
+    [Arguments("x == null ? null : y.P")]
+    [Arguments("x == null ? null : F(x)")]
+    [Arguments("1 < 2 ? x : y")]
+    public Task NullConditionalShapesRespectTheirOperandsAsync(string expression) =>
+        VerifyLanguageStyle.VerifyAnalyzerAsync($"class C {{ public C P; C F(C x) => x; C M(C x, C y) => {expression}; }}");
+
+    /// <summary>Checks near-miss initializer and conditional statements remain unchanged.</summary>
+    /// <param name="body">The method body to analyze.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("var x = new C();")]
+    [Arguments("var x = new C(); x.Add(1);")]
+    [Arguments("var x = new C(); x.P = x;")]
+    [Arguments("var x = new C(); x.Add(x);")]
+    [Arguments("var x = new C(); y.Add(1);")]
+    [Arguments("var x = new C(); y.P = null;")]
+    [Arguments("var x = new C(); (x).P = null;")]
+    [Arguments("if (flag) { return; } else { return; }")]
+    [Arguments("if (flag) y = null; else { }")]
+    [Arguments("if (flag) { } else y = null;")]
+    [Arguments("if (flag) { y = null; } else { this.P = null; }")]
+    [Arguments("if (flag) { this.P = null; } else { this.P = null; }")]
+    [Arguments("if (flag) { y = null; } else { C z = null; }")]
+    public Task InitializerAndAssignmentNearMissesAreCleanAsync(string body) =>
+        VerifyLanguageStyle.VerifyAnalyzerAsync($"class C {{ public C P; public void Add(object value) {{ }} void M(bool flag, C y) {{ {body} }} }}");
+
+    /// <summary>Checks embedded return and assignment shapes report when their values and targets are suitable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EmbeddedStatementsAreReportedAsync() => VerifyLanguageStyle.VerifyAnalyzerAsync("""
+        class C
+        {
+            int M(bool flag) { int x = 0; {|SST1197:if|} (flag) return 1; return x; }
+            void N(bool flag, int x) { {|SST1198:if|} (flag) x = 1; else x = 2; }
+            string P() => {|SST1199:typeof(global::System.String).Name|};
+        }
+        """);
+
+    /// <summary>Checks a nested conditional anywhere in a return branch prevents a conditional-return suggestion.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NestedConditionalInReturnedInvocationIsCleanAsync() => VerifyLanguageStyle.VerifyAnalyzerAsync("""
+        class C
+        {
+            int M(bool flag, bool other) { if (flag) return F(other ? 1 : 2); return 3; }
+            int F(int value) => value;
+        }
+        """);
+
+    /// <summary>Checks unresolved initializer members and invocation overloads are ignored.</summary>
+    /// <param name="statement">The incomplete statement following the construction.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("x.Missing = 1;")]
+    [Arguments("x.Add = 1;")]
+    [Arguments("x.Add();")]
+    [Arguments("x.Add(1, 2);")]
+    public async Task UnresolvedInitializerMembersAreCleanAsync(string statement)
+    {
+        var test = new VerifyLanguageStyle.Test
+        {
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+            TestCode = $"class C {{ public void Add(int value) {{ }} void M() {{ var x = new C(); {statement} }} }}",
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks boolean-literal returns, nested statements, and generic containing types stay unchanged.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ConditionalAndTypeNameNearMissesAreCleanAsync() => VerifyLanguageStyle.VerifyAnalyzerAsync("""
+        class C
+        {
+            bool M(bool flag, bool value) { if (flag) return true; return value; }
+            bool N(bool flag, bool value) { if (flag) return false; return value; }
+            int P(bool flag) { while (flag) if (flag) return 1; return 2; }
+            string Name() => typeof(Outer<int>.Inner).Name;
+        }
+        class Outer<T> { public class Inner { } }
+        """);
+
     /// <summary>Verifies object initializer opportunities are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

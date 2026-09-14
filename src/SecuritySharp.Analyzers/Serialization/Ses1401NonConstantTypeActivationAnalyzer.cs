@@ -15,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// construction or deserialization touches the file system, network, or a process turns a crafted type name
 /// into code execution. Scope is intentionally the inline shape only -- a type first stored in a local is
 /// left alone because confirming it would require data-flow tracking, a non-goal here. The rule is resolved
-/// once per compilation by probing <c>System.Activator</c> and <c>System.Type</c>; on a target framework
-/// without them nothing is registered, so a project that cannot hit this shape pays nothing.
+/// on the first syntactic candidate by probing <c>System.Activator</c> and <c>System.Type</c>, with both
+/// lookup results cached for the compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyzer
@@ -39,6 +39,13 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonConstantTypeActivation);
 
+    /// <summary>The metadata names ActivationTypes resolves, in slot order.</summary>
+    private static readonly string[] ActivationTypesMetadataNames =
+    [
+        ActivatorMetadataName,
+        TypeMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -48,23 +55,17 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // The keyed types anchor the match rather than a suggested API, and both are present on every
-            // target framework, so they are resolved once and passed through: when a symbol is absent the
-            // comparison below simply never matches and the rule stays silent, avoiding a dead early-return.
-            var activatorType = start.Compilation.GetTypeByMetadataName(ActivatorMetadataName);
-            var typeType = start.Compilation.GetTypeByMetadataName(TypeMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, activatorType, typeType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, ActivationTypesMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1401 when a call's <see cref="System.Type"/> argument is an inline <c>Type.GetType(nonConstant)</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="activatorType">The resolved <c>System.Activator</c> type, or <see langword="null"/> when absent.</param>
-    /// <param name="typeType">The resolved <c>System.Type</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? activatorType, INamedTypeSymbol? typeType)
+    /// <param name="types">The activation types resolved on first candidate.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -77,9 +78,10 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
             return;
         }
 
+        var resolved = types.Get();
         if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation outerCall
-            || !IsGuardedTarget(outerCall.TargetMethod, activatorType)
-            || FindNonConstantTypeSource(context.SemanticModel, outerCall, typeType, context.CancellationToken) is not { } getType)
+            || !IsGuardedTarget(outerCall.TargetMethod, resolved[0])
+            || FindNonConstantTypeSource(context.SemanticModel, outerCall, resolved[1], context.CancellationToken) is not { } getType)
         {
             return;
         }

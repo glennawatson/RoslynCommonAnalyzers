@@ -92,10 +92,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var compilation = context.Compilation;
-        var countTypes = new Lazy<CountMemberTypes>(
-            () => CountMemberTypes.Create(compilation),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        var countTypes = new LazyCompilationValue<CountMemberTypes>(context.Compilation, CountMemberTypes.Create, runOnce: true);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, countTypes),
             SyntaxKind.GreaterThanOrEqualExpression,
@@ -109,7 +106,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <summary>Reports one comparison whose answer the framework already decided.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="countTypes">The well-known count-member types.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<CountMemberTypes> countTypes)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<CountMemberTypes> countTypes)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryFoldComparison(binary, out var result, out var counted)
@@ -147,7 +144,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
         // `0 <= count` states the same thing as `count >= 0`, so a literal on the left flips the operator.
         counted = leftIsBound ? binary.Right : binary.Left;
         var bound = leftIsBound ? left : right;
-        var kind = leftIsBound ? Flip(binary.Kind()) : binary.Kind();
+        var kind = leftIsBound ? ComparisonKinds.Mirror(binary.Kind()) : binary.Kind();
 
         return bound == CountBound.Zero
             ? TryFoldAgainstZero(kind, out result)
@@ -194,18 +191,6 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
             or SyntaxKind.GreaterThanOrEqualExpression;
         return true;
     }
-
-    /// <summary>Mirrors a comparison so the counted operand can always be read as the left one.</summary>
-    /// <param name="kind">The comparison as written.</param>
-    /// <returns>The comparison with its operands swapped.</returns>
-    private static SyntaxKind Flip(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        _ => kind,
-    };
 
     /// <summary>Classifies an operand as the zero or negative bound a count can never fail.</summary>
     /// <param name="expression">The operand.</param>
@@ -323,7 +308,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     private static bool IsNonNegativeCountMember(
         ExpressionSyntax counted,
         in SyntaxNodeAnalysisContext context,
-        Lazy<CountMemberTypes> countTypes) =>
+        LazyCompilationValue<CountMemberTypes> countTypes) =>
         context.SemanticModel.GetSymbolInfo(counted, context.CancellationToken).Symbol switch
         {
             IPropertySymbol property => IsNonNegativeProperty(property, countTypes),
@@ -335,7 +320,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <param name="property">The bound property.</param>
     /// <param name="countTypes">The well-known count-member types.</param>
     /// <returns><see langword="true"/> for an array, string or span length, or a collection count.</returns>
-    private static bool IsNonNegativeProperty(IPropertySymbol property, Lazy<CountMemberTypes> countTypes)
+    private static bool IsNonNegativeProperty(IPropertySymbol property, LazyCompilationValue<CountMemberTypes> countTypes)
     {
         if (property.ContainingType is not { } containing)
         {
@@ -345,7 +330,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
         return property.Name switch
         {
             LengthName or LongLengthName => containing.SpecialType is SpecialType.System_Array or SpecialType.System_String
-                || countTypes.Value.IsSpan(containing),
+                || countTypes.Get().IsSpan(containing),
             CountName => SatisfiesCollectionCount(property, containing),
             _ => false,
         };
@@ -403,11 +388,11 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <param name="countTypes">The well-known count-member types.</param>
     /// <returns><see langword="true"/> for <c>Enumerable.Count</c> and <c>Enumerable.LongCount</c>.</returns>
     /// <remarks>The reduced form is unwrapped so the extension call and the static call resolve to the same symbol.</remarks>
-    private static bool IsEnumerableCount(IMethodSymbol method, Lazy<CountMemberTypes> countTypes)
+    private static bool IsEnumerableCount(IMethodSymbol method, LazyCompilationValue<CountMemberTypes> countTypes)
     {
         var declared = method.ReducedFrom ?? method;
         return declared.Name is CountName or LongCountName
             && declared.ContainingType is { } containing
-            && countTypes.Value.IsEnumerable(containing);
+            && countTypes.Get().IsEnumerable(containing);
     }
 }

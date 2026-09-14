@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -12,61 +14,57 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1105AvoidDoubleLookupCodeFixProvider))]
 [Shared]
-public sealed class Psh1105AvoidDoubleLookupCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1105AvoidDoubleLookupCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.AvoidDoubleLookup.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            static _ => nameof(Psh1105AvoidDoubleLookupCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
-                || !Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    shape.RequiresTryAdd ? "Use TryAdd" : "Remove the redundant lookup guard",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, ifStatement)),
-                    equivalenceKey: nameof(Psh1105AvoidDoubleLookupCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
-            || !Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(ifStatement, CreateReplacement(ifStatement, shape));
-    }
-
-    /// <summary>Replaces the reported if statement with the unguarded mutating call.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported guard and builds the single lookup that replaces it.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="ifStatement">The reported if statement.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement) =>
-        !Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape)
-            ? document
-            : document.WithSyntaxRoot(root.ReplaceNode(ifStatement, CreateReplacement(ifStatement, shape)));
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the guard no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        FindIfStatement(root, diagnostic) is { } ifStatement
+            && Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape)
+            ? new NodeReplacement(ifStatement, CreateReplacement(ifStatement, shape))
+            : null;
+
+    /// <summary>Resolves the if statement enclosing the reported node.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The reported if statement, or <see langword="null"/> when there is none.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IfStatementSyntax? FindIfStatement(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>();
+
+    /// <summary>Words the action for the reported guard: a TryAdd when it adds, otherwise dropping the redundant lookup.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the guard no longer matches.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        FindIfStatement(root, diagnostic) is { } ifStatement && Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape)
+            ? TitleFor(shape)
+            : null;
+
+    /// <summary>Words the action for a resolved guard shape.</summary>
+    /// <param name="shape">The resolved double-lookup shape.</param>
+    /// <returns>The code action title.</returns>
+    private static string TitleFor(in Psh1105AvoidDoubleLookupAnalyzer.DoubleLookupShape shape) =>
+        shape.RequiresTryAdd ? "Use TryAdd" : "Remove the redundant lookup guard";
 
     /// <summary>Builds the statement that replaces the guard, rewriting Add to TryAdd where required.</summary>
     /// <param name="ifStatement">The reported if statement.</param>
@@ -79,11 +77,26 @@ public sealed class Psh1105AvoidDoubleLookupCodeFixProvider : CodeFixProvider, I
         {
             statement = statement.ReplaceNode(
                 shape.MutationName,
-                SyntaxFactory.IdentifierName(Psh1105AvoidDoubleLookupAnalyzer.TryAddMethodName).WithTriviaFrom(shape.MutationName));
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    shape.MutationName.GetLeadingTrivia(),
+                    Psh1105AvoidDoubleLookupAnalyzer.TryAddMethodName,
+                    shape.MutationName.GetTrailingTrivia())));
         }
 
-        return statement
-            .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(ifStatement.GetTrailingTrivia());
+        var attributeLists = statement.AttributeLists;
+        var expression = statement.Expression;
+        if (attributeLists.Count == 0)
+        {
+            expression = expression.WithLeadingTrivia(ifStatement.GetLeadingTrivia());
+        }
+        else
+        {
+            attributeLists = attributeLists.Replace(attributeLists[0], attributeLists[0].WithLeadingTrivia(ifStatement.GetLeadingTrivia()));
+        }
+
+        return statement.Update(
+            attributeLists,
+            expression,
+            statement.SemicolonToken.WithTrailingTrivia(ifStatement.GetTrailingTrivia()));
     }
 }

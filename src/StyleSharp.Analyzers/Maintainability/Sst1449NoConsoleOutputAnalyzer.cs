@@ -33,23 +33,17 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(ConsoleMetadataName) is not { } consoleType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, consoleType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ConsoleMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports a write call whose receiver binds to <c>System.Console</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="consoleType">The compilation's console type symbol.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol consoleType)
+    /// <param name="consoleType">The compilation's console type, resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType consoleType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
@@ -63,13 +57,13 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!ReceiverEndsWithConsole(memberAccess.Expression))
+        if (SyntaxNames.GetMemberName(memberAccess.Expression) != ConsoleTypeName)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, consoleType))
+        if (consoleType.Get() is not { } resolved
+            || !InvocationTargets.IsMethodOf(context.SemanticModel, invocation, resolved, context.CancellationToken))
         {
             return;
         }
@@ -80,16 +74,4 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
             invocation.Span,
             $"Console.{methodName}"));
     }
-
-    /// <summary>Returns whether the receiver's rightmost identifier is <c>Console</c>.</summary>
-    /// <param name="receiver">The member-access receiver.</param>
-    /// <returns><see langword="true"/> when the receiver can name the console type.</returns>
-    private static bool ReceiverEndsWithConsole(ExpressionSyntax receiver) =>
-        receiver switch
-        {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == ConsoleTypeName,
-            MemberAccessExpressionSyntax qualified => qualified.Name.Identifier.ValueText == ConsoleTypeName,
-            AliasQualifiedNameSyntax aliasQualified => aliasQualified.Name.Identifier.ValueText == ConsoleTypeName,
-            _ => false,
-        };
 }

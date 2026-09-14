@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1501 — a CORS policy allows any origin and also allows credentials.</summary>
-    public static readonly DiagnosticDescriptor CorsAnyOriginWithCredentials = Create(
+    public static readonly DiagnosticDescriptor CorsAnyOriginWithCredentials = DescriptorFactory.Create(
         "SES1501",
         "A CORS policy must not allow credentials together with any origin",
         "This CORS policy calls both 'AllowAnyOrigin' and 'AllowCredentials'; a wildcard origin with credentials is rejected by browsers and throws when the policy is applied",

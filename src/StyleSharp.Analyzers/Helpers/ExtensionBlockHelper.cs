@@ -26,11 +26,44 @@ internal static class ExtensionBlockHelper
                 or SyntaxKind.RecordStructDeclaration
                 or SyntaxKind.InterfaceDeclaration);
 
+    /// <summary>Runs an analysis over each extension block a class declares.</summary>
+    /// <param name="context">The syntax node analysis context for a class declaration.</param>
+    /// <param name="analyzeBlock">Analyzes one extension block.</param>
+    internal static void AnalyzeExtensionBlocks(in SyntaxNodeAnalysisContext context, ActionIn<SyntaxNodeAnalysisContext, TypeDeclarationSyntax> analyzeBlock)
+    {
+        foreach (var member in ((ClassDeclarationSyntax)context.Node).Members)
+        {
+            if (IsExtensionBlock(member))
+            {
+                analyzeBlock(context, (TypeDeclarationSyntax)member);
+            }
+        }
+    }
+
     /// <summary>Returns the receiver type syntax of an extension block, or <see langword="null"/> when absent.</summary>
     /// <param name="extensionBlock">The extension block.</param>
     /// <returns>The receiver parameter's type syntax, or <see langword="null"/>.</returns>
     internal static TypeSyntax? ReceiverType(TypeDeclarationSyntax extensionBlock) =>
         extensionBlock.ParameterList?.Parameters is { Count: > 0 } parameters ? parameters[0].Type : null;
+
+    /// <summary>Gets an extension block's receiver parameter when the block declares one with a written type.</summary>
+    /// <param name="extensionBlock">The extension block.</param>
+    /// <param name="receiver">The receiver parameter when present.</param>
+    /// <param name="receiverType">The receiver's written type when present.</param>
+    /// <returns><see langword="true"/> when the block declares a typed receiver.</returns>
+    internal static bool TryGetReceiver(TypeDeclarationSyntax extensionBlock, out ParameterSyntax receiver, out TypeSyntax receiverType)
+    {
+        if (extensionBlock.ParameterList?.Parameters is { Count: > 0 } parameters && parameters[0] is { Type: { } type } first)
+        {
+            receiver = first;
+            receiverType = type;
+            return true;
+        }
+
+        receiver = null!;
+        receiverType = null!;
+        return false;
+    }
 
     /// <summary>Returns the textual receiver type of an extension block, or <see langword="null"/> when absent.</summary>
     /// <param name="extensionBlock">The extension block.</param>

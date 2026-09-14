@@ -7,10 +7,19 @@ namespace StyleSharp.Analyzers;
 /// <summary>Applies mechanical fixes for modern readability rules (SST2212-SST2217).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ModernSyntaxReadabilityCodeFixProvider))]
 [Shared]
-public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider
 {
     /// <summary>The number of following statements rewritten by tuple deconstruction and swap fixes.</summary>
     private const int TwoFollowingStatements = 2;
+
+    /// <summary>A supported multiplier in generated hash-code expressions.</summary>
+    private const int HashMultiplier397 = 397;
+
+    /// <summary>A supported multiplier in generated hash-code expressions.</summary>
+    private const int HashMultiplier31 = 31;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -22,25 +31,21 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
         ModernSyntaxRules.UseHashCodeCombine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static diagnostic => GetTitle(diagnostic.Id),
+            static diagnostic => diagnostic.Id,
+            CanCreateEdit,
+            Apply);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            RegisterCodeFix(context, root, diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         var replacement = CreateEdit(editor.OriginalRoot, diagnostic, out var oldNode, out var removeFirst, out var removeSecond);
         if (oldNode is null || replacement is null)
@@ -70,25 +75,103 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
         return updated is null ? document : document.WithSyntaxRoot(updated);
     }
 
-    /// <summary>Registers one code fix when the diagnostic still matches the current syntax root.</summary>
-    /// <param name="context">The code-fix context.</param>
+    /// <summary>Checks the original syntax without constructing the edit offered by the action.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    private static void RegisterCodeFix(CodeFixContext context, SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the edit's syntax preconditions still hold.</returns>
+    private static bool CanCreateEdit(SyntaxNode root, Diagnostic diagnostic)
     {
-        var title = GetTitle(diagnostic.Id);
-        if (title is null || CreateEdit(root, diagnostic, out _, out _, out _) is null)
+        var span = diagnostic.Location.SourceSpan;
+        return diagnostic.Id switch
         {
-            return;
+            "SST2212" => CanCreateUtf8Fix(root, diagnostic),
+            "SST2213" => FindAncestor<DeclarationPatternSyntax>(root, span)?.Parent is IsPatternExpressionSyntax,
+            "SST2214" => FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { Parent: BlockSyntax block } local
+                && TryGetSingleInitializer(local, out _)
+                && TryGetFollowingElementLocals(block, local, out _, out _, out _, out _),
+            "SST2215" => FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { Parent: BlockSyntax block } local
+                && TryGetSingleIdentifierInitializer(local, out _)
+                && TryGetFollowingSwap(block, local, out _, out _, out _),
+            "SST2216" => FindAncestor<ArgumentSyntax>(root, span) is { } argument
+                && ModernSyntaxReadabilityAnalysis.TryGetInferredTupleElementName(argument, out _),
+            "SST2217" => FindAncestor<ExpressionSyntax>(root, span) is { } expression
+                && CountHashInputs(expression) >= ModernSyntaxReadabilityAnalysis.HashCodeCombineMinInputs,
+            _ => false
+        };
+    }
+
+    /// <summary>Checks literal shape and target metadata without creating a UTF-8 token.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a string literal and non-null target metadata are present.</returns>
+    private static bool CanCreateUtf8Fix(SyntaxNode root, Diagnostic diagnostic) =>
+        FindAncestor<ExpressionSyntax>(root, diagnostic.Location.SourceSpan) is InvocationExpressionSyntax
+            { ArgumentList.Arguments: [{ Expression: LiteralExpressionSyntax literal }] }
+        && literal.IsKind(SyntaxKind.StringLiteralExpression)
+        && diagnostic.Properties.TryGetValue(ModernSyntaxReadabilityAnalysis.Utf8TargetKey, out var target)
+        && target is not null;
+
+    /// <summary>Counts supported hash inputs without allocating the list needed only by the rewrite.</summary>
+    /// <param name="expression">The original hash expression.</param>
+    /// <returns>The input count, or zero for an unsupported shape or too many inputs.</returns>
+    private static int CountHashInputs(ExpressionSyntax expression)
+    {
+        expression = ExpressionShapes.WalkDownParentheses(expression);
+        if (IsHashInput(expression))
+        {
+            return 1;
         }
 
-        context.RegisterCodeFix(
-            CodeAction.Create(
-                title,
-                _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                equivalenceKey: diagnostic.Id),
-            diagnostic);
+        if (expression is not BinaryExpressionSyntax binary
+            || (!binary.IsKind(SyntaxKind.ExclusiveOrExpression) && !binary.IsKind(SyntaxKind.AddExpression))
+            || GetMultipliedHash(binary.Left) is not { } multiplied
+            || CountHashInputs(multiplied) is not (> 0 and var leftCount))
+        {
+            return 0;
+        }
+
+        var rightCount = CountHashInputs(binary.Right);
+        var count = leftCount + rightCount;
+        return rightCount > 0 && count <= ModernSyntaxReadabilityAnalysis.HashCodeCombineMaxInputs ? count : 0;
     }
+
+    /// <summary>Recognizes a supported hash receiver without retaining it in a collection.</summary>
+    /// <param name="expression">The unwrapped expression.</param>
+    /// <returns>Whether the expression is a supported zero-argument hash call.</returns>
+    private static bool IsHashInput(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax
+        {
+            ArgumentList.Arguments.Count: 0,
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: nameof(GetHashCode), Expression: { } receiver }
+        }
+        && ExpressionShapes.WalkDownParentheses(receiver) is IdentifierNameSyntax or MemberAccessExpressionSyntax;
+
+    /// <summary>Finds the hash operand paired with a supported multiplier.</summary>
+    /// <param name="expression">The original multiplication expression.</param>
+    /// <returns>The hash operand, or null for an unsupported multiplication.</returns>
+    private static ExpressionSyntax? GetMultipliedHash(ExpressionSyntax expression)
+    {
+        if (ExpressionShapes.WalkDownParentheses(expression) is not BinaryExpressionSyntax multiply
+            || !multiply.IsKind(SyntaxKind.MultiplyExpression))
+        {
+            return null;
+        }
+
+        if (IsHashMultiplier(multiply.Right))
+        {
+            return multiply.Left;
+        }
+
+        return IsHashMultiplier(multiply.Left) ? multiply.Right : null;
+    }
+
+    /// <summary>Recognizes the same multiplier literals accepted by hash input collection.</summary>
+    /// <param name="expression">The candidate multiplier.</param>
+    /// <returns>Whether the unwrapped expression is a supported integer multiplier.</returns>
+    private static bool IsHashMultiplier(ExpressionSyntax expression) =>
+        ExpressionShapes.WalkDownParentheses(expression) is LiteralExpressionSyntax literal
+        && literal.Token.Value is int value
+        && value is HashMultiplier397 or HashMultiplier31;
 
     /// <summary>Gets the user-facing title for one diagnostic id.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
@@ -184,10 +267,10 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
 
         oldNode = isPattern;
         return SyntaxFactory.BinaryExpression(
-                SyntaxKind.IsExpression,
-                isPattern.Expression.WithoutTrivia(),
-                pattern.Type.WithTrailingTrivia())
-            .WithTriviaFrom(isPattern);
+            SyntaxKind.IsExpression,
+            isPattern.Expression.WithoutTrailingTrivia(),
+            SyntaxFactory.Token(SyntaxKind.IsKeyword),
+            pattern.Type.WithTrailingTrivia(isPattern.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a tuple deconstruction declaration and removes copied element locals.</summary>
@@ -301,7 +384,11 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
             return null;
         }
 
-        return argument.WithNameColon(null).WithTriviaFrom(argument);
+        var refKeyword = argument.RefKindKeyword;
+        return argument.Update(
+            nameColon: null,
+            refKeyword.RawKind == 0 ? refKeyword : refKeyword.WithLeadingTrivia(argument.GetLeadingTrivia()),
+            refKeyword.RawKind == 0 ? argument.Expression.WithLeadingTrivia(argument.GetLeadingTrivia()) : argument.Expression);
     }
 
     /// <summary>Creates a <c>System.HashCode.Combine</c> replacement.</summary>
@@ -328,7 +415,13 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
     /// <returns>The comma-separated expression text.</returns>
     private static string JoinExpressions(List<ExpressionSyntax> inputs)
     {
-        var builder = new System.Text.StringBuilder();
+        var capacity = inputs.Count > 0 ? (inputs.Count - 1) * ", ".Length : 0;
+        for (var i = 0; i < inputs.Count; i++)
+        {
+            capacity += inputs[i].Span.Length;
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
         for (var i = 0; i < inputs.Count; i++)
         {
             if (i > 0)
@@ -362,7 +455,7 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
         second = null!;
         firstName = string.Empty;
         secondName = string.Empty;
-        if (!TryGetStatementIndex(block, local, out var index)
+        if (!ModernSyntaxReadabilityAnalysis.TryGetStatementIndex(block, local, out var index)
             || index + TwoFollowingStatements >= block.Statements.Count
             || block.Statements[index + 1] is not LocalDeclarationStatementSyntax firstLocal
             || block.Statements[index + TwoFollowingStatements] is not LocalDeclarationStatementSyntax secondLocal
@@ -394,7 +487,7 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
         first = null!;
         second = null!;
         rightName = string.Empty;
-        if (!TryGetStatementIndex(block, local, out var index)
+        if (!ModernSyntaxReadabilityAnalysis.TryGetStatementIndex(block, local, out var index)
             || index + TwoFollowingStatements >= block.Statements.Count
             || block.Statements[index + 1] is not ExpressionStatementSyntax firstStatement
             || firstStatement.Expression is not AssignmentExpressionSyntax { Right: IdentifierNameSyntax right }
@@ -541,28 +634,6 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
         }
 
         return removeFirst is null ? root.TrackNodes(oldNode) : root.TrackNodes(oldNode, removeFirst);
-    }
-
-    /// <summary>Returns the index of a statement inside a block.</summary>
-    /// <param name="block">The block.</param>
-    /// <param name="statement">The statement.</param>
-    /// <param name="index">The statement index.</param>
-    /// <returns><see langword="true"/> when found.</returns>
-    private static bool TryGetStatementIndex(BlockSyntax block, StatementSyntax statement, out int index)
-    {
-        for (var i = 0; i < block.Statements.Count; i++)
-        {
-            if (block.Statements[i].Span != statement.Span)
-            {
-                continue;
-            }
-
-            index = i;
-            return true;
-        }
-
-        index = -1;
-        return false;
     }
 
     /// <summary>Finds the node at a span or one of its ancestors.</summary>

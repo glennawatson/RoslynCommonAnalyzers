@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports an enum marked <c>[Flags]</c> whose members are not distinct bit values (SST2303).</summary>
@@ -32,9 +30,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The unqualified name of the attribute that promises the members combine.</summary>
-    private const string FlagsAttributeName = "FlagsAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MisusedFlagsAttribute);
 
@@ -54,7 +49,7 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNamedType(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Enum || !HasFlagsAttribute(type) || type.Locations.IsEmpty || !type.Locations[0].IsInSource)
+        if (type.TypeKind != TypeKind.Enum || !EnumFlagValues.HasFlagsAttribute(type) || type.Locations.IsEmpty || !type.Locations[0].IsInSource)
         {
             return;
         }
@@ -73,24 +68,6 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Returns whether a type carries the <c>[Flags]</c> attribute.</summary>
-    /// <param name="type">The enum to test.</param>
-    /// <returns><see langword="true"/> when the type promises its members combine with bitwise or.</returns>
-    private static bool HasFlagsAttribute(INamedTypeSymbol type)
-    {
-        var attributes = type.GetAttributes();
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (attributes[i].AttributeClass is { Name: FlagsAttributeName } attribute
-                && attribute.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Builds the mask of every bit the enum's single-bit members own.</summary>
     /// <param name="members">The enum's members.</param>
     /// <returns>The union of the enum's single-bit values.</returns>
@@ -99,7 +76,7 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
         var declaredBits = 0UL;
         for (var i = 0; i < members.Length; i++)
         {
-            if (TryGetValue(members[i], out var value) && IsSingleBit(value))
+            if (EnumFlagValues.TryGetValue(members[i], out var value) && EnumFlagValues.IsSingleBit(value))
             {
                 declaredBits |= value;
             }
@@ -115,7 +92,7 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the member is neither zero, nor a bit, nor a declared combination.</returns>
     private static bool IsBadMember(ISymbol member, ulong declaredBits, CancellationToken cancellationToken)
     {
-        if (!TryGetValue(member, out var value) || value == 0 || IsSingleBit(value))
+        if (!EnumFlagValues.TryGetValue(member, out var value) || value == 0 || EnumFlagValues.IsSingleBit(value))
         {
             return false;
         }
@@ -123,27 +100,6 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
         // A combination has to be spelled out. The same value the compiler arrives at by counting is the
         // bug this rule exists for, and it is indistinguishable from a deliberate combination by value alone.
         return (value & ~declaredBits) != 0 || !HasExplicitValue(member, cancellationToken);
-    }
-
-    /// <summary>Reads a member's constant value as a bit pattern.</summary>
-    /// <param name="member">The candidate member.</param>
-    /// <param name="value">The member's value, reinterpreted as bits.</param>
-    /// <returns><see langword="true"/> when the member is an enum member with a constant value.</returns>
-    /// <remarks>
-    /// The underlying type can be any integral type, signed or not. Every value is read as the bit pattern
-    /// it actually stores, so a negative member on a signed enum is measured on its bits rather than its
-    /// arithmetic value — which is what <c>HasFlag</c> and <c>ToString</c> do too.
-    /// </remarks>
-    private static bool TryGetValue(ISymbol member, out ulong value)
-    {
-        if (member is not IFieldSymbol { HasConstantValue: true, ConstantValue: { } constant })
-        {
-            value = 0;
-            return false;
-        }
-
-        value = constant is ulong bits ? bits : unchecked((ulong)Convert.ToInt64(constant, CultureInfo.InvariantCulture));
-        return true;
     }
 
     /// <summary>Returns whether a member was given its value rather than counted into it.</summary>
@@ -156,9 +112,4 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
         return !references.IsEmpty
             && references[0].GetSyntax(cancellationToken) is EnumMemberDeclarationSyntax { EqualsValue: not null };
     }
-
-    /// <summary>Returns whether a value owns exactly one bit.</summary>
-    /// <param name="value">The member's value.</param>
-    /// <returns><see langword="true"/> for a power of two.</returns>
-    private static bool IsSingleBit(ulong value) => value != 0 && (value & (value - 1)) == 0;
 }

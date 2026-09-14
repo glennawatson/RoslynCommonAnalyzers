@@ -496,6 +496,90 @@ public class GuidAsSecretAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies named arguments, constructors, indexers, and reduced extension calls retain their bound parameter names.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task BoundArgumentShapesRetainSecretNamesAsync() =>
+        VerifyNet90Async(
+            """
+            using System;
+
+            public class C
+            {
+                public C(string token) { }
+                public string this[string secret] => secret;
+                public void Store(string message, string password) { }
+
+                public void M()
+                {
+                    _ = new C({|SES1004:Guid.NewGuid()|}.ToString());
+                    _ = this[{|SES1004:Guid.NewGuid()|}.ToString()];
+                    Store(password: {|SES1004:Guid.NewGuid()|}.ToString(), message: Guid.NewGuid().ToString());
+                    this.Save({|SES1004:Guid.NewGuid()|}.ToString());
+                }
+            }
+
+            public static class Extensions
+            {
+                public static void Save(this C target, string token) { }
+            }
+            """);
+
+    /// <summary>Verifies expanded params arguments retain the operation-based mapping used by the rule.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ExpandedParamsArgumentsRemainCleanAsync() =>
+        VerifyNet90Async(
+            """
+            using System;
+
+            public class C
+            {
+                public void Store(params string[] token) { }
+                public void M() => Store(Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
+            }
+            """);
+
+    /// <summary>Verifies a dynamically bound call retains its operation-based argument mapping even with one candidate method.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DynamicArgumentWithSingleCandidateRemainsCleanAsync() =>
+        VerifyNet90Async(
+            """
+            using System;
+
+            public class C
+            {
+                public void Store(string token, dynamic value) { }
+                public void M(dynamic value) => Store(Guid.NewGuid().ToString(), value);
+            }
+            """);
+
+    /// <summary>Verifies consecutive secret words survive separators and a preceding partial vocabulary match.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SecretWordRunsRemainConsecutiveAsync() =>
+        VerifyNet90Async(
+            """
+            using System;
+
+            public class C
+            {
+                public void M()
+                {
+                    var api_api__key = {|SES1004:Guid.NewGuid()|};
+                    var prefix1Session__ID = {|SES1004:Guid.NewGuid()|};
+                    var api_value_key = Guid.NewGuid();
+                    var api2key = Guid.NewGuid();
+                    _ = (api_api__key, prefix1Session__ID, api_value_key, api2key);
+                }
+            }
+            """);
+
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies (where RandomNumberGenerator exists).</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

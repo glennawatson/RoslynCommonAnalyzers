@@ -112,12 +112,12 @@ internal static class EmptyConnectionStringPasswordClassifier
         var keyStart = TrimStart(value, segmentStart, equals);
         var keyEnd = TrimEnd(value, keyStart, equals);
 
-        if (MatchesAny(value, keyStart, keyEnd, DataSourceKeys))
+        if (AsciiText.RegionEqualsAnyLowercase(value, keyStart, keyEnd, DataSourceKeys))
         {
             return ConnectionStringParts.DataSource;
         }
 
-        if (MatchesAny(value, keyStart, keyEnd, UserKeys))
+        if (AsciiText.RegionEqualsAnyLowercase(value, keyStart, keyEnd, UserKeys))
         {
             return ConnectionStringParts.User;
         }
@@ -136,19 +136,19 @@ internal static class EmptyConnectionStringPasswordClassifier
     /// <returns>The parts the segment contributes.</returns>
     private static ConnectionStringParts ClassifyValueGatedSegment(string value, int keyStart, int keyEnd, int valueStart, int valueEnd)
     {
-        if (MatchesAny(value, keyStart, keyEnd, PasswordKeys))
+        if (AsciiText.RegionEqualsAnyLowercase(value, keyStart, keyEnd, PasswordKeys))
         {
             return valueEnd > valueStart ? ConnectionStringParts.NonEmptyPassword : ConnectionStringParts.None;
         }
 
-        if (RegionEqualsIgnoreCase(value, keyStart, keyEnd, IntegratedSecurityKey))
+        if (AsciiText.RegionEqualsLowercase(value, keyStart, keyEnd, IntegratedSecurityKey))
         {
-            return MatchesAny(value, valueStart, valueEnd, IntegratedSecurityTrueValues) ? ConnectionStringParts.IntegratedAuthentication : ConnectionStringParts.None;
+            return AsciiText.RegionEqualsAnyLowercase(value, valueStart, valueEnd, IntegratedSecurityTrueValues) ? ConnectionStringParts.IntegratedAuthentication : ConnectionStringParts.None;
         }
 
-        if (RegionEqualsIgnoreCase(value, keyStart, keyEnd, TrustedConnectionKey))
+        if (AsciiText.RegionEqualsLowercase(value, keyStart, keyEnd, TrustedConnectionKey))
         {
-            return MatchesAny(value, valueStart, valueEnd, TrustedConnectionTrueValues) ? ConnectionStringParts.IntegratedAuthentication : ConnectionStringParts.None;
+            return AsciiText.RegionEqualsAnyLowercase(value, valueStart, valueEnd, TrustedConnectionTrueValues) ? ConnectionStringParts.IntegratedAuthentication : ConnectionStringParts.None;
         }
 
         return ConnectionStringParts.None;
@@ -189,53 +189,4 @@ internal static class EmptyConnectionStringPasswordClassifier
     /// <returns><see langword="true"/> when the character is whitespace.</returns>
     private static bool IsWhitespace(char c) =>
         c is ' ' or '\t' or '\r' or '\n';
-
-    /// <summary>Returns whether a span equals any of the supplied lower-case words, compared ASCII case-insensitively.</summary>
-    /// <param name="value">The decoded literal content.</param>
-    /// <param name="start">The inclusive start of the span.</param>
-    /// <param name="end">The exclusive end of the span.</param>
-    /// <param name="words">The lower-case words to compare against.</param>
-    /// <returns><see langword="true"/> when the span equals one of the words.</returns>
-    private static bool MatchesAny(string value, int start, int end, string[] words)
-    {
-        for (var i = 0; i < words.Length; i++)
-        {
-            if (RegionEqualsIgnoreCase(value, start, end, words[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a span equals a lower-case word, comparing ASCII case-insensitively.</summary>
-    /// <param name="value">The decoded literal content.</param>
-    /// <param name="start">The inclusive start of the span.</param>
-    /// <param name="end">The exclusive end of the span.</param>
-    /// <param name="word">The lower-case word to compare against.</param>
-    /// <returns><see langword="true"/> when the span equals the word.</returns>
-    private static bool RegionEqualsIgnoreCase(string value, int start, int end, string word)
-    {
-        if (end - start != word.Length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < word.Length; i++)
-        {
-            if (ToLowerAscii(value[start + i]) != word[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>Lower-cases an ASCII letter, leaving every other character untouched.</summary>
-    /// <param name="c">The character to fold.</param>
-    /// <returns>The lower-cased character.</returns>
-    private static char ToLowerAscii(char c) =>
-        c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 }

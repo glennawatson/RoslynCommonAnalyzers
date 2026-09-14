@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1003 — a PBKDF2 one-shot derives a key with a constant, too-low iteration count.</summary>
-    public static readonly DiagnosticDescriptor Pbkdf2IterationCount = Create(
+    public static readonly DiagnosticDescriptor Pbkdf2IterationCount = DescriptorFactory.Create(
         "SES1003",
         "Password-based key derivation must use a sufficient iteration count",
         "This PBKDF2 call derives a key with only {0} iterations; use at least {1} so offline password cracking stays expensive",

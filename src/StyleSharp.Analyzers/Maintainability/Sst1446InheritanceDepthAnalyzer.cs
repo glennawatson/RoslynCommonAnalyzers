@@ -70,8 +70,8 @@ public sealed class Sst1446InheritanceDepthAnalyzer : DiagnosticAnalyzer
         }
 
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
-        var depth = ReadBool(options, "stylesharp.SST1446.count_external_types", "stylesharp.count_external_types") ? totalDepth : ownedDepth;
-        var maximum = ReadPositiveInt(options, "stylesharp.SST1446.max_inheritance_depth", "stylesharp.max_inheritance_depth", DefaultMaximumDepth);
+        var depth = AnalyzerOptionReader.ReadBool(options, "stylesharp.SST1446.count_external_types", "stylesharp.count_external_types") ? totalDepth : ownedDepth;
+        var maximum = AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1446.max_inheritance_depth", "stylesharp.max_inheritance_depth", DefaultMaximumDepth);
         if (depth <= maximum)
         {
             return;
@@ -84,30 +84,4 @@ public sealed class Sst1446InheritanceDepthAnalyzer : DiagnosticAnalyzer
             depth,
             maximum));
     }
-
-    /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The general key.</param>
-    /// <param name="fallback">The fallback value.</param>
-    /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-    private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-            ? parsed
-            : fallback;
-    }
-
-    /// <summary>Reads a boolean setting that defaults to false, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The general key.</param>
-    /// <returns>The configured value, or <see langword="false"/>.</returns>
-    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey) =>
-        options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed) ? parsed : options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
 }

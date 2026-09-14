@@ -11,8 +11,8 @@ namespace StyleSharp.Analyzers;
 /// the component is disposed.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>ComponentBase</c> resolving, so a non-component
-/// project registers nothing. The clean path is a syntactic shape probe first — the callee names
+/// The component model is resolved on the first syntactic candidate and cached for the compilation.
+/// The clean path is a syntactic shape probe first — the callee names
 /// <c>StateHasChanged</c> on <c>this</c>/<c>base</c>, and the nearest enclosing member (not crossing a
 /// lambda or local function, which could run later) is a <c>Dispose</c>/<c>DisposeAsync</c> method — and
 /// the semantic model is consulted only once that shape matches, to confirm the enclosing type is a
@@ -39,21 +39,17 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (BlazorComponentModel.Create(start.Compilation) is not { } model)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, model), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<BlazorComponentModel?>(compilation, BlazorComponentModel.Create),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports a render requested from a disposal method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The component model resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, BlazorComponentModel model)
+    /// <param name="models">The deferred component-model lookup for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<BlazorComponentModel?> models)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!BlazorComponentModel.IsSelfStateHasChangedSyntax(invocation.Expression)
@@ -63,6 +59,7 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
         }
 
         if (invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } typeDeclaration
+            || models.Get() is not { } model
             || context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is not { } type
             || !model.DerivesFromComponentBase(type))
         {

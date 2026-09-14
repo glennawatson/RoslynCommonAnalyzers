@@ -9,43 +9,32 @@ namespace StyleSharp.Analyzers;
 /// <summary>Changes a misleading <c>public</c> member of a non-public type to <c>internal</c> (SST1416).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1416NoPublicOnInternalTypeCodeFixProvider))]
 [Shared]
-public sealed class Sst1416NoPublicOnInternalTypeCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1416NoPublicOnInternalTypeCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.NoPublicOnInternalType.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Change 'public' to 'internal'",
+            nameof(Sst1416NoPublicOnInternalTypeCodeFixProvider),
+            DiagnosticEnclosingNode.Find<MemberDeclarationSyntax>,
+            MakeInternalAsync);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Change 'public' to 'internal'",
-                    cancellationToken => MakeInternalAsync(context.Document, member, cancellationToken),
-                    equivalenceKey: nameof(Sst1416NoPublicOnInternalTypeCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+        if (DiagnosticEnclosingNode.Find<MemberDeclarationSyntax>(editor.OriginalRoot, diagnostic) is not { } member)
         {
             return;
         }

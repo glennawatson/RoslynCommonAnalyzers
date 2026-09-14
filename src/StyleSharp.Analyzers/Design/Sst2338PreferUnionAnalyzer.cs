@@ -9,21 +9,21 @@ namespace StyleSharp.Analyzers;
 /// a discriminated union written by hand, which C# 15 can state directly (SST2338).
 /// </summary>
 /// <remarks>
-/// Gated on the union marker interface resolving in the compilation, so the rule costs nothing and
-/// stays silent on a target framework whose runtime has no union support, and on C# 15 being available
-/// so the suggested syntax would actually compile. A type holding a value-typed payload is left alone
+/// Gated on C# 15 being available and on the union marker interface resolving in the compilation,
+/// so the suggested syntax would actually compile. The marker is resolved only after a type matches
+/// the union shape. A type holding a value-typed payload is left alone
 /// by default: a union stores its payload in a single object field, so that arm would box on every
 /// construction. Set <c>stylesharp.SST2338.report_value_type_payloads = true</c> to report it anyway.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the marker interface that identifies a union.</summary>
-    private const string UnionMarkerMetadataName = "System.Runtime.CompilerServices.IUnion";
-
     /// <summary>How many distinct payload types make a tagged type a union rather than a plain record.</summary>
     /// <remarks>A single payload beside a tag is an optional value, not a choice between alternatives.</remarks>
     private const int MinimumPayloads = 2;
+
+    /// <summary>The metadata name of the marker interface that identifies a union.</summary>
+    private const string UnionMarkerMetadataName = "System.Runtime.CompilerServices.IUnion";
 
     /// <summary>The name endings that read as a discriminator rather than as data.</summary>
     private static readonly string[] DiscriminatorSuffixes = ["Kind", "Tag", "Case", "Discriminator", "Type"];
@@ -40,36 +40,28 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var unionMarker = start.Compilation.GetTypeByMetadataName(UnionMarkerMetadataName);
-            if (unionMarker is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, unionMarker), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, UnionMarkerMetadataName),
+            Analyze,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Reports one type whose shape is a hand-rolled union.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="unionMarker">The resolved union marker symbol.</param>
-    private static void Analyze(in SymbolAnalysisContext context, INamedTypeSymbol unionMarker)
+    /// <param name="unionMarker">The union marker resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, LazyMetadataType unionMarker)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (!IsEligible(type, unionMarker) || !HasSingleDiscriminator(type))
+        if (!IsEligible(type)
+            || type.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is not TypeDeclarationSyntax declaration
+            || !LanguageVersions.SupportsCSharp15(declaration)
+            || !HasSingleDiscriminator(type))
         {
             return;
         }
 
         if (CountDistinctPayloads(type, out var hasValueTypePayload) < MinimumPayloads)
-        {
-            return;
-        }
-
-        if (type.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is not TypeDeclarationSyntax declaration
-            || !LanguageVersions.SupportsCSharp15(declaration))
         {
             return;
         }
@@ -83,6 +75,11 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (unionMarker.Get() is not { } marker || ImplementsUnion(type, marker))
+        {
+            return;
+        }
+
         context.ReportDiagnostic(DiagnosticHelper.Create(
             DesignRules.PreferUnion,
             declaration.Identifier.GetLocation(),
@@ -91,27 +88,28 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Gets whether a type is the kind of declaration this rule considers at all.</summary>
     /// <param name="type">The declared type.</param>
-    /// <param name="unionMarker">The resolved union marker symbol.</param>
-    /// <returns><see langword="true"/> for a concrete class or struct that is not already a union.</returns>
-    private static bool IsEligible(INamedTypeSymbol type, INamedTypeSymbol unionMarker)
-    {
-        if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
-            || type.IsAbstract
-            || type.IsStatic
-            || type.DeclaringSyntaxReferences.IsEmpty)
-        {
-            return false;
-        }
+    /// <returns>Whether the type is a concrete class or struct declared in source.</returns>
+    private static bool IsEligible(INamedTypeSymbol type) =>
+        type.TypeKind is TypeKind.Class or TypeKind.Struct
+            && !type.IsAbstract
+            && !type.IsStatic
+            && !type.DeclaringSyntaxReferences.IsEmpty;
 
+    /// <summary>Gets whether a type already implements the union marker.</summary>
+    /// <param name="type">The declared type.</param>
+    /// <param name="unionMarker">The resolved union marker symbol.</param>
+    /// <returns>Whether the type is already a union.</returns>
+    private static bool ImplementsUnion(INamedTypeSymbol type, INamedTypeSymbol unionMarker)
+    {
         foreach (var implemented in type.AllInterfaces)
         {
             if (SymbolEqualityComparer.Default.Equals(implemented, unionMarker))
             {
-                return false;
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     /// <summary>Gets whether a type declares exactly one enum-typed member that reads as a discriminator.</summary>

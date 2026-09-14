@@ -24,15 +24,14 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Extracts every flagged type in the Fix All scope into its own file.</summary>
+    private static readonly DocumentDiagnosticFixAllProvider FixAll = new("Move types to their own files", FixDocumentAsync);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.SingleType.Id);
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// The fix adds a new document, which <see cref="WellKnownFixAllProviders.BatchFixer"/> (text-edit
-    /// merging only) cannot carry, so a custom solution-scoped provider extracts every flagged type instead.
-    /// </remarks>
-    public override FixAllProvider GetFixAllProvider() => MoveTypeFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -75,7 +74,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// <returns>The updated solution.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Task<Solution> MoveAsync(Document document, BaseTypeDeclarationSyntax type, string fileName, CancellationToken cancellationToken) =>
-        MoveAllAsync(document, [(type, fileName)], cancellationToken);
+        MoveAllAsync(document, [new(type, fileName)], cancellationToken);
 
     /// <summary>Extracts every supplied type into its own document in one pass, removing them all from the original.</summary>
     /// <param name="document">The document containing the types.</param>
@@ -87,7 +86,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// the moves never invalidate each other's spans — this is what lets a Fix All extract all flagged
     /// types from a file at once.
     /// </remarks>
-    internal static async Task<Solution> MoveAllAsync(Document document, IReadOnlyList<(BaseTypeDeclarationSyntax Type, string FileName)> moves, CancellationToken cancellationToken)
+    internal static async Task<Solution> MoveAllAsync(Document document, IReadOnlyList<TypeFileMove> moves, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is not CompilationUnitSyntax compilationUnit || moves.Count == 0)
@@ -104,7 +103,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
         var newLine = DetectNewLine(sourceText);
         var endsWithNewLine = sourceText.Length > 0 && sourceText[sourceText.Length - 1] == '\n';
 
-        var extracts = new List<(string FileName, SourceText Text)>(moves.Count);
+        var extracts = new List<ExtractedFile>(moves.Count);
         var typesToRemove = new List<SyntaxNode>(moves.Count);
         for (var index = 0; index < moves.Count; index++)
         {
@@ -114,7 +113,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            extracts.Add((moves[index].FileName, SourceText.From(Normalize(extractedRoot.ToFullString(), newLine, endsWithNewLine))));
+            extracts.Add(new(moves[index].FileName, SourceText.From(Normalize(extractedRoot.ToFullString(), newLine, endsWithNewLine))));
             typesToRemove.Add(moves[index].Type);
         }
 
@@ -146,7 +145,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// <param name="originalText">The original document's text with the moved types removed.</param>
     /// <param name="folders">The folders the documents live in.</param>
     /// <returns>The updated solution.</returns>
-    private static Solution ApplyToTarget(Solution solution, DocumentId targetId, List<(string FileName, SourceText Text)> extracts, SourceText originalText, IReadOnlyList<string> folders)
+    private static Solution ApplyToTarget(Solution solution, DocumentId targetId, List<ExtractedFile> extracts, SourceText originalText, IReadOnlyList<string> folders)
     {
         for (var index = 0; index < extracts.Count; index++)
         {
@@ -374,44 +373,39 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
             : compilationUnit.RemoveNodes(toRemove, SyntaxRemoveOptions.KeepUnbalancedDirectives);
     }
 
+    /// <summary>Extracts every flagged type in one document into its own file.</summary>
+    /// <param name="solution">The evolving solution.</param>
+    /// <param name="document">The flagged document.</param>
+    /// <param name="diagnostics">The diagnostics reported in the document.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated solution.</returns>
+    private static async Task<Solution> FixDocumentAsync(Solution solution, Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
+    {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        var tree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+        if (root is not CompilationUnitSyntax || tree is null)
+        {
+            return solution;
+        }
+
+        var options = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(tree);
+        var useMetadata = TypeFileNaming.UseMetadataConvention(options, MaintainabilityRules.SingleType.Id);
+
+        // Resolve every flagged type against the one original root before any are removed.
+        var moves = new List<TypeFileMove>(diagnostics.Length);
+        foreach (var diagnostic in diagnostics)
+        {
+            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<BaseTypeDeclarationSyntax>() is { } type)
+            {
+                moves.Add(new(type, $"{TypeFileNaming.Stem(type, useMetadata)}.cs"));
+            }
+        }
+
+        return moves.Count == 0 ? solution : await MoveAllAsync(document, moves, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>A line of the file, as a position and length into the original text.</summary>
     /// <param name="Start">The line's start offset.</param>
     /// <param name="Length">The line's length, excluding its line break.</param>
     private readonly record struct LineSpan(int Start, int Length);
-
-    /// <summary>Extracts every type flagged by SST1402 across the Fix All scope into its own file.</summary>
-    private sealed class MoveTypeFixAllProvider : DocumentDiagnosticFixAllProvider
-    {
-        /// <summary>The shared provider instance.</summary>
-        public static readonly MoveTypeFixAllProvider Instance = new();
-
-        /// <inheritdoc/>
-        protected override string Title => "Move types to their own files";
-
-        /// <inheritdoc/>
-        protected override async Task<Solution> FixDocumentAsync(Solution solution, Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken)
-        {
-            var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-            var tree = await document.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
-            if (root is not CompilationUnitSyntax || tree is null)
-            {
-                return solution;
-            }
-
-            var options = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(tree);
-            var useMetadata = TypeFileNaming.UseMetadataConvention(options, MaintainabilityRules.SingleType.Id);
-
-            // Resolve every flagged type against the one original root before any are removed.
-            var moves = new List<(BaseTypeDeclarationSyntax Type, string FileName)>(diagnostics.Length);
-            foreach (var diagnostic in diagnostics)
-            {
-                if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<BaseTypeDeclarationSyntax>() is { } type)
-                {
-                    moves.Add((type, $"{TypeFileNaming.Stem(type, useMetadata)}.cs"));
-                }
-            }
-
-            return moves.Count == 0 ? solution : await MoveAllAsync(document, moves, cancellationToken).ConfigureAwait(false);
-        }
-    }
 }

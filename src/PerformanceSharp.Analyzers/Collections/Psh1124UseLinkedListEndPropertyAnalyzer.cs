@@ -40,11 +40,11 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>How the last-element extension call is written into the message.</summary>
     private const string LastCallText = "Last()";
 
-    /// <summary>The metadata name of the LINQ extension class.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The unqualified name of the linked list type.</summary>
     private const string LinkedListTypeName = "LinkedList";
+
+    /// <summary>The metadata name of the LINQ extension class.</summary>
+    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseLinkedListEndProperty);
@@ -58,15 +58,11 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation is a parameterless <c>First</c>/<c>Last</c> member call, before any binding.</summary>
@@ -80,18 +76,19 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1124 for a linked list whose end element is fetched through LINQ.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType typeCache)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsEndExtensionShape(invocation))
+        if (!IsEndExtensionShape(invocation)
+            || typeCache.Get() is not { } enumerableType)
         {
             return;
         }
 
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
         var memberName = memberAccess.Name.Identifier.ValueText;
-        if (!IsSourceOnlyEnumerableExtension(context, invocation, enumerableType)
+        if (!EnumerableInvocationHelper.IsSourceOnlyExtensionOn(context.SemanticModel, invocation, enumerableType, context.CancellationToken)
             || !HasEndNodeProperty(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type, memberName))
         {
             return;
@@ -104,18 +101,6 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
             isFirst ? FirstCallText : LastCallText,
             isFirst ? FirstMemberName : LastMemberName));
     }
-
-    /// <summary>Returns whether an invocation binds to an Enumerable extension whose only parameter is the source.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    /// <returns><see langword="true"/> when the call is a reduced source-only Enumerable extension.</returns>
-    private static bool IsSourceOnlyEnumerableExtension(
-        in SyntaxNodeAnalysisContext context,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType) =>
-        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
-            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 
     /// <summary>
     /// Returns whether the receiver is a linked list that really does expose the end property this

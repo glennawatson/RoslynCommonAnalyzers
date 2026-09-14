@@ -52,9 +52,8 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
 
     /// <summary>
     /// The metadata names of attributes whose framework requires the annotated member be <c>public</c>: narrowing
-    /// such a member — all this rule could suggest — would break the framework contract, not tidy dead reach.
-    /// TUnit lifecycle hooks reject any lesser accessibility (its generator demands public); Blazor binds a
-    /// component parameter by reflection and requires it public.
+    /// such a member would break the framework contract. TUnit lifecycle hooks reject any lesser accessibility;
+    /// Blazor binds a component parameter by reflection and requires it public.
     /// </summary>
     private static readonly string[] PublicMandatingAttributeMetadataNames =
     [
@@ -95,15 +94,16 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var publicMandatingAttributes = ResolvePublicMandatingAttributes(start.Compilation);
+            var publicMandatingAttributes = new LazyMetadataTypeSet(start.Compilation, PublicMandatingAttributeMetadataNames);
 
             // A member inherited from a base class can implicitly implement an interface listed only by a
             // derived type, which forces it to stay public — a relationship invisible from the base's own
             // declaration. That view needs the whole source assembly, so it is built once and lazily: a
             // project with no reportable member (the common case) never pays for it.
-            var inheritedInterfaceImplementations = new Lazy<HashSet<ISymbol>>(
-                () => BuildInheritedInterfaceImplementationSet(start.Compilation),
-                isThreadSafe: true);
+            var inheritedInterfaceImplementations = new LazyCompilationValue<HashSet<ISymbol>>(
+                start.Compilation,
+                BuildInheritedInterfaceImplementationSet,
+                runOnce: true);
 
             start.RegisterSymbolAction(
                 symbolContext => AnalyzeNamedType(symbolContext, publicMandatingAttributes, inheritedInterfaceImplementations),
@@ -113,9 +113,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
 
     /// <summary>Reports each member of a type whose modifier promises more reach than the type can deliver.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
+    /// <param name="publicMandatingAttributes">The deferred attributes whose framework requires the member be public.</param>
     /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes, Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, LazyMetadataTypeSet publicMandatingAttributes, LazyCompilationValue<HashSet<ISymbol>> inheritedInterfaceImplementations)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -149,7 +149,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 location,
                 ReachProperties(containerReach),
                 member.Name,
-                AccessibilityKeyword(member.DeclaredAccessibility),
+                MemberAccessibility.Keyword(member.DeclaredAccessibility),
                 ReachKeyword(containerReach)));
         }
     }
@@ -171,7 +171,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="member">The declared member.</param>
     /// <param name="type">The containing type.</param>
     /// <param name="containerReach">The container's effective caller set.</param>
-    /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
+    /// <param name="publicMandatingAttributes">The deferred attributes whose framework requires the member be public.</param>
     /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The offending modifier's location, or <see langword="null"/> when nothing should be reported.</returns>
@@ -179,11 +179,11 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         ISymbol member,
         INamedTypeSymbol type,
         int containerReach,
-        INamedTypeSymbol[] publicMandatingAttributes,
-        Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations,
+        LazyMetadataTypeSet publicMandatingAttributes,
+        LazyCompilationValue<HashSet<ISymbol>> inheritedInterfaceImplementations,
         CancellationToken cancellationToken)
     {
-        if (!IsCandidateMember(member) || !IsWider(AccessibilityReach(member.DeclaredAccessibility), containerReach))
+        if (!MemberAccessibility.IsAuthored(member) || !IsWider(AccessibilityReach(member.DeclaredAccessibility), containerReach))
         {
             return null;
         }
@@ -204,7 +204,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         // A member inherited by a derived type to implicitly implement an interface must stay public even though
         // its own declaring type lists no interface: narrowing it would fail with CS0737. This lookup builds the
         // whole-assembly view on first use, so only a project that has a reportable member ever pays for it.
-        if (inheritedInterfaceImplementations.Value.Contains(member.OriginalDefinition))
+        if (inheritedInterfaceImplementations.Get().Contains(member.OriginalDefinition))
         {
             return null;
         }
@@ -215,25 +215,6 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         // demanding less is unsatisfiable. Report such a member only when nothing outside its declaring type
         // names it, where making it private would actually compile.
         return (containerReach & SameAssemblyOther) == 0 && IsReferencedOutsideDeclaringType(member, cancellationToken) ? null : AccessModifierLocation(member, cancellationToken);
-    }
-
-    /// <summary>Returns whether a member is one whose author-written accessibility this rule can weigh.</summary>
-    /// <param name="member">The declared member.</param>
-    /// <returns><see langword="true"/> for a non-override, non-synthesized method, property, event, field, or nested type.</returns>
-    private static bool IsCandidateMember(ISymbol member)
-    {
-        // An override matches its base member's accessibility and cannot be narrowed here.
-        if (member.IsImplicitlyDeclared || member.IsOverride)
-        {
-            return false;
-        }
-
-        return member switch
-        {
-            IMethodSymbol method => method.MethodKind == MethodKind.Ordinary,
-            IPropertySymbol or IEventSymbol or IFieldSymbol or INamedTypeSymbol => true,
-            _ => false,
-        };
     }
 
     /// <summary>Folds a type and every enclosing type into the caller set the innermost is actually reachable from.</summary>
@@ -268,20 +249,6 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         Accessibility.Protected => SameAssemblyDerived | OtherAssemblyDerived,
         Accessibility.ProtectedAndInternal => SameAssemblyDerived,
         _ => 0,
-    };
-
-    /// <summary>Returns the C# keyword spelling of an accessibility for the diagnostic message.</summary>
-    /// <param name="accessibility">The accessibility to spell.</param>
-    /// <returns>The keyword text.</returns>
-    private static string AccessibilityKeyword(Accessibility accessibility) => accessibility switch
-    {
-        Accessibility.Public => "public",
-        Accessibility.ProtectedOrInternal => "protected internal",
-        Accessibility.Protected => "protected",
-        Accessibility.Internal => "internal",
-        Accessibility.ProtectedAndInternal => "private protected",
-        Accessibility.Private => "private",
-        _ => accessibility.ToString(),
     };
 
     /// <summary>Builds the property bag naming one target accessibility.</summary>
@@ -329,66 +296,22 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
             return false;
         }
 
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var interfaceMembers = interfaces[i].GetMembers();
-            for (var j = 0; j < interfaceMembers.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(interfaceMembers[j]), member))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Resolves each public-mandating attribute type that binds in the compilation, packed with no gaps.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <returns>The resolved attribute types; empty when none — such as a project referencing no such framework — bind.</returns>
-    private static INamedTypeSymbol[] ResolvePublicMandatingAttributes(Compilation compilation)
-    {
-        var resolved = new INamedTypeSymbol[PublicMandatingAttributeMetadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < PublicMandatingAttributeMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(PublicMandatingAttributeMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            resolved[count] = type;
-            count++;
-        }
-
-        if (count == resolved.Length)
-        {
-            return resolved;
-        }
-
-        var trimmed = new INamedTypeSymbol[count];
-        for (var i = 0; i < count; i++)
-        {
-            trimmed[i] = resolved[i];
-        }
-
-        return trimmed;
+        return TypeRelations.ImplementsAnyInterfaceMember(type, member);
     }
 
     /// <summary>Returns whether a member carries an attribute whose framework requires it be declared public.</summary>
     /// <param name="member">The declared member.</param>
-    /// <param name="publicMandatingAttributes">The resolved public-mandating attribute types.</param>
+    /// <param name="publicMandatingAttributes">The deferred public-mandating attribute types.</param>
     /// <returns><see langword="true"/> when the member carries one of the resolved attributes.</returns>
-    private static bool HasPublicMandatingAttribute(ISymbol member, INamedTypeSymbol[] publicMandatingAttributes)
+    private static bool HasPublicMandatingAttribute(ISymbol member, LazyMetadataTypeSet publicMandatingAttributes)
     {
-        if (publicMandatingAttributes.Length == 0)
+        var attributes = member.GetAttributes();
+        if (attributes.IsEmpty)
         {
             return false;
         }
 
-        var attributes = member.GetAttributes();
+        var resolved = publicMandatingAttributes.Get();
         for (var i = 0; i < attributes.Length; i++)
         {
             var attributeClass = attributes[i].AttributeClass;
@@ -397,9 +320,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 continue;
             }
 
-            for (var j = 0; j < publicMandatingAttributes.Length; j++)
+            for (var j = 0; j < resolved.Length; j++)
             {
-                if (SymbolEqualityComparer.Default.Equals(attributeClass, publicMandatingAttributes[j]))
+                if (SymbolEqualityComparer.Default.Equals(attributeClass, resolved[j]))
                 {
                     return true;
                 }
@@ -419,8 +342,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     private static HashSet<ISymbol> BuildInheritedInterfaceImplementationSet(Compilation compilation)
     {
         var result = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        var pending = new Stack<INamespaceOrTypeSymbol>();
-        pending.Push(compilation.Assembly.GlobalNamespace);
+        INamespaceOrTypeSymbol globalNamespace = compilation.Assembly.GlobalNamespace;
+        var pending = new Stack<INamespaceOrTypeSymbol>(Math.Max(1, globalNamespace.GetMembers().Length));
+        pending.Push(globalNamespace);
         while (pending.Count > 0)
         {
             var members = pending.Pop().GetMembers();
@@ -476,7 +400,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// declaring type appears in that enclosing type's declarations. The match is syntactic — a name occurrence,
     /// not a bound reference, since an analyzer must not build a semantic model here — so it errs toward leaving
     /// a member alone: an unrelated same-named identifier suppresses the report but never invents one. The
-    /// declaring type's own subtree is pruned, so a self-reference does not count as an outside use.
+    /// declaring type's own subtree is excluded, so a self-reference does not count as an outside use.
     /// </remarks>
     private static bool IsReferencedOutsideDeclaringType(ISymbol member, CancellationToken cancellationToken)
     {
@@ -486,17 +410,42 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
             return false;
         }
 
-        var declaringNodes = DeclaringNodes(declaringType, cancellationToken);
+        var state = new OutsideReferenceState(member.Name, DeclaringNodes(declaringType, cancellationToken));
         var enclosingReferences = enclosing.DeclaringSyntaxReferences;
         for (var i = 0; i < enclosingReferences.Length; i++)
         {
             var enclosingNode = enclosingReferences[i].GetSyntax(cancellationToken);
-            foreach (var descendant in enclosingNode.DescendantNodes(node => !IsAny(node, declaringNodes)))
-            {
-                if (descendant is SimpleNameSyntax name && name.Identifier.ValueText == member.Name)
+            if (!DescendantTraversalHelper.VisitDescendants(
+                enclosingNode,
+                ref state,
+                static (SimpleNameSyntax name, ref OutsideReferenceState scan) =>
                 {
-                    return true;
-                }
+                    if (name.Identifier.ValueText != scan.Name)
+                    {
+                        return true;
+                    }
+
+                    return IsInsideDeclaringType(name, scan.ExcludedDeclarations);
+                }))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a node is inside one of the declaring type's own declarations.</summary>
+    /// <param name="node">The node whose ancestors are inspected.</param>
+    /// <param name="declarations">The declarations excluded from outside-reference scanning.</param>
+    /// <returns><see langword="true"/> when an ancestor is one of the excluded declarations.</returns>
+    private static bool IsInsideDeclaringType(SyntaxNode node, SyntaxNode[] declarations)
+    {
+        for (var ancestor = node.Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (IsAny(ancestor, declarations))
+            {
+                return true;
             }
         }
 
@@ -523,18 +472,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="node">The node to test.</param>
     /// <param name="nodes">The set of nodes.</param>
     /// <returns><see langword="true"/> when the node is in the set.</returns>
-    private static bool IsAny(SyntaxNode node, SyntaxNode[] nodes)
-    {
-        for (var i = 0; i < nodes.Length; i++)
-        {
-            if (ReferenceEquals(node, nodes[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsAny(SyntaxNode node, SyntaxNode[] nodes) =>
+        ListScan.Any(nodes, node, ReferenceEquals);
 
     /// <summary>Returns the location of the member's access-modifier keyword, or <see langword="null"/> when it has none.</summary>
     /// <param name="member">The member whose modifier is wanted.</param>
@@ -573,5 +513,24 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         }
 
         return null;
+    }
+
+    /// <summary>Identifies names to find and declaring subtrees whose references are excluded.</summary>
+    private readonly record struct OutsideReferenceState
+    {
+        /// <summary>Initializes a new instance of the <see cref="OutsideReferenceState"/> struct.</summary>
+        /// <param name="name">The member name to find.</param>
+        /// <param name="excludedDeclarations">The declarations whose descendants do not count as outside references.</param>
+        public OutsideReferenceState(string name, SyntaxNode[] excludedDeclarations)
+        {
+            Name = name;
+            ExcludedDeclarations = excludedDeclarations;
+        }
+
+        /// <summary>Gets the member name to find.</summary>
+        public string Name { get; }
+
+        /// <summary>Gets the declarations whose descendants are excluded.</summary>
+        public SyntaxNode[] ExcludedDeclarations { get; }
     }
 }

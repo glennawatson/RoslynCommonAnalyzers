@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -17,22 +15,31 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1409ThrowHelperCodeFixProvider))]
 [Shared]
-public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.UseThrowHelpers.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the throw helper", nameof(Psh1409ThrowHelperCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the throw helper", nameof(Psh1409ThrowHelperCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is IfStatementSyntax ifStatement
+            && Psh1409ThrowHelperAnalyzer.TryClassify(ifStatement) is { } shape
+            && (HasFrameworkHelper(model.Compilation, shape)
+                || Psh1409ThrowHelperAnalyzer.TryGetHelperReceiver(model, ifStatement.SpanStart, shape) is not null);
 
     /// <summary>Resolves the reported guard and builds its helper-call statement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -56,7 +63,10 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
                 SyntaxFactory.IdentifierName(shape.HelperName)),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
 
-        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(call).WithTriviaFrom(ifStatement));
+        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(
+            attributeLists: default,
+            call.WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia())));
     }
 
     /// <summary>Builds the helper's argument list.</summary>
@@ -69,14 +79,14 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
         {
             return ImmutableArrays.Of(
                 SyntaxFactory.Argument(shape.Value.WithoutTrivia()),
-                SyntaxFactory.Argument(BuildInstanceExpression(ifStatement)).WithLeadingTrivia(SyntaxFactory.Space));
+                SyntaxFactory.Argument(nameColon: null, refKindKeyword: default, BuildInstanceExpression(ifStatement).WithLeadingTrivia(SyntaxFactory.Space)));
         }
 
         return shape.Operand is null
             ? ImmutableArrays.Of(SyntaxFactory.Argument(shape.Value.WithoutTrivia()))
             : ImmutableArrays.Of(
                 SyntaxFactory.Argument(shape.Value.WithoutTrivia()),
-                SyntaxFactory.Argument(shape.Operand.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space));
+                SyntaxFactory.Argument(nameColon: null, refKindKeyword: default, shape.Operand.WithoutTrailingTrivia().WithLeadingTrivia(SyntaxFactory.Space)));
     }
 
     /// <summary>Builds the disposal helper's instance argument: <c>this</c>, or <c>typeof(...)</c> in static contexts.</summary>
@@ -111,5 +121,31 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
         }
 
         return true;
+    }
+
+    /// <summary>Checks helper availability before binding aliases or choosing the receiver spelling.</summary>
+    /// <param name="compilation">The compilation supplying framework exception types.</param>
+    /// <param name="shape">The classified guard.</param>
+    /// <returns>Whether the framework already supplies the required helper.</returns>
+    private static bool HasFrameworkHelper(Compilation compilation, in Psh1409ThrowHelperAnalyzer.GuardShape shape)
+    {
+        var metadataName = shape.Kind switch
+        {
+            Psh1409ThrowHelperAnalyzer.GuardKind.NullCheck => "System.ArgumentNullException",
+            Psh1409ThrowHelperAnalyzer.GuardKind.NullOrEmpty or Psh1409ThrowHelperAnalyzer.GuardKind.NullOrWhiteSpace => "System.ArgumentException",
+            Psh1409ThrowHelperAnalyzer.GuardKind.Disposed => "System.ObjectDisposedException",
+            _ => "System.ArgumentOutOfRangeException",
+        };
+
+        // A framework helper guarantees a receiver. Applying still resolves aliases first.
+        for (var type = compilation.GetTypeByMetadataName(metadataName); type is not null; type = type.BaseType)
+        {
+            if (!type.GetMembers(shape.HelperName).IsEmpty)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

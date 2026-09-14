@@ -12,6 +12,54 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1481 (bitwise operations should not use identity operands) and its fix.</summary>
 public class RedundantBitwiseOperationAnalyzerUnitTest
 {
+    /// <summary>Verifies user operators returning integers do not treat nonintegral constants as masks.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonintegralConstantInUserOperatorIsCleanAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync("""
+            class C
+            {
+                public static int operator |(C value, string text) => 0;
+                int M(C value) => value | "";
+            }
+            """);
+
+    /// <summary>Verifies integral constants retain their identity after operand promotion.</summary>
+    /// <param name="operand">The constant expression to promote.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("(sbyte)0")]
+    [Arguments("(byte)0")]
+    [Arguments("(short)0")]
+    [Arguments("(ushort)0")]
+    [Arguments("'\\0'")]
+    [Arguments("0U")]
+    [Arguments("0L")]
+    [Arguments("(1 - 1)")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PromotedZeroIsReportedAsync(string operand) =>
+        VerifyBitwise.VerifyAnalyzerAsync($$"""
+            class C { long M(long value) => {|SST1481:value | {{operand}}|}; }
+            """);
+
+    /// <summary>Verifies constant-shaped expressions are rejected when they depend on runtime values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RuntimeAndNativeOperandsAreCleanAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync("""
+            class C
+            {
+                int Next() => 1;
+                int M(int value) => Next() | Next();
+                int N(int value) => value | (1 + Next());
+                int P(int value) => value | (Next() + 1);
+                nint Native(nint value) => value | 0;
+                int? Nullable(int? value) => value | 0;
+            }
+            """);
+
     /// <summary>Verifies an identity operand on the right is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

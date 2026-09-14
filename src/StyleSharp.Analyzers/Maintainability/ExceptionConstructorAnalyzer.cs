@@ -23,7 +23,7 @@ namespace StyleSharp.Analyzers;
 /// framework version, the rule asks the framework itself: it resolves <c>System.Exception</c> and looks
 /// for an <c>[Obsolete]</c> attribute on <c>GetObjectData</c>. Modern .NET marks it obsolete; .NET
 /// Framework and netstandard2.0 do not, and there the members are still live and are never reported.
-/// The probe runs once per compilation and only for a type that is actually an exception.
+/// The probe result is cached per compilation and resolved only for a type that is actually an exception.
 /// </para>
 /// <para>
 /// Ordered so the clean path is a pointer walk. Almost no type in a compilation is an exception, so the
@@ -56,24 +56,22 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Creates the per-compilation state, then analyzes every named type.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        var state = new ExceptionTypeState(context.Compilation);
-        context.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, state), SymbolKind.NamedType);
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<ExceptionFacts>(compilation, ResolveFacts),
+            AnalyzeNamedType,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Analyzes one type, reporting both rules when it is an exception.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="state">The lazily-resolved per-compilation state.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, ExceptionTypeState state)
+    /// <param name="state">The lazily-resolved per-compilation facts.</param>
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, LazyCompilationValue<ExceptionFacts> state)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Class || type.IsStatic || !state.IsException(type))
+        if (type.TypeKind != TypeKind.Class || type.IsStatic
+            || !HasBaseList(type, context.CancellationToken)
+            || !IsException(type, state))
         {
             return;
         }
@@ -85,6 +83,24 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
 
         ReportMissingConstructors(context, type, tree);
         ReportSerializationMembers(context, type, state);
+    }
+
+    /// <summary>Rejects types whose declarations cannot specify an exception base.</summary>
+    /// <param name="type">The type, including all of its partial declarations.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns>Whether any declaration has an explicit base list.</returns>
+    private static bool HasBaseList(INamedTypeSymbol type, CancellationToken cancellationToken)
+    {
+        var declarations = type.DeclaringSyntaxReferences;
+        for (var i = 0; i < declarations.Length; i++)
+        {
+            if (declarations[i].GetSyntax(cancellationToken) is TypeDeclarationSyntax { BaseList: not null })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports SST1488 when the type does not declare all the constructors callers expect.</summary>
@@ -292,7 +308,13 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
             return parts[0];
         }
 
-        var builder = new System.Text.StringBuilder(parts[0]);
+        var capacity = parts[0].Length;
+        for (var i = 1; i < parts.Count; i++)
+        {
+            capacity += (i == parts.Count - 1 ? " and ".Length : ", ".Length) + parts[i].Length;
+        }
+
+        var builder = new System.Text.StringBuilder(parts[0], capacity);
         for (var i = 1; i < parts.Count; i++)
         {
             _ = builder.Append(i == parts.Count - 1 ? " and " : ", ").Append(parts[i]);
@@ -304,10 +326,11 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1489 for each serialization member the target framework has obsoleted.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The exception type.</param>
-    /// <param name="state">The per-compilation state, which knows whether the members are obsolete.</param>
-    private static void ReportSerializationMembers(in SymbolAnalysisContext context, INamedTypeSymbol type, ExceptionTypeState state)
+    /// <param name="state">The per-compilation facts, which know whether the members are obsolete.</param>
+    private static void ReportSerializationMembers(in SymbolAnalysisContext context, INamedTypeSymbol type, LazyCompilationValue<ExceptionFacts> state)
     {
-        if (!state.SerializationIsObsolete)
+        var facts = state.Get();
+        if (!facts.SerializationIsObsolete)
         {
             return;
         }
@@ -315,7 +338,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
         var members = type.GetMembers();
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is not IMethodSymbol method || !state.IsSerializationMember(method))
+            if (members[i] is not IMethodSymbol method || !IsSerializationMember(method, facts))
             {
                 continue;
             }
@@ -338,159 +361,104 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// The per-compilation facts both rules need: what <c>System.Exception</c> is, whether the framework
+    /// Resolves the per-compilation facts both rules need: what <c>System.Exception</c> is, whether the framework
     /// has obsoleted its serialization members, and what the serialization parameter types are.
     /// </summary>
     /// <param name="compilation">The compilation the exception and serialization types are resolved against.</param>
+    /// <returns>The facts, including null symbols for types that cannot be resolved.</returns>
     /// <remarks>
     /// Everything is resolved on first use, behind the base-type check — a compilation that declares no
     /// exception never pays a metadata lookup at all.
     /// </remarks>
-    private sealed class ExceptionTypeState(Compilation compilation)
+    private static ExceptionFacts ResolveFacts(Compilation compilation)
     {
-        /// <summary>Guards the one-time resolution.</summary>
-        private readonly object _gate = new();
-
-        /// <summary>The compilation being analyzed.</summary>
-        private readonly Compilation _compilation = compilation;
-
-        /// <summary>Whether <see cref="Resolve"/> has run.</summary>
-        private bool _resolved;
-
-        /// <summary><c>System.Exception</c>, or null when it cannot be resolved.</summary>
-        private INamedTypeSymbol? _exception;
-
-        /// <summary><c>System.Runtime.Serialization.SerializationInfo</c>, or null.</summary>
-        private INamedTypeSymbol? _serializationInfo;
-
-        /// <summary><c>System.Runtime.Serialization.StreamingContext</c>, or null.</summary>
-        private INamedTypeSymbol? _streamingContext;
-
-        /// <summary>Whether the framework marks the serialization members obsolete.</summary>
-        private bool _serializationIsObsolete;
-
-        /// <summary>Gets a value indicating whether this target framework has obsoleted the serialization members.</summary>
-        public bool SerializationIsObsolete
-        {
-            get
-            {
-                Resolve();
-                return _serializationIsObsolete;
-            }
-        }
-
-        /// <summary>Returns whether the type derives from <c>System.Exception</c>.</summary>
-        /// <param name="type">The type.</param>
-        /// <returns><see langword="true"/> when the type is an exception.</returns>
-        public bool IsException(INamedTypeSymbol type)
-        {
-            Resolve();
-            if (_exception is null)
-            {
-                return false;
-            }
-
-            for (var current = type.BaseType; current is not null; current = current.BaseType)
-            {
-                if (SymbolEqualityComparer.Default.Equals(current, _exception))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>Returns whether the member is one of the formatter-based serialization members.</summary>
-        /// <param name="method">The declared member.</param>
-        /// <returns><see langword="true"/> for the serialization constructor or a <c>GetObjectData</c> override.</returns>
-        public bool IsSerializationMember(IMethodSymbol method)
-        {
-            if (_serializationInfo is null || _streamingContext is null || !HasSerializationParameters(method))
-            {
-                return false;
-            }
-
-            return method.MethodKind == MethodKind.Constructor
-                || (method.Name == GetObjectDataName && method.IsOverride);
-        }
-
-        /// <summary>Asks the framework whether it has obsoleted the serialization members.</summary>
-        /// <param name="exception">The resolved <c>System.Exception</c>, or null.</param>
-        /// <returns><see langword="true"/> when <c>Exception.GetObjectData</c> carries an <c>[Obsolete]</c> attribute.</returns>
-        /// <remarks>
-        /// This is what keeps the rule off .NET Framework and netstandard2.0, where these members are
-        /// still live and removing them would be wrong. Asking the framework rather than testing a
-        /// version number means the rule stays correct on targets that do not exist yet.
-        /// </remarks>
-        private static bool ProbeObsoletion(INamedTypeSymbol? exception)
-        {
-            if (exception is null)
-            {
-                return false;
-            }
-
-            var members = exception.GetMembers(GetObjectDataName);
-            for (var i = 0; i < members.Length; i++)
-            {
-                if (IsObsolete(members[i]))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>Returns whether a symbol carries <c>[Obsolete]</c>.</summary>
-        /// <param name="symbol">The symbol.</param>
-        /// <returns><see langword="true"/> when the framework has obsoleted it.</returns>
-        private static bool IsObsolete(ISymbol symbol)
-        {
-            var attributes = symbol.GetAttributes();
-            for (var i = 0; i < attributes.Length; i++)
-            {
-                if (attributes[i].AttributeClass?.Name == nameof(ObsoleteAttribute))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>Returns whether the member takes exactly the serialization parameter pair.</summary>
-        /// <param name="method">The declared member.</param>
-        /// <returns><see langword="true"/> when the parameters match.</returns>
-        private bool HasSerializationParameters(IMethodSymbol method)
-        {
-            var parameters = method.Parameters;
-            return parameters.Length == SerializationParameterCount
-                && SymbolEqualityComparer.Default.Equals(parameters[0].Type, _serializationInfo)
-                && SymbolEqualityComparer.Default.Equals(parameters[1].Type, _streamingContext);
-        }
-
-        /// <summary>Resolves the well-known types and probes the framework for the obsoletion, once.</summary>
-        private void Resolve()
-        {
-            if (Volatile.Read(ref _resolved))
-            {
-                return;
-            }
-
-            lock (_gate)
-            {
-                if (_resolved)
-                {
-                    return;
-                }
-
-                _exception = _compilation.GetTypeByMetadataName("System.Exception");
-                _serializationInfo = _compilation.GetTypeByMetadataName("System.Runtime.Serialization.SerializationInfo");
-                _streamingContext = _compilation.GetTypeByMetadataName("System.Runtime.Serialization.StreamingContext");
-                _serializationIsObsolete = ProbeObsoletion(_exception);
-                Volatile.Write(ref _resolved, true);
-            }
-        }
+        var exception = compilation.GetTypeByMetadataName("System.Exception");
+        return new(
+            exception,
+            compilation.GetTypeByMetadataName("System.Runtime.Serialization.SerializationInfo"),
+            compilation.GetTypeByMetadataName("System.Runtime.Serialization.StreamingContext"),
+            ProbeObsoletion(exception));
     }
+
+    /// <summary>Returns whether the type derives from <c>System.Exception</c>.</summary>
+    /// <param name="type">The type.</param>
+    /// <param name="state">The per-compilation facts, resolved only once a base type is spelled like an exception.</param>
+    /// <returns><see langword="true"/> when the type is an exception.</returns>
+    private static bool IsException(INamedTypeSymbol type, LazyCompilationValue<ExceptionFacts> state)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            if (IsExceptionType(current) && SymbolEqualityComparer.Default.Equals(current, state.Get().Exception))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether the member is one of the formatter-based serialization members.</summary>
+    /// <param name="method">The declared member.</param>
+    /// <param name="facts">The resolved framework facts.</param>
+    /// <returns><see langword="true"/> for the serialization constructor or a <c>GetObjectData</c> override.</returns>
+    private static bool IsSerializationMember(IMethodSymbol method, ExceptionFacts facts)
+    {
+        if (facts.SerializationInfo is null || facts.StreamingContext is null || !HasSerializationParameters(method, facts))
+        {
+            return false;
+        }
+
+        return method.MethodKind == MethodKind.Constructor
+            || (method.Name == GetObjectDataName && method.IsOverride);
+    }
+
+    /// <summary>Asks the framework whether it has obsoleted the serialization members.</summary>
+    /// <param name="exception">The resolved <c>System.Exception</c>, or null.</param>
+    /// <returns><see langword="true"/> when <c>Exception.GetObjectData</c> carries an <c>[Obsolete]</c> attribute.</returns>
+    /// <remarks>
+    /// This is what keeps the rule off .NET Framework and netstandard2.0, where these members are
+    /// still live and removing them would be wrong. Asking the framework rather than testing a
+    /// version number means the rule stays correct on targets that do not exist yet.
+    /// </remarks>
+    private static bool ProbeObsoletion(INamedTypeSymbol? exception)
+    {
+        if (exception is null)
+        {
+            return false;
+        }
+
+        var members = exception.GetMembers(GetObjectDataName);
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (SymbolFacts.HasAttributeNamed(members[i].GetAttributes(), nameof(ObsoleteAttribute)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether the member takes exactly the serialization parameter pair.</summary>
+    /// <param name="method">The declared member.</param>
+    /// <param name="facts">The resolved framework facts.</param>
+    /// <returns><see langword="true"/> when the parameters match.</returns>
+    private static bool HasSerializationParameters(IMethodSymbol method, ExceptionFacts facts)
+    {
+        var parameters = method.Parameters;
+        return parameters.Length == SerializationParameterCount
+            && SymbolEqualityComparer.Default.Equals(parameters[0].Type, facts.SerializationInfo)
+            && SymbolEqualityComparer.Default.Equals(parameters[1].Type, facts.StreamingContext);
+    }
+
+    /// <summary>The immutable framework facts resolved once per compilation.</summary>
+    /// <param name="Exception">The exception type, or null when unavailable.</param>
+    /// <param name="SerializationInfo">The serialization info type, or null when unavailable.</param>
+    /// <param name="StreamingContext">The streaming context type, or null when unavailable.</param>
+    /// <param name="SerializationIsObsolete">Whether the framework has obsoleted serialization.</param>
+    private sealed record ExceptionFacts(
+        INamedTypeSymbol? Exception,
+        INamedTypeSymbol? SerializationInfo,
+        INamedTypeSymbol? StreamingContext,
+        bool SerializationIsObsolete);
 }

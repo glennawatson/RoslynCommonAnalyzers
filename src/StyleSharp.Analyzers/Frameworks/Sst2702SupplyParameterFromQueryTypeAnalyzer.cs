@@ -18,10 +18,9 @@ namespace StyleSharp.Analyzers;
 /// target framework without DateOnly, TimeOnly, or DateTimeOffset simply never matches those — the rule never
 /// suggests a type the compilation lacks.
 /// <para>
-/// The whole rule is gated at compilation start on the
-/// <c>Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute</c> marker resolving; a project that does
-/// not reference it registers nothing and pays nothing. The property need not be public — the framework binds it
-/// by reflection regardless of accessibility — so accessibility is not part of the check.
+/// The marker and supported types are resolved only after a property carries a candidate
+/// <c>Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute</c> attribute. The property need not be
+/// public — the framework binds it by reflection regardless of accessibility — so accessibility is not part of the check.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -39,25 +38,26 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var model = QueryBindingModel.Resolve(start.Compilation);
-            if (model is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, model), SymbolKind.Property);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<QueryBindingModel?>(compilation, QueryBindingModel.Resolve),
+            AnalyzeProperty,
+            SymbolKind.Property);
     }
 
     /// <summary>Reports a supplied query property whose type is outside the bindable set.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="model">The resolved marker and supported-type set.</param>
-    private static void AnalyzeProperty(in SymbolAnalysisContext context, QueryBindingModel model)
+    /// <param name="models">The marker and supported-type set resolved on demand.</param>
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, LazyCompilationValue<QueryBindingModel?> models)
     {
         var property = (IPropertySymbol)context.Symbol;
-        if (!model.HasMarker(property))
+        if (!SymbolFacts.HasAttributeNamed(property.GetAttributes(), "SupplyParameterFromQueryAttribute"))
+        {
+            return;
+        }
+
+        var model = models.Get();
+        if (model is null || !model.HasMarker(property))
         {
             return;
         }
@@ -135,19 +135,8 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
         /// <summary>Returns whether a property carries the supply-from-query marker attribute.</summary>
         /// <param name="property">The property to inspect.</param>
         /// <returns><see langword="true"/> when the marker is present.</returns>
-        public bool HasMarker(IPropertySymbol property)
-        {
-            var attributes = property.GetAttributes();
-            for (var i = 0; i < attributes.Length; i++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(attributes[i].AttributeClass, _marker))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool HasMarker(IPropertySymbol property) => SymbolFacts.HasAttribute(property.GetAttributes(), _marker);
 
         /// <summary>Returns whether a property type is one the framework can bind from a query string.</summary>
         /// <param name="type">The property type.</param>

@@ -20,17 +20,17 @@ internal static class CompoundAssignmentOperators
     {
         (assignmentKind, operatorToken, text) = binaryKind switch
         {
-            SyntaxKind.AddExpression => (SyntaxKind.AddAssignmentExpression, SyntaxKind.PlusEqualsToken, "+="),
-            SyntaxKind.SubtractExpression => (SyntaxKind.SubtractAssignmentExpression, SyntaxKind.MinusEqualsToken, "-="),
-            SyntaxKind.MultiplyExpression => (SyntaxKind.MultiplyAssignmentExpression, SyntaxKind.AsteriskEqualsToken, "*="),
-            SyntaxKind.DivideExpression => (SyntaxKind.DivideAssignmentExpression, SyntaxKind.SlashEqualsToken, "/="),
-            SyntaxKind.ModuloExpression => (SyntaxKind.ModuloAssignmentExpression, SyntaxKind.PercentEqualsToken, "%="),
-            SyntaxKind.BitwiseAndExpression => (SyntaxKind.AndAssignmentExpression, SyntaxKind.AmpersandEqualsToken, "&="),
-            SyntaxKind.BitwiseOrExpression => (SyntaxKind.OrAssignmentExpression, SyntaxKind.BarEqualsToken, "|="),
-            SyntaxKind.ExclusiveOrExpression => (SyntaxKind.ExclusiveOrAssignmentExpression, SyntaxKind.CaretEqualsToken, "^="),
-            SyntaxKind.LeftShiftExpression => (SyntaxKind.LeftShiftAssignmentExpression, SyntaxKind.LessThanLessThanEqualsToken, "<<="),
-            SyntaxKind.RightShiftExpression => (SyntaxKind.RightShiftAssignmentExpression, SyntaxKind.GreaterThanGreaterThanEqualsToken, ">>="),
-            _ => (SyntaxKind.None, SyntaxKind.None, string.Empty)
+            SyntaxKind.AddExpression => new OperatorForm(SyntaxKind.AddAssignmentExpression, SyntaxKind.PlusEqualsToken, "+="),
+            SyntaxKind.SubtractExpression => new OperatorForm(SyntaxKind.SubtractAssignmentExpression, SyntaxKind.MinusEqualsToken, "-="),
+            SyntaxKind.MultiplyExpression => new OperatorForm(SyntaxKind.MultiplyAssignmentExpression, SyntaxKind.AsteriskEqualsToken, "*="),
+            SyntaxKind.DivideExpression => new OperatorForm(SyntaxKind.DivideAssignmentExpression, SyntaxKind.SlashEqualsToken, "/="),
+            SyntaxKind.ModuloExpression => new OperatorForm(SyntaxKind.ModuloAssignmentExpression, SyntaxKind.PercentEqualsToken, "%="),
+            SyntaxKind.BitwiseAndExpression => new OperatorForm(SyntaxKind.AndAssignmentExpression, SyntaxKind.AmpersandEqualsToken, "&="),
+            SyntaxKind.BitwiseOrExpression => new OperatorForm(SyntaxKind.OrAssignmentExpression, SyntaxKind.BarEqualsToken, "|="),
+            SyntaxKind.ExclusiveOrExpression => new OperatorForm(SyntaxKind.ExclusiveOrAssignmentExpression, SyntaxKind.CaretEqualsToken, "^="),
+            SyntaxKind.LeftShiftExpression => new OperatorForm(SyntaxKind.LeftShiftAssignmentExpression, SyntaxKind.LessThanLessThanEqualsToken, "<<="),
+            SyntaxKind.RightShiftExpression => new OperatorForm(SyntaxKind.RightShiftAssignmentExpression, SyntaxKind.GreaterThanGreaterThanEqualsToken, ">>="),
+            _ => new OperatorForm(SyntaxKind.None, SyntaxKind.None, string.Empty)
         };
         return operatorToken != SyntaxKind.None;
     }

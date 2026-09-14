@@ -11,38 +11,31 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes the second occurrence of a word typed twice in a row in documentation text (SST1658).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1658NoRepeatedWordsCodeFixProvider))]
 [Shared]
-public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.NoRepeatedWords.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var wordSpan = diagnostic.Location.SourceSpan;
-            if (!TryGetRemovalChange(text, wordSpan, out _))
-            {
-                // No clean removal exists; the diagnostic stays reported without a fix.
-                continue;
-            }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (text, diagnostic) => TryGetRemovalChange(text, diagnostic.Location.SourceSpan, out _) ? "Remove the repeated word" : null,
+            nameof(Sst1658NoRepeatedWordsCodeFixProvider),
+            RegisterTextChanges);
 
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the repeated word",
-                    cancellationToken => RemoveRepeatedWordAsync(context.Document, wordSpan, cancellationToken),
-                    equivalenceKey: nameof(Sst1658NoRepeatedWordsCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryGetRemovalChange(text, diagnostic.Location.SourceSpan, out var change))
         {
@@ -50,17 +43,6 @@ public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider, ITe
         }
 
         changes.Add(change);
-    }
-
-    /// <summary>Removes the repeated word reported at <paramref name="wordSpan"/>.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="wordSpan">The span of the repeated word's second occurrence.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> RemoveRepeatedWordAsync(Document document, TextSpan wordSpan, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return TryGetRemovalChange(text, wordSpan, out var change) ? document.WithText(text.WithChanges(change)) : document;
     }
 
     /// <summary>

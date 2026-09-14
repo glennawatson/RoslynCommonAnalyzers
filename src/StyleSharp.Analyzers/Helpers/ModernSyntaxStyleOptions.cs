@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -58,96 +60,128 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured infinite-loop style, defaulting to <see cref="InfiniteLoopStyle.While"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static InfiniteLoopStyle ReadInfiniteLoopStyle(AnalyzerConfigOptions options) =>
-        Read(options, InfiniteLoopStyleSpecificKey, InfiniteLoopStyleGeneralKey) switch
-        {
-            "for" => InfiniteLoopStyle.For,
-            "while" => InfiniteLoopStyle.While,
-            _ => InfiniteLoopStyle.While,
-        };
+        ReadChoice(options, InfiniteLoopStyleSpecificKey, InfiniteLoopStyleGeneralKey, "for", InfiniteLoopStyle.For, InfiniteLoopStyle.While);
 
     /// <summary>Reads the configured object-creation parentheses style, defaulting to <see cref="ObjectCreationParenthesesStyle.Omit"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ObjectCreationParenthesesStyle ReadObjectCreationParentheses(AnalyzerConfigOptions options) =>
-        Read(options, ObjectCreationParenthesesSpecificKey, ObjectCreationParenthesesGeneralKey) switch
-        {
-            "include" => ObjectCreationParenthesesStyle.Include,
-            "omit" => ObjectCreationParenthesesStyle.Omit,
-            _ => ObjectCreationParenthesesStyle.Omit,
-        };
+        ReadChoice(
+            options,
+            ObjectCreationParenthesesSpecificKey,
+            ObjectCreationParenthesesGeneralKey,
+            "include",
+            ObjectCreationParenthesesStyle.Include,
+            ObjectCreationParenthesesStyle.Omit);
 
     /// <summary>Reads the configured conditional-condition parentheses style, defaulting to <see cref="ConditionalConditionParenthesesStyle.OmitWhenSingleToken"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ConditionalConditionParenthesesStyle ReadConditionalConditionParentheses(AnalyzerConfigOptions options) =>
-        Read(options, ConditionalConditionParenthesesSpecificKey, ConditionalConditionParenthesesGeneralKey) switch
-        {
-            "include" => ConditionalConditionParenthesesStyle.Include,
-            "omit_when_single_token" => ConditionalConditionParenthesesStyle.OmitWhenSingleToken,
-            _ => ConditionalConditionParenthesesStyle.OmitWhenSingleToken,
-        };
+        ReadChoice(
+            options,
+            ConditionalConditionParenthesesSpecificKey,
+            ConditionalConditionParenthesesGeneralKey,
+            "include",
+            ConditionalConditionParenthesesStyle.Include,
+            ConditionalConditionParenthesesStyle.OmitWhenSingleToken);
 
     /// <summary>Reads the configured array-creation type style, defaulting to <see cref="ArrayCreationTypeStyle.ImplicitWhenObvious"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ArrayCreationTypeStyle ReadArrayCreationTypeStyle(AnalyzerConfigOptions options) =>
-        Read(options, ArrayCreationTypeStyleSpecificKey, ArrayCreationTypeStyleGeneralKey) switch
-        {
-            "explicit" => ArrayCreationTypeStyle.Explicit,
-            "implicit" => ArrayCreationTypeStyle.Implicit,
-            "implicit_when_obvious" => ArrayCreationTypeStyle.ImplicitWhenObvious,
-            _ => ArrayCreationTypeStyle.ImplicitWhenObvious,
-        };
+        ReadEitherChoice(
+            options,
+            ArrayCreationTypeStyleSpecificKey,
+            ArrayCreationTypeStyleGeneralKey,
+            new("explicit", ArrayCreationTypeStyle.Explicit),
+            new("implicit", ArrayCreationTypeStyle.Implicit),
+            ArrayCreationTypeStyle.ImplicitWhenObvious);
 
     /// <summary>Reads the configured var style, defaulting to <see cref="UseVarStyle.WhenObvious"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static UseVarStyle ReadUseVar(AnalyzerConfigOptions options) =>
-        Read(options, UseVarSpecificKey, UseVarGeneralKey) switch
-        {
-            "always" => UseVarStyle.Always,
-            "never" => UseVarStyle.Never,
-            "when_obvious" => UseVarStyle.WhenObvious,
-            _ => UseVarStyle.WhenObvious,
-        };
+        ReadEitherChoice(
+            options,
+            UseVarSpecificKey,
+            UseVarGeneralKey,
+            new("always", UseVarStyle.Always),
+            new("never", UseVarStyle.Never),
+            UseVarStyle.WhenObvious);
 
     /// <summary>Reads the configured Flags-enum value style, defaulting to <see cref="EnumFlagValueStyle.Shift"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static EnumFlagValueStyle ReadEnumFlagValueStyle(AnalyzerConfigOptions options) =>
-        Read(options, EnumFlagValueStyleSpecificKey, EnumFlagValueStyleGeneralKey) switch
-        {
-            "decimal" => EnumFlagValueStyle.Decimal,
-            "shift" => EnumFlagValueStyle.Shift,
-            _ => EnumFlagValueStyle.Shift,
-        };
+        ReadChoice(options, EnumFlagValueStyleSpecificKey, EnumFlagValueStyleGeneralKey, "decimal", EnumFlagValueStyle.Decimal, EnumFlagValueStyle.Shift);
 
     /// <summary>Reads the configured namespace declaration style, defaulting to <see cref="NamespaceDeclarationStyle.FileScoped"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static NamespaceDeclarationStyle ReadNamespaceDeclarationStyle(AnalyzerConfigOptions options) =>
-        Read(options, NamespaceDeclarationStyleSpecificKey, NamespaceDeclarationStyleGeneralKey) switch
-        {
-            "block_scoped" => NamespaceDeclarationStyle.BlockScoped,
-            "file_scoped" => NamespaceDeclarationStyle.FileScoped,
-            _ => NamespaceDeclarationStyle.FileScoped,
-        };
+        ReadChoice(
+            options,
+            NamespaceDeclarationStyleSpecificKey,
+            NamespaceDeclarationStyleGeneralKey,
+            "block_scoped",
+            NamespaceDeclarationStyle.BlockScoped,
+            NamespaceDeclarationStyle.FileScoped);
 
-    /// <summary>Reads the raw value of an option, preferring the rule-specific key, lowercased and trimmed.</summary>
+    /// <summary>Reads an option that names one alternative to its default.</summary>
+    /// <typeparam name="TStyle">The style enum.</typeparam>
     /// <param name="options">The analyzer config options.</param>
     /// <param name="specificKey">The rule-specific key.</param>
     /// <param name="generalKey">The project-wide key.</param>
-    /// <returns>The normalized value, or <see langword="null"/> when neither key carries one.</returns>
-    private static string? Read(AnalyzerConfigOptions options, string specificKey, string generalKey)
+    /// <param name="text">The lowercase option value that selects <paramref name="choice"/>.</param>
+    /// <param name="choice">The style the value selects.</param>
+    /// <param name="fallback">The style when the option is unset or unrecognized.</param>
+    /// <returns>The resolved style.</returns>
+    private static TStyle ReadChoice<TStyle>(AnalyzerConfigOptions options, string specificKey, string generalKey, string text, TStyle choice, TStyle fallback) =>
+        InvariantText.EqualsLowercase(Read(options, specificKey, generalKey), text) ? choice : fallback;
+
+    /// <summary>Reads an option that names one of two alternatives to its default.</summary>
+    /// <typeparam name="TStyle">The style enum.</typeparam>
+    /// <param name="options">The analyzer config options.</param>
+    /// <param name="specificKey">The rule-specific key.</param>
+    /// <param name="generalKey">The project-wide key.</param>
+    /// <param name="first">The first alternative and the lowercase value that selects it.</param>
+    /// <param name="second">The second alternative and the lowercase value that selects it.</param>
+    /// <param name="fallback">The style when the option is unset or unrecognized.</param>
+    /// <returns>The resolved style.</returns>
+    private static TStyle ReadEitherChoice<TStyle>(
+        AnalyzerConfigOptions options,
+        string specificKey,
+        string generalKey,
+        in StyleChoice<TStyle> first,
+        in StyleChoice<TStyle> second,
+        TStyle fallback)
     {
-        if (options.TryGetValue(specificKey, out var value) && value.Length != 0)
+        var value = Read(options, specificKey, generalKey);
+        if (InvariantText.EqualsLowercase(value, first.Text))
         {
-            return value.Trim().ToLowerInvariant();
+            return first.Style;
         }
 
-        return options.TryGetValue(generalKey, out value) && value.Length != 0
-            ? value.Trim().ToLowerInvariant()
-            : null;
+        return InvariantText.EqualsLowercase(value, second.Text) ? second.Style : fallback;
     }
+
+    /// <summary>Reads the raw value of an option, preferring the rule-specific key and excluding surrounding whitespace.</summary>
+    /// <param name="options">The analyzer config options.</param>
+    /// <param name="specificKey">The rule-specific key.</param>
+    /// <param name="generalKey">The project-wide key.</param>
+    /// <returns>The trimmed value, or an empty span when neither key carries one.</returns>
+    private static ReadOnlySpan<char> Read(AnalyzerConfigOptions options, string specificKey, string generalKey) =>
+        (options.TryGetValue(specificKey, out var value) && value.Length != 0)
+            || (options.TryGetValue(generalKey, out value) && value.Length != 0)
+            ? AnalyzerOptionReader.TrimSegment(value, 0, value.Length)
+            : default;
 }

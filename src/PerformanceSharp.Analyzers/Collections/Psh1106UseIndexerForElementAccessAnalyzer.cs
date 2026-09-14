@@ -12,9 +12,9 @@ namespace PerformanceSharp.Analyzers;
 /// receiver's static type is indexable: a rank-1 array, <see cref="string"/>, or a type
 /// that is or implements <c>IList&lt;T&gt;</c>/<c>IReadOnlyList&lt;T&gt;</c>.
 /// <c>Last()</c> is additionally gated on the static type exposing a constant-time
-/// <c>Count</c>/<c>Length</c>, because its rewrite reads the count. The rule is resolved
-/// once per compilation by probing for <c>System.Linq.Enumerable</c>, so it costs
-/// nothing when LINQ is absent.
+/// <c>Count</c>/<c>Length</c>, because its rewrite reads the count. The
+/// <c>System.Linq.Enumerable</c> type is resolved only after a candidate passes the
+/// syntax and receiver checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyzer
@@ -22,14 +22,14 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
     /// <summary>The diagnostic property key carrying the count property name used by the <c>Last()</c> code fix.</summary>
     internal const string CountSourceKey = "CountSource";
 
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The unreduced parameter count of Enumerable extensions taking only the source.</summary>
     private const int SourceOnlyParameterCount = 1;
 
     /// <summary>The unreduced parameter count of Enumerable extensions taking the source and an index.</summary>
     private const int SourceAndIndexParameterCount = 2;
+
+    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>Cached diagnostic properties naming Count as the receiver's count source.</summary>
     private static readonly ImmutableDictionary<string, string?> CountProperties =
@@ -51,21 +51,17 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1106 for an Enumerable element-access call on an indexable receiver.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
@@ -90,7 +86,8 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        if (!IsEnumerableExtension(context.SemanticModel, invocation, enumerableType, parameterCount, context.CancellationToken))
+        if (frameworkTypes.Get() is not { } enumerableType
+            || !EnumerableInvocationHelper.IsReducedExtensionOn(context.SemanticModel, invocation, enumerableType, parameterCount, context.CancellationToken))
         {
             return;
         }
@@ -143,21 +140,4 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
             "ElementAt" => SourceAndIndexParameterCount,
             _ => 0
         };
-
-    /// <summary>Returns whether an invocation binds to an Enumerable extension with the expected parameter count.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    /// <param name="parameterCount">The expected unreduced parameter count.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the call is a reduced Enumerable extension of the expected shape.</returns>
-    private static bool IsEnumerableExtension(
-        SemanticModel model,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType,
-        int parameterCount,
-        CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
-            && reduced.Parameters.Length == parameterCount
-            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 }

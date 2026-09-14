@@ -8,15 +8,12 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1605 — AI instrumentation is told to capture raw prompts and responses as telemetry.</summary>
-    public static readonly DiagnosticDescriptor SensitiveAiTelemetry = new(
+    public static readonly DiagnosticDescriptor SensitiveAiTelemetry = DescriptorFactory.CreateInfo(
         "SES1605",
         "AI instrumentation must not enable sensitive-data capture",
         "'{0}.EnableSensitiveData' is set to true; this ships raw prompts and model responses -- which routinely carry secrets and PII -- verbatim to your telemetry backend",
         Ai,
-        DiagnosticSeverity.Info,
-        isEnabledByDefault: true,
-        description: SensitiveAiTelemetryDescription,
-        helpLinkUri: "https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/SES1605.md");
+        SensitiveAiTelemetryDescription);
 
     /// <summary>The SES1605 rule description.</summary>
     private const string SensitiveAiTelemetryDescription =

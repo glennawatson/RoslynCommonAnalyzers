@@ -55,18 +55,7 @@ internal static class TypeFileNaming
 
         var builder = new StringBuilder(
             identifier.Length + (typeParameters.Parameters.Count * AssumedTypeParameterWidth) + TypeParameterBraceLength);
-        _ = builder.Append(identifier).Append('{');
-        for (var index = 0; index < typeParameters.Parameters.Count; index++)
-        {
-            if (index > 0)
-            {
-                _ = builder.Append(',');
-            }
-
-            _ = builder.Append(typeParameters.Parameters[index].Identifier.ValueText);
-        }
-
-        _ = builder.Append('}');
+        _ = TypeParameterNames.AppendJoined(builder.Append(identifier).Append('{'), typeParameters, ",").Append('}');
         return builder.ToString();
     }
 
@@ -85,7 +74,7 @@ internal static class TypeFileNaming
     /// <returns>The list of top-level type-like declarations in source order.</returns>
     internal static List<MemberDeclarationSyntax> TopLevelTypes(CompilationUnitSyntax root)
     {
-        var result = new List<MemberDeclarationSyntax>();
+        var result = new List<MemberDeclarationSyntax>(root.Members.Count);
         CollectTopLevelTypes(root.Members, result);
         return result;
     }

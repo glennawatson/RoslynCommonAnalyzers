@@ -42,4 +42,26 @@ internal static class ModifierListHelper
 
         return false;
     }
+
+    /// <summary>Returns whether <paramref name="modifiers"/> contains any of five requested kinds.</summary>
+    /// <param name="modifiers">The modifier list.</param>
+    /// <param name="first">The first modifier kind to find.</param>
+    /// <param name="second">The second modifier kind to find.</param>
+    /// <param name="third">The third modifier kind to find.</param>
+    /// <param name="fourth">The fourth modifier kind to find.</param>
+    /// <param name="fifth">The fifth modifier kind to find.</param>
+    /// <returns><see langword="true"/> when any of the modifiers is present.</returns>
+    internal static bool ContainsAny(in SyntaxTokenList modifiers, SyntaxKind first, SyntaxKind second, SyntaxKind third, SyntaxKind fourth, SyntaxKind fifth)
+    {
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            var kind = modifiers[i].Kind();
+            if (kind == first || kind == second || kind == third || kind == fourth || kind == fifth)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

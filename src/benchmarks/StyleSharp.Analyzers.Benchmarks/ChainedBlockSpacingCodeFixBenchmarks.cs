@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -15,8 +16,8 @@ namespace StyleSharp.Analyzers.Benchmarks;
 [ShortRunJob]
 public class ChainedBlockSpacingCodeFixBenchmarks
 {
-    /// <summary>The prepared benchmark document and representative chained-keyword span.</summary>
-    private DirectCodeFixBenchmarkContext<TextSpan> _context = null!;
+    /// <summary>The prepared benchmark document and the diagnostic reported on the representative chained keyword.</summary>
+    private DirectCodeFixBenchmarkContext<Diagnostic> _context = null!;
 
     /// <summary>Gets or sets the synthetic member count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
@@ -29,7 +30,7 @@ public class ChainedBlockSpacingCodeFixBenchmarks
         _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             LayoutTriviaCodeFixBenchmarkSource.GenerateChainedBlockSpacing,
-            static (_, root, index) => Task.FromResult(FindElseSpan(root, index))).ConfigureAwait(false);
+            static (_, root, index) => Task.FromResult(FindTarget(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,7 +42,7 @@ public class ChainedBlockSpacingCodeFixBenchmarks
     [Benchmark]
     public async Task<int> ChainedBlockSpacing_ApplyFixAsync()
     {
-        var updated = await ChainedBlockSpacingCodeFixProvider.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await TextChangeCodeFix.ApplyAsync(_context.Document, _context.Target, ChainedBlockSpacingCodeFixProvider.RegisterTextChanges, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 
@@ -52,4 +53,12 @@ public class ChainedBlockSpacingCodeFixBenchmarks
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static TextSpan FindElseSpan(CompilationUnitSyntax root, int index) =>
         CodeFixBenchmarkSyntaxLookup.GetNthDescendant<IfStatementSyntax>(root, index, static statement => statement.Else is not null).Else!.ElseKeyword.Span;
+
+    /// <summary>Creates the missing-blank-line diagnostic for the representative chained keyword.</summary>
+    /// <param name="root">The benchmark syntax root.</param>
+    /// <param name="index">The zero-based chained block index to select.</param>
+    /// <returns>The diagnostic reported on the selected chained keyword.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Diagnostic FindTarget(CompilationUnitSyntax root, int index) =>
+        Diagnostic.Create(LayoutRules.ChainedBlockNotPrecededByBlankLine, Location.Create(root.SyntaxTree, FindElseSpan(root, index)));
 }

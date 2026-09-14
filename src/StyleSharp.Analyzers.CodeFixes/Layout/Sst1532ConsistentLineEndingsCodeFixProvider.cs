@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -13,37 +12,31 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites every line ending in the file to the configured newline sequence (SST1532).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1532ConsistentLineEndingsCodeFixProvider))]
 [Shared]
-public sealed class Sst1532ConsistentLineEndingsCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1532ConsistentLineEndingsCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.ConsistentLineEndings.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!diagnostic.Properties.TryGetValue(Sst1532ConsistentLineEndingsAnalyzer.LineEndingProperty, out var target) || target is null)
-            {
-                continue;
-            }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            nameof(Sst1532ConsistentLineEndingsCodeFixProvider),
+            RegisterTextChanges);
 
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Normalise the file's line endings",
-                    cancellationToken => NormaliseAsync(context.Document, target, cancellationToken),
-                    equivalenceKey: nameof(Sst1532ConsistentLineEndingsCodeFixProvider)),
-                diagnostic);
-        }
-
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!diagnostic.Properties.TryGetValue(Sst1532ConsistentLineEndingsAnalyzer.LineEndingProperty, out var target) || target is null)
         {
@@ -51,19 +44,6 @@ public sealed class Sst1532ConsistentLineEndingsCodeFixProvider : CodeFixProvide
         }
 
         AppendChanges(text, target, changes);
-    }
-
-    /// <summary>Rewrites every non-conforming line ending to the target newline.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="target">The required newline sequence.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> NormaliseAsync(Document document, string target, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var changes = new List<TextChange>(text.Lines.Count);
-        AppendChanges(text, target, changes);
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
 
     /// <summary>Appends a replacement for each line ending that differs from the target newline.</summary>
@@ -83,4 +63,12 @@ public sealed class Sst1532ConsistentLineEndingsCodeFixProvider : CodeFixProvide
             }
         }
     }
+
+    /// <summary>Words the action when the diagnostic names the line ending to normalise to.</summary>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the diagnostic names no line ending.</returns>
+    private static string? TryCreateTitle(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Sst1532ConsistentLineEndingsAnalyzer.LineEndingProperty, out var target) && target is not null
+            ? "Normalise the file's line endings"
+            : null;
 }

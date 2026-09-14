@@ -54,26 +54,17 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName("System.IDisposable") is not { } disposable)
-            {
-                return;
-            }
-
-            var types = new DisposableTypes(
-                disposable,
-                start.Compilation.GetTypeByMetadataName("System.IAsyncDisposable"),
-                start.Compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"));
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.LocalDeclarationStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<DisposableTypes?>(compilation, DisposableTypes.Create),
+            Analyze,
+            SyntaxKind.LocalDeclarationStatement);
     }
 
     /// <summary>Analyzes one local declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types)
+    /// <param name="types">The disposal types resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DisposableTypes?> types)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
 
@@ -89,9 +80,10 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < variables.Count; i++)
         {
             var variable = variables[i];
-            if (variable.Initializer?.Value is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
+            if (variable.Initializer?.Value is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax
+                && types.Get() is { } resolved)
             {
-                AnalyzeVariable(context, types, variable, scope);
+                AnalyzeVariable(context, resolved, variable, scope);
             }
         }
     }
@@ -143,7 +135,7 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
 
         // A plain member access keeps the value where it is. A reference inside a lambda or a local
         // function outlives this scan, and anything else hands the value somewhere that may own it.
-        if (IsMemberAccessOnLocal(reference) && !IsCaptured(reference, state.Scope))
+        if (IsMemberAccessOnLocal(reference) && !NestedFunctionScope.IsInsideNestedFunction(reference, state.Scope))
         {
             if (HandsBackAnOwner(reference, ref state))
             {
@@ -195,23 +187,6 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         reference.Parent is MemberAccessExpressionSyntax access
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Expression == reference;
-
-    /// <summary>Returns whether a reference sits inside a lambda, an anonymous method, or a local function.</summary>
-    /// <param name="reference">The reference.</param>
-    /// <param name="scope">The block the local lives in, which bounds the walk.</param>
-    /// <returns><see langword="true"/> when the value is captured and can outlive the scan.</returns>
-    private static bool IsCaptured(SyntaxNode reference, SyntaxNode scope)
-    {
-        for (var node = reference.Parent; node is not null && node != scope; node = node.Parent)
-        {
-            if (node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Gets the block a local lives in, which is as far as any reference to it can reach.</summary>
     /// <param name="declaration">The local declaration.</param>

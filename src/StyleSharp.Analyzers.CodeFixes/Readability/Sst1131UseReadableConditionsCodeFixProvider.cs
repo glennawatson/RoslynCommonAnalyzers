@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -13,63 +12,30 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1131UseReadableConditionsCodeFixProvider))]
 [Shared]
-public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(ReportedNode.Find<BinaryExpressionSyntax>, static (current, _) => BuildSwapped((BinaryExpressionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseReadableConditions.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Swap operands",
-                    _ => Task.FromResult(Swap(context.Document, root, comparison)),
-                    equivalenceKey: nameof(Sst1131UseReadableConditionsCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(comparison, BuildSwapped(comparison));
-    }
-
-    /// <summary>Swaps the operands of the comparison and flips the operator.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="comparison">The comparison to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Swap(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
-        document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildSwapped(comparison)));
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Swap operands",
+            nameof(Sst1131UseReadableConditionsCodeFixProvider),
+            ReportedNode.Find<BinaryExpressionSyntax>,
+            BuildSwapped);
 
     /// <summary>Builds the comparison with its operands swapped and the operator flipped.</summary>
     /// <param name="comparison">The comparison to rewrite.</param>
     /// <returns>The rewritten comparison.</returns>
-    private static BinaryExpressionSyntax BuildSwapped(BinaryExpressionSyntax comparison)
+    internal static BinaryExpressionSyntax BuildSwapped(BinaryExpressionSyntax comparison)
     {
         var newLeft = comparison.Right
             .WithLeadingTrivia(comparison.Left.GetLeadingTrivia())
@@ -78,7 +44,7 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
             .WithLeadingTrivia(comparison.Right.GetLeadingTrivia())
             .WithTrailingTrivia(comparison.Right.GetTrailingTrivia());
 
-        var flipped = Flip(comparison.Kind());
+        var flipped = ComparisonKinds.Mirror(comparison.Kind());
         var operatorToken = SyntaxFactory.Token(
             comparison.OperatorToken.LeadingTrivia,
             OperatorTokenKind(flipped),
@@ -86,18 +52,6 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
 
         return SyntaxFactory.BinaryExpression(flipped, newLeft, operatorToken, newRight);
     }
-
-    /// <summary>Returns the comparison kind that reads the same after the operands are swapped.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The flipped comparison kind.</returns>
-    private static SyntaxKind Flip(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind
-    };
 
     /// <summary>Returns the operator token kind for a comparison expression kind.</summary>
     /// <param name="kind">The comparison expression kind.</param>

@@ -19,28 +19,15 @@ public sealed class NullableSyntaxCleanupCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var title = diagnostic.Id == ModernSyntaxRules.RemoveUnneededNullForgiving.Id
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static diagnostic => diagnostic.Id == ModernSyntaxRules.RemoveUnneededNullForgiving.Id
                 ? "Remove null-forgiving operator"
-                : "Remove nullable directive";
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title,
-                    cancellationToken => ApplyAsync(context.Document, root, diagnostic, cancellationToken),
-                    equivalenceKey: diagnostic.Id),
-                diagnostic);
-        }
-    }
+                : "Remove nullable directive",
+            static diagnostic => diagnostic.Id,
+            static (_, _) => true,
+            ApplyAsync);
 
     /// <summary>Applies one nullable syntax cleanup.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -67,7 +54,7 @@ public sealed class NullableSyntaxCleanupCodeFixProvider : CodeFixProvider
     /// <returns>The updated document.</returns>
     private static Document ApplyNullForgiving(Document document, SyntaxNode root, Diagnostic diagnostic)
     {
-        var suppression = FindAncestor<PostfixUnaryExpressionSyntax>(root, diagnostic.Location.SourceSpan);
+        var suppression = DiagnosticAncestor.Find<PostfixUnaryExpressionSyntax>(root, diagnostic.Location.SourceSpan);
         return suppression is null ? document : document.WithSyntaxRoot(root.ReplaceNode(suppression, suppression.Operand.WithTriviaFrom(suppression)));
     }
 
@@ -81,27 +68,5 @@ public sealed class NullableSyntaxCleanupCodeFixProvider : CodeFixProvider
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var line = text.Lines.GetLineFromPosition(diagnostic.Location.SourceSpan.Start);
         return document.WithText(text.WithChanges(new TextChange(line.SpanIncludingLineBreak, string.Empty)));
-    }
-
-    /// <summary>Finds the node at a span or one of its ancestors.</summary>
-    /// <typeparam name="T">The ancestor node type to find.</typeparam>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic span.</param>
-    /// <returns>The matching node, or <see langword="null"/>.</returns>
-    private static T? FindAncestor<T>(SyntaxNode root, TextSpan span)
-        where T : SyntaxNode
-    {
-        var node = root.FindToken(span.Start).Parent;
-        while (node is not null)
-        {
-            if (node is T matched)
-            {
-                return matched;
-            }
-
-            node = node.Parent;
-        }
-
-        return null;
     }
 }

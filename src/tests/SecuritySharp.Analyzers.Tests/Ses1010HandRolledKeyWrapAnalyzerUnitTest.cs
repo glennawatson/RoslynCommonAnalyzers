@@ -2,7 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using RoslynCommon.Analyzers.Tests;
 using VerifyKeyWrap = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -13,6 +17,51 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for the hand-rolled key-wrap rule (SES1010).</summary>
 public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 {
+    /// <summary>The cached minimal framework without cryptography types.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
+
+    /// <summary>Verifies typed bytes match while wrong values and nonconstant elements are ignored.</summary>
+    /// <param name="elements">The eight initializer elements.</param>
+    /// <param name="reported">Whether the sequence is the integrity value.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("(byte)166, (byte)166, (byte)166, (byte)166, (byte)166, (byte)166, (byte)166, (byte)166", true)]
+    [Arguments("(byte)165, 166, 166, 166, 166, 166, 166, 166", false)]
+    [Arguments("165, 166, 166, 166, 166, 166, 166, 166", false)]
+    [Arguments("166L, 166, 166, 166, 166, 166, 166, 166", false)]
+    [Arguments("null, 166, 166, 166, 166, 166, 166, 166", false)]
+    [Arguments("value, 166, 166, 166, 166, 166, 166, 166", false)]
+    public async Task InitializerRequiresEightConstantBytesAsync(string elements, bool reported)
+    {
+        var source = $"class C {{ object[] M(int value) => new object[] {{ {elements} }}; }}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Ses1010HandRolledKeyWrapAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(reported ? 1 : 0);
+        if (reported)
+        {
+            await Assert.That(diagnostics[0].Id).IsEqualTo("SES1010");
+        }
+    }
+
+    /// <summary>Verifies the byte form also respects framework availability.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ByteInitializerWithoutKeyWrapIsCleanAsync() =>
+        RunAsync("class C { byte[] M() => new byte[] { 166, 166, 166, 166, 166, 166, 166, 166 }; }", AnalyzerFrameworks.Net80);
+
+    /// <summary>Verifies absent cryptography types and signed numeric near misses are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingAesAndSignedLiteralAreCleanAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("class C { ulong Value = 0xA6A6A6A6A6A6A6A6; long Signed = 166L; }");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], CoreReferences, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Ses1010HandRolledKeyWrapAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
     /// <summary>Verifies the integrity check value written as one constant is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -15,7 +15,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider))]
 [Shared]
-public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFixProvider
 {
     /// <summary>The fully-qualified ordinal-ignore-case comparison syntax reused across fixes.</summary>
     private static readonly ExpressionSyntax OrdinalIgnoreCaseSyntax = SyntaxFactory.ParseExpression("System.StringComparison.OrdinalIgnoreCase");
@@ -23,40 +23,47 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
     /// <summary>The fully-qualified invariant-culture-ignore-case comparison syntax reused across fixes.</summary>
     private static readonly ExpressionSyntax InvariantCultureIgnoreCaseSyntax = SyntaxFactory.ParseExpression("System.StringComparison.InvariantCultureIgnoreCase");
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.AvoidCaseConversionComparison.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported comparison with its <c>string.Equals</c> form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="comparison">The comparison expression to rewrite (binary or <c>Equals</c> invocation).</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax comparison) =>
-        TryGetReplacement(comparison, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
-            : document;
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Resolves the reported comparison and builds its <c>string.Equals</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target)
             && TryGetReplacement(target!, out var replacement)
             ? new NodeReplacement(target!, replacement!)
             : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (!TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target))
+        {
+            return false;
+        }
+
+        return target is BinaryExpressionSyntax binary
+            ? Psh1200AvoidCaseConversionComparisonAnalyzer.TryGetCaseConversion(binary.Left, out _, out var leftName)
+            && Psh1200AvoidCaseConversionComparisonAnalyzer.TryGetCaseConversion(binary.Right, out _, out var rightName)
+            && string.Equals(leftName, rightName, StringComparison.Ordinal)
+            : target is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation
+            && Psh1200AvoidCaseConversionComparisonAnalyzer.TryGetEqualsOperands(invocation, access, out _, out _, out _);
+    }
 
     /// <summary>Resolves the diagnostic's node to the comparison expression that gets replaced.</summary>
     /// <param name="node">The node found at the diagnostic location.</param>
@@ -160,24 +167,6 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
             ? InvariantCultureIgnoreCaseSyntax
             : OrdinalIgnoreCaseSyntax;
 
-        return SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
-                SyntaxFactory.IdentifierName(nameof(string.Equals))),
-            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList<ArgumentSyntax>(new SyntaxNodeOrToken[]
-            {
-                SyntaxFactory.Argument(left.WithoutTrivia()),
-                CommaWithTrailingSpace(),
-                SyntaxFactory.Argument(right.WithoutTrivia()),
-                CommaWithTrailingSpace(),
-                SyntaxFactory.Argument(comparison),
-            })));
+        return StringEqualsInvocation.Build(left, right, comparison);
     }
-
-    /// <summary>Creates a comma token followed by a single space.</summary>
-    /// <returns>The comma token.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static SyntaxToken CommaWithTrailingSpace() =>
-        SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

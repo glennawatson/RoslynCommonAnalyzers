@@ -7,44 +7,32 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes unused private members reported by SST1440.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1440PrivateMemberUsageCodeFixProvider))]
 [Shared]
-public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.RemoveUnusedPrivateMember.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove unused private member",
+            nameof(Sst1440PrivateMemberUsageCodeFixProvider),
+            static (root, diagnostic) => FindTarget(root, diagnostic) is not null,
+            Apply);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            if (!TryCreateReplacement(root, diagnostic, out _, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove unused private member",
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: nameof(Sst1440PrivateMemberUsageCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryCreateReplacement(editor.OriginalRoot, diagnostic, out var oldNode, out var replacement) || oldNode is null)
+        if (!TryCreateReplacement(editor.OriginalRoot, diagnostic, out var oldNode, out var replacement))
         {
             return;
         }
@@ -65,7 +53,7 @@ public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, 
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
     {
-        if (!TryCreateReplacement(root, diagnostic, out var oldNode, out var replacement) || oldNode is null)
+        if (!TryCreateReplacement(root, diagnostic, out var oldNode, out var replacement))
         {
             return document;
         }
@@ -82,49 +70,20 @@ public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, 
     /// <param name="oldNode">The node to remove or replace.</param>
     /// <param name="replacement">The replacement node, or <see langword="null"/> for removal.</param>
     /// <returns><see langword="true"/> when a safe edit was found.</returns>
-    private static bool TryCreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out SyntaxNode? replacement)
+    private static bool TryCreateReplacement(SyntaxNode root, Diagnostic diagnostic, [NotNullWhen(true)] out SyntaxNode? oldNode, out SyntaxNode? replacement)
     {
-        oldNode = null;
         replacement = null;
-        var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
-        if (token.Parent?.FirstAncestorOrSelf<VariableDeclaratorSyntax>() is { } variable)
+        oldNode = FindTarget(root, diagnostic);
+        switch (oldNode)
         {
-            return TryRemoveVariable(variable, out oldNode, out replacement);
-        }
-
-        if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
-        {
-            return false;
-        }
-
-        oldNode = member;
-        return true;
-    }
-
-    /// <summary>Creates a narrowed field or event declaration when a combined declaration still has other variables.</summary>
-    /// <param name="variable">The variable declarator to remove.</param>
-    /// <param name="oldNode">The node to remove or replace.</param>
-    /// <param name="replacement">The replacement node, or <see langword="null"/> for removal.</param>
-    /// <returns><see langword="true"/> when a safe edit was found.</returns>
-    private static bool TryRemoveVariable(VariableDeclaratorSyntax variable, out SyntaxNode? oldNode, out SyntaxNode? replacement)
-    {
-        oldNode = null;
-        replacement = null;
-        if (variable.Parent is not VariableDeclarationSyntax declaration)
-        {
-            return false;
-        }
-
-        switch (declaration.Parent)
-        {
-            case FieldDeclarationSyntax field:
+            case VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Parent: FieldDeclarationSyntax field } declaration } variable:
                 {
                     oldNode = field;
                     replacement = RemoveVariable(field, declaration, variable);
                     return true;
                 }
 
-            case EventFieldDeclarationSyntax eventField:
+            case VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Parent: EventFieldDeclarationSyntax eventField } declaration } variable:
                 {
                     oldNode = eventField;
                     replacement = RemoveVariable(eventField, declaration, variable);
@@ -132,7 +91,22 @@ public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, 
                 }
         }
 
-        return false;
+        return oldNode is not null;
+    }
+
+    /// <summary>Resolves the reported field or event variable, or the reported member, without building the edit.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic.</param>
+    /// <returns>The variable declarator of a field or event, the member declaration, or <see langword="null"/> when neither applies.</returns>
+    private static SyntaxNode? FindTarget(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var parent = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent;
+        if (parent?.FirstAncestorOrSelf<VariableDeclaratorSyntax>() is not { } variable)
+        {
+            return parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>();
+        }
+
+        return variable.Parent is VariableDeclarationSyntax { Parent: FieldDeclarationSyntax or EventFieldDeclarationSyntax } ? variable : null;
     }
 
     /// <summary>Removes one variable from a field declaration or returns <see langword="null"/> when the declaration should be removed.</summary>

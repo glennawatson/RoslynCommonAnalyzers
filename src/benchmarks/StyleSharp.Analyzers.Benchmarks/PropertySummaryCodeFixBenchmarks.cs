@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
@@ -15,7 +16,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 public class PropertySummaryCodeFixBenchmarks
 {
     /// <summary>The prepared benchmark document and representative property-summary target.</summary>
-    private DirectCodeFixBenchmarkContext<(XmlElementSyntax Summary, string Prefix)> _context = null!;
+    private DirectCodeFixBenchmarkContext<Diagnostic> _context = null!;
 
     /// <summary>Gets or sets the synthetic member count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
@@ -40,17 +41,17 @@ public class PropertySummaryCodeFixBenchmarks
     [Benchmark]
     public async Task<int> PropertySummary_ApplyFixAsync()
     {
-        var updated = await PropertySummaryCodeFixProvider.ApplyAsync(_context.Document, _context.Target.Summary, _context.Target.Prefix, CancellationToken.None).ConfigureAwait(false);
+        var updated = await TextChangeCodeFix.ApplyAsync(_context.Document, _context.Target, PropertySummaryCodeFixProvider.RegisterTextChanges, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 
     /// <summary>Finds the representative property-summary target in the benchmark root.</summary>
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based property index to select.</param>
-    /// <returns>The selected summary element and accessor prefix.</returns>
-    private static (XmlElementSyntax Summary, string Prefix) FindTarget(CompilationUnitSyntax root, int index)
+    /// <returns>The diagnostic reported on the selected property summary.</returns>
+    private static Diagnostic FindTarget(CompilationUnitSyntax root, int index)
     {
         var property = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<PropertyDeclarationSyntax>(root, index);
-        return (DocumentationCodeFixBenchmarkHelper.GetSummary(property), DocumentationConventions.PropertyAccessorPrefix(property));
+        return Diagnostic.Create(DocumentationRules.PropertySummaryAccessors, DocumentationCodeFixBenchmarkHelper.GetSummary(property).GetLocation());
     }
 }

@@ -29,7 +29,7 @@ namespace PerformanceSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1204EmptyStringComparisonCodeFixProvider))]
 [Shared]
-public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvider
 {
     /// <summary>The <c>{ Length: 0 }</c> pattern reused across fixes.</summary>
     private static readonly PatternSyntax LengthZeroPattern = BuildLengthZeroPattern();
@@ -39,41 +39,23 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
         SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
         BuildLengthZeroPattern());
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.EmptyStringComparison.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, diagnostic) is not { } edit)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    GetTitle(EmptyStringStyleOptions.ReadStyle(diagnostic.Properties)),
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))),
-                    equivalenceKey: nameof(Psh1204EmptyStringComparisonCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static diagnostic => GetTitle(EmptyStringStyleOptions.ReadStyle(diagnostic.Properties)),
+            static _ => nameof(Psh1204EmptyStringComparisonCodeFixProvider),
+            CanRewrite,
+            TryRewrite);
 
     /// <summary>Replaces the reported comparison with its default length-pattern form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -250,4 +232,13 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
                                 SyntaxFactory.Literal(0))))),
                 SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.CloseBraceToken, default)),
             designation: null);
+
+    /// <summary>Checks the permitted style and original operands without building replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the comparison can be rewritten in the permitted style.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        SupportsStyle(root.SyntaxTree, EmptyStringStyleOptions.ReadStyle(diagnostic.Properties))
+            && root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BinaryExpressionSyntax binary
+            && Psh1204EmptyStringComparisonAnalyzer.TryGetOperands(binary, out _, out _, out _);
 }

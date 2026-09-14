@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -25,22 +23,20 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1506SynchronousBodyIoCodeFixProvider))]
 [Shared]
-public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AspNetCoreRules.SynchronousBodyIo.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1506SynchronousBodyIoCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported synchronous call and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -84,9 +80,12 @@ public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, I
             return null;
         }
 
-        var candidate = invocation
-            .WithExpression(access.WithName(SyntaxFactory.IdentifierName(sibling.Name)))
-            .WithoutTrivia();
+        var candidate = invocation.Update(
+            access.Update(
+                access.Expression.WithoutLeadingTrivia(),
+                access.OperatorToken,
+                SyntaxFactory.IdentifierName(sibling.Name)),
+            invocation.ArgumentList.WithoutTrailingTrivia());
         return BindsToSibling(model, invocation.SpanStart, candidate, sibling) ? candidate : null;
     }
 

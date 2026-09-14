@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -29,6 +30,24 @@ internal static class CommentRemovalHelper
 
         // The comment trails code: drop it and the whitespace separating it from the code.
         return TextSpan.FromBounds(TrimWhitespaceBack(text, lineStart, span.Start), span.End);
+    }
+
+    /// <summary>Builds the change that deletes a comment.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="span">The comment span, delimiters included.</param>
+    /// <returns>The deletion of the span <see cref="ComputeRemoval"/> chooses.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static TextChange RemovalChange(SourceText text, TextSpan span) => new(ComputeRemoval(text, span), string.Empty);
+
+    /// <summary>Deletes a comment from a document.</summary>
+    /// <param name="document">The document to fix.</param>
+    /// <param name="span">The comment span, delimiters included.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated document.</returns>
+    internal static async Task<Document> RemoveAsync(Document document, TextSpan span, CancellationToken cancellationToken)
+    {
+        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
+        return document.WithText(text.WithChanges(RemovalChange(text, span)));
     }
 
     /// <summary>Returns the position just after the previous newline (the start of the line).</summary>

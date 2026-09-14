@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -18,25 +16,31 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1114FreezeStaticLookupsCodeFixProvider))]
 [Shared]
-public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider
 {
     /// <summary>The frozen namespace probed for in the file's usings.</summary>
     private const string FrozenNamespace = "System.Collections.Frozen";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.FreezeStaticLookups.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Freeze the lookup", nameof(Psh1114FreezeStaticLookupsCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Freeze the lookup", nameof(Psh1114FreezeStaticLookupsCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        TryGetFixableField(root, diagnostic)is { };
 
     /// <summary>Resolves the reported lookup field and builds its frozen replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -94,9 +98,9 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
 
         var newDeclarator = declarator.WithInitializer(declarator.Initializer.WithValue(wrapped));
         return field.WithDeclaration(
-            field.Declaration
-                .WithType(frozenType.WithTriviaFrom(typeName))
-                .WithVariables(SyntaxFactory.SingletonSeparatedList(newDeclarator)));
+            field.Declaration.Update(
+                frozenType.WithTriviaFrom(typeName),
+                SyntaxFactory.SingletonSeparatedList(newDeclarator)));
     }
 
     /// <summary>Gives a target-typed creation the type the field declared.</summary>

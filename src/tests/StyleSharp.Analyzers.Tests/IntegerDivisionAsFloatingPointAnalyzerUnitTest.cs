@@ -2,7 +2,17 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using Microsoft.CodeAnalysis.Text;
+using RoslynCommon.Analyzers.CodeFixes;
 using VerifyDivision = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1477IntegerDivisionAsFloatingPointAnalyzer,
     StyleSharp.Analyzers.Sst1477IntegerDivisionAsFloatingPointCodeFixProvider>;
@@ -12,6 +22,81 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1477 (integer division widened to a floating-point target) and its fix.</summary>
 public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
 {
+    /// <summary>Verifies stale locations and missing or unsupported promotion types receive no fix.</summary>
+    /// <param name="expression">The expression at the diagnostic location.</param>
+    /// <param name="target">The reported floating-point type.</param>
+    /// <param name="includeTarget">Whether the diagnostic carries a target-type property.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("a / b", null, false)]
+    [Arguments("a / b", null, true)]
+    [Arguments("a / b", "", true)]
+    [Arguments("a / b", "Int32", true)]
+    [Arguments("a + b", "double", true)]
+    [Arguments("a", "double", true)]
+    public async Task StaleDivisionDiagnosticHasNoFixAsync(string expression, string? target, bool includeTarget)
+    {
+        var source = $"class C {{ double M(int a, int b) => {expression}; }}";
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, "Test.cs", SourceText.From(source));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var value = root.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
+        var properties = includeTarget
+            ? ImmutableDictionary<string, string?>.Empty.Add(Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey, target)
+            : ImmutableDictionary<string, string?>.Empty;
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.IntegerDivisionAsFloatingPoint, value.GetLocation(), properties);
+        using var container = new ContainerConfiguration().WithPart<Sst1477IntegerDivisionAsFloatingPointCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        await Assert.That(ReplaceNodeCodeFix.Apply(document, root, diagnostic, Sst1477IntegerDivisionAsFloatingPointCodeFixProvider.TryRewrite)).IsSameReferenceAs(document);
+        var editor = await DocumentEditor.CreateAsync(document);
+        BatchEditRegistration.Register<Sst1477IntegerDivisionAsFloatingPointCodeFixProvider>(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
+
+    /// <summary>Verifies promoting a division preserves surrounding casts and value-position grouping.</summary>
+    /// <param name="expression">The expression containing the integer division.</param>
+    /// <param name="expected">The expected expression after promotion.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("(float)(a / b)", "(float)((double)a / b)")]
+    [Arguments("(System.Double)(a / b)", "(System.Double)((double)a / b)")]
+    [Arguments("((double)(a / b))", "((double)a / b)")]
+    [Arguments("result = (double)(a / b)", "result = (double)a / b")]
+    [Arguments("new double[] { (double)(a / b) }", "new double[] { (double)a / b }")]
+    [Arguments("-(double)(a / b)", "-((double)a / b)")]
+    public async Task PromotionPreservesSurroundingExpressionsAsync(string expression, string expected)
+    {
+        var source = $"class C {{ object M(int a, int b, double result) => {expression}; }}";
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, "Test.cs", SourceText.From(source));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var division = root.DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(
+            Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey,
+            Sst1477IntegerDivisionAsFloatingPointAnalyzer.DoubleName);
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.IntegerDivisionAsFloatingPoint, division.GetLocation(), properties);
+        var changed = ReplaceNodeCodeFix.Apply(document, root, diagnostic, Sst1477IntegerDivisionAsFloatingPointCodeFixProvider.TryRewrite);
+        var changedRoot = (await changed.GetSyntaxRootAsync())!;
+        var actual = changedRoot.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
+        await Assert.That(actual.NormalizeWhitespace().ToFullString()).IsEqualTo(SyntaxFactory.ParseExpression(expected).NormalizeWhitespace().ToFullString());
+        using var container = new ContainerConfiguration().WithPart<Sst1477IntegerDivisionAsFloatingPointCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(1);
+        var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
+        var applied = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
+        await Assert.That((await applied.GetSyntaxRootAsync())!.NormalizeWhitespace().ToFullString()).IsEqualTo(changedRoot.NormalizeWhitespace().ToFullString());
+        var editor = await DocumentEditor.CreateAsync(document);
+        BatchEditRegistration.Register<Sst1477IntegerDivisionAsFloatingPointCodeFixProvider>(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().NormalizeWhitespace().ToFullString()).IsEqualTo(changedRoot.NormalizeWhitespace().ToFullString());
+    }
+
     /// <summary>Verifies a division widened to a double is reported and one that stays integral is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

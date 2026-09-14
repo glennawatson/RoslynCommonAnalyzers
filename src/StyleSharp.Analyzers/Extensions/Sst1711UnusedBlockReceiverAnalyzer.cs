@@ -32,21 +32,7 @@ public sealed class Sst1711UnusedBlockReceiverAnalyzer : DiagnosticAnalyzer
 
         // An extension block has no syntax kind to register on across every Roslyn slot, so the
         // containing class is walked instead.
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ClassDeclaration);
-    }
-
-    /// <summary>Reports every extension-block member in a class that ignores its block's receiver.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        var containingClass = (ClassDeclarationSyntax)context.Node;
-        foreach (var member in containingClass.Members)
-        {
-            if (member is TypeDeclarationSyntax block && ExtensionBlockHelper.IsExtensionBlock(block))
-            {
-                AnalyzeBlock(in context, block);
-            }
-        }
+        context.RegisterSyntaxNodeAction(static nodeContext => ExtensionBlockHelper.AnalyzeExtensionBlocks(nodeContext, AnalyzeBlock), SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Reports the members of one block that never read its receiver.</summary>

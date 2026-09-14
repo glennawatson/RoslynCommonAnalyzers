@@ -15,8 +15,11 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(BlankLineSeparationCodeFixProvider))]
 [Shared]
-public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(TryAppendChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.BlankLineAfterConstructorInitializerColon.Id,
@@ -24,16 +27,11 @@ public sealed class BlankLineSeparationCodeFixProvider : CodeFixProvider, ITextC
         LayoutRules.BlankLineAfterArrow.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         TextChangeCodeFix.RegisterAsync(context, "Remove the blank line", nameof(BlankLineSeparationCodeFixProvider), TryAppendChanges);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
-        TryAppendChanges(text, root, diagnostic, changes);
 
     /// <summary>Builds the whitespace edit one diagnostic asks for.</summary>
     /// <param name="text">The document's source text.</param>

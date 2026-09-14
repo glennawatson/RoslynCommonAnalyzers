@@ -26,9 +26,6 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 internal static class NestedTypeOnlyMembers
 {
-    /// <summary>The cached reference visitor, so the traversal allocates no delegate per member.</summary>
-    private static readonly DescendantTraversalHelper.DescendantVisitor<SimpleNameSyntax, ReferenceScan> ReferenceVisitor = VisitReference;
-
     /// <summary>Collects the private members of a type that exactly one nested type uses.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="type">The type declaration to analyze.</param>
@@ -227,7 +224,7 @@ internal static class NestedTypeOnlyMembers
             var scan = IsNestedType(child)
                 ? new ReferenceScan(model, candidates, Owner: null, (BaseTypeDeclarationSyntax)child, cancellationToken)
                 : new ReferenceScan(model, candidates, child as MemberDeclarationSyntax, Nested: null, cancellationToken);
-            _ = DescendantTraversalHelper.VisitDescendants(child, ref scan, ReferenceVisitor);
+            _ = DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, ReferenceScan>(child, ref scan, VisitReference);
         }
     }
 

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1508 — a security-check method swallows an exception and returns success (fail-open).</summary>
-    public static readonly DiagnosticDescriptor FailOpenValidation = Create(
+    public static readonly DiagnosticDescriptor FailOpenValidation = DescriptorFactory.Create(
         "SES1508",
         "A validation method must not fail open by returning success from a catch",
         "'{0}' catches an exception and returns success, so an attacker who forces the exception passes validation",

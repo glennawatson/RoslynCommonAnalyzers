@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1705 — a Blazor component navigates to a target that is not a verified relative URL (open redirect).</summary>
-    public static readonly DiagnosticDescriptor NavigationOpenRedirect = Create(
+    public static readonly DiagnosticDescriptor NavigationOpenRedirect = DescriptorFactory.Create(
         "SES1705",
         "A Blazor component must navigate only to a verified relative URL",
         NavigationOpenRedirectMessage,
@@ -16,7 +16,7 @@ internal static partial class SecurityRules
         NavigationOpenRedirectDescription);
 
     /// <summary>SES1706 — a Blazor uploaded-file read is given an unbounded or client-derived size limit.</summary>
-    public static readonly DiagnosticDescriptor UnboundedBrowserFileRead = Create(
+    public static readonly DiagnosticDescriptor UnboundedBrowserFileRead = DescriptorFactory.Create(
         "SES1706",
         "A Blazor uploaded-file read must have a bounded, server-chosen size limit",
         UnboundedBrowserFileReadMessage,

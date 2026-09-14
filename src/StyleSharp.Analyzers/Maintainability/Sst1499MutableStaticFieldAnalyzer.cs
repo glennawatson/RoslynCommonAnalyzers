@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -46,14 +47,11 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var mutableTypes = new MutableCollectionTypes(start.Compilation);
-            var optionsByTree = new ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions>();
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, mutableTypes, optionsByTree),
-                SyntaxKind.FieldDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new FieldState(compilation),
+            Analyze,
+            SyntaxKind.FieldDeclaration);
     }
 
     /// <summary>Returns whether a field declaration can still be changed once it is constructed.</summary>
@@ -66,12 +64,10 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a visible static field whose value or contents can be changed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="mutableTypes">The known mutable collection types.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    /// <param name="state">The compilation's collection types and settings, created on first demand.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        MutableCollectionTypes mutableTypes,
-        ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> optionsByTree)
+        FieldState state)
     {
         var declaration = (FieldDeclarationSyntax)context.Node;
         if (!IsDeclaredVisibleStatic(declaration))
@@ -81,8 +77,9 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
         var variables = declaration.Declaration.Variables;
         if (context.SemanticModel.GetDeclaredSymbol(variables[0], context.CancellationToken) is not IFieldSymbol field
-            || !IsVisibleOutsideItsType(field, GetOptions(context, optionsByTree))
-            || !IsMutable(declaration, field.Type, mutableTypes))
+            || !IsVisibleOutsideItsType(field, TreeOptionsCache.GetOrRead(state.GetOptionsByTree(), context, MutableStaticFieldOptions.Read))
+            || (ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
+                && !state.GetMutableTypes().IsMutable(field.Type)))
         {
             return;
         }
@@ -155,50 +152,44 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="lists">The declaration's attribute lists.</param>
     /// <returns><see langword="true"/> when the state is deliberately per-thread.</returns>
     /// <remarks>The attribute is matched on its name; binding it would cost a lookup to learn nothing more.</remarks>
-    private static bool HasThreadStaticAttribute(SyntaxList<AttributeListSyntax> lists)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasThreadStaticAttribute(SyntaxList<AttributeListSyntax> lists) =>
+        SyntaxNames.AnyAttributeNamed(lists, static name => name is "ThreadStatic" or "ThreadStaticAttribute");
+
+    /// <summary>Creates compilation-scoped state only after a visible static field is found.</summary>
+    /// <param name="compilation">The compilation whose collection types are resolved.</param>
+    private sealed class FieldState(Compilation compilation)
     {
-        for (var i = 0; i < lists.Count; i++)
+        /// <summary>The collection types, created only for a readonly field.</summary>
+        private MutableCollectionTypes? _mutableTypes;
+
+        /// <summary>The settings cache, created only for a possible visible static field.</summary>
+        private ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions>? _optionsByTree;
+
+        /// <summary>Gets the collection types, which resolve their symbols on first demand.</summary>
+        /// <returns>The mutable collection type lookup.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public MutableCollectionTypes GetMutableTypes() => _mutableTypes ??= new MutableCollectionTypes(compilation);
+
+        /// <summary>Gets the per-tree settings cache.</summary>
+        /// <returns>The settings cache for this compilation.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> GetOptionsByTree()
         {
-            var attributes = lists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
+            if (_optionsByTree is { } optionsByTree)
             {
-                if (GetSimpleName(attributes[j].Name) is "ThreadStatic" or "ThreadStaticAttribute")
-                {
-                    return true;
-                }
+                return optionsByTree;
             }
+
+            var treeCount = 0;
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                treeCount++;
+            }
+
+            return _optionsByTree ??= new ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions>(
+                concurrencyLevel: 1,
+                capacity: treeCount);
         }
-
-        return false;
-    }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
-
-    /// <summary>Reads the settings for the field's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static MutableStaticFieldOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = MutableStaticFieldOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 }

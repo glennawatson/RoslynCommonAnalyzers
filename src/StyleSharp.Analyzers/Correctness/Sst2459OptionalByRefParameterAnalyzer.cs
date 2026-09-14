@@ -115,7 +115,7 @@ public sealed class Sst2459OptionalByRefParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an attribute's written name is the optional attribute's.</summary>
     /// <param name="name">The attribute name as written.</param>
     /// <returns><see langword="true"/> for <c>Optional</c> and <c>OptionalAttribute</c>, qualified or not.</returns>
-    private static bool IsOptionalName(NameSyntax name) => SimpleName(name) is "Optional" or "OptionalAttribute";
+    private static bool IsOptionalName(NameSyntax name) => SyntaxNames.GetSimpleName(name) is "Optional" or "OptionalAttribute";
 
     /// <summary>Returns whether the attribute binds to <c>System.Runtime.InteropServices.OptionalAttribute</c>.</summary>
     /// <param name="semanticModel">The semantic model for the attribute's tree.</param>
@@ -140,15 +140,4 @@ public sealed class Sst2459OptionalByRefParameterAnalyzer : DiagnosticAnalyzer
             },
         };
     }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string SimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 }

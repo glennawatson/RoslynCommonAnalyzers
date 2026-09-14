@@ -15,14 +15,11 @@ namespace SecuritySharp.Analyzers;
 /// open redirect (CWE-601). The optional <c>securitysharp.SES1705.validators</c> option (falling back to
 /// <c>securitysharp.validators</c>) lists method names whose result is trusted, so
 /// <c>NavigateTo(Sanitize(url))</c> stays silent when <c>Sanitize</c> is allow-listed. The whole rule is
-/// gated on <c>NavigationManager</c> resolving, so a non-Blazor project registers nothing and pays nothing.
+/// gated on <c>NavigationManager</c> resolving, and resolves it only for a candidate navigation call.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the Blazor navigation service the rule gates on.</summary>
-    private const string NavigationManagerMetadataName = "Microsoft.AspNetCore.Components.NavigationManager";
-
     /// <summary>The name of the navigation method whose target is guarded.</summary>
     private const string NavigateToMethodName = "NavigateTo";
 
@@ -38,6 +35,9 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
     /// <summary>The project-wide allow-listed-validator key.</summary>
     private const string ValidatorsGeneralKey = "securitysharp.validators";
 
+    /// <summary>The metadata name of the Blazor navigation service the rule gates on.</summary>
+    private const string NavigationManagerMetadataName = "Microsoft.AspNetCore.Components.NavigationManager";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NavigationOpenRedirect);
 
@@ -50,35 +50,31 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var navigationManager = start.Compilation.GetTypeByMetadataName(NavigationManagerMetadataName);
-            if (navigationManager is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, navigationManager), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, NavigationManagerMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1705 for a <c>NavigateTo</c> call whose target is not a verified relative URL.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="navigationManager">The resolved <c>NavigationManager</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol navigationManager)
+    /// <param name="navigationTypes">The lazily resolved navigation type for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType navigationTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to 'NavigateTo' carrying at least the URL argument.
         if (invocation.ArgumentList.Arguments.Count == 0
-            || !string.Equals(BlazorInvocation.GetInvokedName(invocation.Expression), NavigateToMethodName, StringComparison.Ordinal))
+            || !string.Equals(MemberReferenceName.Of(invocation.Expression), NavigateToMethodName, StringComparison.Ordinal)
+            || BlazorInvocation.GetArgument(invocation.ArgumentList, UriParameterName, UriPosition) is not { } uriArgument)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NavigateToMethodName } method
-            || !IsOrDerivesFrom(method.ContainingType, navigationManager)
-            || BlazorInvocation.GetArgument(invocation.ArgumentList, UriParameterName, UriPosition) is not { } uriArgument)
+        if (navigationTypes.Get() is not { } navigationManager
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NavigateToMethodName } method
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, navigationManager))
         {
             return;
         }
@@ -184,7 +180,7 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
         }
 
         if (expression is not InvocationExpressionSyntax validatorInvocation
-            || BlazorInvocation.GetInvokedName(validatorInvocation.Expression) is not { } validatorName)
+            || MemberReferenceName.Of(validatorInvocation.Expression) is not { } validatorName)
         {
             return false;
         }
@@ -194,31 +190,6 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
             ValidatorsRuleKey,
             ValidatorsGeneralKey);
 
-        for (var i = 0; i < validators.Length; i++)
-        {
-            if (string.Equals(validators[i], validatorName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the gated <c>NavigationManager</c> type.</summary>
-    /// <param name="type">The bound method's containing type.</param>
-    /// <param name="navigationManager">The resolved <c>NavigationManager</c> type.</param>
-    /// <returns><see langword="true"/> when the type is <c>NavigationManager</c> or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol navigationManager)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, navigationManager))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return StringArrays.ContainsOrdinal(validators, validatorName);
     }
 }

@@ -7,90 +7,79 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant initialization to a type's default value (SST1176).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(MemberInitializedToDefaultCodeFixProvider))]
 [Shared]
-public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoMemberInitializedToDefault.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Remove the redundant initializer",
+            nameof(MemberInitializedToDefaultCodeFixProvider),
+            static (root, diagnostic) => ReportedNode.Ancestor<EqualsValueClauseSyntax>(root, diagnostic) is not null,
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<EqualsValueClauseSyntax>() is not { } initializer)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant initializer",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, initializer)),
-                    equivalenceKey: nameof(MemberInitializedToDefaultCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<EqualsValueClauseSyntax>() is not { } initializer)
-        {
-            return;
-        }
-
-        // A property carries the initializer plus a trailing ';'; both must go. A field/event keeps
-        // its own ';' on the declaration, so only the declarator's initializer is removed.
-        if (initializer.Parent is PropertyDeclarationSyntax property)
-        {
-            var trimmed = property
-                .WithInitializer(null)
-                .WithSemicolonToken(default)
-                .WithTrailingTrivia(property.GetTrailingTrivia());
-            editor.ReplaceNode(property, trimmed);
-            return;
-        }
-
-        if (initializer.Parent is VariableDeclaratorSyntax declarator)
-        {
-            var trimmed = declarator.WithInitializer(null).WithTrailingTrivia(declarator.GetTrailingTrivia());
-            editor.ReplaceNode(declarator, trimmed);
-        }
-    }
-
-    /// <summary>Drops the initializer, handling the auto-property semicolon when present.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported initializer and rebuilds the declaration that owns it without it.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the initializer has no property or variable owner.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        ReportedNode.Ancestor<EqualsValueClauseSyntax>(root, diagnostic) is { } initializer
+        && TryTrim(initializer, out var declaration, out var trimmed)
+            ? new NodeReplacement(declaration, trimmed)
+            : null;
+
+    /// <summary>Builds the declaration that owns the initializer, without it.</summary>
     /// <param name="initializer">The redundant initializer clause.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, EqualsValueClauseSyntax initializer)
+    /// <param name="declaration">The property or variable declarator that owns the initializer.</param>
+    /// <param name="trimmed">The owner rebuilt without the initializer.</param>
+    /// <returns><see langword="true"/> when the initializer belongs to a property or a variable declarator.</returns>
+    private static bool TryTrim(
+        EqualsValueClauseSyntax initializer,
+        [NotNullWhen(true)] out SyntaxNode? declaration,
+        [NotNullWhen(true)] out SyntaxNode? trimmed)
     {
         // A property carries the initializer plus a trailing ';'; both must go. A field/event keeps
         // its own ';' on the declaration, so only the declarator's initializer is removed.
         if (initializer.Parent is PropertyDeclarationSyntax property)
         {
-            var trimmed = property
-                .WithInitializer(null)
-                .WithSemicolonToken(default)
+            declaration = property;
+            trimmed = property.Update(
+                    property.AttributeLists,
+                    property.Modifiers,
+                    property.Type,
+                    property.ExplicitInterfaceSpecifier,
+                    property.Identifier,
+                    property.AccessorList,
+                    property.ExpressionBody,
+                    initializer: null,
+                    semicolonToken: default)
                 .WithTrailingTrivia(property.GetTrailingTrivia());
-            return document.WithSyntaxRoot(root.ReplaceNode(property, trimmed));
+            return true;
         }
 
         if (initializer.Parent is VariableDeclaratorSyntax declarator)
         {
-            var trimmed = declarator.WithInitializer(null).WithTrailingTrivia(declarator.GetTrailingTrivia());
-            return document.WithSyntaxRoot(root.ReplaceNode(declarator, trimmed));
+            declaration = declarator;
+            trimmed = declarator.Update(
+                declarator.ArgumentList is null
+                    ? declarator.Identifier.WithTrailingTrivia(declarator.GetTrailingTrivia())
+                    : declarator.Identifier,
+                declarator.ArgumentList?.WithTrailingTrivia(declarator.GetTrailingTrivia()),
+                initializer: null);
+            return true;
         }
 
-        return document;
+        declaration = null;
+        trimmed = null;
+        return false;
     }
 }

@@ -41,15 +41,11 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(IDictionaryMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, IDictionaryMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the single-argument <c>x.Keys.Contains(key)</c> syntax shape.</summary>
@@ -72,10 +68,16 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
 
     /// <summary>Reports PSH1407 for a Keys.Contains chain on a receiver that exposes ContainsKey.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="typeCache">The compilation's deferred dictionary interface lookup.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType typeCache)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsKeysContainsShape(invocation, out var keysAccess))
+        {
+            return;
+        }
+
+        if (typeCache.Get() is null)
         {
             return;
         }

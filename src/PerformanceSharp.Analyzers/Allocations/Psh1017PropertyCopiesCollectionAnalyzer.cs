@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -82,7 +83,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, PropertyCopyOptions>();
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, PropertyCopyOptions>(concurrencyLevel: 4, capacity: ((CSharpCompilation)context.Compilation).SyntaxTrees.Length);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeProperty(nodeContext, optionsByTree), SyntaxKind.PropertyDeclaration);
     }
 
@@ -100,13 +101,13 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         var name = property.Identifier.ValueText;
-        if (GetOptions(context, optionsByTree).IsExcluded(name))
+        if (TreeOptionsCache.GetOrRead(optionsByTree, context, PropertyCopyOptions.Read).IsExcluded(name))
         {
             return;
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { Type: { } propertyType }
-            || !IsCollectionType(propertyType)
+            || !CollectionTypeClassification.IsCollection(propertyType)
             || !IsCollectionAllocation(context, copy))
         {
             return;
@@ -116,25 +117,6 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
             AllocationRules.PropertyCopiesCollection,
             property.Identifier.GetLocation(),
             name));
-    }
-
-    /// <summary>Reads the settings for the property's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static PropertyCopyOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, PropertyCopyOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = PropertyCopyOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Gets the node holding the getter's result: an expression, or the accessor's block.</summary>
@@ -299,23 +281,74 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
         if (access.Name.Identifier.ValueText != CloneMethodName)
         {
-            return IsCollectionType(method.ReturnType);
+            return CollectionTypeClassification.IsCollection(method.ReturnType);
         }
 
         // Array.Clone is declared to return object, so the receiver is what says this is a collection.
         var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        return receiverType is not null && IsCollectionType(receiverType);
+        return receiverType is not null && CollectionTypeClassification.IsCollection(receiverType);
     }
 
     /// <summary>Returns whether an object creation seeds a copying collection from a source sequence.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="creation">The matched object creation.</param>
     /// <returns><see langword="true"/> when the constructor copies a source collection into a new one.</returns>
-    private static bool IsSeedingConstructor(in SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation) =>
-        context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
-            && IsCollectionType(constructor.Parameters[0].Type)
+    private static bool IsSeedingConstructor(in SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation)
+    {
+        // Binding the written type avoids constructing and resolving its constructor overloads
+        // for read-only wrappers and other collections outside the copying namespaces.
+        if (creation is ObjectCreationExpressionSyntax explicitCreation
+            && (context.SemanticModel.GetTypeInfo(explicitCreation.Type, context.CancellationToken).Type is not INamedTypeSymbol createdType
+                || !IsCopyingCollectionType(createdType)
+                || !CouldSeedFromFirstArgument(createdType, creation)))
+        {
+            return false;
+        }
+
+        return context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
+            && CollectionTypeClassification.IsCollection(constructor.Parameters[0].Type)
             && constructor.ContainingType is { } created
             && IsCopyingCollectionType(created);
+    }
+
+    /// <summary>Rejects primitive literal capacities before constructing generic constructor overloads.</summary>
+    /// <param name="type">The explicitly created collection type.</param>
+    /// <param name="creation">The creation whose first argument is checked.</param>
+    /// <returns>Whether a constructor could receive a collection as its first parameter.</returns>
+    private static bool CouldSeedFromFirstArgument(INamedTypeSymbol type, BaseObjectCreationExpressionSyntax creation)
+    {
+        if (creation.ArgumentList is not { Arguments: [var first, ..] }
+            || first.NameColon is not null
+            || !IsPrimitiveLiteral(first.Expression))
+        {
+            return true;
+        }
+
+        // Primitive literals cannot convert to an enumerable interface. Inspect the original
+        // definition so a capacity-only call never constructs all the substituted overloads.
+        // Keep type parameters, params arrays, and collection classes: substitution, expansion,
+        // or a user-defined conversion can make those receive a collection from this syntax.
+        var constructors = type.OriginalDefinition.InstanceConstructors;
+        for (var i = 0; i < constructors.Length; i++)
+        {
+            if (constructors[i].Parameters is [{ Type: { } parameterType }, ..]
+                && (parameterType.TypeKind == TypeKind.TypeParameter
+                    || (parameterType.TypeKind != TypeKind.Interface && CollectionTypeClassification.IsCollection(parameterType))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Recognizes literal values that cannot convert to enumerable interfaces.</summary>
+    /// <param name="expression">The supplied constructor argument.</param>
+    /// <returns>Whether the argument is a primitive numeric, character, or boolean literal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsPrimitiveLiteral(ExpressionSyntax expression) =>
+        expression.Kind() is SyntaxKind.NumericLiteralExpression or SyntaxKind.CharacterLiteralExpression
+            or SyntaxKind.TrueLiteralExpression or SyntaxKind.FalseLiteralExpression;
 
     /// <summary>Returns whether a created type is one whose seeding constructor copies rather than wraps.</summary>
     /// <param name="type">The created type.</param>
@@ -335,39 +368,4 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
                 ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
             },
         };
-
-    /// <summary>Returns whether a type is a collection whose copy costs one allocation per element.</summary>
-    /// <param name="type">The type to classify.</param>
-    /// <returns><see langword="true"/> for arrays and non-string, non-ref-struct enumerables.</returns>
-    private static bool IsCollectionType(ITypeSymbol type)
-    {
-        if (type is IArrayTypeSymbol)
-        {
-            return true;
-        }
-
-        // A span or a memory is a view, and a constant collection built into one lives in the
-        // assembly's data section rather than on the heap.
-        if (type.SpecialType == SpecialType.System_String || type.IsRefLikeType)
-        {
-            return false;
-        }
-
-        if (type.OriginalDefinition.SpecialType is SpecialType.System_Collections_IEnumerable
-            or SpecialType.System_Collections_Generic_IEnumerable_T)
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (interfaces[i].SpecialType == SpecialType.System_Collections_IEnumerable)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

@@ -39,19 +39,6 @@ public sealed class Sst2447DifferenceComparedToZeroAnalyzer : DiagnosticAnalyzer
             SyntaxKind.NotEqualsExpression);
     }
 
-    /// <summary>Strips redundant parentheses from an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    internal static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
-
     /// <summary>Returns the operator text a direct comparison of the two operands would use.</summary>
     /// <param name="comparison">The comparison kind as written.</param>
     /// <param name="subtractionOnLeft">Whether the subtraction is the comparison's left operand.</param>
@@ -91,18 +78,18 @@ public sealed class Sst2447DifferenceComparedToZeroAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a bare <c>0</c>.</returns>
     private static bool IsZeroLiteral(ExpressionSyntax expression) =>
-        Unwrap(expression) is LiteralExpressionSyntax { Token.Value: 0 };
+        ExpressionShapes.WalkDownParentheses(expression) is LiteralExpressionSyntax { Token.Value: 0 };
 
     /// <summary>Reports one comparison of a difference against zero.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
-        var subtractionOnLeft = Unwrap(comparison.Left) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression };
+        var subtractionOnLeft = ExpressionShapes.WalkDownParentheses(comparison.Left) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression };
         var subtractionSide = subtractionOnLeft ? comparison.Left : comparison.Right;
         var zeroSide = subtractionOnLeft ? comparison.Right : comparison.Left;
 
-        if (Unwrap(subtractionSide) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction
+        if (ExpressionShapes.WalkDownParentheses(subtractionSide) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction
             || !IsZeroLiteral(zeroSide))
         {
             return;

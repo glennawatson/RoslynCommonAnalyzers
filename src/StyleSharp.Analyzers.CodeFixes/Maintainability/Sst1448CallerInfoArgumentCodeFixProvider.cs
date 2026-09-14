@@ -13,49 +13,25 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1448CallerInfoArgumentCodeFixProvider))]
 [Shared]
-public sealed class Sst1448CallerInfoArgumentCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1448CallerInfoArgumentCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.CallerInfoArgument.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetRemovableArgument(root, diagnostic, out var argument))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Let the compiler supply the caller info",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, argument!)),
-                    equivalenceKey: nameof(Sst1448CallerInfoArgumentCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetRemovableArgument(editor.OriginalRoot, diagnostic, out var argument))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(argument!.Parent!, RemoveArgument((ArgumentListSyntax)argument.Parent!, argument));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<ArgumentSyntax>(
+            context,
+            "Let the compiler supply the caller info",
+            nameof(Sst1448CallerInfoArgumentCodeFixProvider),
+            TryGetRemovableArgument,
+            Apply);
 
     /// <summary>Removes the reported argument from its list.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -66,12 +42,22 @@ public sealed class Sst1448CallerInfoArgumentCodeFixProvider : CodeFixProvider, 
     internal static Document Apply(Document document, SyntaxNode root, ArgumentSyntax argument) =>
         document.WithSyntaxRoot(root.ReplaceNode((ArgumentListSyntax)argument.Parent!, RemoveArgument((ArgumentListSyntax)argument.Parent!, argument)));
 
+    /// <summary>Resolves the diagnostic to its argument list rebuilt without the removable argument.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when no argument can be removed safely.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetRemovableArgument(root, diagnostic, out var argument)
+            ? new NodeReplacement(argument.Parent!, RemoveArgument((ArgumentListSyntax)argument.Parent!, argument))
+            : null;
+
     /// <summary>Resolves the diagnostic to an argument whose removal is order-safe.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="argument">The removable argument when found.</param>
     /// <returns><see langword="true"/> when the argument can be removed safely.</returns>
-    private static bool TryGetRemovableArgument(SyntaxNode root, Diagnostic diagnostic, out ArgumentSyntax? argument)
+    private static bool TryGetRemovableArgument(SyntaxNode root, Diagnostic diagnostic, [NotNullWhen(true)] out ArgumentSyntax? argument)
     {
         argument = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
             .FirstAncestorOrSelf<ArgumentSyntax>();

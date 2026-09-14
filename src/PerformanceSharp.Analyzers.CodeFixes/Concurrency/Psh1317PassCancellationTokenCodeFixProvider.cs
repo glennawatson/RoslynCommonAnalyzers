@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,25 +18,23 @@ namespace PerformanceSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1317PassCancellationTokenCodeFixProvider))]
 [Shared]
-public sealed class Psh1317PassCancellationTokenCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1317PassCancellationTokenCodeFixProvider : CodeFixProvider
 {
     /// <summary>One argument's width in an interleaved node-and-separator list: the argument plus its comma.</summary>
     private const int InterleavedStride = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.PassCancellationToken.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         ReplaceNodeCodeFix.RegisterAsync(context, "Pass the cancellation token", nameof(Psh1317PassCancellationTokenCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported call and builds its argument list with the token passed.</summary>
     /// <param name="root">The syntax root.</param>
@@ -149,7 +145,7 @@ public sealed class Psh1317PassCancellationTokenCodeFixProvider : CodeFixProvide
     private static bool BindsToTarget(SemanticModel model, InvocationExpressionSyntax invocation, ArgumentListSyntax arguments, IMethodSymbol target) =>
         model.GetSpeculativeSymbolInfo(
                     invocation.SpanStart,
-                    invocation.WithArgumentList(arguments).WithoutTrivia(),
+                    invocation.Update(invocation.Expression.WithoutLeadingTrivia(), arguments.WithoutTrailingTrivia()),
                     SpeculativeBindingOption.BindAsExpression).Symbol
                 is IMethodSymbol bound
             && SymbolEqualityComparer.Default.Equals(bound.OriginalDefinition, target.OriginalDefinition);

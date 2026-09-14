@@ -106,8 +106,14 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
     /// <returns>The updated document.</returns>
     private static Document QuoteLiteral(Document document, SyntaxNode root, LiteralExpressionSyntax literal, string value)
     {
-        var quoted = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(DateFormatText.QuoteSeparators(value)))
-            .WithTriviaFrom(literal);
+        var quotedValue = DateFormatText.QuoteSeparators(value);
+        var quoted = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(quotedValue, quote: true),
+                quotedValue,
+                literal.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(literal, quoted));
     }
 
@@ -154,13 +160,38 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
         span = default;
         var separator = text.IndexOf(':');
         if (separator < 0
-            || !int.TryParse(text[0..(0 + separator)], out var start)
-            || !int.TryParse(text.Substring(separator + 1), out var length))
+            || !TryParseComponent(text.AsSpan(0, separator), out var start)
+            || !TryParseComponent(text.AsSpan(separator + 1), out var length))
         {
             return false;
         }
 
         span = new(start, length);
         return true;
+
+        static bool TryParseComponent(ReadOnlySpan<char> segment, out int value)
+        {
+            const int DecimalRadix = 10;
+            value = 0;
+            if (System.Globalization.NumberFormatInfo.CurrentInfo is not { PositiveSign: "+", NegativeSign: "-" })
+            {
+                return int.TryParse(segment.ToString(), out value);
+            }
+
+            // netstandard2.0 has no span-based int.TryParse. Only non-canonical input needs
+            // a string to preserve its handling of signs, whitespace, overflow and culture.
+            foreach (var character in segment)
+            {
+                var digit = character - '0';
+                if (character is < '0' or > '9' || value > (int.MaxValue - digit) / DecimalRadix)
+                {
+                    return int.TryParse(segment.ToString(), out value);
+                }
+
+                value = (value * DecimalRadix) + digit;
+            }
+
+            return !segment.IsEmpty;
+        }
     }
 }

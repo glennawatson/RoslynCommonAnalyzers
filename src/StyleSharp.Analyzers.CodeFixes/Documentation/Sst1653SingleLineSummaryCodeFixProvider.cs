@@ -10,45 +10,34 @@ namespace StyleSharp.Analyzers;
 /// <summary>Collapses a short multi-line <c>&lt;summary&gt;</c> onto a single line (SST1653).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1653SingleLineSummaryCodeFixProvider))]
 [Shared]
-public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.SingleLineSummary.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Put summary on a single line",
+            nameof(Sst1653SingleLineSummaryCodeFixProvider),
+            DocumentationElementFix.FindElement,
+            CollapseAsync);
+
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-            if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Put summary on a single line",
-                    cancellationToken => CollapseAsync(context.Document, summary, cancellationToken),
-                    equivalenceKey: nameof(Sst1653SingleLineSummaryCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary)
+        if (DocumentationElementFix.FindElement(root, diagnostic) is not { } summary)
         {
             return;
         }
@@ -74,6 +63,6 @@ public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider, I
     private static TextChange BuildChange(SourceText text, XmlElementSyntax summary)
     {
         var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);
-        return new(summary.Span, $"<summary>{SummaryCollapse.Collapse(text, innerSpan)}</summary>");
+        return DocumentationElementFix.ReplaceSummary(summary, SummaryCollapse.Collapse(text, innerSpan));
     }
 }

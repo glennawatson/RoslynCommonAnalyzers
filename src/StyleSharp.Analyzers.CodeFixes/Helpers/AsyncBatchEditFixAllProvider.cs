@@ -6,22 +6,21 @@ using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// A <see cref="DocumentBasedFixAllProvider"/> for node-edit fixes that need a semantic model or
-/// analyzer options. It creates one <see cref="DocumentEditor"/> and lets the owning fix register each
-/// diagnostic's edits (awaiting <see cref="DocumentEditor.OriginalDocument"/> for the model/options as
-/// needed), then materialises the changed document once — instead of
-/// <see cref="WellKnownFixAllProviders.BatchFixer"/> cloning and re-parsing the document per diagnostic.
-/// </summary>
+/// <summary>Applies every diagnostic in a document through one <see cref="DocumentEditor"/>, for edits that need the semantic model or options.</summary>
 internal sealed class AsyncBatchEditFixAllProvider : DocumentBasedFixAllProvider
 {
-    /// <summary>The shared provider instance.</summary>
-    public static readonly AsyncBatchEditFixAllProvider Instance = new();
+    /// <summary>Registers one diagnostic's edits.</summary>
+    private readonly Func<DocumentEditor, Diagnostic, CancellationToken, Task> _registerEditsAsync;
+
+    /// <summary>Initializes a new instance of the <see cref="AsyncBatchEditFixAllProvider"/> class.</summary>
+    /// <param name="registerEditsAsync">Registers one diagnostic's edits against the editor's original root.</param>
+    internal AsyncBatchEditFixAllProvider(Func<DocumentEditor, Diagnostic, CancellationToken, Task> registerEditsAsync) =>
+        _registerEditsAsync = registerEditsAsync;
 
     /// <inheritdoc/>
     protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
     {
-        if (diagnostics.IsEmpty || fixAllContext.CodeFixProvider is not IAsyncBatchableCodeFix fix)
+        if (diagnostics.IsEmpty)
         {
             return document;
         }
@@ -29,7 +28,7 @@ internal sealed class AsyncBatchEditFixAllProvider : DocumentBasedFixAllProvider
         var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
         foreach (var diagnostic in BatchEditFixAllProvider.UniqueDiagnostics(diagnostics))
         {
-            await fix.RegisterEditsAsync(editor, diagnostic, fixAllContext.CancellationToken).ConfigureAwait(false);
+            await _registerEditsAsync(editor, diagnostic, fixAllContext.CancellationToken).ConfigureAwait(false);
         }
 
         return editor.GetChangedDocument();

@@ -27,11 +27,10 @@ namespace StyleSharp.Analyzers;
 /// because it does not bind to any of the targeted methods.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on one of the assertion host types resolving; a project that
-/// references none of them registers nothing. The clean path is a syntactic prepass — a two-argument,
-/// positional call whose invoked name is <c>Equal</c> or <c>AreEqual</c> — and the constant shape is checked
-/// before the call is ever bound, so the correct constant-first assertions are pruned without overload
-/// resolution.
+/// The clean path is a syntactic prepass — a two-argument, positional call whose invoked name is
+/// <c>Equal</c> or <c>AreEqual</c> — and the constant shape is checked before the assertion host types
+/// are resolved or the call is bound, so correct constant-first assertions are pruned without overload
+/// resolution. A call is reported only when its assertion host type resolves in the compilation.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -39,15 +38,6 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
 {
     /// <summary>The diagnostic property carrying the position the reported argument should move to.</summary>
     internal const string SwapWithKey = "SwapWith";
-
-    /// <summary>The metadata name of xUnit's assertion host type.</summary>
-    private const string XunitAssertMetadataName = "Xunit.Assert";
-
-    /// <summary>The metadata name of MSTest's assertion host type.</summary>
-    private const string MsTestAssertMetadataName = "Microsoft.VisualStudio.TestTools.UnitTesting.Assert";
-
-    /// <summary>The metadata name of NUnit's assertion host type.</summary>
-    private const string NUnitAssertMetadataName = "NUnit.Framework.Assert";
 
     /// <summary>XUnit's equality assertion method name.</summary>
     private const string XunitEqualName = "Equal";
@@ -60,6 +50,18 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
 
     /// <summary>The expected value's position — where the constant belongs.</summary>
     private const string ExpectedPosition = "0";
+
+    /// <summary>The NUnit assertion type's position in the resolved array.</summary>
+    private const int NUnitIndex = 2;
+
+    /// <summary>The metadata name of xUnit's assertion host type.</summary>
+    private const string XunitAssertMetadataName = "Xunit.Assert";
+
+    /// <summary>The metadata name of MSTest's assertion host type.</summary>
+    private const string MsTestAssertMetadataName = "Microsoft.VisualStudio.TestTools.UnitTesting.Assert";
+
+    /// <summary>The metadata name of NUnit's assertion host type.</summary>
+    private const string NUnitAssertMetadataName = "NUnit.Framework.Assert";
 
     /// <summary>The property bag telling the fix the reported actual argument belongs in the expected position.</summary>
     private static readonly ImmutableDictionary<string, string?> SwapProperties =
@@ -77,32 +79,17 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var xunit = start.Compilation.GetTypeByMetadataName(XunitAssertMetadataName);
-            var msTest = start.Compilation.GetTypeByMetadataName(MsTestAssertMetadataName);
-            var nunit = start.Compilation.GetTypeByMetadataName(NUnitAssertMetadataName);
-            if (xunit is null && msTest is null && nunit is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, xunit, msTest, nunit),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?[]>(compilation, ResolveAssertionMarkers),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Analyzes one call for a reversed equality assertion.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="xunit">The resolved xUnit assertion type, or <see langword="null"/>.</param>
-    /// <param name="msTest">The resolved MSTest assertion type, or <see langword="null"/>.</param>
-    /// <param name="nunit">The resolved NUnit assertion type, or <see langword="null"/>.</param>
-    private static void Analyze(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol? xunit,
-        INamedTypeSymbol? msTest,
-        INamedTypeSymbol? nunit)
+    /// <param name="markers">The compilation's lazily resolved assertion types.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?[]> markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var arguments = invocation.ArgumentList.Arguments;
@@ -111,7 +98,7 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
             return;
         }
 
-        var name = GetInvokedName(invocation);
+        var name = InvokedSimpleName.Of(invocation);
         if (name is not (XunitEqualName or ClassicAreEqualName))
         {
             return;
@@ -133,8 +120,7 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
             return;
         }
 
-        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol method
-            || !IsTargetedAssertion(method, xunit, msTest, nunit))
+        if (!IsTargetedAssertionCall(context, invocation, markers))
         {
             return;
         }
@@ -144,6 +130,26 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
             actual.SyntaxTree,
             actual.Span,
             SwapProperties));
+    }
+
+    /// <summary>Binds a reversed candidate to a supported framework assertion.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="invocation">The candidate equality assertion.</param>
+    /// <param name="markers">The compilation's lazily resolved assertion types.</param>
+    /// <returns>Whether the call is an expected-first assertion from a supported framework.</returns>
+    private static bool IsTargetedAssertionCall(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, LazyCompilationValue<INamedTypeSymbol?[]> markers)
+    {
+        var types = markers.Get();
+        var xunit = types[0];
+        var msTest = types[1];
+        var nunit = types[NUnitIndex];
+        if (xunit is null && msTest is null && nunit is null)
+        {
+            return false;
+        }
+
+        return context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
+            && IsTargetedAssertion(method, xunit, msTest, nunit);
     }
 
     /// <summary>Returns whether an expression is a compile-time constant.</summary>
@@ -179,14 +185,13 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
             && (SymbolEqualityComparer.Default.Equals(containingType, msTest) || SymbolEqualityComparer.Default.Equals(containingType, nunit));
     }
 
-    /// <summary>Returns the invoked member's simple name for the supported call shapes.</summary>
-    /// <param name="invocation">The invocation to inspect.</param>
-    /// <returns>The invoked name, or <see langword="null"/> for unsupported expression shapes.</returns>
-    private static string? GetInvokedName(InvocationExpressionSyntax invocation) => invocation.Expression switch
-    {
-        MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
-        MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        _ => null,
-    };
+    /// <summary>Gets the assertion host types, resolving them on first demand.</summary>
+    /// <param name="compilation">The compilation the value is resolved from.</param>
+    /// <returns>The xUnit, MSTest, and NUnit types, in that order, with null for absent types.</returns>
+    private static INamedTypeSymbol?[] ResolveAssertionMarkers(Compilation compilation) =>
+    [
+        compilation.GetTypeByMetadataName(XunitAssertMetadataName),
+        compilation.GetTypeByMetadataName(MsTestAssertMetadataName),
+        compilation.GetTypeByMetadataName(NUnitAssertMetadataName),
+    ];
 }

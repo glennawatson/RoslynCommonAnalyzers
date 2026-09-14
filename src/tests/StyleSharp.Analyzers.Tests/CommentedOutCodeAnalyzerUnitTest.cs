@@ -11,6 +11,44 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1148 (remove commented-out code).</summary>
 public class CommentedOutCodeAnalyzerUnitTest
 {
+    /// <summary>Verifies each statement signal works without requiring a complete statement.</summary>
+    /// <param name="comment">The comment containing a code signal.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("// return value")]
+    [Arguments("// throw error")]
+    [Arguments("// var value = result")]
+    [Arguments("// if (ready)")]
+    [Arguments("// for (int i = 0)")]
+    [Arguments("// while (ready)")]
+    [Arguments("// if (ready) {")]
+    [Arguments("// end }")]
+    [Arguments("// return;   \t")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CodeSignalsAreReportedAsync(string comment) =>
+        VerifyCommentedCode.VerifyAnalyzerAsync($"class C {{\n{{|SST1148:{comment}|}}\n}}");
+
+    /// <summary>Verifies short prose and non-code markers remain silent even beside code-like punctuation.</summary>
+    /// <param name="comment">The comment without a reportable signal.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("// word")]
+    [Arguments("// HACK: revisit;")]
+    [Arguments("// ----;")]
+    [Arguments("// ====;")]
+    [Arguments("// ****;")]
+    [Arguments("// ret")]
+    [Arguments("//   ")]
+    [Arguments("// returnValue")]
+    [Arguments("// throwaway")]
+    [Arguments("// variable")]
+    [Arguments("// if ready")]
+    [Arguments("// for each item")]
+    [Arguments("// while waiting")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MarkerAndKeywordNearMissesAreCleanAsync(string comment) =>
+        VerifyCommentedCode.VerifyAnalyzerAsync($"class C {{\n{comment}\n}}");
+
     /// <summary>Verifies a commented statement is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

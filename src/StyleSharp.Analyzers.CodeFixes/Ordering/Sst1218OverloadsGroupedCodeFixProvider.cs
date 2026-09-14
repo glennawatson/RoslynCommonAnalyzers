@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -19,69 +20,28 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1218OverloadsGroupedCodeFixProvider))]
 [Shared]
-public sealed class Sst1218OverloadsGroupedCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1218OverloadsGroupedCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    /// <remarks>
+    /// Every diagnostic in one type asks for the same end state, and regrouping is idempotent, so the batch
+    /// composes the requests instead of trying to sequence a series of single-member moves.
+    /// </remarks>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindRegroupableType, static (current, _) => Regroup(current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(OrderingRules.OverloadsGrouped.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetSeparatedOverload(root, diagnostic, out var type, out var method, out var anchorIndex))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Move the overload beside its family",
-                    _ => Task.FromResult(Apply(context.Document, root, type!, method!, anchorIndex)),
-                    equivalenceKey: nameof(Sst1218OverloadsGroupedCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetSeparatedOverload(editor.OriginalRoot, diagnostic, out var type, out _, out _))
-        {
-            return;
-        }
-
-        // Every diagnostic in one type asks for the same end state, and regrouping is idempotent, so the
-        // batch can compose the requests instead of trying to sequence a series of single-member moves.
-        editor.ReplaceNode(type!, static (current, _) => Regroup(current));
-    }
-
-    /// <summary>Moves one overload to sit immediately after the nearest earlier member of its family.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="type">The type that declares the overload.</param>
-    /// <param name="method">The out-of-place overload.</param>
-    /// <param name="anchorIndex">The index of the overload it should follow.</param>
-    /// <returns>The updated document.</returns>
-    private static Document Apply(
-        Document document,
-        SyntaxNode root,
-        TypeDeclarationSyntax type,
-        MethodDeclarationSyntax method,
-        int anchorIndex)
-    {
-        var members = type.Members.Remove(method).Insert(anchorIndex + 1, method);
-        return document.WithSyntaxRoot(root.ReplaceNode(type, type.WithMembers(members)));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => TryGetSeparatedOverload(root, diagnostic, out _, out _, out _) ? "Move the overload beside its family" : null,
+            static _ => nameof(Sst1218OverloadsGroupedCodeFixProvider),
+            TryRewrite);
 
     /// <summary>Regroups every overload family in a type, keeping each family at its first member.</summary>
     /// <param name="node">The current type declaration, including any nested batch edits.</param>
@@ -142,6 +102,14 @@ public sealed class Sst1218OverloadsGroupedCodeFixProvider : CodeFixProvider, IB
         }
     }
 
+    /// <summary>Resolves a diagnostic to the type whose overload families the batch regroups.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The type declaring the separated overload, or <see langword="null"/> when the shape no longer matches.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static TypeDeclarationSyntax? FindRegroupableType(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetSeparatedOverload(root, diagnostic, out var type, out _, out _) ? type : null;
+
     /// <summary>Resolves a diagnostic to the overload it reported and the member that overload should follow.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
@@ -160,7 +128,7 @@ public sealed class Sst1218OverloadsGroupedCodeFixProvider : CodeFixProvider, IB
         method = null;
         anchorIndex = -1;
 
-        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } candidate
+        if (DiagnosticAncestor.Find<MethodDeclarationSyntax>(root, diagnostic.Location.SourceSpan) is not { } candidate
             || candidate.Parent is not TypeDeclarationSyntax declaringType
             || declaringType.ContainsDirectives)
         {
@@ -177,4 +145,13 @@ public sealed class Sst1218OverloadsGroupedCodeFixProvider : CodeFixProvider, IB
         method = candidate;
         return true;
     }
+
+    /// <summary>Resolves the separated overload and builds its type with the overload moved beside its family.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the overload is no longer separated.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetSeparatedOverload(root, diagnostic, out var type, out var method, out var anchorIndex)
+            ? new NodeReplacement(type!, type!.WithMembers(type.Members.Remove(method!).Insert(anchorIndex + 1, method!)))
+            : null;
 }

@@ -33,15 +33,13 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var expressionOfTType = start.Compilation.GetTypeByMetadataName(ExpressionOfTMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAnonymousFunction(nodeContext, expressionOfTType),
-                SyntaxKind.SimpleLambdaExpression,
-                SyntaxKind.ParenthesizedLambdaExpression,
-                SyntaxKind.AnonymousMethodExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ExpressionOfTMetadataName),
+            AnalyzeAnonymousFunction,
+            SyntaxKind.SimpleLambdaExpression,
+            SyntaxKind.ParenthesizedLambdaExpression,
+            SyntaxKind.AnonymousMethodExpression);
     }
 
     /// <summary>Returns whether an anonymous function passes the syntax-only candidate checks.</summary>
@@ -64,12 +62,17 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1000 for an anonymous function that provably captures nothing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
-    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
+    /// <param name="expressionTreeType">The compilation's deferred expression-tree type.</param>
+    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, LazyMetadataType expressionTreeType)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
-        if (!IsSyntaxCandidate(function)
-            || IsExpressionTreeConversion(context.SemanticModel, function, expressionOfTType, context.CancellationToken)
+        if (!IsSyntaxCandidate(function))
+        {
+            return;
+        }
+
+        var expressionOfTType = expressionTreeType.Get();
+        if (IsExpressionTreeConversion(context.SemanticModel, function, expressionOfTType, context.CancellationToken)
             || !HasNoCaptures(context.SemanticModel, function))
         {
             return;

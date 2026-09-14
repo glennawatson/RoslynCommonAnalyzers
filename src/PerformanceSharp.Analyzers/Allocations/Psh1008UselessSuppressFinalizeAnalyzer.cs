@@ -18,9 +18,6 @@ public sealed class Psh1008UselessSuppressFinalizeAnalyzer : DiagnosticAnalyzer
     /// <summary>The suppress method name used by the syntax gate.</summary>
     private const string SuppressFinalizeMethodName = "SuppressFinalize";
 
-    /// <summary>The GC type name used by the syntax gate.</summary>
-    private const string GcTypeName = "GC";
-
     /// <summary>The metadata name of the GC type.</summary>
     private const string GcMetadataName = "System.GC";
 
@@ -36,23 +33,17 @@ public sealed class Psh1008UselessSuppressFinalizeAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(GcMetadataName) is not { } gcType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, gcType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, GcMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports a SuppressFinalize call in a type that can never have a finalizer.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gcType">The compilation's GC type symbol.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
+    /// <param name="types">The compilation's deferred GC type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!HasSuppressFinalizeThisShape(invocation))
@@ -65,8 +56,8 @@ public sealed class Psh1008UselessSuppressFinalizeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, gcType))
+        if (types.Get() is not { } gcType
+            || !GcInvocation.BindsToGcMethod(context.SemanticModel, invocation, gcType, context.CancellationToken))
         {
             return;
         }
@@ -94,13 +85,7 @@ public sealed class Psh1008UselessSuppressFinalizeAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return memberAccess.Expression switch
-        {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == GcTypeName,
-            MemberAccessExpressionSyntax qualified => qualified.Name.Identifier.ValueText == GcTypeName,
-            AliasQualifiedNameSyntax aliasQualified => aliasQualified.Name.Identifier.ValueText == GcTypeName,
-            _ => false,
-        };
+        return GcInvocation.IsGcReceiver(memberAccess.Expression);
     }
 
     /// <summary>Returns whether a type can never be registered for finalization.</summary>

@@ -13,9 +13,9 @@ namespace PerformanceSharp.Analyzers;
 /// <remarks>
 /// <para>
 /// <b>.NET 8 and later only.</b> <c>CompositeFormat</c> and the <c>string.Format</c> overloads that
-/// take one do not exist before then, so the rule resolves both in the analyzed compilation and
-/// registers nothing at all when either is missing. Nothing is inferred from a target-framework
-/// string.
+/// take one do not exist before then, so the rule resolves both on the first candidate and caches
+/// their availability for the compilation. Nothing is reported when either is missing, and nothing
+/// is inferred from a target-framework string.
 /// </para>
 /// <para>
 /// <b>The format string is validated before it is hoisted.</b> <c>CompositeFormat.Parse</c> throws on
@@ -71,16 +71,11 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(CompositeFormatMetadataName) is not { } compositeFormat
-                || !HasCompositeFormatOverload(start.Compilation, compositeFormat))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeFormat, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, HasCompositeFormat),
+            AnalyzeFormat,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation is a plain <c>Format</c> call of at least a format and a value.</summary>
@@ -197,7 +192,8 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1223 for a constant format string that is re-parsed on every call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeFormat(SyntaxNodeAnalysisContext context)
+    /// <param name="support">The composite-format support resolved only for a candidate call.</param>
+    private static void AnalyzeFormat(in SyntaxNodeAnalysisContext context, LazyCompilationProbe support)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsFormatShape(invocation))
@@ -209,6 +205,7 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
         var cancellationToken = context.CancellationToken;
         var formatIndex = GetHoistableFormatIndex(model, invocation, cancellationToken);
         if (formatIndex < 0
+            || !support.Get()
             || SpanRewriteGuard.IsInsideExpressionTree(invocation, model, cancellationToken)
             || !RewriteBindsToCompositeFormat(model, invocation, formatIndex, QualifiedCurrentCulture))
         {
@@ -238,6 +235,24 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
             ? null
             : format;
 
+    /// <summary>Returns whether a type is <see cref="IFormatProvider"/>.</summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns><see langword="true"/> for <c>System.IFormatProvider</c>.</returns>
+    private static bool IsFormatProvider(ITypeSymbol type) =>
+        type is INamedTypeSymbol
+        {
+            Name: nameof(IFormatProvider),
+            TypeKind: TypeKind.Interface,
+            ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
+        };
+
+    /// <summary>Returns whether the parsed-format type and matching format overloads are present.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns><see langword="true"/> when <c>CompositeFormat</c> and a <c>string.Format</c> overload taking it exist.</returns>
+    private static bool HasCompositeFormat(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(CompositeFormatMetadataName) is { } compositeFormat
+            && HasCompositeFormatOverload(compilation, compositeFormat);
+
     /// <summary>Returns whether <see cref="string"/> declares a <c>Format</c> overload taking a parsed format.</summary>
     /// <param name="compilation">The analyzed compilation.</param>
     /// <param name="compositeFormat">The parsed-format type.</param>
@@ -256,15 +271,4 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns whether a type is <see cref="IFormatProvider"/>.</summary>
-    /// <param name="type">The type to inspect.</param>
-    /// <returns><see langword="true"/> for <c>System.IFormatProvider</c>.</returns>
-    private static bool IsFormatProvider(ITypeSymbol type) =>
-        type is INamedTypeSymbol
-        {
-            Name: nameof(IFormatProvider),
-            TypeKind: TypeKind.Interface,
-            ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
-        };
 }

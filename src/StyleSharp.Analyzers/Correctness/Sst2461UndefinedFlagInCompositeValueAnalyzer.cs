@@ -45,7 +45,7 @@ public sealed class Sst2461UndefinedFlagInCompositeValueAnalyzer : DiagnosticAna
         var declaredBits = 0UL;
         for (var i = 0; i < members.Count; i++)
         {
-            if (TryGetValue(context, members[i]) is { } value && IsSingleBit(value))
+            if (TryGetValue(context, members[i]) is { } value && EnumFlagValues.IsSingleBit(value))
             {
                 declaredBits |= value;
             }
@@ -54,7 +54,7 @@ public sealed class Sst2461UndefinedFlagInCompositeValueAnalyzer : DiagnosticAna
         for (var i = 0; i < members.Count; i++)
         {
             var member = members[i];
-            if (TryGetValue(context, member) is not { } value || value == 0 || IsSingleBit(value))
+            if (TryGetValue(context, member) is not { } value || value == 0 || EnumFlagValues.IsSingleBit(value))
             {
                 continue;
             }
@@ -102,11 +102,6 @@ public sealed class Sst2461UndefinedFlagInCompositeValueAnalyzer : DiagnosticAna
             return null;
         }
     }
-
-    /// <summary>Returns whether a value has exactly one bit set.</summary>
-    /// <param name="value">The value to test.</param>
-    /// <returns><see langword="true"/> when the value names a single flag.</returns>
-    private static bool IsSingleBit(ulong value) => value != 0 && (value & (value - 1)) == 0;
 
     /// <summary>Gets the index of the lowest set bit.</summary>
     /// <param name="value">A non-zero value.</param>

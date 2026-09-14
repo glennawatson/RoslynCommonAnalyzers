@@ -11,48 +11,33 @@ namespace StyleSharp.Analyzers;
 /// <summary>Prefixes a property summary with the accessor phrase ("Gets ", "Sets ", "Gets or sets ") (SST1623).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(PropertySummaryCodeFixProvider))]
 [Shared]
-public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class PropertySummaryCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.PropertySummaryAccessors.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            nameof(PropertySummaryCodeFixProvider),
+            RegisterTextChanges);
+
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-            if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary
-                || XmlDocumentationHelper.DocumentedMember(summary) is not PropertyDeclarationSyntax property)
-            {
-                continue;
-            }
-
-            var prefix = DocumentationConventions.PropertyAccessorPrefix(property);
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Prefix summary with '{prefix.TrimEnd()}'",
-                    cancellationToken => ApplyAsync(context.Document, summary, prefix, cancellationToken),
-                    equivalenceKey: nameof(PropertySummaryCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary
+        if (DocumentationElementFix.FindElement(root, diagnostic) is not { } summary
             || XmlDocumentationHelper.DocumentedMember(summary) is not PropertyDeclarationSyntax property)
         {
             return;
@@ -65,23 +50,6 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChang
         }
 
         changes.Add(change);
-    }
-
-    /// <summary>Inserts the accessor prefix and lower-cases the first existing word.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="summary">The summary element.</param>
-    /// <param name="prefix">The accessor prefix.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, string prefix, CancellationToken cancellationToken)
-    {
-        if (!TryBuildChange(summary, prefix, out var change))
-        {
-            return document;
-        }
-
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the prefix-insertion change that lower-cases the first existing word of the summary.</summary>
@@ -100,4 +68,23 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChang
         change = new(new(position, 1), prefix + char.ToLowerInvariant(first));
         return true;
     }
+
+    /// <summary>Words the action for the reported property summary with the accessor phrase it gains.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the element no longer documents a property.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        DocumentationElementFix.FindElement(root, diagnostic) is { } summary && XmlDocumentationHelper.DocumentedMember(summary) is PropertyDeclarationSyntax property
+            ? TitleFor(DocumentationConventions.PropertyAccessorPrefix(property))
+            : null;
+
+    /// <summary>Words the action for an accessor prefix.</summary>
+    /// <param name="prefix">The accessor phrase the summary gains.</param>
+    /// <returns>The code action title.</returns>
+    private static string TitleFor(string prefix) => prefix switch
+    {
+        "Gets or sets " => "Prefix summary with 'Gets or sets'",
+        "Sets " => "Prefix summary with 'Sets'",
+        _ => "Prefix summary with 'Gets'",
+    };
 }

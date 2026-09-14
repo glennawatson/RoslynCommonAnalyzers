@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1308 — a file or directory is created group- or world-writable via a Unix file mode.</summary>
-    public static readonly DiagnosticDescriptor OverPermissiveUnixFileMode = Create(
+    public static readonly DiagnosticDescriptor OverPermissiveUnixFileMode = DescriptorFactory.Create(
         "SES1308",
         "Do not create a group- or world-writable file or directory",
         "The Unix file mode set through '{0}' includes a group or other write bit; a group- or world-writable file or directory lets other local users modify its contents",

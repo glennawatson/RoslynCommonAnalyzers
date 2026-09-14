@@ -452,16 +452,14 @@ internal static class DocumentationRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
-        new(
+        DescriptorFactory.CreateInfo(
             id,
             title,
             messageFormat,
             Category,
-            DiagnosticSeverity.Info,
-            isEnabledByDefault: true,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+            description);
 
     /// <summary>Creates a Warning-severity Documentation descriptor whose help link points at the rule's docs page.</summary>
     /// <param name="id">The diagnostic id.</param>

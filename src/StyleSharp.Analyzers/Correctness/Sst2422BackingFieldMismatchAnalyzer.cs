@@ -35,6 +35,19 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.PropertyDeclaration);
     }
 
+    /// <summary>Gets the single field a getter reads, when its body reduces to one.</summary>
+    /// <param name="getter">The get accessor.</param>
+    /// <returns>The field-read expression, or <see langword="null"/>.</returns>
+    internal static ExpressionSyntax? GetterFieldRead(AccessorDeclarationSyntax getter)
+    {
+        if (getter.ExpressionBody is { Expression: { } expression })
+        {
+            return AsFieldReference(expression);
+        }
+
+        return getter.Body is { Statements: [ReturnStatementSyntax { Expression: { } returned }] } ? AsFieldReference(returned) : null;
+    }
+
     /// <summary>Reports one property whose accessors use different fields.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
@@ -97,19 +110,6 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
     /// <param name="accessor">The accessor.</param>
     /// <returns><see langword="true"/> when the accessor is not an auto-accessor.</returns>
     private static bool HasBody(AccessorDeclarationSyntax accessor) => accessor.Body is not null || accessor.ExpressionBody is not null;
-
-    /// <summary>Gets the single field a getter reads, when its body reduces to one.</summary>
-    /// <param name="getter">The get accessor.</param>
-    /// <returns>The field-read expression, or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? GetterFieldRead(AccessorDeclarationSyntax getter)
-    {
-        if (getter.ExpressionBody is { Expression: { } expression })
-        {
-            return AsFieldReference(expression);
-        }
-
-        return getter.Body is { Statements: [ReturnStatementSyntax { Expression: { } returned }] } ? AsFieldReference(returned) : null;
-    }
 
     /// <summary>Gets the single field a setter assigns from <c>value</c>, when there is exactly one.</summary>
     /// <param name="setter">The set accessor.</param>

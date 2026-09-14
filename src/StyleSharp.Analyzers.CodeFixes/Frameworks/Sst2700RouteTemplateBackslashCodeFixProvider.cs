@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,13 +11,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2700RouteTemplateBackslashCodeFixProvider))]
 [Shared]
-public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(FrameworksRules.RouteTemplateBackslash.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -27,12 +28,20 @@ public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvid
             context,
             "Replace the backslash with a forward slash",
             nameof(Sst2700RouteTemplateBackslashCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // The reported span equals the literal's span, which also matches the enclosing attribute argument
+        // for a positional template; take the innermost node on that tie and unwrap the argument if needed.
+        var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+        return ResolveTemplateLiteral(node)is { };
+    }
 
     /// <summary>Resolves the reported route-template literal and swaps its backslashes for forward slashes.</summary>
     /// <param name="root">The syntax root.</param>
@@ -49,9 +58,13 @@ public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvid
         }
 
         var corrected = literal.Token.ValueText.Replace('\\', '/');
-        var replacement = SyntaxFactory
-            .LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(corrected))
-            .WithTriviaFrom(literal);
+        var replacement = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                SymbolDisplay.FormatLiteral(corrected, quote: true),
+                corrected,
+                literal.GetTrailingTrivia()));
 
         return new NodeReplacement(literal, replacement);
     }

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1009 — a password is hashed with a fast general-purpose hash rather than a slow password KDF.</summary>
-    public static readonly DiagnosticDescriptor FastPasswordHash = Create(
+    public static readonly DiagnosticDescriptor FastPasswordHash = DescriptorFactory.Create(
         "SES1009",
         "Passwords must use a slow, salted key-derivation function",
         FastPasswordHashMessage,

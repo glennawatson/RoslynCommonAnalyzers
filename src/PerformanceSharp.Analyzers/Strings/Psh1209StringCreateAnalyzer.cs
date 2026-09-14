@@ -18,12 +18,6 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
     /// <summary>The invoked member name the syntax gate requires.</summary>
     internal const string ToCharArrayMethodName = "ToCharArray";
 
-    /// <summary>The metadata name of the span action delegate string.Create requires.</summary>
-    private const string SpanActionMetadataName = "System.Buffers.SpanAction`2";
-
-    /// <summary>The string.Create member name.</summary>
-    private const string CreateMethodName = "Create";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseStringCreate);
 
@@ -36,32 +30,28 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(SpanActionMetadataName) is null
-                || start.Compilation.GetSpecialType(SpecialType.System_String).GetMembers(CreateMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, IsStringCreateAvailable),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns the buffer declarator and enclosing block of a <c>var x = s.ToCharArray();</c> statement.</summary>
     /// <param name="invocation">The candidate ToCharArray invocation.</param>
     /// <returns>The declarator and block, or <see langword="null"/> when the shape does not match.</returns>
-    private static (VariableDeclaratorSyntax Declarator, BlockSyntax Block)? TryGetBufferDeclaration(InvocationExpressionSyntax invocation) => invocation.ArgumentList.Arguments.Count != 0
+    private static BufferDeclaration? TryGetBufferDeclaration(InvocationExpressionSyntax invocation) => invocation.ArgumentList.Arguments.Count != 0
             || invocation.Expression is not MemberAccessExpressionSyntax access
             || access.Name.Identifier.ValueText != ToCharArrayMethodName
             || invocation.Parent is not EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
             || declarator.Parent?.Parent is not LocalDeclarationStatementSyntax { Parent: BlockSyntax block }
         ? null
-        : (declarator, block);
+        : new BufferDeclaration(declarator, block);
 
     /// <summary>Reports PSH1209 for a copied char buffer that is mutated and rebuilt into a string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="markers">The replacement API resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationProbe markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetBufferDeclaration(invocation) is not { } buffer)
@@ -74,6 +64,7 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
         _ = DescendantTraversalHelper.VisitDescendantTokens(buffer.Block, ref scan, static (in SyntaxToken token, ref BufferUsageScan state) => state.Visit(in token));
         if (!scan.Wrote
             || !scan.Rebuilt
+            || !markers.Get()
             || context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type?.SpecialType != SpecialType.System_String)
         {
             return;
@@ -84,6 +75,13 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
             invocation.SyntaxTree,
             invocation.Span));
     }
+
+    /// <summary>Checks replacement API availability after the buffer pattern is found.</summary>
+    /// <param name="compilation">The compilation whose replacement API is checked.</param>
+    /// <returns>Whether both span actions and <c>string.Create</c> are available.</returns>
+    private static bool IsStringCreateAvailable(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.Buffers.SpanAction`2") is not null
+            && !compilation.GetSpecialType(SpecialType.System_String).GetMembers("Create").IsEmpty;
 
     /// <summary>Token-visitor state that finds indexer writes and string rebuilds of one buffer local.</summary>
     /// <param name="name">The buffer local's name.</param>

@@ -19,7 +19,7 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2711AsyncVoidLifecycleOverrideCodeFixProvider))]
 [Shared]
-public sealed class Sst2711AsyncVoidLifecycleOverrideCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2711AsyncVoidLifecycleOverrideCodeFixProvider : CodeFixProvider
 {
     /// <summary>The suffix that names each synchronous hook's Task-returning twin.</summary>
     private const string AsyncSuffix = "Async";
@@ -27,47 +27,23 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideCodeFixProvider : CodeFixPr
     /// <summary>The fully-qualified task type emitted for the new return type, reduced by the simplifier.</summary>
     private const string TaskTypeName = "global::System.Threading.Tasks.Task";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(Resolve, static (current, _) => Rewrite((MethodDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(FrameworksRules.AsyncVoidLifecycleOverride.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not { } method)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Override the Task-returning lifecycle method",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(method, Rewrite(method)))),
-                    equivalenceKey: nameof(Sst2711AsyncVoidLifecycleOverrideCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not { } method)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(method, static (current, _) => Rewrite((MethodDeclarationSyntax)current));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Override the Task-returning lifecycle method",
+            nameof(Sst2711AsyncVoidLifecycleOverrideCodeFixProvider),
+            Resolve,
+            Rewrite);
 
     /// <summary>Resolves the reported method, or <see langword="null"/> when the rewrite would not be safe.</summary>
     /// <param name="root">The syntax root.</param>
@@ -114,11 +90,22 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideCodeFixProvider : CodeFixPr
             .WithTriviaFrom(method.ReturnType)
             .WithAdditionalAnnotations(Simplifier.Annotation);
 
-        var identifier = SyntaxFactory.Identifier(method.Identifier.ValueText + AsyncSuffix)
-            .WithTriviaFrom(method.Identifier);
+        var identifier = SyntaxFactory.Identifier(
+            method.Identifier.LeadingTrivia,
+            method.Identifier.ValueText + AsyncSuffix,
+            method.Identifier.TrailingTrivia);
 
-        return method
-            .WithReturnType(taskType)
-            .WithIdentifier(identifier);
+        return method.Update(
+            method.AttributeLists,
+            method.Modifiers,
+            taskType,
+            method.ExplicitInterfaceSpecifier,
+            identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            method.Body,
+            method.ExpressionBody,
+            method.SemicolonToken);
     }
 }

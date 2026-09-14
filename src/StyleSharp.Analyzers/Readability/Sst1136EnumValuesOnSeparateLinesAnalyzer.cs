@@ -2,9 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -40,23 +37,16 @@ public sealed class Sst1136EnumValuesOnSeparateLinesAnalyzer : DiagnosticAnalyze
         }
 
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        var previousEndLine = LineOf(text, members[0].Span.End);
+        var previousEndLine = LayoutHelpers.LineOf(text, members[0].Span.End);
         for (var index = 1; index < members.Count; index++)
         {
             var member = members[index];
-            if (LineOf(text, member.SpanStart) == previousEndLine)
+            if (LayoutHelpers.LineOf(text, member.SpanStart) == previousEndLine)
             {
                 context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.EnumValuesOnSeparateLines, member.Identifier.GetLocation()));
             }
 
-            previousEndLine = LineOf(text, member.Span.End);
+            previousEndLine = LayoutHelpers.LineOf(text, member.Span.End);
         }
     }
-
-    /// <summary>Returns the zero-based line number for a position.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="position">The position to look up.</param>
-    /// <returns>The line number.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 }

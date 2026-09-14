@@ -7,65 +7,42 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a negated type test <c>!(x is T)</c> as the <c>x is not T</c> pattern (SST2006).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(NegatedIsPatternCodeFixProvider))]
 [Shared]
-public sealed class NegatedIsPatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class NegatedIsPatternCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(Resolve, static (current, _) => Rewrite((PrefixUnaryExpressionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseNegatedIsPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use the 'is not' pattern",
+            nameof(NegatedIsPatternCodeFixProvider),
+            Resolve,
+            Rewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax not
-                || PatternMatchingAnalyzer.Unwrap(not.Operand) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
-                || isExpression.Right is not TypeSyntax type)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the 'is not' pattern",
-                    _ => Task.FromResult(Apply(context.Document, root, not, isExpression.Left, type)),
-                    equivalenceKey: nameof(NegatedIsPatternCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not PrefixUnaryExpressionSyntax not
-            || PatternMatchingAnalyzer.Unwrap(not.Operand) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
-            || isExpression.Right is not TypeSyntax type)
-        {
-            return;
-        }
-
-        var replacement = PatternMatchingAnalyzer.BuildIsNotPattern(isExpression.Left, type).WithTriviaFrom(not);
-        editor.ReplaceNode(not, replacement);
-    }
-
-    /// <summary>Replaces the negated type test with the <c>is not</c> pattern.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported logical-not expression when it still negates a plain type test.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="not">The logical-not expression.</param>
-    /// <param name="operand">The value being tested.</param>
-    /// <param name="type">The type being tested for.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, PrefixUnaryExpressionSyntax not, ExpressionSyntax operand, TypeSyntax type)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The logical-not expression, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static PrefixUnaryExpressionSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is PrefixUnaryExpressionSyntax negation
+            && ExpressionShapes.WalkDownParentheses(negation.Operand) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression, Right: TypeSyntax }
+            ? negation
+            : null;
+
+    /// <summary>Builds the <c>is not</c> pattern that replaces a negated type test.</summary>
+    /// <param name="negation">The logical-not expression <see cref="Resolve"/> matched.</param>
+    /// <returns>The <c>is not</c> pattern expression, carrying the negation's trivia.</returns>
+    private static IsPatternExpressionSyntax Rewrite(PrefixUnaryExpressionSyntax negation)
     {
-        var replacement = PatternMatchingAnalyzer.BuildIsNotPattern(operand, type).WithTriviaFrom(not);
-        return document.WithSyntaxRoot(root.ReplaceNode(not, replacement));
+        var isExpression = (BinaryExpressionSyntax)ExpressionShapes.WalkDownParentheses(negation.Operand);
+        return PatternMatchingAnalyzer.BuildIsNotPattern(isExpression.Left, (TypeSyntax)isExpression.Right).WithTriviaFrom(negation);
     }
 }

@@ -31,7 +31,7 @@ public class UseGuidEmptyCodeFixBenchmarks : IDisposable
     private BaseObjectCreationExpressionSyntax _creation = null!;
 
     /// <summary>The replacement built for the representative construction.</summary>
-    private ExpressionSyntax _replacement = null!;
+    private SyntaxNode _replacement = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -56,8 +56,7 @@ public class UseGuidEmptyCodeFixBenchmarks : IDisposable
 
         var model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var diagnostic = Diagnostic.Create(ModernizationRules.UseGuidEmpty, _creation.GetLocation());
-        _ = Sst2012UseGuidEmptyCodeFixProvider.TryBuildReplacement(_root, model, diagnostic, out _, out var replacement);
-        _replacement = replacement!;
+        _replacement = Sst2012UseGuidEmptyCodeFixProvider.TryRewrite(_root, model, diagnostic)?.Replacement!;
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
@@ -77,7 +76,7 @@ public class UseGuidEmptyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseGuidEmpty_ApplyFixAsync()
     {
-        var updated = Sst2012UseGuidEmptyCodeFixProvider.Apply(_document, _root, _creation, _replacement);
+        var updated = _document.WithSyntaxRoot(_root.ReplaceNode(_creation, _replacement));
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

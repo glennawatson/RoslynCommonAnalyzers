@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -66,19 +68,8 @@ internal sealed class CollectionExpressionArgumentTargets
     /// <summary>Gets whether a created type is one of the supported collections.</summary>
     /// <param name="type">The constructed type.</param>
     /// <returns><see langword="true"/> when the type's definition is supported.</returns>
-    internal bool IsSupportedCollection(INamedTypeSymbol type)
-    {
-        var definition = type.OriginalDefinition;
-        foreach (var candidate in _collections)
-        {
-            if (candidate is not null && SymbolEqualityComparer.Default.Equals(definition, candidate))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool IsSupportedCollection(INamedTypeSymbol type) => ContainsDefinition(_collections, type.OriginalDefinition);
 
     /// <summary>Gets whether a constructor parameter configures the collection rather than filling it.</summary>
     /// <param name="type">The parameter type.</param>
@@ -93,15 +84,15 @@ internal sealed class CollectionExpressionArgumentTargets
         return type is INamedTypeSymbol named && IsComparer(named);
     }
 
-    /// <summary>Gets whether a named type is one of the comparer interfaces.</summary>
-    /// <param name="type">The parameter type.</param>
-    /// <returns><see langword="true"/> when the type is a comparer interface.</returns>
-    private bool IsComparer(INamedTypeSymbol type)
+    /// <summary>Gets whether a resolved definition set holds a definition.</summary>
+    /// <param name="candidates">The resolved definitions; an entry the compilation lacks is <see langword="null"/>.</param>
+    /// <param name="definition">The original definition to look for.</param>
+    /// <returns><see langword="true"/> when the set holds the definition.</returns>
+    private static bool ContainsDefinition(INamedTypeSymbol?[] candidates, INamedTypeSymbol definition)
     {
-        var definition = type.OriginalDefinition;
-        foreach (var comparer in _comparers)
+        foreach (var candidate in candidates)
         {
-            if (comparer is not null && SymbolEqualityComparer.Default.Equals(definition, comparer))
+            if (candidate is not null && SymbolEqualityComparer.Default.Equals(definition, candidate))
             {
                 return true;
             }
@@ -109,4 +100,10 @@ internal sealed class CollectionExpressionArgumentTargets
 
         return false;
     }
+
+    /// <summary>Gets whether a named type is one of the comparer interfaces.</summary>
+    /// <param name="type">The parameter type.</param>
+    /// <returns><see langword="true"/> when the type is a comparer interface.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsComparer(INamedTypeSymbol type) => ContainsDefinition(_comparers, type.OriginalDefinition);
 }

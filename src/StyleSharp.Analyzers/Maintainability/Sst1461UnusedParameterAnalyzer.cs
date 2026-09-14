@@ -63,8 +63,8 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnreadParameterOptions>();
-            var methodGroupNamesByType = new ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>();
+            var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnreadParameterOptions>(concurrencyLevel: 4, capacity: ((CSharpCompilation)start.Compilation).SyntaxTrees.Length);
+            var methodGroupNamesByType = new ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>(concurrencyLevel: 4, capacity: 31);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeMember(nodeContext, optionsByTree, methodGroupNamesByType),
                 SyntaxKind.MethodDeclaration,
@@ -91,7 +91,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.ContainingSymbol is not IMethodSymbol method
-            || (!GetOptions(context, optionsByTree).IncludePublicApi && IsExternallyVisible(method))
+            || (!TreeOptionsCache.GetOrRead(optionsByTree, context, UnreadParameterOptions.Read).IncludePublicApi && SymbolVisibility.IsExternallyVisible(method))
             || IsEventHandler(member, context))
         {
             return;
@@ -201,26 +201,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         IMethodSymbol? member,
         ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>? cache) =>
-        member is not null && (IsBoundByAContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
-
-    /// <summary>Reads the settings for the member's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static UnreadParameterOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, UnreadParameterOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = UnreadParameterOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
+        member is not null && (TypeRelations.IsSignatureBoundByContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
 
     /// <summary>Returns whether a method shape should not have parameters removed locally.</summary>
     /// <param name="modifiers">The declaration modifiers.</param>
@@ -348,79 +329,6 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether an interface or an attribute's usage fixes the declaring member's signature.</summary>
-    /// <param name="method">The declaring method.</param>
-    /// <returns><see langword="true"/> when the signature answers to something outside the member.</returns>
-    private static bool IsBoundByAContract(IMethodSymbol method)
-    {
-        var containingType = method.ContainingType;
-        if (containingType is null)
-        {
-            return false;
-        }
-
-        return IsAttributeType(containingType) || ImplementsInterfaceMember(method, containingType);
-    }
-
-    /// <summary>Returns whether a type derives from <see cref="Attribute"/>.</summary>
-    /// <param name="type">The containing type.</param>
-    /// <returns><see langword="true"/> for an attribute class.</returns>
-    private static bool IsAttributeType(INamedTypeSymbol type)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (current is { Name: "Attribute", ContainingNamespace.Name: "System" })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a method implicitly implements an interface member.</summary>
-    /// <param name="method">The declaring method.</param>
-    /// <param name="containingType">The method's containing type.</param>
-    /// <returns><see langword="true"/> when an interface dictates the signature.</returns>
-    private static bool ImplementsInterfaceMember(IMethodSymbol method, INamedTypeSymbol containingType)
-    {
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidates[j]), method))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
-    /// <param name="symbol">The member that declares the parameter.</param>
-    /// <returns><see langword="true"/> when removing a parameter is a break for consumers.</returns>
-    private static bool IsExternallyVisible(ISymbol? symbol)
-    {
-        for (var current = symbol; current is not null; current = current.ContainingType)
-        {
-            if (current is INamespaceSymbol)
-            {
-                break;
-            }
-
-            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>Returns whether the declaring member's name is handed on as a method group.</summary>
     /// <param name="node">The member declaration.</param>
     /// <param name="memberName">The declaring member's name.</param>
@@ -451,16 +359,16 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     /// <returns>The set of names used other than as a call.</returns>
     private static HashSet<string> CollectMethodGroupNames(TypeDeclarationSyntax declaringType)
     {
-        var scan = new MethodGroupScan(new HashSet<string>(StringComparer.Ordinal));
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, MethodGroupScan>(declaringType, ref scan, VisitMethodGroup);
-        return scan.Names;
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(declaringType, ref names, VisitMethodGroup);
+        return names;
     }
 
     /// <summary>Records a name used somewhere other than the callee position of a call.</summary>
     /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="state">The scan state.</param>
+    /// <param name="names">The names seen outside a callee position.</param>
     /// <returns>Always <see langword="true"/>, so the whole type is scanned.</returns>
-    private static bool VisitMethodGroup(IdentifierNameSyntax identifier, ref MethodGroupScan state)
+    private static bool VisitMethodGroup(IdentifierNameSyntax identifier, ref HashSet<string> names)
     {
         // 'M(...)' and 'x.M(...)' are calls; anything else that names M hands the method itself on.
         var invoked = identifier.Parent is InvocationExpressionSyntax invocation && invocation.Expression == identifier;
@@ -474,13 +382,9 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        _ = state.Names.Add(identifier.Identifier.ValueText);
+        _ = names.Add(identifier.Identifier.ValueText);
         return true;
     }
-
-    /// <summary>The state threaded through a method-group scan.</summary>
-    /// <param name="Names">The names seen outside a callee position.</param>
-    private readonly record struct MethodGroupScan(HashSet<string> Names);
 
     /// <summary>Tracks parameters read by identifier token.</summary>
     /// <remarks>

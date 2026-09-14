@@ -46,9 +46,6 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// <summary>The member name of the length read the copy is not needed for.</summary>
     private const string LengthPropertyName = "Length";
 
-    /// <summary>The simple name of the span type whose <c>ToArray</c> is reported.</summary>
-    private const string ReadOnlySpanTypeName = "ReadOnlySpan";
-
     /// <summary>The message display of the string copy.</summary>
     private const string ToCharArrayDisplay = "ToCharArray()";
 
@@ -172,28 +169,10 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
         ElementAccessExpressionSyntax elementAccess
             when elementAccess.Expression == invocation
                 && elementAccess.ArgumentList.Arguments.Count == 1
-                && !IsWriteTarget(elementAccess) => ConsumerKind.Indexer,
+                && !WriteTargetSyntax.IsElementWriteTarget(elementAccess) => ConsumerKind.Indexer,
         ArgumentSyntax { NameColon: null, Parent.Parent: InvocationExpressionSyntax } argument
             when argument.RefOrOutKeyword.RawKind == (int)SyntaxKind.None => ConsumerKind.Argument,
         _ => ConsumerKind.None,
-    };
-
-    /// <summary>Returns whether an element access writes to, or takes a reference to, its element.</summary>
-    /// <param name="elementAccess">The element access on the copied array.</param>
-    /// <returns><see langword="true"/> when the element is not merely read.</returns>
-    /// <remarks>
-    /// A <c>char[]</c> element is a writable storage location; a <c>string</c> or
-    /// <c>ReadOnlySpan&lt;T&gt;</c> element is not. Every shape that needs the location rather than
-    /// the value would stop compiling after the rewrite, so none of them is reported.
-    /// </remarks>
-    private static bool IsWriteTarget(ElementAccessExpressionSyntax elementAccess) => elementAccess.Parent switch
-    {
-        AssignmentExpressionSyntax assignment => assignment.Left == elementAccess,
-        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression }
-            or PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression }
-            or RefExpressionSyntax => true,
-        ArgumentSyntax argument => argument.RefOrOutKeyword.RawKind != (int)SyntaxKind.None,
-        _ => false,
     };
 
     /// <summary>Binds the copying invocation and classifies the sequence its array was made from.</summary>
@@ -240,18 +219,12 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
             return containingType.SpecialType == SpecialType.System_String ? SequenceSource.String : SequenceSource.None;
         }
 
-        if (containingType is not
-            {
-                Name: ReadOnlySpanTypeName,
-                IsGenericType: true,
-                TypeArguments.Length: 1,
-                ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
-            })
+        if (!ReadOnlySpanType.TryGetElementType(containingType, out var spanElement))
         {
             return SequenceSource.None;
         }
 
-        elementType = containingType.TypeArguments[0];
+        elementType = spanElement;
         return SequenceSource.Span;
     }
 
@@ -402,15 +375,8 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        for (var i = 0; i < resolved.Parameters.Length; i++)
-        {
-            if (i != index && !SymbolEqualityComparer.Default.Equals(resolved.Parameters[i].Type, original.Parameters[i].Type))
-            {
-                return false;
-            }
-        }
-
-        return AcceptsSequence(resolved.Parameters[index].Type, source, elementType);
+        return SiblingOverloads.ParameterTypesMatchExcept(resolved, original, index)
+            && AcceptsSequence(resolved.Parameters[index].Type, source, elementType);
     }
 
     /// <summary>Returns whether a parameter slot takes the original sequence itself.</summary>
@@ -425,14 +391,13 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (slotType is not INamedTypeSymbol { Name: ReadOnlySpanTypeName, IsGenericType: true, TypeArguments.Length: 1 } span
-            || span.ContainingNamespace is not { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true })
+        if (!ReadOnlySpanType.TryGetElementType(slotType, out var slotElement))
         {
             return false;
         }
 
         return source == SequenceSource.String
-            ? span.TypeArguments[0].SpecialType == SpecialType.System_Char
-            : SymbolEqualityComparer.Default.Equals(span.TypeArguments[0], elementType);
+            ? slotElement.SpecialType == SpecialType.System_Char
+            : SymbolEqualityComparer.Default.Equals(slotElement, elementType);
     }
 }

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -66,7 +67,7 @@ public class BooleanLiteralComparisonCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> BooleanLiteralComparison_ApplyFixAsync()
     {
-        var updated = Sst1143BooleanLiteralComparisonCodeFixProvider.Apply(_document, _root, _comparison);
+        var updated = TargetCodeFix.Apply(_document, _root, _comparison, Sst1143BooleanLiteralComparisonCodeFixProvider.Simplify);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,13 +17,16 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1709AlmostExtensionMethodCodeFixProvider))]
 [Shared]
-public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(ExtensionBlockMemberCodeFixProvider.TryRewriteAlmostExtension);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ExtensionRules.AlmostExtensionMethod.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -34,9 +35,4 @@ public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvide
             "Convert to an extension block member",
             nameof(Sst1709AlmostExtensionMethodCodeFixProvider),
             ExtensionBlockMemberCodeFixProvider.TryRewriteAlmostExtension);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, ExtensionBlockMemberCodeFixProvider.TryRewriteAlmostExtension);
 }

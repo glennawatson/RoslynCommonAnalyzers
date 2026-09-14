@@ -2,8 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using VerifyMixedStylesFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExtensionBlockAnalyzer,
     StyleSharp.Analyzers.ExtensionBlockMemberCodeFixProvider>;
@@ -16,6 +21,214 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="ExtensionBlockMemberCodeFixProvider"/> (SST1703, SST1705).</summary>
 public class ExtensionBlockMemberCodeFixProviderUnitTest
 {
+    /// <summary>Verifies batch callbacks preserve nodes already removed or changed by another edit.</summary>
+    /// <param name="currentSource">The current declaration after an earlier batch edit.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("struct Other { }")]
+    [Arguments("static class Extensions { }")]
+    [Arguments("static class Extensions { public static int M(string value) => 2; }")]
+    public async Task BatchCallbackPreservesChangedDeclarationAsync(string currentSource)
+    {
+        var root = await CSharpSyntaxTree.ParseText("static class Extensions { public static int M(string value) => 1; }").GetRootAsync();
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var diagnostic = Diagnostic.Create(ExtensionRules.AlmostExtensionMethod, method.Identifier.GetLocation());
+        var replacement = ExtensionBlockMemberCodeFixProvider.TryRewriteAlmostExtension(root, diagnostic);
+        await Assert.That(replacement.HasValue).IsTrue();
+        var current = SyntaxFactory.ParseMemberDeclaration(currentSource)!;
+        var updated = replacement!.Value.RewriteCurrent!(current);
+        await Assert.That(updated).IsSameReferenceAs(current);
+    }
+
+    /// <summary>Verifies receiver documentation can be the first element of a compact block comment.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task CompactReceiverDocumentationIsRemovedAsync()
+    {
+        var root = await CSharpSyntaxTree.ParseText(
+            """
+            static class Extensions
+            {
+                /**<param name="value">The receiver.</param><summary>Measures text.</summary>*/
+                public static int M(string value) => value.Length;
+            }
+            """).GetRootAsync();
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var diagnostic = Diagnostic.Create(ExtensionRules.AlmostExtensionMethod, method.Identifier.GetLocation());
+        var replacement = ExtensionBlockMemberCodeFixProvider.TryRewriteAlmostExtension(root, diagnostic);
+        await Assert.That(replacement.HasValue).IsTrue();
+        var rewritten = replacement!.Value.Replacement.ToFullString();
+        await Assert.That(rewritten).DoesNotContain("<param");
+        await Assert.That(rewritten).Contains("<summary>Measures text.</summary>");
+    }
+
+    /// <summary>Verifies XML-sensitive text inside a receiver type comment is escaped in the introduced documentation.</summary>
+    /// <param name="isStatic">Whether the source already includes the required static modifier.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task ReceiverCommentIsEscapedInDocumentationAsync(bool isStatic)
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject("ExtensionMove", LanguageNames.CSharp).WithParseOptions(new CSharpParseOptions(LanguageVersion.Preview));
+        var document = project.AddDocument(
+            "Test.cs",
+            $$"""static class Extensions { {{(isStatic ? "public static" : "public")}} int M(this System.Collections.Generic.List</* & */int> value) => value.Count; }""");
+        var root = (await document.GetSyntaxRootAsync())!;
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var diagnostic = Diagnostic.Create(ExtensionRules.PreferExtensionBlock, method.Identifier.GetLocation());
+        var actions = new List<CodeAction>();
+        using var container = new ContainerConfiguration().WithPart<ExtensionBlockMemberCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(1);
+        var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
+        var changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
+        var changedText = await changed.GetTextAsync();
+        await Assert.That(changedText.ToString()).Contains("List&lt;/* &amp; */int&gt;");
+        await Assert.That(changedText.ToString()).Contains("int M() => value.Count;");
+    }
+
+    /// <summary>Verifies both receiver modifiers survive a readonly-reference conversion.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RefReadonlyReceiverRetainsBothModifiersAsync() => RunPreferBlockAsync(
+        """
+        public static class Extensions
+        {
+            public static int {|SST1703:Read|}(this ref readonly int value) => value;
+        }
+        """,
+        """
+        public static class Extensions
+        {
+            /// <summary>Extension members for <c>int</c>.</summary>
+            extension(ref readonly int value)
+            {
+                public int Read() => value;
+            }
+        }
+        """);
+
+    /// <summary>Verifies multiple receiver type parameters and constraints match an existing block.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MultipleConstrainedParametersJoinMatchingBlockAsync() => RunPreferBlockAsync(
+        """
+        public static class Extensions
+        {
+            extension<T, U>((T, U) pair) where T : class where U : struct
+            {
+                public int Existing() => 0;
+            }
+
+            public static int {|SST1703:Count|}<T, U>(this (T, U) pair) where T : class where U : struct => 2;
+        }
+        """,
+        """
+        public static class Extensions
+        {
+            extension<T, U>((T, U) pair) where T : class where U : struct
+            {
+                public int Existing() => 0;
+
+                public int Count() => 2;
+            }
+        }
+        """);
+
+    /// <summary>Verifies a different constraint creates a separate block instead of changing the existing contract.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DifferentConstraintCreatesNewBlockAsync() => RunPreferBlockAsync(
+        """
+        public static class Extensions
+        {
+            extension<T>(T value) where T : class
+            {
+                public int Existing() => 0;
+            }
+
+            public static int {|SST1703:Count|}<T>(this T value) where T : struct => 1;
+        }
+        """,
+        """
+        public static class Extensions
+        {
+            extension<T>(T value) where T : class
+            {
+                public int Existing() => 0;
+            }
+
+            /// <summary>Extension members for <c>T</c>.</summary>
+            extension<T>(T value) where T : struct
+            {
+
+                public int Count() => 1;
+            }
+        }
+        """);
+
+    /// <summary>Verifies a leading static modifier is removed while later modifiers and documentation survive.</summary>
+    /// <param name="accessibility">The optional modifier following static.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("public ")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task LeadingStaticModifierAndUnmatchedDocumentationArePreservedAsync(string accessibility) => RunPreferBlockAsync(
+        $$"""
+        public static class Extensions
+        {
+            /// <summary>Measures text.</summary>
+            /// <typeparam name="Unused">An unmatched documentation element.</typeparam>
+            static {{accessibility}}int {|SST1703:Count|}(this string text) => text.Length;
+        }
+        """,
+        $$"""
+        public static class Extensions
+        {
+            /// <summary>Extension members for <c>string</c>.</summary>
+            extension(string text)
+            {
+                /// <summary>Measures text.</summary>
+                /// <typeparam name="Unused">An unmatched documentation element.</typeparam>
+                {{accessibility}}int Count() => text.Length;
+            }
+        }
+        """);
+
+    /// <summary>Verifies incompatible method syntax and directive boundaries prevent a rewrite.</summary>
+    /// <param name="source">The declaration at the diagnostic location.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("static class C { static void M() { } }")]
+    [Arguments("static class C { static void M(string text) { } }")]
+    [Arguments("static class C { static extern void M(this string text); }")]
+    [Arguments("static class C { static void M([System.Obsolete] this string text) { } }")]
+    [Arguments("static class C { static void M(this string text = null) { } }")]
+    [Arguments("static class C { static void M(this string @class) { } }")]
+    [Arguments("struct C { static void M(this string text) { } }")]
+    [Arguments("static class C { extension(string text) { }\n#region Methods\nstatic void M(this string text) { }\n#endregion\n}")]
+    [Arguments("static class C {\n#region Block\nextension(string text) { }\n#endregion\nstatic int Other;\nstatic void M(this string text) { }\n}")]
+    public async Task UnsupportedMethodOffersNoFixAsync(string source)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("ExtensionMove", LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var diagnostic = Diagnostic.Create(ExtensionRules.PreferExtensionBlock, method.Identifier.GetLocation());
+        var actions = new List<CodeAction>();
+        using var container = new ContainerConfiguration().WithPart<ExtensionBlockMemberCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+    }
+
     /// <summary>Verifies a classic extension method becomes a new extension block (SST1703).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

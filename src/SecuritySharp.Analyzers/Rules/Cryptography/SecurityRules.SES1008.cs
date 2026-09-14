@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1008 — an XML signature is verified against the key embedded in the document rather than a known one.</summary>
-    public static readonly DiagnosticDescriptor UntrustedXmlSignatureKey = Create(
+    public static readonly DiagnosticDescriptor UntrustedXmlSignatureKey = DescriptorFactory.Create(
         "SES1008",
         "Verify an XML signature against a known key",
         "'{0}' verifies the XML signature with the key embedded in the document, which an attacker can swap for their own; pass a known key or certificate to CheckSignature",

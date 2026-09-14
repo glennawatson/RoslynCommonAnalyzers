@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -17,8 +19,8 @@ namespace PerformanceSharp.Analyzers;
 /// <c>default</c> always qualifies.
 /// </para>
 /// <para>
-/// Both <c>Array.Fill</c> and <c>Array.Clear</c> are resolved once per compilation, so the rule
-/// costs nothing where <c>Fill</c> does not exist (it is .NET Core 2.0+). The whole-array
+/// Both <c>Array.Fill</c> and <c>Array.Clear</c> are resolved on first demand per compilation,
+/// after a candidate passes the syntax filter. <c>Fill</c> requires .NET Core 2.0+. The whole-array
 /// <c>Clear(Array)</c> overload is .NET 6+; where it is missing the rule falls back to
 /// <c>Clear(array, 0, array.Length)</c>, and then only when the array expression is a repeatable
 /// name — an expression that could have side effects is never evaluated twice.
@@ -42,11 +44,14 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the ranged <c>Fill(array, value, startIndex, count)</c> overload.</summary>
     internal const int RangedFillArgumentCount = 4;
 
-    /// <summary>The metadata name of the array type that hosts Fill and Clear.</summary>
-    private const string ArrayMetadataName = "System.Array";
+    /// <summary>The parameter count of the whole-array <c>Clear(Array)</c> overload.</summary>
+    private const int WholeArrayClearParameterCount = 1;
 
     /// <summary>The message argument naming the replacement call.</summary>
     private const string ClearMessageArg = "Array.Clear";
+
+    /// <summary>The metadata name of the array type that hosts Fill and Clear.</summary>
+    private const string ArrayMetadataName = "System.Array";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.ClearOverFillDefault);
@@ -60,21 +65,11 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var arrayType = start.Compilation.GetTypeByMetadataName(ArrayMetadataName);
-            if (arrayType is null
-                || !HasStaticMethod(arrayType, FillMethodName)
-                || !HasStaticMethod(arrayType, ClearMethodName))
-            {
-                return;
-            }
-
-            var hasWholeArrayClear = HasWholeArrayClear(arrayType);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, arrayType, hasWholeArrayClear),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<ArrayMethods>(compilation, ResolveArrayMethods),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the <c>Array.Fill(array, value, ...)</c> syntax shape, before any binding.</summary>
@@ -138,25 +133,14 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the array type exposes the whole-array <c>Clear(Array)</c> overload (.NET 6+).</summary>
     /// <param name="arrayType">The <c>System.Array</c> type in the current compilation.</param>
     /// <returns><see langword="true"/> when the single-parameter Clear exists.</returns>
-    internal static bool HasWholeArrayClear(INamedTypeSymbol arrayType)
-    {
-        var members = arrayType.GetMembers(ClearMethodName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 1 })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasWholeArrayClear(INamedTypeSymbol arrayType) =>
+        SymbolFacts.HasStaticMethod(arrayType, ClearMethodName, WholeArrayClearParameterCount);
 
     /// <summary>Reports PSH1127 for an <c>Array.Fill</c> call that writes the element type's default.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="arrayType">The <c>System.Array</c> type in the current compilation.</param>
-    /// <param name="hasWholeArrayClear">Whether the whole-array Clear overload exists.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol arrayType, bool hasWholeArrayClear)
+    /// <param name="methods">The deferred array method support for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ArrayMethods> methods)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsFillDefaultShape(invocation))
@@ -164,9 +148,15 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var resolved = methods.Get();
+        if (resolved.ArrayType is not { } arrayType)
+        {
+            return;
+        }
+
         var arguments = invocation.ArgumentList.Arguments;
         if (arguments.Count == WholeArrayFillArgumentCount
-            && !hasWholeArrayClear
+            && !resolved.SupportsWholeArrayClear
             && !IsRepeatableExpression(arguments[0].Expression))
         {
             return;
@@ -223,40 +213,33 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
     private static bool IsFillName(ExpressionSyntax callee) =>
         callee switch
         {
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: FillMethodName } access => IsArrayReceiver(access.Expression),
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: FillMethodName } access => TypeNameReceiver.EndsWithTypeName(access.Expression, ArrayTypeName),
             IdentifierNameSyntax { Identifier.ValueText: FillMethodName } => true,
             _ => false,
         };
 
-    /// <summary>Returns whether a receiver's rightmost name is <c>Array</c>.</summary>
-    /// <param name="receiver">The receiver expression.</param>
-    /// <returns><see langword="true"/> when the receiver names the Array type.</returns>
-    private static bool IsArrayReceiver(ExpressionSyntax receiver)
+    /// <summary>Resolves the array type and its Fill and Clear overloads.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>The supported array type and whether whole-array Clear exists.</returns>
+    private static ArrayMethods ResolveArrayMethods(Compilation compilation)
     {
-        var current = receiver;
-        while (current is MemberAccessExpressionSyntax nested)
-        {
-            current = nested.Name;
-        }
-
-        return current is IdentifierNameSyntax { Identifier.ValueText: ArrayTypeName };
+        var arrayType = compilation.GetTypeByMetadataName(ArrayMetadataName);
+        return arrayType is not null
+            && SymbolFacts.HasStaticMethod(arrayType, FillMethodName)
+            && SymbolFacts.HasStaticMethod(arrayType, ClearMethodName)
+            ? new(arrayType, HasWholeArrayClear(arrayType))
+            : new(null, false);
     }
 
-    /// <summary>Returns whether a type exposes a static method with the given name.</summary>
-    /// <param name="type">The type to probe.</param>
-    /// <param name="name">The method name to look for.</param>
-    /// <returns><see langword="true"/> when the probed method exists.</returns>
-    private static bool HasStaticMethod(INamedTypeSymbol type, string name)
+    /// <summary>The immutable array method support published by the deferred resolver.</summary>
+    /// <param name="arrayType">The array type, or null when Fill or Clear is unavailable.</param>
+    /// <param name="supportsWholeArrayClear">Whether the whole-array Clear overload exists.</param>
+    private sealed class ArrayMethods(INamedTypeSymbol? arrayType, bool supportsWholeArrayClear)
     {
-        var members = type.GetMembers(name);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
+        /// <summary>Gets the array type when Fill and Clear are available.</summary>
+        public INamedTypeSymbol? ArrayType { get; } = arrayType;
 
-        return false;
+        /// <summary>Gets whether the whole-array Clear overload exists.</summary>
+        public bool SupportsWholeArrayClear { get; } = supportsWholeArrayClear;
     }
 }

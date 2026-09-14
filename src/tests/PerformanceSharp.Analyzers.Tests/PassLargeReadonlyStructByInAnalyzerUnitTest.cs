@@ -532,6 +532,60 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Checks indexer parameters keep their property signature and native callbacks keep their ABI.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task IndexersAndNativeCallbacksKeepByValueParametersAsync() => VerifyAsync("""
+        interface I
+        {
+            long this[Snapshot snapshot] { get; }
+            long Score(Snapshot snapshot);
+        }
+        internal class C : I
+        {
+            internal long this[Snapshot snapshot] => snapshot.A;
+            long I.this[Snapshot snapshot] => snapshot.A;
+            long I.Score(Snapshot snapshot) => snapshot.A;
+            [System.Runtime.InteropServices.UnmanagedCallersOnly]
+            internal static long Callback(Snapshot snapshot) => snapshot.A;
+        }
+        """);
+
+    /// <summary>Checks unrelated attributes and overloaded interface members do not fix a private signature.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnrelatedAttributesAndInterfaceOverloadsAreReportedAsync() => VerifyAsync("""
+        interface I { long Score(int value); }
+        internal class C : I
+        {
+            public long Score(int value) => value;
+            [System.Obsolete]
+            internal long Score(Snapshot {|PSH1007:snapshot|}) => snapshot.A;
+            internal C(Snapshot {|PSH1007:snapshot|}) => _ = snapshot.A;
+            internal void M()
+            {
+                long Local(Snapshot {|PSH1007:snapshot|}) => snapshot.A;
+                _ = Local(default);
+            }
+        }
+        """);
+
+    /// <summary>Checks an attributed method remains reportable on a framework without the native callback marker.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingNativeCallbackAttributeTypeDoesNotBlockReportingAsync()
+    {
+        var test = new VerifyInParameter.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.NetStandard20,
+            TestCode = $$"""internal class C { [System.Obsolete] internal long M(Snapshot {|PSH1007:snapshot|}) => snapshot.A; }{{Structs}}""",
+        };
+        test.TestState.Sources.Add(("IsExternalInit.cs", "namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs an analyzer verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

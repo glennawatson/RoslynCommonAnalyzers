@@ -7,8 +7,8 @@ namespace PerformanceSharp.Analyzers;
 /// <summary>
 /// Flags <c>await Task.Delay(...)</c> statements that pace a <c>while</c>/<c>do</c> loop
 /// (PSH1304), suggesting <c>PeriodicTimer</c>. The whole rule is gated on
-/// <c>System.Threading.PeriodicTimer</c> existing in the compilation, so it costs nothing on
-/// frameworks without it. Only unconditional pacing is reported — the delay statement must be a
+/// <c>System.Threading.PeriodicTimer</c> existing in the compilation; framework types are resolved
+/// only after the syntax checks pass. Only unconditional pacing is reported — the delay statement must be a
 /// direct child of the loop body — and loops that adjust the delay between iterations (retry
 /// backoff) stay clean: any identifier used in the delay argument that is written inside the
 /// loop suppresses the report. <c>for</c>/<c>foreach</c> loops are skipped because a bounded
@@ -43,26 +43,21 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var taskType = start.Compilation.GetTypeByMetadataName(TaskMetadataName);
-            if (taskType is null || start.Compilation.GetTypeByMetadataName(PeriodicTimerMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAwait(nodeContext, taskType), SyntaxKind.AwaitExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveTask),
+            AnalyzeAwait,
+            SyntaxKind.AwaitExpression);
     }
 
     /// <summary>Reports PSH1304 for an awaited delay that unconditionally paces a while/do loop.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The task type providing Delay.</param>
-    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
+    /// <param name="markers">The compilation's lazily resolved task and timer types.</param>
+    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> markers)
     {
         var awaitExpression = (AwaitExpressionSyntax)context.Node;
         if (awaitExpression.Expression is not InvocationExpressionSyntax invocation
-            || !IsTaskDelayShape(invocation)
+            || !TypeNameReceiver.IsCallOnTypeName(invocation, DelayMethodName, TaskTypeName)
             || TryGetPacedLoopBody(awaitExpression) is not { } loopBody
             || LoopIsBounded(loopBody)
             || DelayArgumentIsAdjustedInLoop(invocation, loopBody))
@@ -70,7 +65,8 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
+        if (markers.Get() is not { } taskType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, taskType))
         {
             return;
@@ -80,27 +76,6 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
             ConcurrencyRules.UsePeriodicTimer,
             awaitExpression.SyntaxTree,
             awaitExpression.Span));
-    }
-
-    /// <summary>Returns whether an invocation has the <c>Task.Delay(...)</c> syntax shape, before any binding.</summary>
-    /// <param name="invocation">The invocation to inspect.</param>
-    /// <returns><see langword="true"/> when the member name is Delay and the receiver's rightmost identifier is Task.</returns>
-    private static bool IsTaskDelayShape(InvocationExpressionSyntax invocation)
-    {
-        if (invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText != DelayMethodName)
-        {
-            return false;
-        }
-
-        var receiver = access.Expression;
-        while (receiver is MemberAccessExpressionSyntax nested)
-        {
-            receiver = nested.Name;
-        }
-
-        return receiver is IdentifierNameSyntax identifier
-            && identifier.Identifier.ValueText == TaskTypeName;
     }
 
     /// <summary>
@@ -156,24 +131,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        var state = default(RelationalScanState);
-        _ = DescendantTraversalHelper.VisitDescendants<BinaryExpressionSyntax, RelationalScanState>(condition, ref state, VisitConditionOperand);
-        return state.Found;
-    }
-
-    /// <summary>Classifies one binary expression inside a loop condition.</summary>
-    /// <param name="binary">The visited binary expression.</param>
-    /// <param name="state">The current scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once a bound is seen.</returns>
-    private static bool VisitConditionOperand(BinaryExpressionSyntax binary, ref RelationalScanState state)
-    {
-        if (!IsRelational(binary))
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
+        return !DescendantTraversalHelper.VisitDescendants<BinaryExpressionSyntax>(condition, static binary => !IsRelational(binary));
     }
 
     /// <summary>Returns whether an expression compares two operands for order.</summary>
@@ -200,77 +158,41 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     private static bool DelayArgumentIsAdjustedInLoop(InvocationExpressionSyntax invocation, StatementSyntax loopBody)
     {
         var written = new HashSet<string>(StringComparer.Ordinal);
-        var writeState = new WrittenNameScanState(written);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WrittenNameScanState>(loopBody, ref writeState, VisitWrittenName);
-
-        if (written.Count == 0)
-        {
-            return false;
-        }
-
-        var readState = new DelayIdentifierScanState(written);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, DelayIdentifierScanState>(invocation.ArgumentList, ref readState, VisitDelayIdentifier);
-        return readState.Found;
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(loopBody, ref written, VisitWrittenName);
+        return written.Count != 0
+            && !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(invocation.ArgumentList, ref written, IsUnwrittenName);
     }
 
     /// <summary>Records one identifier the loop body writes.</summary>
     /// <param name="identifier">The visited identifier.</param>
-    /// <param name="state">The current scan state.</param>
+    /// <param name="names">The names the loop body writes.</param>
     /// <returns><see langword="true"/> to continue scanning.</returns>
-    private static bool VisitWrittenName(IdentifierNameSyntax identifier, ref WrittenNameScanState state)
+    private static bool VisitWrittenName(IdentifierNameSyntax identifier, ref HashSet<string> names)
     {
-        if (!IsWriteTarget(identifier))
+        if (!WriteTargetSyntax.IsIdentifierWriteTarget(identifier))
         {
             return true;
         }
 
-        _ = state.Names.Add(identifier.Identifier.ValueText);
+        _ = names.Add(identifier.Identifier.ValueText);
         return true;
     }
 
-    /// <summary>Classifies one identifier the delay argument reads.</summary>
+    /// <summary>Continues the walk past an identifier the loop body does not write.</summary>
     /// <param name="identifier">The visited identifier.</param>
-    /// <param name="state">The current scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once a match is found.</returns>
-    private static bool VisitDelayIdentifier(IdentifierNameSyntax identifier, ref DelayIdentifierScanState state)
+    /// <param name="written">The names the loop body writes.</param>
+    /// <returns><see langword="false"/> at a written name, which stops the walk.</returns>
+    private static bool IsUnwrittenName(IdentifierNameSyntax identifier, ref HashSet<string> written) =>
+        !written.Contains(identifier.Identifier.ValueText);
+
+    /// <summary>Resolves the task type and checks for the periodic timer replacement.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    /// <returns>The task type, or null when either required type is absent.</returns>
+    private static INamedTypeSymbol? ResolveTask(Compilation compilation)
     {
-        if (!state.Written.Contains(identifier.Identifier.ValueText))
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
-    /// <param name="identifier">The identifier occurrence.</param>
-    /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
-    private static bool IsWriteTarget(IdentifierNameSyntax identifier) =>
-        identifier.Parent switch
-        {
-            AssignmentExpressionSyntax assignment => assignment.Left == identifier,
-            PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
-            ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),
-            _ => false,
-        };
-
-    /// <summary>Tracks whether a loop condition compares two operands for order.</summary>
-    private record struct RelationalScanState
-    {
-        /// <summary>Gets or sets a value indicating whether a relational comparison was found.</summary>
-        public bool Found { get; set; }
-    }
-
-    /// <summary>Collects the names a loop body writes, in one pass over it.</summary>
-    /// <param name="Names">The names collected so far.</param>
-    private readonly record struct WrittenNameScanState(HashSet<string> Names);
-
-    /// <summary>Decides whether the delay argument reads any name the loop body writes.</summary>
-    /// <param name="Written">The names the loop body writes.</param>
-    private record struct DelayIdentifierScanState(HashSet<string> Written)
-    {
-        /// <summary>Gets or sets a value indicating whether the delay amount changes between iterations.</summary>
-        public bool Found { get; set; }
+        var taskType = compilation.GetTypeByMetadataName(TaskMetadataName);
+        return taskType is not null && compilation.GetTypeByMetadataName(PeriodicTimerMetadataName) is not null
+            ? taskType
+            : null;
     }
 }

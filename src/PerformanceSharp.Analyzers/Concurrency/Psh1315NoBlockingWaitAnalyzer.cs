@@ -49,21 +49,16 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (AsyncSiblingResolver.TaskTypes.Create(start.Compilation) is not { } tasks)
-            {
-                return;
-            }
+            var taskSymbols = new LazyCompilationValue<AsyncSiblingResolver.TaskTypes?>(start.Compilation, AsyncSiblingResolver.TaskTypes.Create, runOnce: true);
 
             // Only a violation ever needs these, and binding an entry point is not free: a clean
             // file must not pay for either.
-            var compilation = start.Compilation;
-            var notifyCompletion = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(NotifyCompletionMetadataName));
-            var entryPoint = new Lazy<IMethodSymbol?>(() => compilation.GetEntryPoint(CancellationToken.None));
+            var exemptions = new LazyCompilationValue<BlockingWaitExemptions>(start.Compilation, ResolveExemptions, runOnce: true);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, tasks, notifyCompletion, entryPoint),
+                nodeContext => Analyze(nodeContext, taskSymbols, exemptions),
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxKind.InvocationExpression);
         });
@@ -71,19 +66,19 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1315 for a blocking wait the code has not proved complete and the author can act on.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="tasks">The task types resolved for the compilation.</param>
-    /// <param name="notifyCompletion">The lazily resolved awaiter marker interface.</param>
-    /// <param name="entryPoint">The lazily resolved entry point.</param>
+    /// <param name="taskSymbols">The task types resolved on demand for the compilation.</param>
+    /// <param name="exemptions">The awaiter marker and entry point resolved only for a possible violation.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        in AsyncSiblingResolver.TaskTypes tasks,
-        Lazy<INamedTypeSymbol?> notifyCompletion,
-        Lazy<IMethodSymbol?> entryPoint)
+        LazyCompilationValue<AsyncSiblingResolver.TaskTypes?> taskSymbols,
+        LazyCompilationValue<BlockingWaitExemptions> exemptions)
     {
         var node = context.Node;
-        if (BlockingWait.TryMatch(node, context.SemanticModel, tasks, context.CancellationToken) is not { } site
+        if (!IsBlockingWaitShape(node)
+            || taskSymbols.Get() is not { } tasks
+            || BlockingWait.TryMatch(node, context.SemanticModel, tasks, context.CancellationToken) is not { } site
             || IsProvablyComplete(node, site)
-            || IsUnactionable(context, node, notifyCompletion, entryPoint))
+            || IsUnactionable(context, node, exemptions))
         {
             return;
         }
@@ -95,6 +90,22 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
             site.BlockingMember,
             DescribeBlockedOn(node, site)));
     }
+
+    /// <summary>Rejects member names and argument counts that cannot match a blocking wait.</summary>
+    /// <param name="node">The candidate member access or invocation.</param>
+    /// <returns>Whether the syntax can match one of the supported blocking waits.</returns>
+    private static bool IsBlockingWaitShape(SyntaxNode node) => node switch
+    {
+        MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText == BlockingWait.ResultPropertyName,
+        InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation => access.Name.Identifier.ValueText switch
+        {
+            BlockingWait.WaitMethodName or BlockingWait.RunSynchronouslyMethodName => true,
+            BlockingWait.WaitAllMethodName or BlockingWait.WaitAnyMethodName => invocation.ArgumentList.Arguments.Count > 0,
+            BlockingWait.GetResultMethodName => invocation.ArgumentList.Arguments.Count == 0,
+            _ => false,
+        },
+        _ => false,
+    };
 
     /// <summary>Returns whether a completion check already proved the wait cannot block.</summary>
     /// <param name="node">The blocking expression.</param>
@@ -144,8 +155,7 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the author could not act on the wait even if it were reported.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The blocking expression.</param>
-    /// <param name="notifyCompletion">The lazily resolved awaiter marker interface.</param>
-    /// <param name="entryPoint">The lazily resolved entry point.</param>
+    /// <param name="exemptions">The awaiter marker and entry point resolved only for a possible violation.</param>
     /// <returns><see langword="true"/> when the enclosing member cannot await.</returns>
     /// <remarks>
     /// Inside an <c>async</c> function the fix is an <c>await</c> and no signature moves, so the
@@ -154,8 +164,20 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     private static bool IsUnactionable(
         in SyntaxNodeAnalysisContext context,
         SyntaxNode node,
-        Lazy<INamedTypeSymbol?> notifyCompletion,
-        Lazy<IMethodSymbol?> entryPoint) =>
-        !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node)
-            && BlockingWaitExemption.IsExempt(context, node, notifyCompletion.Value, entryPoint.Value);
+        LazyCompilationValue<BlockingWaitExemptions> exemptions)
+    {
+        if (Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node))
+        {
+            return false;
+        }
+
+        var symbols = exemptions.Get();
+        return BlockingWaitExemption.IsExempt(context, node, symbols.NotifyCompletion, symbols.EntryPoint);
+    }
+
+    /// <summary>Resolves the awaiter marker interface and the compilation's entry point.</summary>
+    /// <param name="compilation">The compilation whose exemption symbols are resolved.</param>
+    /// <returns>The marker interface and entry point, either of which can be absent.</returns>
+    private static BlockingWaitExemptions ResolveExemptions(Compilation compilation) =>
+        new(compilation.GetTypeByMetadataName(NotifyCompletionMetadataName), compilation.GetEntryPoint(CancellationToken.None));
 }

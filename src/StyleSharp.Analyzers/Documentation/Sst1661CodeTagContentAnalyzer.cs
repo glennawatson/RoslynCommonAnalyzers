@@ -59,25 +59,20 @@ public sealed class Sst1661CodeTagContentAnalyzer : DiagnosticAnalyzer
         var multiLine = text.Lines.GetLineFromPosition(firstPosition).LineNumber
             != text.Lines.GetLineFromPosition(lastPosition).LineNumber;
 
-        var (description, target) = (name, multiLine) switch
-        {
-            (BlockTag, false) => ("single-line", InlineTag),
-            (InlineTag, true) => ("multi-line", BlockTag),
-            _ => (null, null),
-        };
-
-        if (description is null || target is null)
+        // A block tag belongs on multi-line content and an inline tag on single-line content.
+        if ((name == BlockTag) == multiLine)
         {
             return;
         }
 
+        var target = multiLine ? BlockTag : InlineTag;
         var properties = ImmutableDictionary<string, string?>.Empty.Add(TargetTagKey, target);
         context.ReportDiagnostic(DiagnosticHelper.Create(
             DocumentationRules.CodeTagContent,
             element.SyntaxTree,
             element.Span,
             properties,
-            description,
+            multiLine ? "multi-line" : "single-line",
             target));
     }
 }

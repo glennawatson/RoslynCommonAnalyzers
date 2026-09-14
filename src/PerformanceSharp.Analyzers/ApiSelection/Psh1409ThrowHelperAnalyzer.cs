@@ -19,15 +19,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata names of the guard exception types, indexed like <see cref="ExceptionSimpleNames"/>.</summary>
-    private static readonly string[] ExceptionMetadataNames =
-    [
-        "System.ArgumentNullException",
-        "System.ArgumentException",
-        "System.ObjectDisposedException",
-        "System.ArgumentOutOfRangeException",
-    ];
-
     /// <summary>The simple names of the guard exception types.</summary>
     private static readonly string[] ExceptionSimpleNames =
     [
@@ -38,16 +29,20 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     ];
 
     /// <summary>The helper-alias names probed for null guards (the Primitives polyfill convention).</summary>
-    private static readonly string[] NullCheckAliases = ["ArgumentNullExceptionHelper", "ArgumentExceptionHelper"];
+    private static readonly IdentifierNameSyntax[] NullCheckAliases =
+        [SyntaxFactory.IdentifierName("ArgumentNullExceptionHelper"), SyntaxFactory.IdentifierName("ArgumentExceptionHelper")];
 
     /// <summary>The helper-alias names probed for string emptiness guards.</summary>
-    private static readonly string[] EmptinessAliases = ["ArgumentExceptionHelper", "ArgumentNullExceptionHelper"];
+    private static readonly IdentifierNameSyntax[] EmptinessAliases = [NullCheckAliases[1], NullCheckAliases[0]];
 
     /// <summary>The helper-alias names probed for disposal guards.</summary>
-    private static readonly string[] DisposedAliases = ["ObjectDisposedExceptionHelper"];
+    private static readonly IdentifierNameSyntax[] DisposedAliases = [SyntaxFactory.IdentifierName("ObjectDisposedExceptionHelper")];
 
     /// <summary>The helper-alias names probed for comparison guards.</summary>
-    private static readonly string[] ComparisonAliases = ["ArgumentOutOfRangeExceptionHelper"];
+    private static readonly IdentifierNameSyntax[] ComparisonAliases = [SyntaxFactory.IdentifierName("ArgumentOutOfRangeExceptionHelper")];
+
+    /// <summary>The cached type syntax used to check the short BCL receiver spelling.</summary>
+    private static readonly IdentifierNameSyntax ArgumentExceptionName = SyntaxFactory.IdentifierName(nameof(ArgumentException));
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseThrowHelpers);
@@ -80,26 +75,11 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // No helper-existence gate here: even on frameworks without the BCL helpers, an
-            // aliased polyfill helper (the Primitives model) can make a guard fixable, and
-            // aliases are only visible through position-based lookup during analysis.
-            var exceptionTypes = new INamedTypeSymbol?[ExceptionMetadataNames.Length];
-            var anyException = false;
-            for (var i = 0; i < ExceptionMetadataNames.Length; i++)
-            {
-                exceptionTypes[i] = start.Compilation.GetTypeByMetadataName(ExceptionMetadataNames[i]);
-                anyException |= exceptionTypes[i] is not null;
-            }
-
-            if (!anyException)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeIf(nodeContext, exceptionTypes), SyntaxKind.IfStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new GuardTypes(compilation),
+            AnalyzeIf,
+            SyntaxKind.IfStatement);
     }
 
     /// <summary>Classifies a guard clause, before any binding.</summary>
@@ -140,43 +120,47 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="position">The guard's position, anchoring alias lookups.</param>
     /// <param name="shape">The classified guard.</param>
     /// <returns>The receiver spelling, or <see langword="null"/> when no helper is available.</returns>
-    internal static string? TryGetHelperReceiver(SemanticModel model, int position, in GuardShape shape)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string? TryGetHelperReceiver(SemanticModel model, int position, in GuardShape shape) =>
+        TryGetHelperReceiver(model, position, shape, new(model.Compilation));
+
+    /// <summary>Resolves a helper receiver using the compilation's cached guard types.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="position">The guard's position, anchoring alias lookups.</param>
+    /// <param name="shape">The classified guard.</param>
+    /// <param name="types">The compilation's deferred guard types.</param>
+    /// <returns>The receiver spelling, or null when no helper is available.</returns>
+    private static string? TryGetHelperReceiver(SemanticModel model, int position, in GuardShape shape, GuardTypes types)
     {
         // Alias names first: projects following the Primitives polyfill model alias
         // e.g. ArgumentExceptionHelper to an internal polyfill on net4x and to the BCL
         // exception on net8+, so the alias spelling compiles on every target framework.
         foreach (var alias in GetAliasCandidates(shape.Kind))
         {
-            foreach (var candidate in model.LookupNamespacesAndTypes(position, name: alias))
+            // Bind the candidate directly: enumerating the scope through LookupNamespacesAndTypes
+            // materializes unrelated symbols and immutable lookup maps.
+            if (model.GetSpeculativeSymbolInfo(position, alias, SpeculativeBindingOption.BindAsTypeOrNamespace).Symbol
+                is INamedTypeSymbol type && HasHelperMember(type, shape.HelperName))
             {
-                var type = candidate switch
-                {
-                    IAliasSymbol { Target: INamedTypeSymbol aliased } => aliased,
-                    INamedTypeSymbol named => named,
-                    _ => null,
-                };
-
-                if (type is not null && HasHelperMember(type, shape.HelperName))
-                {
-                    return alias;
-                }
+                return alias.Identifier.ValueText;
             }
         }
 
-        return TryGetBclReceiver(model, position, shape);
+        return TryGetBclReceiver(model, position, shape, types);
     }
 
     /// <summary>Resolves the BCL receiver spelling when the framework itself carries the helper.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="position">The guard's position, anchoring lookups.</param>
     /// <param name="shape">The classified guard.</param>
+    /// <param name="types">The compilation's deferred guard types.</param>
     /// <returns>The receiver spelling, or <see langword="null"/>.</returns>
-    private static string? TryGetBclReceiver(SemanticModel model, int position, in GuardShape shape)
+    private static string? TryGetBclReceiver(SemanticModel model, int position, in GuardShape shape, GuardTypes types)
     {
         var isEmptiness = shape.Kind is GuardKind.NullOrEmpty or GuardKind.NullOrWhiteSpace;
         var ownerIndex = isEmptiness ? 1 : GetExceptionIndex(shape.Creation);
         if (ownerIndex < 0
-            || model.Compilation.GetTypeByMetadataName(ExceptionMetadataNames[ownerIndex]) is not { } owner
+            || types.GetException(ownerIndex) is not { } owner
             || !HasHelperMember(owner, shape.HelperName))
         {
             return null;
@@ -187,7 +171,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
             return shape.Creation.Type.ToString();
         }
 
-        return ResolvesInSystem(model, position, nameof(ArgumentException))
+        return ResolvesInSystem(model, position, ArgumentExceptionName)
             ? nameof(ArgumentException)
             : "global::System.ArgumentException";
     }
@@ -263,12 +247,12 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the parts of a <c>string.IsNullOrEmpty(x)</c>-style condition.</summary>
     /// <param name="condition">The guard condition.</param>
     /// <returns>The probe method name and checked identifier, or <see langword="null"/>.</returns>
-    private static (string MethodName, IdentifierNameSyntax Value)? TryGetStringProbe(ExpressionSyntax condition) =>
+    private static StringProbe? TryGetStringProbe(ExpressionSyntax condition) =>
         condition is not InvocationExpressionSyntax { ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax value }] } invocation
             || invocation.Expression is not MemberAccessExpressionSyntax access
             || access.Name.Identifier.ValueText is not ("IsNullOrEmpty" or "IsNullOrWhiteSpace")
             ? null
-            : (access.Name.Identifier.ValueText, value);
+            : new StringProbe(access.Name.Identifier.ValueText, value);
 
     /// <summary>Classifies disposal guards whose thrown name comes from the type.</summary>
     /// <param name="condition">The guard condition.</param>
@@ -318,29 +302,16 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="binary">The comparison condition.</param>
     /// <param name="paramName">The parameter name the creation spells.</param>
     /// <returns>The oriented parts, or <see langword="null"/> when neither side names the parameter.</returns>
-    private static (IdentifierNameSyntax Value, ExpressionSyntax Operand, SyntaxKind Kind)? TryOrientComparison(
+    private static OrientedComparison? TryOrientComparison(
         BinaryExpressionSyntax binary,
         string paramName) =>
         binary switch
         {
             { Left: IdentifierNameSyntax left } when left.Identifier.ValueText == paramName
-                => (left, binary.Right, binary.Kind()),
+                => new OrientedComparison(left, binary.Right, binary.Kind()),
             { Right: IdentifierNameSyntax right } when right.Identifier.ValueText == paramName
-                => (right, binary.Left, Mirror(binary.Kind())),
+                => new OrientedComparison(right, binary.Left, ComparisonKinds.Mirror(binary.Kind())),
             _ => null,
-        };
-
-    /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The kind with the value on the left.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind) =>
-        kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
         };
 
     /// <summary>Maps a value-on-the-left comparison to its throw helper.</summary>
@@ -420,7 +391,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the alias names probed for a guard kind.</summary>
     /// <param name="kind">The guard kind.</param>
     /// <returns>The candidate alias names.</returns>
-    private static string[] GetAliasCandidates(GuardKind kind) =>
+    private static IdentifierNameSyntax[] GetAliasCandidates(GuardKind kind) =>
         kind switch
         {
             GuardKind.NullCheck => NullCheckAliases,
@@ -451,23 +422,14 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="position">The lookup position.</param>
     /// <param name="name">The simple type name.</param>
     /// <returns><see langword="true"/> when the simple spelling binds.</returns>
-    private static bool ResolvesInSystem(SemanticModel model, int position, string name)
-    {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: name))
-        {
-            if (candidate is INamedTypeSymbol { ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    private static bool ResolvesInSystem(SemanticModel model, int position, IdentifierNameSyntax name) =>
+        model.GetSpeculativeSymbolInfo(position, name, SpeculativeBindingOption.BindAsTypeOrNamespace).Symbol
+            is INamedTypeSymbol { ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } };
 
     /// <summary>Reports PSH1409 for a guard whose helper exists and whose shape binds correctly.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="exceptionTypes">The resolved exception types, indexed like the name tables.</param>
-    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] exceptionTypes)
+    /// <param name="types">The compilation's deferred guard types.</param>
+    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, GuardTypes types)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
         if (TryClassify(ifStatement) is not { } shape)
@@ -477,9 +439,9 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
 
         var index = GetExceptionIndex(shape.Creation);
         if (index < 0
-            || exceptionTypes[index] is not { } thrownType
-            || !IsBoundGuard(context, shape, thrownType)
-            || TryGetHelperReceiver(context.SemanticModel, ifStatement.SpanStart, shape) is not { } receiver)
+            || types.GetException(index) is not { } thrownType
+            || !IsBoundGuard(context, shape, thrownType, types)
+            || TryGetHelperReceiver(context.SemanticModel, ifStatement.SpanStart, shape, types) is not { } receiver)
         {
             return;
         }
@@ -495,8 +457,9 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="shape">The classified guard.</param>
     /// <param name="thrownType">The expected thrown exception type.</param>
+    /// <param name="types">The compilation's deferred guard types.</param>
     /// <returns><see langword="true"/> when the guard should be reported.</returns>
-    private static bool IsBoundGuard(in SyntaxNodeAnalysisContext context, in GuardShape shape, INamedTypeSymbol thrownType)
+    private static bool IsBoundGuard(in SyntaxNodeAnalysisContext context, in GuardShape shape, INamedTypeSymbol thrownType, GuardTypes types)
     {
         var model = context.SemanticModel;
         if (model.GetTypeInfo(shape.Creation, context.CancellationToken).Type is not INamedTypeSymbol created
@@ -507,15 +470,15 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
 
         return shape.Kind switch
         {
-            GuardKind.NullCheck => model.GetTypeInfo(shape.Value, context.CancellationToken).Type is { IsReferenceType: true } valueType
-                && !IsSystemThreadingLock(model.Compilation, valueType),
+            GuardKind.NullCheck => model.GetTypeInfo(shape.Value, context.CancellationToken).Type is { IsReferenceType: true, TypeKind: not TypeKind.Error } valueType
+                && !IsSystemThreadingLock(types, valueType),
             GuardKind.Comparison => IsNumericType(model.GetTypeInfo(shape.Value, context.CancellationToken).Type),
             _ => true,
         };
     }
 
     /// <summary>Returns whether a type is <c>System.Threading.Lock</c>.</summary>
-    /// <param name="compilation">The compilation, used to resolve the well-known type.</param>
+    /// <param name="types">The compilation's deferred guard types.</param>
     /// <param name="type">The checked value's type.</param>
     /// <returns>
     /// <see langword="true"/> for <c>System.Threading.Lock</c>. Suggesting <c>ArgumentNullException.ThrowIfNull</c>
@@ -523,8 +486,9 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// (a <c>Lock</c> widened to <c>object</c> would silently fall back to monitor-based locking).
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsSystemThreadingLock(Compilation compilation, ITypeSymbol type) =>
-        SymbolEqualityComparer.Default.Equals(type, compilation.GetTypeByMetadataName("System.Threading.Lock"));
+    private static bool IsSystemThreadingLock(GuardTypes types, ITypeSymbol type) =>
+        type.Name == "Lock"
+        && SymbolEqualityComparer.Default.Equals(type, types.GetLock());
 
     /// <summary>Returns whether a type is one of the built-in numeric types the helpers accept.</summary>
     /// <param name="type">The checked value's type.</param>
@@ -575,5 +539,37 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
 
         /// <summary>The disposal helper name.</summary>
         internal const string DisposedHelperName = "ThrowIf";
+    }
+
+    /// <summary>Resolves each guard type once per compilation, only when a matching guard needs it.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class GuardTypes(Compilation compilation)
+    {
+        /// <summary>The metadata names of the guard exception types, indexed like <see cref="ExceptionSimpleNames"/>.</summary>
+        private static readonly string[] ExceptionMetadataNames =
+        [
+            "System.ArgumentNullException",
+            "System.ArgumentException",
+            "System.ObjectDisposedException",
+            "System.ArgumentOutOfRangeException",
+        ];
+
+        /// <summary>The per-exception results, each published only after that type has been resolved.</summary>
+        private readonly INamedTypeSymbol?[]?[] _exceptions = new INamedTypeSymbol?[ExceptionMetadataNames.Length][];
+
+        /// <summary>The resolved lock result, including a null entry when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _lock;
+
+        /// <summary>Gets one exception type, caching an absent type too.</summary>
+        /// <param name="index">The index into the exception metadata names.</param>
+        /// <returns>The exception type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetException(int index) =>
+            (_exceptions[index] ??= [compilation.GetTypeByMetadataName(ExceptionMetadataNames[index])])[0];
+
+        /// <summary>Gets the lock type only after a null guard checks a type named Lock.</summary>
+        /// <returns>The lock type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetLock() => (_lock ??= [compilation.GetTypeByMetadataName("System.Threading.Lock")])[0];
     }
 }

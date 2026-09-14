@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -16,7 +14,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider))]
 [Shared]
-public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : CodeFixProvider
 {
     /// <summary>The metadata name of the key/value pair type probed for Deconstruct.</summary>
     private const string KeyValuePairMetadataName = "System.Collections.Generic.KeyValuePair`2";
@@ -24,20 +22,27 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
     /// <summary>The deconstruct member the rewrite relies on.</summary>
     private const string DeconstructMethodName = "Deconstruct";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.NoConcurrentSnapshotEnumeration.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        PairSupportsDeconstruct(model.Compilation)
+            && TryGetFixableForEach(root, diagnostic)is { };
 
     /// <summary>Resolves the reported foreach and builds its deconstructing replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -82,9 +87,11 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
                 isKeys ? new VariableDesignationSyntax[] { variable, discard } : [discard, variable]));
 
         var declaration = SyntaxFactory.DeclarationExpression(
-                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")),
-                designation.WithLeadingTrivia(SyntaxFactory.Space))
-            .WithTrailingTrivia(SyntaxFactory.Space);
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")),
+            designation.Update(
+                designation.OpenParenToken.WithLeadingTrivia(SyntaxFactory.Space),
+                designation.Variables,
+                designation.CloseParenToken.WithTrailingTrivia(SyntaxFactory.Space)));
 
         return SyntaxFactory.ForEachVariableStatement(
             statement.AttributeLists,

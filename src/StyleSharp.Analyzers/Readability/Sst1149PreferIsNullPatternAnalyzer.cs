@@ -26,11 +26,7 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var expressionType = start.Compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1");
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, expressionType), SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => Analyze(nodeContext), SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
     }
 
     /// <summary>Returns whether the comparison checks one operand against the <c>null</c> literal.</summary>
@@ -59,8 +55,7 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SST1149 when a null comparison can be rewritten as an <c>is</c>-pattern.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionType">The resolved <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
 
@@ -77,7 +72,7 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (expressionType is not null && IsInExpressionTree(binary, context.SemanticModel, expressionType, context.CancellationToken))
+        if (IsInExpressionTree(binary, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -88,15 +83,20 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the comparison appears inside a lambda converted to an expression tree.</summary>
     /// <param name="node">A node inside the candidate null comparison.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="expressionType">The resolved <c>Expression&lt;TDelegate&gt;</c> definition.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the containing lambda is an expression tree.</returns>
-    private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, INamedTypeSymbol expressionType, CancellationToken cancellationToken)
+    private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
             if (current is AnonymousFunctionExpressionSyntax anonymous)
             {
+                var expressionType = model.Compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1");
+                if (expressionType is null)
+                {
+                    return false;
+                }
+
                 if (model.GetTypeInfo(anonymous, cancellationToken).ConvertedType is INamedTypeSymbol converted
                     && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, expressionType))
                 {

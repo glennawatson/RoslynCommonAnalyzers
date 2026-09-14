@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace PerformanceSharp.Analyzers;
@@ -16,7 +15,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1013Utf8SpanPropertyCodeFixProvider))]
 [Shared]
-public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider
 {
     /// <summary>The simple name of the span type.</summary>
     private const string ReadOnlySpanTypeName = "ReadOnlySpan";
@@ -24,20 +23,47 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
     /// <summary>The fully qualified spelling used when the simple name does not resolve.</summary>
     private const string QualifiedReadOnlySpanName = "global::System.ReadOnlySpan";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.UseUtf8SpanProperty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use a ReadOnlySpan<byte> property", nameof(Psh1013Utf8SpanPropertyCodeFixProvider), TryRewrite);
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field
+                || !Psh1013Utf8SpanPropertyAnalyzer.HasCandidateShape(field)
+                || Psh1013Utf8SpanPropertyAnalyzer.TryGetUtf8Source(field.Declaration.Variables[0].Initializer!.Value) is null)
+            {
+                continue;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Use a ReadOnlySpan<byte> property",
+                    async cancellationToken =>
+                    {
+                        var model = await context.Document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+                        return model is not null && TryRewrite(root, model, diagnostic) is { } edit
+                            ? context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
+                            : context.Document;
+                    },
+                    equivalenceKey: nameof(Psh1013Utf8SpanPropertyCodeFixProvider)),
+                diagnostic);
+        }
+    }
 
     /// <summary>Resolves the reported field and builds its span property replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -54,7 +80,10 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
         }
 
         var spanSpelling = ResolvesReadOnlySpan(model, field.SpanStart) ? ReadOnlySpanTypeName : QualifiedReadOnlySpanName;
-        var text = new StringBuilder();
+        var capacity = spanSpelling.Length + "<byte> ".Length + field.Declaration.Variables[0].Identifier.Span.Length
+            + " => ".Length + literal.Span.Length + 1 + GetModifierTextLength(field.Modifiers);
+
+        var text = new StringBuilder(capacity);
         foreach (var modifier in field.Modifiers)
         {
             if (!modifier.IsKind(SyntaxKind.ReadOnlyKeyword))
@@ -69,6 +98,23 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
 
         var property = SyntaxFactory.ParseMemberDeclaration(text.ToString());
         return property is null ? null : new NodeReplacement(field, property.WithTriviaFrom(field));
+    }
+
+    /// <summary>Counts the text and trailing spaces of modifiers retained on the property.</summary>
+    /// <param name="modifiers">The field modifiers, including any readonly keyword to omit.</param>
+    /// <returns>The character count needed for the retained modifiers.</returns>
+    private static int GetModifierTextLength(in SyntaxTokenList modifiers)
+    {
+        var length = 0;
+        foreach (var modifier in modifiers)
+        {
+            if (!modifier.IsKind(SyntaxKind.ReadOnlyKeyword))
+            {
+                length += modifier.Span.Length + 1;
+            }
+        }
+
+        return length;
     }
 
     /// <summary>Returns whether the span type resolves by simple name at a position.</summary>

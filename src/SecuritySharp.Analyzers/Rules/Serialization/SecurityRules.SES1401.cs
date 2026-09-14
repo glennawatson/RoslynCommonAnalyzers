@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1401 — a type resolved from non-constant data is instantiated or deserialized into.</summary>
-    public static readonly DiagnosticDescriptor NonConstantTypeActivation = Create(
+    public static readonly DiagnosticDescriptor NonConstantTypeActivation = DescriptorFactory.Create(
         "SES1401",
         "A type resolved from non-constant data must not be instantiated or used as a deserialization target",
         "'{0}' builds its target type with 'Type.GetType' from non-constant data; an attacker who controls the type name can construct an unexpected or dangerous type",

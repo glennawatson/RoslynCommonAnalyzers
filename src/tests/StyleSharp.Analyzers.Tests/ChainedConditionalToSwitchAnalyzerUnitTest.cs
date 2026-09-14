@@ -3,8 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyChainedConditionalToSwitch = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2246ChainedConditionalToSwitchAnalyzer,
@@ -15,6 +19,50 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2246 (express a same-value conditional chain as a switch).</summary>
 public class ChainedConditionalToSwitchAnalyzerUnitTest
 {
+    /// <summary>Verifies non-equality, non-identifier, and interrupted chains stay conditional.</summary>
+    /// <param name="expression">The conditional expression to inspect.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value > 1 ? 1 : value == 2 ? 2 : 3")]
+    [Arguments("true ? 1 : value == 2 ? 2 : 3")]
+    [Arguments("1 == value ? 1 : value == 2 ? 2 : 3")]
+    [Arguments("value == 1 ? 1 : value > 2 ? 2 : 3")]
+    [Arguments("value == 1 ? 1 : value == 2 ? 2 : other == 3 ? 3 : 4")]
+    [Arguments("value == 1 ? 1 : (value == 2 ? 2 : 3)")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task InterruptedChainsAreNotReportedAsync(string expression) =>
+        VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync($"class C {{ int M(int value, int other) => {expression}; }}");
+
+    /// <summary>Verifies malformed chains and chains without a common switch type are rejected.</summary>
+    /// <param name="body">The method declaration containing the chain.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("object M(int value) => value == 1 ? 1 : value == 2 ? \"two\" : null;")]
+    [Arguments("Missing M(int value) => value == 1 ? missing : value == 2 ? missing : missing;")]
+    [Arguments("int M(int value) => value == 1 ? 1 : value > 2 ? 2 : 3;")]
+    [Arguments("int M(int value, int other) => value == 1 ? 1 : other == 2 ? 2 : 3;")]
+    [Arguments("int M(int value) => value > 1 ? 1 : value == 2 ? 2 : 3;")]
+    [Arguments("int M() => missing == 1 ? 1 : missing == 2 ? 2 : 3;")]
+    [Arguments("int M(bool value) => value == true ? 1 : value == false ? 2 : 3;")]
+    [Arguments("int M(int? value) => value == 1 ? 1 : value == 2 ? 2 : 3;")]
+    [Arguments("int M(int value) => value == 1 ? 1 : 2;")]
+    public async Task UnsafeSwitchRewriteIsRejectedAsync(string body)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class C {{ {body} }}");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform);
+        var root = await tree.GetRootAsync();
+        var conditional = root.DescendantNodes().OfType<ConditionalExpressionSyntax>().First();
+        var accepted = Sst2246ChainedConditionalToSwitchAnalyzer.TryBuildSwitchExpression(
+            conditional,
+            compilation.GetSemanticModel(tree),
+            CancellationToken.None,
+            out var replacement);
+        await Assert.That(accepted).IsFalse();
+        await Assert.That(replacement).IsNull();
+        var diagnostics = await compilation.WithAnalyzers([new Sst2246ChainedConditionalToSwitchAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
     /// <summary>Verifies a same-value constant chain is reported and rewritten as a switch expression.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

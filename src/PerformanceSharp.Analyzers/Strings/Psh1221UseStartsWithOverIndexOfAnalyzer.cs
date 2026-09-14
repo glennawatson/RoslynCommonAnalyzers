@@ -63,19 +63,12 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var overloads = StartsWithOverloads.Resolve(start.Compilation);
-            if (!overloads.HasAny)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeComparison(nodeContext, overloads),
-                SyntaxKind.EqualsExpression,
-                SyntaxKind.NotEqualsExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<StartsWithOverloads>(compilation, StartsWithOverloads.Resolve),
+            AnalyzeComparison,
+            SyntaxKind.EqualsExpression,
+            SyntaxKind.NotEqualsExpression);
     }
 
     /// <summary>Splits a <c>x.IndexOf(...) == 0</c> comparison into its search, syntactically.</summary>
@@ -83,12 +76,12 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     /// <returns>The <c>IndexOf</c> invocation, or <see langword="null"/> when the shape does not match.</returns>
     internal static InvocationExpressionSyntax? TryGetIndexOfCall(BinaryExpressionSyntax comparison)
     {
-        if (IsZero(comparison.Right) && IsIndexOfShape(comparison.Left))
+        if (IsZero(comparison.Right) && SimpleMemberCall.IsNamedWithArguments(comparison.Left, IndexOfMethodName))
         {
             return (InvocationExpressionSyntax)comparison.Left;
         }
 
-        return IsZero(comparison.Left) && IsIndexOfShape(comparison.Right)
+        return IsZero(comparison.Left) && SimpleMemberCall.IsNamedWithArguments(comparison.Right, IndexOfMethodName)
             ? (InvocationExpressionSyntax)comparison.Right
             : null;
     }
@@ -101,7 +94,10 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     {
         var access = (MemberAccessExpressionSyntax)indexOf.Expression;
         var startsWith = indexOf.WithExpression(
-            access.WithName(SyntaxFactory.IdentifierName(StartsWithMethodName).WithTriviaFrom(access.Name)));
+            access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                access.Name.GetLeadingTrivia(),
+                StartsWithMethodName,
+                access.Name.GetTrailingTrivia()))));
 
         return comparison.IsKind(SyntaxKind.NotEqualsExpression)
             ? SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, startsWith)
@@ -114,18 +110,10 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     private static bool IsZero(ExpressionSyntax expression) =>
         expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression, Token.ValueText: "0" };
 
-    /// <summary>Returns whether an expression is a plain <c>x.IndexOf(...)</c> call.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> when the shape matches.</returns>
-    private static bool IsIndexOfShape(ExpressionSyntax expression) =>
-        expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } invocation
-            && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
-            && access.Name.Identifier.ValueText == IndexOfMethodName;
-
     /// <summary>Reports PSH1221 for a prefix question asked with a whole-string search.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="overloads">The <c>StartsWith</c> overloads available in this compilation.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, in StartsWithOverloads overloads)
+    /// <param name="overloads">The <c>StartsWith</c> overloads resolved on first demand.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, LazyCompilationValue<StartsWithOverloads> overloads)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
         if (TryGetIndexOfCall(comparison) is not { } indexOf)
@@ -138,7 +126,7 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
         if (model.GetSymbolInfo(indexOf, cancellationToken).Symbol is not IMethodSymbol search
             || search.IsStatic
             || search.ContainingType.SpecialType != SpecialType.System_String
-            || !PreservesComparison(search, overloads)
+            || !PreservesComparison(search, overloads.Get())
             || SpanRewriteGuard.IsInsideExpressionTree(comparison, model, cancellationToken)
             || !RewriteBindsToStartsWith(model, comparison, indexOf, cancellationToken))
         {

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -65,7 +66,7 @@ public class EquatableSealedCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> EquatableSealed_ApplyFixAsync()
     {
-        var updated = Sst2301SealEquatableTypeCodeFixProvider.Apply(_document, _root, _declaration);
+        var updated = TargetCodeFix.Apply(_document, _root, _declaration, Sst2301SealEquatableTypeCodeFixProvider.MakeSealed);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

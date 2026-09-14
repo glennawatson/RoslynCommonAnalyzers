@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,7 +13,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1208Utf8LiteralCodeFixProvider))]
 [Shared]
-public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider
 {
     /// <summary>The suffix that turns a string literal into a UTF-8 literal.</summary>
     private const string Utf8Suffix = "u8";
@@ -26,20 +24,37 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
     /// <summary>The simple name of the span type u8 literals produce.</summary>
     private const string ReadOnlySpanTypeName = "ReadOnlySpan";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.UseUtf8Literal.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)is not InvocationExpressionSyntax invocation
+            || Psh1208Utf8LiteralAnalyzer.TryGetEncodingPropertyName(invocation)is not { } encodingName)
+        {
+            return false;
+        }
+
+        var argument = invocation.ArgumentList.Arguments[0].Expression;
+        var asciiOnly = encodingName.Identifier.ValueText == Psh1208Utf8LiteralAnalyzer.AsciiPropertyName;
+        return model.GetConstantValue(argument).Value is string value
+            && Psh1208Utf8LiteralAnalyzer.CanBecomeUtf8Literal(value, asciiOnly);
+    }
 
     /// <summary>Resolves the reported invocation and builds its u8 replacement.</summary>
     /// <param name="root">The syntax root.</param>

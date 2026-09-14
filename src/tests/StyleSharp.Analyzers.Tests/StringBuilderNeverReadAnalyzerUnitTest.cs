@@ -3,6 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyStringBuilder = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2408StringBuilderNeverReadAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -10,6 +13,75 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2408 (a StringBuilder that is filled and never read).</summary>
 public class StringBuilderNeverReadAnalyzerUnitTest
 {
+    /// <summary>Checks declaration spellings, scope boundaries, and inferred non-builder locals.</summary>
+    /// <param name="source">The complete source, including intentionally incomplete declarations.</param>
+    /// <param name="expected">The expected diagnostic count.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { void M() { System.Text.StringBuilder builder = new(); builder.Append(1); } }", 1)]
+    [Arguments("class C { void M() { int value = 0; var other = new object(); var missing; } }", 0)]
+    [Arguments("class C { void M() { var builder = Make(); } object Make() => null; }", 0)]
+    [Arguments("class C { void M(int value) { switch (value) { case 0: StringBuilder builder = new(); builder.Append(1); break; } } }", 1)]
+    [Arguments("StringBuilder builder = new(); builder.Append(1);", 0)]
+    [Arguments("class C { void M() { StringBuilder first = new(), second = new(); first.Append(1); second.Clear(); } }", 1)]
+    [Arguments("class StringBuilder { public void Append(int value) {} } class C { void M() { global::StringBuilder builder = new(); builder.Append(1); } }", 0)]
+    [Arguments("namespace Other.Text { class StringBuilder { public void Append(int value) {} } class C { void M() { StringBuilder builder = new(); builder.Append(1); } } }", 0)]
+    [Arguments("namespace Other.System.Text { class StringBuilder { public void Append(int value) {} } class C { void M() { StringBuilder builder = new(); builder.Append(1); } } }", 0)]
+    [Arguments("class C { void M() { StringBuilder[] builders = []; } }", 0)]
+    [Arguments("class C { void M<StringBuilder>() { StringBuilder builder = default; } }", 0)]
+    [Arguments("using StringBuilder = System.Int32; class C { void M() { StringBuilder builder = 0; } }", 0)]
+    public async Task DeclarationShapeAndScopeDetermineEligibilityAsync(string source, int expected)
+    {
+        var compilation = CSharpCompilation.Create(
+            nameof(DeclarationShapeAndScopeDetermineEligibilityAsync),
+            [CSharpSyntaxTree.ParseText($"using System.Text; {source}")],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2408StringBuilderNeverReadAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expected);
+        await Assert.That(diagnostics.All(static diagnostic => diagnostic.Id == "SST2408")).IsTrue();
+    }
+
+    /// <summary>Checks every mutator and the reads that stop the local scan.</summary>
+    /// <param name="statement">The statement following an append.</param>
+    /// <param name="expected">The expected diagnostic count.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("builder.AppendLine();", 1)]
+    [Arguments("builder.AppendFormat(\"{0}\", 1);", 1)]
+    [Arguments("builder.AppendJoin(\",\", new[] { 1, 2 });", 1)]
+    [Arguments("builder.Insert(0, \"x\");", 1)]
+    [Arguments("builder.Remove(0, 1);", 1)]
+    [Arguments("builder.Replace(\"x\", \"y\");", 1)]
+    [Arguments("builder.Clear();", 1)]
+    [Arguments("builder = new StringBuilder();", 1)]
+    [Arguments("builder += new StringBuilder();", 0)]
+    [Arguments("_ = builder.Append(2);", 0)]
+    [Arguments("_ = builder.Length;", 0)]
+    [Arguments("_ = builder.Append;", 0)]
+    [Arguments("builder.ToString();", 0)]
+    [Arguments("builder.EnsureCapacity(20);", 0)]
+    [Arguments("builder.Other();", 0)]
+    [Arguments("builder.AppendX();", 0)]
+    [Arguments("builder.AppendJoiX();", 0)]
+    [Arguments("builder.AppendFormaX();", 0)]
+    [Arguments("builder.AlterX();", 0)]
+    [Arguments("builder.Invert();", 0)]
+    [Arguments("builder.Return();", 0)]
+    [Arguments("builder.OtherX();", 0)]
+    [Arguments("builder.AppendLinX();", 0)]
+    [Arguments("builder.AppendXXXX();", 0)]
+    public async Task DiscardedMutationsDoNotReadTheContentsAsync(string statement, int expected)
+    {
+        var source = $$"""
+            using System.Text;
+            class C { void M() { var builder = new StringBuilder(); builder.Append(1); {{statement}} } }
+            """;
+        var compilation = CSharpCompilation.Create(nameof(DiscardedMutationsDoNotReadTheContentsAsync), [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2408StringBuilderNeverReadAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expected);
+        await Assert.That(diagnostics.All(static diagnostic => diagnostic.Id == "SST2408")).IsTrue();
+    }
+
     /// <summary>Verifies a builder that is appended to and never read is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

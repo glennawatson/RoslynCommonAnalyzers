@@ -20,11 +20,11 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <summary>The replacement member name.</summary>
     internal const string AsSpanMethodName = "AsSpan";
 
-    /// <summary>The metadata name of the extensions type providing AsSpan.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
     /// <summary>The most arguments a Substring call carries (start and length).</summary>
     private const int MaxSliceArgumentCount = 2;
+
+    /// <summary>The metadata name of the extensions type providing AsSpan.</summary>
+    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseAsSpanOverSubstring);
@@ -38,16 +38,11 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions
-                || extensions.GetMembers(AsSpanMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.CreateSynchronized(compilation, HasAsSpan),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation is a plain <c>x.Substring(...)</c> in an argument position, before any binding.</summary>
@@ -61,11 +56,13 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1212 for a Substring argument the consumer can take as a span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="hasAsSpan">Whether the compilation provides <c>AsSpan</c>, resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationProbe hasAsSpan)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsSubstringArgumentShape(invocation)
             || invocation.Parent!.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax outer } argumentList
+            || !hasAsSpan.Get()
             || TryBindConsumer(context, invocation, outer) is not { } method)
         {
             return;
@@ -112,11 +109,7 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     {
         foreach (var member in method.ContainingType.GetMembers(method.Name))
         {
-            if (member is IMethodSymbol sibling
-                && !SymbolEqualityComparer.Default.Equals(sibling, method)
-                && !sibling.IsGenericMethod
-                && sibling.IsStatic == method.IsStatic
-                && sibling.Parameters.Length == method.Parameters.Length
+            if (SiblingOverloads.IsSameShapeSibling(member, method, out var sibling)
                 && AcceptsCharSpanAt(sibling, method, index))
             {
                 return true;
@@ -131,29 +124,9 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The bound string-taking method.</param>
     /// <param name="index">The parameter position of the Substring result.</param>
     /// <returns><see langword="true"/> when the slot is <c>ReadOnlySpan&lt;char&gt;</c> and other parameters match.</returns>
-    private static bool AcceptsCharSpanAt(IMethodSymbol sibling, IMethodSymbol method, int index)
-    {
-        for (var i = 0; i < sibling.Parameters.Length; i++)
-        {
-            if (i == index)
-            {
-                continue;
-            }
-
-            if (!SymbolEqualityComparer.Default.Equals(sibling.Parameters[i].Type, method.Parameters[i].Type))
-            {
-                return false;
-            }
-        }
-
-        return sibling.Parameters[index].Type is INamedTypeSymbol
-        {
-            Name: "ReadOnlySpan",
-            IsGenericType: true,
-            TypeArguments: [{ SpecialType: SpecialType.System_Char }],
-            ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
-        };
-    }
+    private static bool AcceptsCharSpanAt(IMethodSymbol sibling, IMethodSymbol method, int index) =>
+        SiblingOverloads.ParameterTypesMatchExcept(sibling, method, index)
+            && ReadOnlySpanType.IsSpanOf(sibling.Parameters[index].Type, SpecialType.System_Char);
 
     /// <summary>Returns whether the AsSpan extension resolves by simple type name at a position.</summary>
     /// <param name="model">The semantic model.</param>
@@ -171,4 +144,11 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>Returns whether the compilation provides an AsSpan member.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns><see langword="true"/> when the extensions type declares AsSpan.</returns>
+    private static bool HasAsSpan(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+            && !extensions.GetMembers(AsSpanMethodName).IsEmpty;
 }

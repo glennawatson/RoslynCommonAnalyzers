@@ -45,7 +45,7 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(objectCreation, CSharp9)
+        if (!LanguageVersions.IsAtLeast(objectCreation, CSharp9)
             || objectCreation.ArgumentList is null
             || !RepeatsAnExplicitTargetType(objectCreation, context.SemanticModel, context.CancellationToken))
         {
@@ -87,7 +87,7 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeElementAccess(SyntaxNodeAnalysisContext context)
     {
         var elementAccess = (ElementAccessExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(elementAccess, CSharp8)
+        if (!LanguageVersions.IsAtLeast(elementAccess, CSharp8)
             || elementAccess.ArgumentList.Arguments.Count != 1
             || !TryGetIndexFromEnd(elementAccess, context.SemanticModel, context.CancellationToken, out _))
         {
@@ -102,7 +102,7 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(invocation, CSharp8)
+        if (!LanguageVersions.IsAtLeast(invocation, CSharp8)
             || !TryGetRangeFromSubstring(invocation, context.SemanticModel, context.CancellationToken))
         {
             return;
@@ -336,10 +336,10 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
         fromEndExpression = null!;
         if (elementAccess.Expression is not IdentifierNameSyntax receiver
             || elementAccess.ArgumentList.Arguments.Count != 1
-            || ExpressionSimplificationAnalyzer.Unwrap(elementAccess.ArgumentList.Arguments[0].Expression) is not BinaryExpressionSyntax binary
+            || ExpressionShapes.WalkDownParentheses(elementAccess.ArgumentList.Arguments[0].Expression) is not BinaryExpressionSyntax binary
             || !binary.IsKind(SyntaxKind.SubtractExpression)
             || binary.Left is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Length" } lengthAccess
-            || ExpressionSimplificationAnalyzer.Unwrap(lengthAccess.Expression) is not IdentifierNameSyntax lengthReceiver
+            || ExpressionShapes.WalkDownParentheses(lengthAccess.Expression) is not IdentifierNameSyntax lengthReceiver
             || receiver.Identifier.ValueText != lengthReceiver.Identifier.ValueText
             || !TryGetStableReceiverType(receiver, model, cancellationToken, out var receiverType)
             || !IsArrayOrString(receiverType))
@@ -410,7 +410,7 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     {
         memberAccess = null!;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Substring" } candidate
-            || ExpressionSimplificationAnalyzer.Unwrap(candidate.Expression) is not IdentifierNameSyntax receiver
+            || ExpressionShapes.WalkDownParentheses(candidate.Expression) is not IdentifierNameSyntax receiver
             || !TryGetStableReceiverType(receiver, model, cancellationToken, out var receiverType)
             || receiverType?.SpecialType != SpecialType.System_String)
         {
@@ -447,7 +447,7 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for literals, locals, and parameters.</returns>
     private static bool IsStableBound(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
     {
-        expression = ExpressionSimplificationAnalyzer.Unwrap(expression);
+        expression = ExpressionShapes.WalkDownParentheses(expression);
         if (expression is LiteralExpressionSyntax)
         {
             return true;
@@ -456,13 +456,6 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
         return expression is IdentifierNameSyntax identifier
             && model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol or IParameterSymbol;
     }
-
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">A syntax node in the tree.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Returns whether the supplied type supports intrinsic array/string index-from-end semantics.</summary>
     /// <param name="type">The type symbol.</param>

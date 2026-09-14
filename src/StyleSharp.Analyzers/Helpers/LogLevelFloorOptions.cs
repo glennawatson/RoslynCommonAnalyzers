@@ -54,16 +54,32 @@ internal readonly record struct LogLevelFloorOptions(int Floor)
     /// <returns><see langword="true"/> when the name is a known level.</returns>
     private static bool TryParseLevel(string value, out int level)
     {
-        var parsed = value.Trim().ToLowerInvariant() switch
+        var name = AnalyzerOptionReader.TrimSegment(value, 0, value.Length);
+        var parsed = Unknown;
+        if (name.Equals("trace".AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
-            "trace" => Trace,
-            "debug" => Debug,
-            "information" => Information,
-            "warning" => Warning,
-            "error" => Error,
-            "critical" => Critical,
-            _ => Unknown,
-        };
+            parsed = Trace;
+        }
+        else if (name.Equals("debug".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Debug;
+        }
+        else if (name.Equals("information".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Information;
+        }
+        else if (name.Equals("warning".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Warning;
+        }
+        else if (name.Equals("error".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Error;
+        }
+        else if (name.Equals("critical".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Critical;
+        }
 
         var known = parsed != Unknown;
         level = known ? parsed : Error;

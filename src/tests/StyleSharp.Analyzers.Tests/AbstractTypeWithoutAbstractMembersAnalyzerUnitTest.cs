@@ -2,7 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Text;
 using VerifyAbstractType = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1496AbstractTypeWithoutAbstractMembersAnalyzer,
     StyleSharp.Analyzers.Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider>;
@@ -12,6 +18,65 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1496 (an abstract type declares nothing abstract) and its fix.</summary>
 public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 {
+    /// <summary>Verifies removing the first modifier preserves documentation on the next token.</summary>
+    /// <param name="remainingModifier">The modifier that follows abstract, when present.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("public ")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RemovingFirstAbstractModifierKeepsDocumentationAsync(string remainingModifier) => VerifyAbstractType.VerifyCodeFixAsync(
+        $$"""
+        /// <summary>The extensible base.</summary>
+        abstract {{remainingModifier}}class {|SST1496:C|}
+        {
+            public virtual void M() { }
+        }
+        """,
+        $$"""
+        /// <summary>The extensible base.</summary>
+        {{remainingModifier}}class C
+        {
+            public virtual void M() { }
+        }
+        """);
+
+    /// <summary>Verifies stale diagnostics on concrete or unrelated declarations offer no fix.</summary>
+    /// <param name="source">The declaration at the diagnostic location.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { }")]
+    [Arguments("public class C { }")]
+    [Arguments("struct C { }")]
+    [Arguments("abstract partial class C { }")]
+    public async Task InapplicableDeclarationOffersNoFixAsync(string source)
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject("AbstractTypeFix", LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, "Test.cs", SourceText.From(source));
+        var root = await document.GetSyntaxRootAsync();
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.AbstractTypeWithoutAbstractMembers, root!.GetFirstToken().GetLocation());
+        var actions = new List<CodeAction>();
+        using var container = new ContainerConfiguration().WithPart<Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+    }
+
+    /// <summary>Verifies applying a stale fix to a concrete class preserves the document.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ApplyingToConcreteClassPreservesDocumentAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject("AbstractTypeFix", LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, "Test.cs", SourceText.From("public class C { }"));
+        var root = await document.GetSyntaxRootAsync();
+        var declaration = root!.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var updated = Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider.Apply(document, root, declaration, seal: true);
+        await Assert.That(updated).IsSameReferenceAs(document);
+    }
+
     /// <summary>Verifies an abstract class with nothing abstract is reported, and sealing is the offered fix.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

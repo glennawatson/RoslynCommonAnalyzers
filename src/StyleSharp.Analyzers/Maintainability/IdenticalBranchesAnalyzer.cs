@@ -62,11 +62,40 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
+    /// <summary>Returns whether two statement lists run the same statements in the same order.</summary>
+    /// <param name="first">The first statement list.</param>
+    /// <param name="second">The second statement list.</param>
+    /// <returns><see langword="true"/> when the lists match, ignoring trivia.</returns>
+    internal static bool AreEquivalentStatements(SyntaxList<StatementSyntax> first, SyntaxList<StatementSyntax> second)
+    {
+        if (first.Count != second.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < first.Count; index++)
+        {
+            if (!SyntaxFactory.AreEquivalent(first[index], second[index], topLevel: false))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Registers the per-compilation option cache, then analyzes every conditional construct.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions>();
+        const int CacheConcurrencyLevel = 4;
+        var treeCount = 0;
+        foreach (var tree in context.Compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions>(CacheConcurrencyLevel, treeCount);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeIfChain(nodeContext, optionsByTree), SyntaxKind.IfStatement);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeConditionalExpression(nodeContext, optionsByTree), SyntaxKind.ConditionalExpression);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeSwitchStatement(nodeContext, optionsByTree), SyntaxKind.SwitchStatement);
@@ -133,7 +162,8 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <returns>The <c>if</c> and <c>else if</c> branches in order.</returns>
     private static List<IfStatementSyntax> CollectConditionedBranches(IfStatementSyntax head)
     {
-        var branches = new List<IfStatementSyntax>();
+        const int InitialBranchCapacity = 4;
+        var branches = new List<IfStatementSyntax>(InitialBranchCapacity);
         var current = head;
         while (true)
         {
@@ -251,7 +281,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < sections.Count; i++)
         {
-            if (sections[i].Statements.Count == 0 || HasDefaultOrGotoLabel(sections[i]) || BindsANameOrGuards(sections[i]))
+            if (sections[i].Statements.Count == 0 || sections[i].Labels.Any(SyntaxKind.DefaultSwitchLabel) || BindsANameOrGuards(sections[i]))
             {
                 continue;
             }
@@ -344,15 +374,18 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when any designation names a variable.</returns>
     private static bool BindsAName(PatternSyntax pattern)
     {
-        foreach (var descendant in pattern.DescendantNodesAndSelf())
-        {
-            if (descendant is SingleVariableDesignationSyntax)
+        // A pattern cannot itself be a variable designation.
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            pattern,
+            ref found,
+            static (SingleVariableDesignationSyntax node, ref bool state) =>
             {
-                return true;
-            }
-        }
+                state = true;
+                return false;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Returns whether two sections run the same body and could be written as one.</summary>
@@ -362,7 +395,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="second">The later section's position.</param>
     /// <returns><see langword="true"/> when merging them is legal and changes nothing.</returns>
     private static bool CanMergeSections(SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections, int first, int second) =>
-        !HasDefaultOrGotoLabel(sections[second])
+        !sections[second].Labels.Any(SyntaxKind.DefaultSwitchLabel)
             && !BindsANameOrGuards(sections[second])
             && !MergeWouldReorderPatterns(sections, first, second)
             && AreEquivalentStatements(sections[first].Statements, sections[second].Statements)
@@ -424,23 +457,6 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a switch section carries a <c>default</c> label.</summary>
-    /// <param name="section">The switch section.</param>
-    /// <returns><see langword="true"/> for a section that includes <c>default</c>.</returns>
-    private static bool HasDefaultOrGotoLabel(SwitchSectionSyntax section)
-    {
-        var labels = section.Labels;
-        for (var i = 0; i < labels.Count; i++)
-        {
-            if (labels[i].IsKind(SyntaxKind.DefaultSwitchLabel))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a switch statement contains a <c>goto case</c> / <c>goto default</c>.</summary>
     /// <param name="switchStatement">The switch statement.</param>
     /// <returns><see langword="true"/> when a jump could target a section by label.</returns>
@@ -473,7 +489,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     {
         for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
         {
-            if (HasDefaultOrGotoLabel(sections[sectionIndex]))
+            if (sections[sectionIndex].Labels.Any(SyntaxKind.DefaultSwitchLabel))
             {
                 return true;
             }
@@ -532,26 +548,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree,
         int statements) =>
-        statements >= GetOptions(context, optionsByTree).MinimumStatements;
-
-    /// <summary>Reads the settings for the construct's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static IdenticalBranchesOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = IdenticalBranchesOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
+        statements >= TreeOptionsCache.GetOrRead(optionsByTree, context, IdenticalBranchesOptions.Read).MinimumStatements;
 
     /// <summary>Returns whether two branch bodies run the same statements in the same order.</summary>
     /// <param name="first">The first branch's body.</param>
@@ -568,28 +565,6 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         for (var index = 0; index < count; index++)
         {
             if (!SyntaxFactory.AreEquivalent(GetStatement(first, index), GetStatement(second, index), topLevel: false))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>Returns whether two statement lists run the same statements in the same order.</summary>
-    /// <param name="first">The first statement list.</param>
-    /// <param name="second">The second statement list.</param>
-    /// <returns><see langword="true"/> when the lists match, ignoring trivia.</returns>
-    private static bool AreEquivalentStatements(SyntaxList<StatementSyntax> first, SyntaxList<StatementSyntax> second)
-    {
-        if (first.Count != second.Count)
-        {
-            return false;
-        }
-
-        for (var index = 0; index < first.Count; index++)
-        {
-            if (!SyntaxFactory.AreEquivalent(first[index], second[index], topLevel: false))
             {
                 return false;
             }

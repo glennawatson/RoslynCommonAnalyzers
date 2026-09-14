@@ -13,14 +13,17 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider))]
 [Shared]
-public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(ModernSyntaxRules.FoldNullCheckIntoConditionalAccess.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -28,12 +31,31 @@ public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : C
             context,
             "Fold into a conditional access",
             nameof(Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is not { } conjunction
+            || !conjunction.IsKind(SyntaxKind.LogicalAndExpression))
+        {
+            return false;
+        }
+
+        var kind = NullCheckConditionalAccessFold.Classify(conjunction, model, CancellationToken.None, out var receiver, out var use);
+        return kind switch
+        {
+            NullCheckFoldKind.NullableBooleanValue => true,
+            NullCheckFoldKind.BooleanMember => NullCheckConditionalAccessFold.FindRootAccess(use, receiver)is not null,
+            NullCheckFoldKind.Comparison => NullCheckConditionalAccessFold.FindRootAccess(((BinaryExpressionSyntax)use).Left, receiver)is not null,
+            _ => false,
+        };
+    }
 
     /// <summary>Resolves the reported conjunction and replaces it with the folded form.</summary>
     /// <param name="root">The syntax root.</param>

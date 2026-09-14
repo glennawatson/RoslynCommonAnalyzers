@@ -49,7 +49,7 @@ public sealed class Sst2243UseRawStringLiteralAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsLanguageVersionAtLeast(literal, CSharp11)
+        if (!LanguageVersions.IsAtLeast(literal, CSharp11)
             || !IsConvertible(text)
             || literal.IsPartOfStructuredTrivia())
         {
@@ -132,11 +132,4 @@ public sealed class Sst2243UseRawStringLiteralAnalyzer : DiagnosticAnalyzer
 
         return lineLength > 0 && !lineHasContent;
     }
-
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -13,22 +11,20 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1007PassLargeReadonlyStructByInCodeFixProvider))]
 [Shared]
-public sealed class Psh1007PassLargeReadonlyStructByInCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1007PassLargeReadonlyStructByInCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindParameter, static (current, _) => AddInModifier((ParameterSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.PassLargeReadonlyStructByIn.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Pass the parameter by 'in' reference", nameof(Psh1007PassLargeReadonlyStructByInCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        TargetCodeFix.RegisterAsync(context, "Pass the parameter by 'in' reference", nameof(Psh1007PassLargeReadonlyStructByInCodeFixProvider), FindParameter, AddInModifier);
 
     /// <summary>Builds the parameter with an <c>in</c> modifier ahead of its type.</summary>
     /// <param name="parameter">The by-value parameter to rewrite.</param>
@@ -37,17 +33,20 @@ public sealed class Psh1007PassLargeReadonlyStructByInCodeFixProvider : CodeFixP
     {
         var type = parameter.Type!;
         var modifier = SyntaxFactory.Token(type.GetLeadingTrivia(), SyntaxKind.InKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        return parameter
-            .WithType(type.WithLeadingTrivia())
-            .WithModifiers(SyntaxFactory.TokenList(modifier));
+        return parameter.Update(
+            parameter.AttributeLists,
+            SyntaxFactory.TokenList(modifier),
+            type.WithLeadingTrivia(),
+            parameter.Identifier,
+            parameter.Default);
     }
 
-    /// <summary>Resolves the reported parameter and builds it with the modifier added.</summary>
+    /// <summary>Resolves the reported by-value parameter that has a written type and no modifier.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    /// <returns>The parameter, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static ParameterSyntax? FindParameter(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is ParameterSyntax { Type: not null, Modifiers.Count: 0 } parameter
-            ? new NodeReplacement(parameter, AddInModifier(parameter))
+            ? parameter
             : null;
 }

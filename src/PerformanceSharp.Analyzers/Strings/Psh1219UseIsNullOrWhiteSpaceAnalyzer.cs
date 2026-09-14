@@ -77,15 +77,11 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (!HasIsNullOrWhiteSpace(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeTrim, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, HasIsNullOrWhiteSpace),
+            AnalyzeTrim,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Resolves a reported blank test back to the string it trims, and whether the answer is inverted.</summary>
@@ -122,7 +118,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1219 for a string trimmed only to ask whether it is blank.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeTrim(SyntaxNodeAnalysisContext context)
+    /// <param name="whiteSpaceSupport">The replacement API availability resolved on first demand.</param>
+    private static void AnalyzeTrim(in SyntaxNodeAnalysisContext context, LazyCompilationProbe whiteSpaceSupport)
     {
         var trim = (InvocationExpressionSyntax)context.Node;
         if (!IsTrimShape(trim) || !TryGetTest(trim, out var reported, out var other, out var kind))
@@ -133,7 +130,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
         var model = context.SemanticModel;
         if (!BindsToStringTrim(model, trim, context.CancellationToken)
             || !IsBlankTest(model, reported!, other, kind, context.CancellationToken)
-            || SpanRewriteGuard.IsInsideExpressionTree(reported!, model, context.CancellationToken))
+            || SpanRewriteGuard.IsInsideExpressionTree(reported!, model, context.CancellationToken)
+            || !whiteSpaceSupport.Get())
         {
             return;
         }
@@ -302,7 +300,7 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether the compilation has the replacement API at all.</summary>
     /// <param name="compilation">The compilation being analyzed.</param>
-    /// <returns><see langword="true"/> when <c>string.IsNullOrWhiteSpace</c> exists.</returns>
+    /// <returns>Whether string.IsNullOrWhiteSpace exists.</returns>
     private static bool HasIsNullOrWhiteSpace(Compilation compilation)
     {
         var members = compilation.GetSpecialType(SpecialType.System_String).GetMembers(IsNullOrWhiteSpaceMethodName);

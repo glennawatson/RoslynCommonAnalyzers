@@ -64,12 +64,15 @@ internal sealed class MutableCollectionTypes
     ];
 
     /// <summary>The resolved type symbols, built on first use.</summary>
-    private readonly Lazy<HashSet<ISymbol>> _types;
+    private readonly LazyCompilationValue<HashSet<ISymbol>> _types;
 
     /// <summary>Initializes a new instance of the <see cref="MutableCollectionTypes"/> class.</summary>
     /// <param name="compilation">The compilation whose types are resolved.</param>
     public MutableCollectionTypes(Compilation compilation) =>
-        _types = new(() => Resolve(compilation));
+        _types = new(
+            compilation,
+            Resolve,
+            runOnce: true);
 
     /// <summary>Returns whether a field's type is one whose contents a caller can change.</summary>
     /// <param name="type">The field's type.</param>
@@ -81,7 +84,7 @@ internal sealed class MutableCollectionTypes
             return true;
         }
 
-        return type is INamedTypeSymbol named && _types.Value.Contains(named.OriginalDefinition);
+        return type is INamedTypeSymbol named && _types.Get().Contains(named.OriginalDefinition);
     }
 
     /// <summary>Resolves the named types that exist in the compilation.</summary>

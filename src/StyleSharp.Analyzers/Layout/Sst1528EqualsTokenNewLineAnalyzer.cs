@@ -52,17 +52,11 @@ public sealed class Sst1528EqualsTokenNewLineAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(clause.SyntaxTree);
-        var wantBreakBefore = LayoutStyleOptions.ReadBreakBefore(options, SpecificKey, GeneralKey, defaultBreakBefore: false);
-        if (wantBreakBefore ? !breakAfter : !breakBefore)
+        if (!LayoutHelpers.IsBreakMisplaced(context, SpecificKey, GeneralKey, defaultBreakBefore: false, breakBefore, breakAfter, out var wantBreakBefore))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(
-            LayoutRules.EqualsTokenNewLine,
-            equals.GetLocation(),
-            LayoutHelpers.PlacementProperties(wantBreakBefore),
-            wantBreakBefore ? "start" : "end"));
+        LayoutHelpers.ReportMisplacedBreak(context, LayoutRules.EqualsTokenNewLine, equals, wantBreakBefore);
     }
 }

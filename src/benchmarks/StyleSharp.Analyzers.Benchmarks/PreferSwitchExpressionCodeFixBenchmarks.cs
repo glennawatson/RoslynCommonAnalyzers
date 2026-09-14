@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -66,7 +67,7 @@ public class PreferSwitchExpressionCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> PreferSwitchExpression_ApplyFixAsync()
     {
-        var updated = Sst2201PreferSwitchExpressionCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2201PreferSwitchExpressionCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

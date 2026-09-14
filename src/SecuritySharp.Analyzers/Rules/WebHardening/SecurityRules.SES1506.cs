@@ -8,15 +8,12 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1506 — the developer exception page is enabled without a development-environment guard.</summary>
-    public static readonly DiagnosticDescriptor UnguardedDeveloperExceptionPage = new(
+    public static readonly DiagnosticDescriptor UnguardedDeveloperExceptionPage = DescriptorFactory.CreateInfo(
         "SES1506",
         "The developer exception page must be guarded by a development-environment check",
         "'UseDeveloperExceptionPage' is enabled without a development-environment guard; in production it renders full exception detail and stack traces to the client and leaks sensitive internals",
         WebHardening,
-        DiagnosticSeverity.Info,
-        isEnabledByDefault: true,
-        description: UnguardedDeveloperExceptionPageDescription,
-        helpLinkUri: "https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/SES1506.md");
+        UnguardedDeveloperExceptionPageDescription);
 
     /// <summary>The SES1506 rule description.</summary>
     private const string UnguardedDeveloperExceptionPageDescription =

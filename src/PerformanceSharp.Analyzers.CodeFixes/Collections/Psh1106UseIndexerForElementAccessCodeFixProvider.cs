@@ -17,32 +17,20 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1106UseIndexerForElementAccessCodeFixProvider))]
 [Shared]
-public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.UseIndexerForElementAccess.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported Enumerable call with the receiver's indexer form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The reported invocation.</param>
-    /// <param name="countPropertyName">The count property used by the <c>Last()</c> rewrite.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation, string countPropertyName) =>
-        document.WithSyntaxRoot(root.ReplaceNode(invocation, CreateReplacement(invocation, countPropertyName)));
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Resolves the reported Enumerable call and builds its indexer replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -54,11 +42,19 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// the call sits in an argument list, and walking up from there lands on the surrounding call —
     /// rewriting <c>M(values.First())</c> into <c>M[values.First()]</c>.
     /// </remarks>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
             && CanApply(invocation)
             ? new NodeReplacement(invocation, CreateReplacement(invocation, GetCountSourceName(diagnostic)))
             : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
+            && CanApply(invocation);
 
     /// <summary>Returns whether the fix can rewrite the invocation without duplicating a side effect.</summary>
     /// <param name="invocation">The reported invocation.</param>
@@ -84,9 +80,11 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
         };
 
         return SyntaxFactory.ElementAccessExpression(
-                memberAccess.Expression.WithoutTrailingTrivia(),
-                SyntaxFactory.BracketedArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(index))))
-            .WithTriviaFrom(invocation);
+            memberAccess.Expression.WithoutTrailingTrivia(),
+            SyntaxFactory.BracketedArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenBracketToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(index)),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Builds the <c>receiver.Count - 1</c> index expression for the <c>Last()</c> rewrite.</summary>

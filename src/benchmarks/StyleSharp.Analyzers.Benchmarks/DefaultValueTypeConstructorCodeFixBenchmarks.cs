@@ -7,6 +7,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the default-value-type-constructor code-fix path.</summary>
@@ -27,8 +29,8 @@ public class DefaultValueTypeConstructorCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative value-type construction passed to the code fix.</summary>
-    private ObjectCreationExpressionSyntax _creation = null!;
+    /// <summary>The representative diagnostic on a value-type construction passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +48,8 @@ public class DefaultValueTypeConstructorCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, SemanticTypeBenchmarkSource.GenerateDefaultValueTypeConstructor(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _creation = (ObjectCreationExpressionSyntax)method.ExpressionBody!.Expression;
+        var creation = (ObjectCreationExpressionSyntax)method.ExpressionBody!.Expression;
+        _diagnostic = Diagnostic.Create(ReadabilityRules.DefaultValueTypeConstructor, creation.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +69,7 @@ public class DefaultValueTypeConstructorCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> DefaultValueTypeConstructor_ApplyFixAsync()
     {
-        var updated = Sst1129DefaultValueTypeConstructorCodeFixProvider.Replace(_document, _root, _creation);
+        var updated = TargetCodeFix.Apply(_document, _root, ReportedNode.Find<ObjectCreationExpressionSyntax>(_root, _diagnostic)!, Sst1129DefaultValueTypeConstructorCodeFixProvider.CreateDefault);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

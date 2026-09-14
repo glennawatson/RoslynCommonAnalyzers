@@ -12,65 +12,36 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1404PreferTypeofAssemblyCodeFixProvider))]
 [Shared]
-public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider
 {
     /// <summary>The name of the assembly property read off the typeof expression.</summary>
     private const string AssemblyPropertyName = "Assembly";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.PreferTypeofAssembly.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            static _ => nameof(Psh1404PreferTypeofAssemblyCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetInvocation(root, diagnostic) is not { } invocation
-                || invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } typeDeclaration)
-            {
-                continue;
-            }
-
-            var typeName = Psh1404PreferTypeofAssemblyAnalyzer.GetEnclosingTypeDisplayName(typeDeclaration);
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use typeof({typeName}).Assembly",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, invocation)),
-                    equivalenceKey: nameof(Psh1404PreferTypeofAssemblyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetInvocation(editor.OriginalRoot, diagnostic) is not { } invocation
-            || Rewrite(invocation) is not { } replacement)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(invocation, replacement);
-    }
-
-    /// <summary>Replaces the reported invocation with its <c>typeof(EnclosingType).Assembly</c> form.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported assembly lookup and builds the <c>typeof(T).Assembly</c> access that replaces it.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="invocation">The reported invocation to rewrite.</param>
-    /// <returns>The updated document, unchanged when no enclosing type declaration exists.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
-        Rewrite(invocation) is { } replacement
-            ? document.WithSyntaxRoot(root.ReplaceNode(invocation, replacement))
-            : document;
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the call has no enclosing type to name.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic) is { } invocation && Rewrite(invocation) is { } replacement
+            ? new NodeReplacement(invocation, replacement)
+            : null;
 
     /// <summary>Returns the reported invocation when the diagnostic location covers one.</summary>
     /// <param name="root">The syntax root.</param>
@@ -80,6 +51,15 @@ public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider
         root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && Psh1404PreferTypeofAssemblyAnalyzer.IsGetExecutingAssemblyShape(invocation)
             ? invocation
+            : null;
+
+    /// <summary>Words the action with the enclosing type the replacement names.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the call has no enclosing type.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic)?.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } typeDeclaration
+            ? $"Use typeof({Psh1404PreferTypeofAssemblyAnalyzer.GetEnclosingTypeDisplayName(typeDeclaration)}).Assembly"
             : null;
 
     /// <summary>Builds the <c>typeof(EnclosingType).Assembly</c> replacement for the reported invocation.</summary>
@@ -95,7 +75,15 @@ public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider
         var typeName = Psh1404PreferTypeofAssemblyAnalyzer.GetEnclosingTypeDisplayName(typeDeclaration);
         return SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            SyntaxFactory.TypeOfExpression(SyntaxFactory.ParseTypeName(typeName)),
-            SyntaxFactory.IdentifierName(AssemblyPropertyName)).WithTriviaFrom(invocation);
+            SyntaxFactory.TypeOfExpression(
+                SyntaxFactory.Token(invocation.GetLeadingTrivia(), SyntaxKind.TypeOfKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.ParseTypeName(typeName),
+                SyntaxFactory.Token(SyntaxKind.CloseParenToken)),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                AssemblyPropertyName,
+                invocation.GetTrailingTrivia())));
     }
 }

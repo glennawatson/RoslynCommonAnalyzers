@@ -14,28 +14,46 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2267InfiniteLoopStyleCodeFixProvider))]
 [Shared]
-public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.NormalizeInfiniteLoopStyle.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the infinite loop style", nameof(Sst2267InfiniteLoopStyleCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the infinite loop style", nameof(Sst2267InfiniteLoopStyleCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        FindForeverLoop(root, diagnostic) is not null;
 
     /// <summary>Resolves the reported loop and builds its opposite-style replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        FindForeverLoop(root, diagnostic) switch
+        {
+            ForStatementSyntax forStatement => new NodeReplacement(forStatement, ToWhile(forStatement), RewriteCurrent),
+            WhileStatementSyntax whileStatement => new NodeReplacement(whileStatement, ToFor(whileStatement), RewriteCurrent),
+            _ => null,
+        };
+
+    /// <summary>Finds the infinite loop the diagnostic was reported on.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The <c>for</c> or <c>while</c> loop, or <see langword="null"/> when the nearest statement is not one that runs forever.</returns>
+    private static StatementSyntax? FindForeverLoop(SyntaxNode root, Diagnostic diagnostic)
     {
         var node = root.FindNode(diagnostic.Location.SourceSpan);
         for (var current = node; current is not null; current = current.Parent)
@@ -43,9 +61,9 @@ public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider, I
             switch (current)
             {
                 case ForStatementSyntax forStatement when Sst2267InfiniteLoopStyleAnalyzer.IsForeverFor(forStatement):
-                    return new NodeReplacement(forStatement, ToWhile(forStatement), RewriteCurrent);
+                    return forStatement;
                 case WhileStatementSyntax whileStatement when Sst2267InfiniteLoopStyleAnalyzer.IsForeverWhile(whileStatement):
-                    return new NodeReplacement(whileStatement, ToFor(whileStatement), RewriteCurrent);
+                    return whileStatement;
                 case StatementSyntax:
                     return null;
             }

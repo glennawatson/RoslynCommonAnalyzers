@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1306 — a scripting-API call compiles and runs a non-constant C# source string.</summary>
-    public static readonly DiagnosticDescriptor DynamicScriptCompilation = Create(
+    public static readonly DiagnosticDescriptor DynamicScriptCompilation = DescriptorFactory.Create(
         "SES1306",
         "Do not compile or execute non-constant C# via the scripting API",
         "The C# source passed to 'CSharpScript.{0}' is not a compile-time constant; compiling and running data-derived source is arbitrary code execution",

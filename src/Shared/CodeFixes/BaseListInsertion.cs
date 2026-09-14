@@ -27,8 +27,9 @@ internal static class BaseListInsertion
         // A type with no base list carries the newline before its '{' as the header token's trailing
         // trivia; move it onto the new base list so the interface sits inline and the brace stays put.
         var anchor = HeaderToken(type);
-        var baseList = SyntaxFactory.BaseList(SyntaxFactory.SingletonSeparatedList(baseType))
-            .WithTrailingTrivia(anchor.TrailingTrivia);
+        var baseList = SyntaxFactory.BaseList(
+            SyntaxFactory.Token(SyntaxKind.ColonToken),
+            SyntaxFactory.SingletonSeparatedList(baseType.WithTrailingTrivia(anchor.TrailingTrivia)));
         return type
             .ReplaceToken(anchor, anchor.WithTrailingTrivia(SyntaxFactory.Space))
             .WithBaseList(baseList);

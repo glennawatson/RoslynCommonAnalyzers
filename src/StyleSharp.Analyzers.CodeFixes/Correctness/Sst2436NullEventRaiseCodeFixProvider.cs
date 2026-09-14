@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -17,47 +15,27 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2436NullEventRaiseCodeFixProvider))]
 [Shared]
-public sealed class Sst2436NullEventRaiseCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2436NullEventRaiseCodeFixProvider : CodeFixProvider
 {
     /// <summary>The parameter count of the <c>(object sender, EventArgs args)</c> event-handler shape.</summary>
     private const int EventHandlerParameterCount = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.NullEventRaise.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryRewrite(root, model, diagnostic) is not { } edit)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    TitleFor(root, diagnostic),
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))),
-                    equivalenceKey: nameof(Sst2436NullEventRaiseCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, model, diagnostic) => TryRewrite(root, model, diagnostic) is null ? null : TitleFor(root, diagnostic),
+            static _ => nameof(Sst2436NullEventRaiseCodeFixProvider),
+            TryRewrite);
 
     /// <summary>Resolves the reported null argument and replaces it with <c>this</c> or <c>EventArgs.Empty</c>.</summary>
     /// <param name="root">The syntax root.</param>
@@ -104,11 +82,11 @@ public sealed class Sst2436NullEventRaiseCodeFixProvider : CodeFixProvider, IBat
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The argument and its index, or a null argument when the shape no longer matches.</returns>
-    private static (ArgumentSyntax? Argument, int Index) FindArgument(SyntaxNode root, Diagnostic diagnostic) =>
+    private static PositionedArgument FindArgument(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is not { } argument
             || argument.Parent is not ArgumentListSyntax list
-            ? (null, -1)
-            : (argument, list.Arguments.IndexOf(argument));
+            ? new(null, -1)
+            : new(argument, list.Arguments.IndexOf(argument));
 
     /// <summary>Returns whether the delegate's event-args parameter is exactly <see cref="EventArgs"/>.</summary>
     /// <param name="argument">The reported args argument.</param>

@@ -35,7 +35,7 @@ internal static class ObsoleteAttributeFacts
     /// <summary>Returns whether an attribute's written name is the obsolete attribute's.</summary>
     /// <param name="name">The attribute name as written.</param>
     /// <returns><see langword="true"/> for <c>Obsolete</c> and <c>ObsoleteAttribute</c>, qualified or not.</returns>
-    internal static bool IsObsoleteName(NameSyntax name) => GetSimpleName(name) is "Obsolete" or ObsoleteAttributeMetadataName;
+    internal static bool IsObsoleteName(NameSyntax name) => SyntaxNames.GetSimpleName(name) is "Obsolete" or ObsoleteAttributeMetadataName;
 
     /// <summary>Returns whether the attribute binds to the framework's obsolete attribute.</summary>
     /// <param name="semanticModel">The semantic model for the attribute's tree.</param>
@@ -100,6 +100,21 @@ internal static class ObsoleteAttributeFacts
         return false;
     }
 
+    /// <summary>Gets the name to report an obsolete attribute under, once it is confirmed to be the framework's.</summary>
+    /// <param name="semanticModel">The semantic model for the attribute's tree.</param>
+    /// <param name="attribute">The obsolete attribute.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The annotated declaration's name, or <see langword="null"/> when there is nothing to report.</returns>
+    /// <remarks>
+    /// The name is read first, so an attribute on a declaration that has no name to report is never bound; only
+    /// an attribute that is about to be reported pays for the bind that tells the framework type apart.
+    /// </remarks>
+    internal static string? GetFrameworkObsoleteTarget(SemanticModel semanticModel, AttributeSyntax attribute, CancellationToken cancellationToken)
+    {
+        var target = GetAnnotatedName(attribute.Parent?.Parent);
+        return target.Length == 0 || !IsFrameworkObsoleteAttribute(semanticModel, attribute, cancellationToken) ? null : target;
+    }
+
     /// <summary>Gets the name of the declaration the attribute is written on.</summary>
     /// <param name="declaration">The declaration owning the attribute list.</param>
     /// <returns>The declaration's name, or an empty string when it has none to report.</returns>
@@ -114,6 +129,22 @@ internal static class ObsoleteAttributeFacts
         EventDeclarationSyntax @event => @event.Identifier.ValueText,
         _ => GetOtherAnnotatedName(declaration),
     };
+
+    /// <summary>Returns whether a message says anything at all.</summary>
+    /// <param name="text">The message text.</param>
+    /// <returns><see langword="true"/> when the text is empty or only whitespace.</returns>
+    internal static bool IsBlank(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (!char.IsWhiteSpace(text[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Finds the argument that supplies the attribute's message.</summary>
     /// <param name="attribute">The obsolete attribute.</param>
@@ -151,33 +182,6 @@ internal static class ObsoleteAttributeFacts
         }
 
         return null;
-    }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
-
-    /// <summary>Returns whether a message says anything at all.</summary>
-    /// <param name="text">The message text.</param>
-    /// <returns><see langword="true"/> when the text is empty or only whitespace.</returns>
-    private static bool IsBlank(string text)
-    {
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (!char.IsWhiteSpace(text[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>Gets the name of the less common declarations the attribute can be written on.</summary>

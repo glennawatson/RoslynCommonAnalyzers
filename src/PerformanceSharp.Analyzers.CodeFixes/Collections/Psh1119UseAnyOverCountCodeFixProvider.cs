@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -16,42 +15,38 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1119UseAnyOverCountCodeFixProvider))]
 [Shared]
-public sealed class Psh1119UseAnyOverCountCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1119UseAnyOverCountCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.UseAnyOverCount.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use Any()", nameof(Psh1119UseAnyOverCountCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported comparison with its Any() form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="comparison">The comparison expression to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
-        TryGetReplacement(comparison, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
-            : document;
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use Any()", nameof(Psh1119UseAnyOverCountCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Resolves the reported comparison and builds its Any() replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is BinaryExpressionSyntax binary
             && TryGetReplacement(binary, out var replacement)
             ? new NodeReplacement(binary, replacement!)
             : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is BinaryExpressionSyntax binary
+            && Psh1119UseAnyOverCountAnalyzer.TryGetComparisonShape(binary)is not null;
 
     /// <summary>Builds the Any() replacement for a reported comparison.</summary>
     /// <param name="binary">The comparison expression to rewrite.</param>
@@ -65,10 +60,13 @@ public sealed class Psh1119UseAnyOverCountCodeFixProvider : CodeFixProvider, IBa
             return false;
         }
 
-        var memberAccess = (MemberAccessExpressionSyntax)shape.Invocation.Expression;
-        ExpressionSyntax result = shape.Invocation
-            .WithExpression(memberAccess.WithName(SyntaxFactory.IdentifierName(Psh1119UseAnyOverCountAnalyzer.AnyMethodName)))
-            .WithoutTrivia();
+        var memberAccess = (MemberAccessExpressionSyntax)shape.Count.Expression;
+        ExpressionSyntax result = shape.Count.Update(
+            memberAccess.Update(
+                memberAccess.Expression.WithoutLeadingTrivia(),
+                memberAccess.OperatorToken,
+                SyntaxFactory.IdentifierName(Psh1119UseAnyOverCountAnalyzer.AnyMethodName)),
+            shape.Count.ArgumentList.WithoutTrailingTrivia());
         if (!shape.HasElements)
         {
             result = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, result);

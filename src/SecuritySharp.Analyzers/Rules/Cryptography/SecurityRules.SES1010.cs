@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1010 — key wrapping is implemented by hand rather than through the platform primitive.</summary>
-    public static readonly DiagnosticDescriptor HandRolledKeyWrap = Create(
+    public static readonly DiagnosticDescriptor HandRolledKeyWrap = DescriptorFactory.Create(
         "SES1010",
         "Do not implement AES key wrapping by hand",
         "This is the AES key-wrap integrity check value; wrap keys with 'Aes.EncryptKeyWrap' and 'Aes.DecryptKeyWrap' instead of by hand",

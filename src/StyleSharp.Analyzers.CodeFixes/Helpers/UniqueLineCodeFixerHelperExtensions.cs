@@ -60,45 +60,19 @@ internal static class UniqueLineCodeFixerHelperExtensions
         internal T? ConvertNodeIfAble<TParam>(
             Func<T, SeparatedSyntaxList<TParam>?> converterToList,
             Func<T, SeparatedSyntaxList<TParam>, T> addParameters)
-            where TParam : SyntaxNode
-        {
-            var list = converterToList(node);
-
-            if (list is null)
-            {
-                return null;
-            }
-
-            var entries = list.Value;
-            if (entries.Count <= 1 || node.SyntaxTree is not { } tree)
-            {
-                return null;
-            }
-
-            // Start positions are monotonic, so the last entry tells us whether the list stayed on one line.
-            var startLine = tree.GetLineSpan(node.Span).StartLinePosition.Line;
-            if (tree.GetLineSpan(entries[entries.Count - 1].Span).StartLinePosition.Line == startLine)
-            {
-                return null;
-            }
-
-            var endOfLine = GetEndOfLine(node, elastic: true);
-
-            // Indent each entry one level deeper than the owning declaration/expression.
-            var leadingSpaces = GetLeadingSpaces(node) + IndentationSpacesPerLevel;
-            var indentedEntries = IndentEntries(entries, leadingSpaces);
-            var separators = CreateSeparators(indentedEntries.Length, endOfLine);
-
-            return addParameters(node, SyntaxFactory.SeparatedList(indentedEntries, separators));
-        }
+            where TParam : SyntaxNode =>
+            converterToList(node) is { } entries && SplitEntriesOntoOwnLines(node, entries, elastic: true) is { } split
+                ? addParameters(node, split)
+                : null;
     }
 
     /// <summary>Rewrites a separated list so each entry sits on its own indented line, or returns <see langword="null"/> if no change is needed.</summary>
     /// <typeparam name="TParam">The type of the list entries.</typeparam>
     /// <param name="ownerNode">The list node (such as a type parameter or type argument list) owning the entries.</param>
     /// <param name="list">The separated list of entries to reformat.</param>
+    /// <param name="elastic">Whether the separators end their lines with elastic trivia the formatter may normalize.</param>
     /// <returns>The reformatted separated list, or <see langword="null"/> if the list has a single entry or already spans a single line.</returns>
-    internal static SeparatedSyntaxList<TParam>? SplitEntriesOntoOwnLines<TParam>(SyntaxNode ownerNode, SeparatedSyntaxList<TParam> list)
+    internal static SeparatedSyntaxList<TParam>? SplitEntriesOntoOwnLines<TParam>(SyntaxNode ownerNode, SeparatedSyntaxList<TParam> list, bool elastic)
         where TParam : SyntaxNode
     {
         if (list.Count <= 1 || ownerNode.SyntaxTree is not { } tree)
@@ -106,14 +80,16 @@ internal static class UniqueLineCodeFixerHelperExtensions
             return null;
         }
 
+        // Start positions are monotonic, so the last entry tells us whether the list stayed on one line.
         var startLine = tree.GetLineSpan(ownerNode.Span).StartLinePosition.Line;
         if (tree.GetLineSpan(list[list.Count - 1].Span).StartLinePosition.Line == startLine)
         {
             return null;
         }
 
-        var endOfLine = GetEndOfLine(ownerNode, elastic: false);
+        var endOfLine = GetEndOfLine(ownerNode, elastic);
 
+        // Indent each entry one level deeper than the owning declaration/expression.
         var leadingSpaces = GetLeadingSpaces(ownerNode) + IndentationSpacesPerLevel;
         var indentedEntries = IndentEntries(list, leadingSpaces);
         var separators = CreateSeparators(indentedEntries.Length, endOfLine);
@@ -138,8 +114,10 @@ internal static class UniqueLineCodeFixerHelperExtensions
                    inner => getParameterList(inner)?.Parameters,
                    (inner, parameters) => withParameterList(
                        inner,
-                       SyntaxFactory.ParameterList(parameters)
-                           .WithOpenParenToken(getParameterList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                       SyntaxFactory.ParameterList(
+                           getParameterList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine),
+                           parameters,
+                           SyntaxFactory.Token(SyntaxKind.CloseParenToken))))
                ?? node;
     }
 
@@ -160,8 +138,10 @@ internal static class UniqueLineCodeFixerHelperExtensions
                    inner => getArgumentList(inner)?.Arguments,
                    (inner, arguments) => withArgumentList(
                        inner,
-                       SyntaxFactory.ArgumentList(arguments)
-                           .WithOpenParenToken(getArgumentList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                       SyntaxFactory.ArgumentList(
+                           getArgumentList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine),
+                           arguments,
+                           SyntaxFactory.Token(SyntaxKind.CloseParenToken))))
                ?? node;
     }
 
@@ -179,7 +159,7 @@ internal static class UniqueLineCodeFixerHelperExtensions
         where T : SyntaxNode
         where TParam : SyntaxNode
     {
-        var newList = SplitEntriesOntoOwnLines(node, entries);
+        var newList = SplitEntriesOntoOwnLines(node, entries, elastic: false);
         if (newList is null)
         {
             return node;
@@ -249,7 +229,7 @@ internal static class UniqueLineCodeFixerHelperExtensions
         var separators = new SyntaxToken[entryCount - 1];
         for (var i = 0; i < separators.Length; i++)
         {
-            separators[i] = SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(endOfLine);
+            separators[i] = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CommaToken, SyntaxFactory.TriviaList(endOfLine));
         }
 
         return separators;

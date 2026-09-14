@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -35,7 +33,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1315NoBlockingWaitCodeFixProvider))]
 [Shared]
-public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider
 {
     /// <summary>The awaitable that completes when every task does.</summary>
     private const string WhenAllMethodName = "WhenAll";
@@ -43,20 +41,18 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
     /// <summary>The awaitable that completes when one task does.</summary>
     private const string WhenAnyMethodName = "WhenAny";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.NoBlockingWait.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Await instead of blocking", nameof(Psh1315NoBlockingWaitCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Await instead of blocking", nameof(Psh1315NoBlockingWaitCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Replaces a reported blocking wait with its awaited form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -68,6 +64,18 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
         TryGetReplacement(model, blocking) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(blocking, replacement))
             : document;
+
+    /// <summary>Checks applicability without building the awaited replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the blocking wait can be rewritten.</returns>
+    /// <remarks>Combinators still require a speculative call to validate overload resolution.</remarks>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
+            && TryGetSite(model, blocking) is { } site
+            && (site.Kind == BlockingWait.Kind.SingleTask
+                || TryGetCombinatorCall(model, (InvocationExpressionSyntax)blocking, site.Kind) is not null);
 
     /// <summary>Resolves the reported blocking wait and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -86,38 +94,56 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The replacement expression, or <see langword="null"/> when awaiting here would not compile or would not mean the same thing.</returns>
     private static ExpressionSyntax? TryGetReplacement(SemanticModel model, ExpressionSyntax blocking)
     {
-        if (!Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(blocking)
-            || !AwaitPlacement.IsLegalAt(blocking)
-            || AsyncSiblingResolver.TaskTypes.Create(model.Compilation) is not { } tasks
-            || BlockingWait.TryMatch(blocking, model, tasks, CancellationToken.None) is not { AwaitIsEquivalent: true } site)
+        if (TryGetSite(model, blocking) is not { } site)
         {
             return null;
         }
 
-        return site.Kind == BlockingWait.Kind.SingleTask
-            ? AwaitExpressionRewrite.WrapInAwait(site.Awaited, blocking)
-            : TryGetCombinatorReplacement(model, (InvocationExpressionSyntax)blocking, site.Kind);
+        if (site.Kind == BlockingWait.Kind.SingleTask)
+        {
+            return AwaitExpressionRewrite.WrapInAwait(site.Awaited, blocking);
+        }
+
+        return TryGetCombinatorCall(model, (InvocationExpressionSyntax)blocking, site.Kind) is { } candidate
+            ? AwaitExpressionRewrite.WrapInAwait(candidate, blocking)
+            : null;
     }
 
-    /// <summary>Builds <c>await Task.WhenAll(…)</c> or <c>await Task.WhenAny(…)</c> for a reported combinator.</summary>
+    /// <summary>Matches a blocking wait whose equivalent await is legal at this position.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="blocking">The blocking expression.</param>
+    /// <returns>The matched wait, or null when it cannot be awaited here.</returns>
+    private static BlockingWait.Site? TryGetSite(SemanticModel model, ExpressionSyntax blocking) =>
+        Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(blocking)
+            && AwaitPlacement.IsLegalAt(blocking)
+            && AsyncSiblingResolver.TaskTypes.Create(model.Compilation) is { } tasks
+            && BlockingWait.TryMatch(blocking, model, tasks, CancellationToken.None) is { AwaitIsEquivalent: true } site
+            ? site
+            : null;
+
+    /// <summary>Builds and binds <c>Task.WhenAll(…)</c> or <c>Task.WhenAny(…)</c> for a reported combinator.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="blocking">The <c>Task.WaitAll</c> or <c>Task.WaitAny</c> invocation.</param>
     /// <param name="kind">Which combinator was reported.</param>
-    /// <returns>The awaited replacement, or <see langword="null"/> when the rewritten call does not bind.</returns>
+    /// <returns>The replacement call, or <see langword="null"/> when it does not bind.</returns>
     /// <remarks>
     /// The receiver is left exactly as it was written — a qualified or aliased <c>Task</c> stays
     /// qualified or aliased — and only the method name moves. The rewritten call is then bound
     /// speculatively: a framework whose <c>WhenAll</c> has no overload for the arguments already
     /// written gets no fix rather than one that does not compile.
     /// </remarks>
-    private static ExpressionSyntax? TryGetCombinatorReplacement(SemanticModel model, InvocationExpressionSyntax blocking, BlockingWait.Kind kind)
+    private static InvocationExpressionSyntax? TryGetCombinatorCall(SemanticModel model, InvocationExpressionSyntax blocking, BlockingWait.Kind kind)
     {
         var access = (MemberAccessExpressionSyntax)blocking.Expression;
         var whenName = kind == BlockingWait.Kind.WaitAll ? WhenAllMethodName : WhenAnyMethodName;
-        var candidate = blocking.WithExpression(
-            access.WithName(SyntaxFactory.IdentifierName(whenName).WithTriviaFrom(access.Name)));
+        var candidate = blocking.Update(
+            access.Update(
+                access.Expression,
+                access.OperatorToken,
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(access.Name.GetLeadingTrivia(), whenName, access.Name.GetTrailingTrivia()))),
+            blocking.ArgumentList);
 
         var speculative = model.GetSpeculativeSymbolInfo(blocking.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression);
-        return speculative.Symbol is not IMethodSymbol ? null : AwaitExpressionRewrite.WrapInAwait(candidate, blocking);
+        return speculative.Symbol is IMethodSymbol ? candidate : null;
     }
 }

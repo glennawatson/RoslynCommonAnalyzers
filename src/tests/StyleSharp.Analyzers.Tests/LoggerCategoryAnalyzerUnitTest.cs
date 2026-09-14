@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using VerifyCategory = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2443LoggerCategoryAnalyzer,
     StyleSharp.Analyzers.Sst2443LoggerCategoryCodeFixProvider>;
@@ -12,6 +13,141 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2443 (a typed logger categorized by the wrong type) and its fix.</summary>
 public class LoggerCategoryAnalyzerUnitTest
 {
+    /// <summary>Verifies top-level factories have no enclosing category to suggest.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TopLevelFactoryIsCleanAsync()
+    {
+        var test = new VerifyCategory.Test
+        {
+            TestCode = """
+                new Factory().CreateLogger<Other>();
+                class Other { public void Work() { } }
+                class Factory
+                {
+                    public Microsoft.Extensions.Logging.ILogger<T> CreateLogger<T>() => null;
+                }
+                namespace Microsoft.Extensions.Logging { public interface ILogger<T> { } }
+                """,
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+            solution.WithProjectCompilationOptions(projectId, solution.GetProject(projectId)!.CompilationOptions!.WithOutputKind(OutputKind.ConsoleApplication)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the typeof factory overload reports the category and accepts its own type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task TypeofFactoryAndPropertyCategoriesAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            class Other { public void Work() { } }
+            class C
+            {
+                public ILogger<{|SST2443:Other|}> Logger { get; }
+                void M(ILoggerFactory factory)
+                {
+                    M(factory);
+                    System.GC.KeepAlive(factory);
+                    factory.CreateLogger(typeof({|SST2443:Other|}));
+                    factory.CreateLogger(typeof(C));
+                    factory.CreateLogger("Category");
+                }
+            }
+            """));
+
+    /// <summary>Verifies nested categories, marker suffixes, and type parameters remain deliberate.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DeliberateCategoriesAreCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            class RequestLogs { public void Work() { } }
+            class Outer
+            {
+                class Middle
+                {
+                    class Inner<T>
+                    {
+                        public ILogger<Outer> OuterLogger;
+                        public ILogger<RequestLogs> Marker;
+                        public ILogger<T> Generic;
+                        void M(ILoggerFactory factory)
+                        {
+                            factory.CreateLogger<T>();
+                            factory.CreateLogger(typeof(T));
+                        }
+                    }
+                }
+            }
+            """));
+
+    /// <summary>Verifies unrelated interfaces and unrelated containing types do not grant exemptions.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedInterfaceCategoryIsReportedAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            interface IFirst { void Work(); }
+            interface ISecond { void Work(); }
+            interface IOther { void Work(); }
+            class Outer
+            {
+                class C : IFirst, ISecond
+                {
+                    public void Work() { }
+                    public ILogger<ISecond> Valid;
+                    public ILogger<{|SST2443:IOther|}> Invalid;
+                }
+            }
+            """));
+
+    /// <summary>Verifies similarly named types and factories must bind to the logging abstraction.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedLoggerShapesAreCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap("""
+            namespace Unrelated
+            {
+                interface ILogger<T> { }
+                interface ILogger<T, U> { }
+                class Other { public void Work() { } }
+                class Factory
+                {
+                    public int CreateLogger<T>() => 0;
+                    public ILogger<Other> CreateLogger(System.Type type) => null;
+                }
+                class C
+                {
+                    public ILogger<Other> Logger;
+                    public ILogger<Other, C> Pair;
+                    void M(Factory factory)
+                    {
+                        factory.CreateLogger<Other>();
+                        factory.CreateLogger(typeof(Other));
+                    }
+                }
+            }
+            """));
+
+    /// <summary>Verifies missing logging metadata disables matching generic and typeof factory calls.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MissingLoggingTypesAreCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync("""
+            interface ILogger<T> { }
+            class Other { public void Work() { } }
+            class C
+            {
+                public ILogger<Other> Logger;
+                public ILogger<T> CreateLogger<T>() => null;
+                public object CreateLogger(System.Type type) => null;
+                void M() { this.CreateLogger<Other>(); this.CreateLogger(typeof(Other)); }
+            }
+            """);
+
     /// <summary>Verifies a field logger categorized by another type is corrected to the enclosing type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

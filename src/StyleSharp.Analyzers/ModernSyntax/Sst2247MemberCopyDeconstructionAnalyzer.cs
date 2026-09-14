@@ -116,7 +116,7 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
         if (first.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: var version } || version < CSharp7
             || !TryReadMemberCopy(first, out var firstCopy)
             || first.Parent is not BlockSyntax parent
-            || !TryGetStatementIndex(parent, first, out var index)
+            || !ModernSyntaxReadabilityAnalysis.TryGetStatementIndex(parent, first, out var index)
             || IsContinuationOfRun(parent, index, firstCopy.SourceName))
         {
             return false;
@@ -265,21 +265,33 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
 
         for (var i = 0; i < members.Length; i++)
         {
-            if (model.GetSymbolInfo(members[i].MemberAccess.Name, cancellationToken).Symbol is not IFieldSymbol field)
-            {
-                return false;
-            }
-
-            var element = tuple.TupleElements[i];
-            if (!SymbolEqualityComparer.Default.Equals(
-                    field.CorrespondingTupleField ?? field,
-                    element.CorrespondingTupleField ?? element))
+            if (!MatchesTupleElement(members[i].MemberAccess.Name, tuple.TupleElements[i], model, cancellationToken))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /// <summary>Checks a tuple element's written name before binding its reference.</summary>
+    /// <param name="name">The member name being read.</param>
+    /// <param name="element">The expected tuple element.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns>True when the reference names the expected element or its positional field.</returns>
+    private static bool MatchesTupleElement(SimpleNameSyntax name, IFieldSymbol element, SemanticModel model, CancellationToken cancellationToken)
+    {
+        var identifier = name.Identifier.ValueText;
+        if ((identifier != element.Name && identifier != element.CorrespondingTupleField?.Name)
+            || model.GetSymbolInfo(name, cancellationToken).Symbol is not IFieldSymbol field)
+        {
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(
+            field.CorrespondingTupleField ?? field,
+            element.CorrespondingTupleField ?? element);
     }
 
     /// <summary>Returns whether the source's members map to a single matching <c>Deconstruct</c> in positional order.</summary>
@@ -301,7 +313,8 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
 
         for (var i = 0; i < members.Length; i++)
         {
-            if (model.GetSymbolInfo(members[i].MemberAccess, cancellationToken).Symbol is not { } member
+            if (!string.Equals(members[i].MemberAccess.Name.Identifier.ValueText, deconstruct.Parameters[i].Name, StringComparison.OrdinalIgnoreCase)
+                || model.GetSymbolInfo(members[i].MemberAccess, cancellationToken).Symbol is not { } member
                 || !string.Equals(member.Name, deconstruct.Parameters[i].Name, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -389,28 +402,6 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return false;
-    }
-
-    /// <summary>Returns the index of a statement inside a block.</summary>
-    /// <param name="block">The block.</param>
-    /// <param name="statement">The statement.</param>
-    /// <param name="index">The statement index.</param>
-    /// <returns><see langword="true"/> when found.</returns>
-    private static bool TryGetStatementIndex(BlockSyntax block, StatementSyntax statement, out int index)
-    {
-        for (var i = 0; i < block.Statements.Count; i++)
-        {
-            if (block.Statements[i].Span != statement.Span)
-            {
-                continue;
-            }
-
-            index = i;
-            return true;
-        }
-
-        index = -1;
         return false;
     }
 

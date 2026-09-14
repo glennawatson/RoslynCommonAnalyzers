@@ -9,13 +9,22 @@ namespace StyleSharp.Analyzers;
 /// <summary>Applies mechanical fixes for grouped language-style readability rules (SST1193-SST1199).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(LanguageStyleCodeFixProvider))]
 [Shared]
-public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class LanguageStyleCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Identifies fixes that absorb a following member assignment.</summary>
+    private const string ObjectInitializerDiagnosticId = "SST1193";
+
+    /// <summary>Identifies fixes that absorb a following collection Add call.</summary>
+    private const string CollectionInitializerDiagnosticId = "SST1194";
+
     /// <summary>The characters a conditional return adds around the expression: <c>return </c> and <c>;</c>.</summary>
     private const int ReturnWidth = 8;
 
     /// <summary>The characters a conditional assignment adds around the expression: <c> = </c> and <c>;</c>.</summary>
     private const int AssignmentWidth = 4;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -28,40 +37,23 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         ReadabilityRules.UseNameofType.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static diagnostic => GetTitle(diagnostic.Id),
+            static diagnostic => diagnostic.Id,
+            static (root, diagnostic) => CanRewrite(root, diagnostic) ? diagnostic : null,
+            Apply);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (GetTitle(diagnostic.Id) is not { } title
-                || CreateReplacement(root, options, diagnostic, out _, out _) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title,
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: diagnostic.Id),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        var options = editor.OriginalDocument.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(editor.OriginalRoot.SyntaxTree);
-        var replacement = CreateReplacement(editor.OriginalRoot, options, diagnostic, out var oldNode, out var removeNode);
+        var replacement = CreateReplacement(editor.OriginalDocument, editor.OriginalRoot, diagnostic, out var oldNode, out var removeNode);
         if (oldNode is null || replacement is null)
         {
             return;
@@ -73,7 +65,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             return;
         }
 
-        editor.RemoveNode(removeNode);
+        editor.RemoveNode(removeNode, GetRemovalOptions(diagnostic, removeNode));
     }
 
     /// <summary>Applies one language-style fix.</summary>
@@ -83,8 +75,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
     {
-        var options = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
-        var replacement = CreateReplacement(root, options, diagnostic, out var oldNode, out var removeNode);
+        var replacement = CreateReplacement(document, root, diagnostic, out var oldNode, out var removeNode);
         if (oldNode is null || replacement is null)
         {
             return document;
@@ -100,15 +91,159 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         var updated = tracked.ReplaceNode(trackedOld, replacement);
         if (removeNode is not null && updated.GetCurrentNode(removeNode) is { } trackedRemove)
         {
-            updated = updated.RemoveNode(trackedRemove, SyntaxRemoveOptions.KeepNoTrivia);
+            updated = updated.RemoveNode(trackedRemove, GetRemovalOptions(diagnostic, removeNode));
         }
 
         return updated is null ? document : document.WithSyntaxRoot(updated);
     }
 
-    /// <summary>Creates the replacement node for one diagnostic.</summary>
+    /// <summary>Preserves initializer comments and line boundaries without leaving an empty statement line.</summary>
+    /// <param name="diagnostic">The applied diagnostic.</param>
+    /// <param name="node">The original statement being absorbed.</param>
+    /// <returns>The trivia to retain when removing the statement.</returns>
+    private static SyntaxRemoveOptions GetRemovalOptions(Diagnostic diagnostic, SyntaxNode node)
+    {
+        if (diagnostic.Id is not (ObjectInitializerDiagnosticId or CollectionInitializerDiagnosticId))
+        {
+            return SyntaxRemoveOptions.KeepNoTrivia;
+        }
+
+        if (HasNonWhitespaceTrivia(node.GetLeadingTrivia()) || HasNonWhitespaceTrivia(node.GetTrailingTrivia()))
+        {
+            return SyntaxRemoveOptions.KeepExteriorTrivia;
+        }
+
+        foreach (var trivia in node.GetFirstToken().GetPreviousToken().TrailingTrivia)
+        {
+            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return SyntaxRemoveOptions.KeepNoTrivia;
+            }
+        }
+
+        return SyntaxRemoveOptions.KeepEndOfLine;
+    }
+
+    /// <summary>Returns whether exterior trivia contains text that must survive statement removal.</summary>
+    /// <param name="triviaList">The exterior trivia.</param>
+    /// <returns>Whether any trivia is more than whitespace or a line break.</returns>
+    private static bool HasNonWhitespaceTrivia(in SyntaxTriviaList triviaList)
+    {
+        foreach (var trivia in triviaList)
+        {
+            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks the original syntax without constructing a replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="options">The tree's configuration.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the fix can be applied.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var span = diagnostic.Location.SourceSpan;
+        return diagnostic.Id switch
+        {
+            ObjectInitializerDiagnosticId => CanMoveIntoInitializer(root, span, collection: false),
+            CollectionInitializerDiagnosticId => CanMoveIntoInitializer(root, span, collection: true),
+            "SST1195" => CanRewriteNullConditional(root, span, propagation: false),
+            "SST1196" => CanRewriteNullConditional(root, span, propagation: true),
+            "SST1197" => CanRewriteConditionalReturn(root, span),
+            "SST1198" => DiagnosticAncestor.Find<IfStatementSyntax>(root, span) is { Else.Statement: { } elseStatement } ifStatement
+                && TryGetEmbeddedAssignment(ifStatement.Statement, out _, out _)
+                && TryGetEmbeddedAssignment(elseStatement, out _, out _),
+            "SST1199" => root.FindNode(span) is MemberAccessExpressionSyntax
+            {
+                Expression: TypeOfExpressionSyntax,
+                Name.Identifier.ValueText: "Name",
+            },
+            _ => false,
+        };
+    }
+
+    /// <summary>Checks the following assignment or Add call and its directive boundary.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic source span.</param>
+    /// <param name="collection">Whether the initializer takes an Add argument.</param>
+    /// <returns>Whether the following statement can move into the initializer.</returns>
+    private static bool CanMoveIntoInitializer(SyntaxNode root, TextSpan span, bool collection)
+    {
+        if (!TryGetLocalObjectCreation(root, span, out _, out var local, out var block, out var variable, out _))
+        {
+            return false;
+        }
+
+        ExpressionStatementSyntax statement;
+        var matched = collection
+            ? TryGetFollowingAdd(block, local, variable.Identifier.ValueText, out statement, out _)
+            : TryGetFollowingAssignment(block, local, variable.Identifier.ValueText, out statement, out _, out _);
+        return matched && !statement.ContainsDirectives && !DirectiveBoundaries.Separate(local, statement);
+    }
+
+    /// <summary>Checks a null conditional using the exact text of its original operands.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic source span.</param>
+    /// <param name="propagation">Whether the non-null branch must be a member access.</param>
+    /// <returns>Whether the conditional can become the requested expression.</returns>
+    private static bool CanRewriteNullConditional(SyntaxNode root, TextSpan span, bool propagation)
+    {
+        if (root.FindNode(span) is not ConditionalExpressionSyntax conditional
+            || !TryGetNullConditionalParts(conditional, out var operand, out var fallback, out var whenNotNull))
+        {
+            return false;
+        }
+
+        return propagation
+            ? fallback.IsKind(SyntaxKind.NullLiteralExpression)
+                && whenNotNull is MemberAccessExpressionSyntax memberAccess
+                && HaveSameText(memberAccess.Expression, operand)
+            : HaveSameText(operand, whenNotNull);
+    }
+
+    /// <summary>Compares source spelling, including internal trivia, without allocating strings.</summary>
+    /// <param name="left">The first expression in the original tree.</param>
+    /// <param name="right">The second expression in the original tree.</param>
+    /// <returns>Whether the expressions have identical text excluding outer trivia.</returns>
+    private static bool HaveSameText(ExpressionSyntax left, ExpressionSyntax right)
+    {
+        var leftSpan = left.Span;
+        var rightSpan = right.Span;
+        if (leftSpan.Length != rightSpan.Length)
+        {
+            return false;
+        }
+
+        var text = left.SyntaxTree.GetText();
+        for (var i = 0; i < leftSpan.Length; i++)
+        {
+            if (text[leftSpan.Start + i] != text[rightSpan.Start + i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Checks both returns before any conditional-expression layout is built.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic source span.</param>
+    /// <returns>Whether the returns can be collapsed without nesting conditionals or crossing directives.</returns>
+    private static bool CanRewriteConditionalReturn(SyntaxNode root, TextSpan span) =>
+        DiagnosticAncestor.Find<IfStatementSyntax>(root, span) is { Parent: BlockSyntax block } ifStatement
+            && TryGetEmbeddedReturn(ifStatement.Statement, out var whenTrue)
+            && LanguageStyleAnalyzer.NextStatement(block, ifStatement) is ReturnStatementSyntax { Expression: { } whenFalse } followingReturn
+            && !LanguageStyleAnalyzer.WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse)
+            && !DirectiveBoundaries.Separate(ifStatement, followingReturn);
+
+    /// <summary>Creates the replacement node for one diagnostic.</summary>
+    /// <param name="document">The document whose configuration shapes the edit.</param>
+    /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <param name="oldNode">The syntax node to replace.</param>
     /// <param name="removeNode">The optional follow-up statement to remove.</param>
@@ -119,12 +254,13 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// and the surviving statement is one the directive no longer covers.
     /// </remarks>
     private static SyntaxNode? CreateReplacement(
+        Document document,
         SyntaxNode root,
-        AnalyzerConfigOptions options,
         Diagnostic diagnostic,
         out SyntaxNode? oldNode,
         out SyntaxNode? removeNode)
     {
+        var options = document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
         var replacement = CreateEdit(root, options, diagnostic, out oldNode, out removeNode);
         if (oldNode is null || removeNode is null || !DirectiveBoundaries.Separate(oldNode, removeNode))
         {
@@ -154,8 +290,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = null;
         return diagnostic.Id switch
         {
-            "SST1193" => CreateObjectInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
-            "SST1194" => CreateCollectionInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
+            ObjectInitializerDiagnosticId => CreateObjectInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
+            CollectionInitializerDiagnosticId => CreateCollectionInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
             "SST1195" => CreateNullCoalescingFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST1196" => CreateNullPropagationFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST1197" => CreateConditionalReturnFix(root, options, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
@@ -175,7 +311,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     {
         removeNode = null;
         if (!TryGetLocalObjectCreation(root, span, out var objectCreation, out var local, out var block, out var variable, out oldNode)
-            || !TryGetFollowingAssignment(block, local, variable.Identifier.ValueText, out var assignmentStatement, out var memberAccess, out var value))
+            || !TryGetFollowingAssignment(block, local, variable.Identifier.ValueText, out var assignmentStatement, out var memberAccess, out var value)
+            || assignmentStatement.ContainsDirectives
+            || DirectiveBoundaries.Separate(local, assignmentStatement))
         {
             oldNode = null;
             return null;
@@ -184,12 +322,19 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = assignmentStatement;
         var initializer = SyntaxFactory.InitializerExpression(
             SyntaxKind.ObjectInitializerExpression,
+            SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
             SyntaxFactory.SingletonSeparatedList<ExpressionSyntax>(SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
                 memberAccess.Name.WithoutTrivia(),
-                value.WithoutTrivia())));
+                SyntaxFactory.Token(SyntaxKind.EqualsToken),
+                value.WithoutTrivia())),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBraceToken, objectCreation.GetTrailingTrivia()));
 
-        return objectCreation.WithInitializer(initializer).WithTriviaFrom(objectCreation);
+        return objectCreation.Update(
+            objectCreation.NewKeyword,
+            objectCreation.Type,
+            objectCreation.ArgumentList,
+            initializer);
     }
 
     /// <summary>Creates a collection-initializer replacement.</summary>
@@ -202,7 +347,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     {
         removeNode = null;
         if (!TryGetLocalObjectCreation(root, span, out var objectCreation, out var local, out var block, out var variable, out oldNode)
-            || !TryGetFollowingAdd(block, local, variable.Identifier.ValueText, out var addStatement, out var invocation))
+            || !TryGetFollowingAdd(block, local, variable.Identifier.ValueText, out var addStatement, out var invocation)
+            || addStatement.ContainsDirectives
+            || DirectiveBoundaries.Separate(local, addStatement))
         {
             oldNode = null;
             return null;
@@ -211,9 +358,15 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = addStatement;
         var initializer = SyntaxFactory.InitializerExpression(
             SyntaxKind.CollectionInitializerExpression,
-            SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0].Expression.WithoutTrivia()));
+            SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
+            SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0].Expression.WithoutTrivia()),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBraceToken, objectCreation.GetTrailingTrivia()));
 
-        return objectCreation.WithInitializer(initializer).WithTriviaFrom(objectCreation);
+        return objectCreation.Update(
+            objectCreation.NewKeyword,
+            objectCreation.Type,
+            objectCreation.ArgumentList,
+            initializer);
     }
 
     /// <summary>Creates a null-coalescing replacement.</summary>
@@ -233,10 +386,10 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         return SyntaxFactory.BinaryExpression(
-                SyntaxKind.CoalesceExpression,
-                operand.WithoutTrivia(),
-                fallback.WithoutTrivia())
-            .WithTriviaFrom(conditional);
+            SyntaxKind.CoalesceExpression,
+            operand.WithoutTrailingTrivia().WithLeadingTrivia(conditional.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.QuestionQuestionToken),
+            fallback.WithoutLeadingTrivia().WithTrailingTrivia(conditional.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a null-propagation replacement.</summary>
@@ -258,9 +411,10 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         return SyntaxFactory.ConditionalAccessExpression(
-                operand.WithoutTrivia(),
-                SyntaxFactory.MemberBindingExpression(memberAccess.Name.WithoutTrivia()))
-            .WithTriviaFrom(conditional);
+            operand.WithoutTrailingTrivia().WithLeadingTrivia(conditional.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.QuestionToken),
+            SyntaxFactory.MemberBindingExpression(
+                memberAccess.Name.WithoutLeadingTrivia().WithTrailingTrivia(conditional.GetTrailingTrivia())));
     }
 
     /// <summary>Creates a conditional-return replacement.</summary>
@@ -277,13 +431,13 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         out SyntaxNode? oldNode,
         out SyntaxNode? removeNode)
     {
-        oldNode = FindAncestor<IfStatementSyntax>(root, span);
+        oldNode = DiagnosticAncestor.Find<IfStatementSyntax>(root, span);
         removeNode = null;
         if (oldNode is not IfStatementSyntax ifStatement
             || !TryGetEmbeddedReturn(ifStatement.Statement, out var whenTrue)
             || ifStatement.Parent is not BlockSyntax block
-            || NextStatement(block, ifStatement) is not ReturnStatementSyntax { Expression: { } whenFalse } followingReturn
-            || WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse))
+            || LanguageStyleAnalyzer.NextStatement(block, ifStatement) is not ReturnStatementSyntax { Expression: { } whenFalse } followingReturn
+            || LanguageStyleAnalyzer.WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse))
         {
             oldNode = null;
             return null;
@@ -292,10 +446,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = followingReturn;
         var conditional = LayOutConditional(ifStatement, options, ifStatement.Condition, whenTrue, whenFalse, ReturnWidth);
         return SyntaxFactory.ReturnStatement(
-                SyntaxFactory.Token(default, SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                conditional,
-                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, default))
-            .WithTriviaFrom(ifStatement);
+            SyntaxFactory.Token(ifStatement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            conditional,
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
     }
 
     /// <summary>Builds a conditional expression, wrapping its branches when one line would run past the maximum.</summary>
@@ -353,37 +506,6 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             SyntaxFactory.Token(operatorLeading, SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             whenFalse.WithoutTrivia());
 
-    /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
-    /// <param name="condition">The condition expression.</param>
-    /// <param name="whenTrue">The expression used for the true branch.</param>
-    /// <param name="whenFalse">The expression used for the false branch.</param>
-    /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
-    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) =>
-        ContainsConditionalExpression(condition)
-            || ContainsConditionalExpression(whenTrue)
-            || ContainsConditionalExpression(whenFalse);
-
-    /// <summary>Returns whether an expression contains a conditional expression.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> when a conditional expression is present.</returns>
-    private static bool ContainsConditionalExpression(ExpressionSyntax expression)
-    {
-        if (expression is ConditionalExpressionSyntax)
-        {
-            return true;
-        }
-
-        foreach (var node in expression.DescendantNodes(static node => node is not ConditionalExpressionSyntax))
-        {
-            if (node is ConditionalExpressionSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Creates a conditional-assignment replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="options">The tree's configuration.</param>
@@ -396,7 +518,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         TextSpan span,
         out SyntaxNode? oldNode)
     {
-        oldNode = FindAncestor<IfStatementSyntax>(root, span);
+        oldNode = DiagnosticAncestor.Find<IfStatementSyntax>(root, span);
         if (oldNode is not IfStatementSyntax ifStatement
             || !TryGetEmbeddedAssignment(ifStatement.Statement, out var target, out var whenTrue)
             || ifStatement.Else?.Statement is not { } elseStatement
@@ -415,13 +537,12 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             whenFalse,
             AssignmentWidth + assigned.Span.Length);
         return SyntaxFactory.ExpressionStatement(
-                SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    assigned,
-                    SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                    conditional),
-                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, default))
-            .WithTriviaFrom(ifStatement);
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                assigned.WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                conditional),
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a <c>nameof</c> replacement.</summary>
@@ -439,27 +560,11 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         return SyntaxFactory.InvocationExpression(
-                SyntaxFactory.IdentifierName("nameof"),
-                SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(SyntaxFactory.ParseExpression(type.ToString())))))
-            .WithTriviaFrom(memberAccess);
-    }
-
-    /// <summary>Returns the next statement in a block.</summary>
-    /// <param name="block">The containing block.</param>
-    /// <param name="statement">The current statement.</param>
-    /// <returns>The next statement, or <see langword="null"/>.</returns>
-    private static StatementSyntax? NextStatement(BlockSyntax block, StatementSyntax statement)
-    {
-        var statements = block.Statements;
-        for (var i = 0; i < statements.Count - 1; i++)
-        {
-            if (statements[i].Span == statement.Span)
-            {
-                return statements[i + 1];
-            }
-        }
-
-        return null;
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(memberAccess.GetLeadingTrivia(), "nameof", SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(SyntaxFactory.ParseExpression(type.ToString()))),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, memberAccess.GetTrailingTrivia())));
     }
 
     /// <summary>Gets an empty local object creation at a diagnostic span.</summary>
@@ -521,7 +626,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         statement = null!;
         memberAccess = null!;
         value = null!;
-        if (NextStatement(block, local) is not ExpressionStatementSyntax assignmentStatement
+        if (LanguageStyleAnalyzer.NextStatement(block, local) is not ExpressionStatementSyntax assignmentStatement
             || assignmentStatement.Expression is not AssignmentExpressionSyntax assignment
             || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             || assignment.Left is not MemberAccessExpressionSyntax assignedMember
@@ -554,7 +659,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     {
         statement = null!;
         invocation = null!;
-        if (NextStatement(block, local) is not ExpressionStatementSyntax addStatement
+        if (LanguageStyleAnalyzer.NextStatement(block, local) is not ExpressionStatementSyntax addStatement
             || addStatement.Expression is not InvocationExpressionSyntax addInvocation
             || addInvocation.Expression is not MemberAccessExpressionSyntax memberAccess
             || memberAccess.Expression is not IdentifierNameSyntax receiver
@@ -582,32 +687,20 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         out ExpressionSyntax fallback,
         out ExpressionSyntax whenNotNull)
     {
-        operand = null!;
         fallback = null!;
         whenNotNull = null!;
-        if (ExpressionSimplificationAnalyzer.Unwrap(conditional.Condition) is not BinaryExpressionSyntax binary)
+        if (ExpressionShapes.WalkDownParentheses(conditional.Condition) is not BinaryExpressionSyntax binary
+            || !LanguageStyleAnalyzer.TryGetNullComparedOperand(binary, out operand))
         {
+            operand = null!;
             return false;
         }
 
-        var leftNull = binary.Left.IsKind(SyntaxKind.NullLiteralExpression);
-        var rightNull = binary.Right.IsKind(SyntaxKind.NullLiteralExpression);
-        if (leftNull == rightNull)
-        {
-            return false;
-        }
-
-        operand = leftNull ? binary.Right : binary.Left;
         if (binary.IsKind(SyntaxKind.EqualsExpression))
         {
             fallback = conditional.WhenTrue;
             whenNotNull = conditional.WhenFalse;
             return true;
-        }
-
-        if (!binary.IsKind(SyntaxKind.NotEqualsExpression))
-        {
-            return false;
         }
 
         fallback = conditional.WhenFalse;
@@ -621,21 +714,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <returns><see langword="true"/> when the statement is a value return.</returns>
     private static bool TryGetEmbeddedReturn(StatementSyntax statement, out ExpressionSyntax expression)
     {
-        expression = null!;
-        if (statement is ReturnStatementSyntax { Expression: { } returnExpression })
-        {
-            expression = returnExpression;
-            return true;
-        }
-
-        if (statement is not BlockSyntax { Statements.Count: 1 } block
-            || block.Statements[0] is not ReturnStatementSyntax { Expression: { } blockExpression })
-        {
-            return false;
-        }
-
-        expression = blockExpression;
-        return true;
+        expression = LanguageStyleAnalyzer.GetEmbeddedReturn(statement)!;
+        return expression is not null;
     }
 
     /// <summary>Returns a target and value from a simple assignment statement or single-statement block.</summary>
@@ -648,21 +728,10 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         out ExpressionSyntax target,
         out ExpressionSyntax value)
     {
-        target = null!;
-        value = null!;
-        ExpressionSyntax? expression = null;
-        if (statement is ExpressionStatementSyntax expressionStatement)
+        if (LanguageStyleAnalyzer.GetEmbeddedSimpleAssignment(statement) is not { } assignment)
         {
-            expression = expressionStatement.Expression;
-        }
-        else if (statement is BlockSyntax { Statements.Count: 1 } block
-            && block.Statements[0] is ExpressionStatementSyntax blockStatement)
-        {
-            expression = blockStatement.Expression;
-        }
-
-        if (expression is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment)
-        {
+            target = null!;
+            value = null!;
             return false;
         }
 
@@ -671,36 +740,14 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         return true;
     }
 
-    /// <summary>Finds the node at a span or one of its ancestors.</summary>
-    /// <typeparam name="T">The ancestor node type to find.</typeparam>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic source span.</param>
-    /// <returns>The matching node, or <see langword="null"/>.</returns>
-    private static T? FindAncestor<T>(SyntaxNode root, TextSpan span)
-        where T : SyntaxNode
-    {
-        var node = root.FindToken(span.Start).Parent;
-        while (node is not null)
-        {
-            if (node is T matched)
-            {
-                return matched;
-            }
-
-            node = node.Parent;
-        }
-
-        return null;
-    }
-
     /// <summary>Gets the code action title for a supported diagnostic id.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The code action title, or <see langword="null"/>.</returns>
     private static string? GetTitle(string diagnosticId) =>
         diagnosticId switch
         {
-            "SST1193" => "Move assignment into initializer",
-            "SST1194" => "Move Add call into initializer",
+            ObjectInitializerDiagnosticId => "Move assignment into initializer",
+            CollectionInitializerDiagnosticId => "Move Add call into initializer",
             "SST1195" => "Write fallback with ??",
             "SST1196" => "Write guarded access with ?.",
             "SST1197" => "Collapse into one conditional return",

@@ -68,7 +68,7 @@ public sealed class Ses1515PermissiveContentSecurityPolicyAnalyzer : DiagnosticA
         var text = literal.Token.ValueText;
 
         // Clean-path gate: only a literal that carries a CSP directive token is worth parsing further.
-        if (!ContainsDirectiveToken(text))
+        if (!TextFragments.ContainsAny(text, DirectiveTokens, StringComparison.Ordinal))
         {
             return;
         }
@@ -90,22 +90,6 @@ public sealed class Ses1515PermissiveContentSecurityPolicyAnalyzer : DiagnosticA
             literal.SyntaxTree,
             literal.Span,
             permissiveSource));
-    }
-
-    /// <summary>Returns whether the text contains any CSP directive token anywhere.</summary>
-    /// <param name="text">The literal's decoded text.</param>
-    /// <returns><see langword="true"/> when a directive token is present.</returns>
-    private static bool ContainsDirectiveToken(string text)
-    {
-        for (var i = 0; i < DirectiveTokens.Length; i++)
-        {
-            if (text.IndexOf(DirectiveTokens[i], StringComparison.Ordinal) >= 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether the text begins with a CSP directive token followed by a source boundary.</summary>

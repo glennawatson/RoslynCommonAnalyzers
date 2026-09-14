@@ -78,7 +78,7 @@ internal static class ClockPropertyAccess
             return false;
         }
 
-        var receiver = GetSimpleName(access.Expression);
+        var receiver = SyntaxNames.GetMemberName(access.Expression);
         return receiver is DateTimeTypeName or DateTimeOffsetTypeName;
     }
 
@@ -96,21 +96,21 @@ internal static class ClockPropertyAccess
         {
             case NowName:
             {
-                return GetSimpleName(access.Expression) is DateTimeTypeName or DateTimeOffsetTypeName
+                return SyntaxNames.GetMemberName(access.Expression) is DateTimeTypeName or DateTimeOffsetTypeName
                     ? LocalInstant.Now
                     : LocalInstant.None;
             }
 
             case TodayName:
             {
-                return GetSimpleName(access.Expression) == DateTimeTypeName ? LocalInstant.Today : LocalInstant.None;
+                return SyntaxNames.GetMemberName(access.Expression) == DateTimeTypeName ? LocalInstant.Today : LocalInstant.None;
             }
 
             case DateTimePropertyName:
             {
                 return access.Expression is MemberAccessExpressionSyntax offsetClock
                     && offsetClock.Name.Identifier.ValueText == NowName
-                    && GetSimpleName(offsetClock.Expression) == DateTimeOffsetTypeName
+                    && SyntaxNames.GetMemberName(offsetClock.Expression) == DateTimeOffsetTypeName
                     ? LocalInstant.OffsetLocalDateTime
                     : LocalInstant.None;
             }
@@ -173,7 +173,7 @@ internal static class ClockPropertyAccess
         // A projection off the clock keeps the clock in the text: 'Now.DateTime' would name nothing.
         var receiver = access.Expression is MemberAccessExpressionSyntax clock && clock.Name.Identifier.ValueText == NowName
             ? Describe(clock)
-            : GetSimpleName(access.Expression);
+            : SyntaxNames.GetMemberName(access.Expression);
 
         return $"{receiver}.{access.Name.Identifier.ValueText}";
     }
@@ -200,17 +200,6 @@ internal static class ClockPropertyAccess
         return access.Expression is MemberAccessExpressionSyntax clock
             && BindsToClock(model, clock, clockTypes, cancellationToken);
     }
-
-    /// <summary>Gets the rightmost identifier of a receiver expression.</summary>
-    /// <param name="expression">The receiver of the member access.</param>
-    /// <returns>The simple name, or an empty string when the receiver is not a name.</returns>
-    private static string GetSimpleName(ExpressionSyntax expression) => expression switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        MemberAccessExpressionSyntax qualified => qualified.Name.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>The clock types resolved once per compilation.</summary>
     /// <param name="DateTime">The <c>System.DateTime</c> symbol, or <see langword="null"/>.</param>

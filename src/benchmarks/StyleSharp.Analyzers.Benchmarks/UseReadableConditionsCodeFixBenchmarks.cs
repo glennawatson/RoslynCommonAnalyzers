@@ -7,6 +7,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the readable-conditions code-fix path.</summary>
@@ -27,8 +29,8 @@ public class UseReadableConditionsCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative comparison passed to the code fix.</summary>
-    private BinaryExpressionSyntax _comparison = null!;
+    /// <summary>The representative diagnostic on a comparison passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +48,8 @@ public class UseReadableConditionsCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, DiscreteAnalyzerBenchmarkSource.GenerateUseReadableConditions(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _comparison = (BinaryExpressionSyntax)method.ExpressionBody!.Expression;
+        var comparison = (BinaryExpressionSyntax)method.ExpressionBody!.Expression;
+        _diagnostic = Diagnostic.Create(ReadabilityRules.UseReadableConditions, comparison.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +69,7 @@ public class UseReadableConditionsCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseReadableConditions_ApplyFixAsync()
     {
-        var updated = Sst1131UseReadableConditionsCodeFixProvider.Swap(_document, _root, _comparison);
+        var updated = TargetCodeFix.Apply(_document, _root, ReportedNode.Find<BinaryExpressionSyntax>(_root, _diagnostic)!, Sst1131UseReadableConditionsCodeFixProvider.BuildSwapped);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

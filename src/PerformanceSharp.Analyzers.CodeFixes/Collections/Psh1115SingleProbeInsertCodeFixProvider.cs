@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,22 +13,29 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1115SingleProbeInsertCodeFixProvider))]
 [Shared]
-public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.SingleProbeInsert.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use TryAdd", nameof(Psh1115SingleProbeInsertCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use TryAdd", nameof(Psh1115SingleProbeInsertCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is IfStatementSyntax ifStatement
+            && Psh1115SingleProbeInsertAnalyzer.TryGetNegatedGuard(ifStatement, Psh1115SingleProbeInsertAnalyzer.ContainsKeyMethodName, argumentCount: 1)is { } guard
+            && Psh1115SingleProbeInsertAnalyzer.TryGetGuardedIndexerStore(ifStatement, guard.Receiver, guard.Key)is { };
 
     /// <summary>Resolves the reported guard and builds the TryAdd statement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -55,8 +60,11 @@ public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, I
                 SyntaxFactory.IdentifierName(Psh1115SingleProbeInsertAnalyzer.TryAddMethodName)),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(ImmutableArrays.Of(
                 SyntaxFactory.Argument(guard.Key.WithoutTrivia()),
-                SyntaxFactory.Argument(value.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space)))));
+                SyntaxFactory.Argument(null, default, value.WithoutTrailingTrivia().WithLeadingTrivia(SyntaxFactory.Space))))));
 
-        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(tryAdd).WithTriviaFrom(ifStatement));
+        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(
+            default,
+            tryAdd.WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia())));
     }
 }

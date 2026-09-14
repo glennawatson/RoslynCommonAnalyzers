@@ -4,6 +4,8 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Testing;
 
 using VerifyUnusedLocal = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1497UnusedLocalAnalyzer,
@@ -14,6 +16,52 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1497 (a local is declared and never read) and its fix.</summary>
 public class UnusedLocalAnalyzerUnitTest
 {
+    /// <summary>Verifies a detached declaration has no enclosing scope.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DetachedDeclarationHasNoScopeAsync()
+    {
+        var declaration = SyntaxFactory.ParseStatement("int value = 1;");
+        await Assert.That(Sst1497UnusedLocalAnalyzer.GetScope(declaration)).IsNull();
+    }
+
+    /// <summary>Verifies names belonging to members, aliases, namespaces, or arguments are not local reads.</summary>
+    /// <param name="source">The source containing the selected identifier.</param>
+    /// <param name="read">Whether the identifier represents a read.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { object M(C other) => other.value; }", false)]
+    [Arguments("class C { object M(C other) => other?.value; }", false)]
+    [Arguments("class C { System.value field; }", false)]
+    [Arguments("class C { global::value field; }", false)]
+    [Arguments("class C { void M() { M(value: 1); } }", false)]
+    [Arguments("[A(value = 1)] class C { }", false)]
+    [Arguments("class C { void M() { value = 1; } }", false)]
+    [Arguments("class C { void M() { value += 1; } }", true)]
+    [Arguments("class C { object M() => value = 1; }", true)]
+    [Arguments("class C { object M() => value.Member; }", true)]
+    [Arguments("class C { value.Member field; }", true)]
+    public async Task IdentifierContextDeterminesWhetherLocalIsReadAsync(string source, bool read)
+    {
+        var root = SyntaxFactory.ParseCompilationUnit(source);
+        var identifier = root.DescendantNodes().OfType<IdentifierNameSyntax>().First(static node => node.Identifier.ValueText == "value");
+        await Assert.That(Sst1497UnusedLocalAnalyzer.IsReadReference(identifier)).IsEqualTo(read);
+    }
+
+    /// <summary>Verifies incomplete declarations and discard shapes do not report unread out variables.</summary>
+    /// <param name="body">The declarations to analyze.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("(int left, int right) = (1, 2);")]
+    [Arguments("int.TryParse(\"1\", out _);")]
+    [Arguments("int.TryParse(\"1\", out var @_);")]
+    [Arguments("M(ref int value);")]
+    public async Task NonOutAndDiscardDeclarationsAreIgnoredAsync(string body)
+    {
+        var test = new VerifyUnusedLocal.Test { TestCode = $"class C {{ void M() {{ {body} }} }}", CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a local with a side-effect-free initializer is removed outright.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

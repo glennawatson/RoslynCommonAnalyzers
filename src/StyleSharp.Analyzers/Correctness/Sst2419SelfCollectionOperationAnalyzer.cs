@@ -34,6 +34,13 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.SelfCollectionOperation);
 
+    /// <summary>The metadata names CollectionInterfaces resolves, in slot order.</summary>
+    private static readonly string[] CollectionInterfacesMetadataNames =
+    [
+        SetInterfaceMetadataName,
+        ListInterfaceMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -45,25 +52,18 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Resolves the collection interfaces once, then analyzes each call.</summary>
+    /// <summary>Defers resolving the collection interfaces until a self-applied call needs them.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var setInterface = context.Compilation.GetTypeByMetadataName(SetInterfaceMetadataName);
-        var listInterface = context.Compilation.GetTypeByMetadataName(ListInterfaceMetadataName);
-        if (setInterface is null && listInterface is null)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, setInterface, listInterface), SyntaxKind.InvocationExpression);
+        var interfaces = new LazyMetadataTypes(context.Compilation, CollectionInterfacesMetadataNames);
+        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, interfaces), SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports one self-applied collection operation.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="setInterface">The resolved <c>ISet&lt;T&gt;</c> definition, if any.</param>
-    /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? setInterface, INamedTypeSymbol? listInterface)
+    /// <param name="interfaces">The collection interfaces resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataTypes interfaces)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax member)
@@ -84,9 +84,10 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var required = IsListMethod(name) ? listInterface : setInterface;
+        var resolved = interfaces.Get();
+        var required = resolved[IsListMethod(name) ? 1 : 0];
         var receiverType = context.SemanticModel.GetTypeInfo(member.Expression, context.CancellationToken).Type;
-        if (required is null || receiverType is null || !Implements(receiverType, required))
+        if (required is null || receiverType is null || !TypeRelations.IsOrImplementsDefinition(receiverType, required))
         {
             return;
         }
@@ -127,29 +128,6 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
         }
 
         return name is AddRange or InsertRange ? "this doubles the collection" : "the collection cannot change";
-    }
-
-    /// <summary>Returns whether a type is, or implements, an interface definition.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="interfaceDefinition">The interface's unbound definition.</param>
-    /// <returns><see langword="true"/> when the type satisfies the interface.</returns>
-    private static bool Implements(ITypeSymbol type, INamedTypeSymbol interfaceDefinition)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, interfaceDefinition))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i].OriginalDefinition, interfaceDefinition))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether two expressions are the same side-effect-free expression.</summary>

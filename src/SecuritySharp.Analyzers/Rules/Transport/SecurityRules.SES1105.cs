@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1105 — bearer/OpenID metadata retrieval is allowed over plain HTTP without a development-only guard.</summary>
-    public static readonly DiagnosticDescriptor PlainHttpMetadataRetrieval = Create(
+    public static readonly DiagnosticDescriptor PlainHttpMetadataRetrieval = DescriptorFactory.Create(
         "SES1105",
         "Bearer and OpenID Connect metadata must not be retrieved over plain HTTP outside development",
         PlainHttpMetadataRetrievalMessage,

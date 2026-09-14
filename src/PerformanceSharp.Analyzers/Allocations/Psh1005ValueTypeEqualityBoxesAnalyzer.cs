@@ -31,31 +31,22 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var equatableDefinition = start.Compilation.GetTypeByMetadataName(EquatableMetadataName);
-            if (equatableDefinition is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, equatableDefinition), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EquatableMetadataName),
+            AnalyzeNamedType,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Reports PSH1005 for a boxing-prone struct that defines no equality members.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="equatableDefinition">The resolved <c>IEquatable`1</c> definition.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol equatableDefinition)
+    /// <param name="equatableType">The deferred <c>IEquatable`1</c> definition.</param>
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, LazyMetadataType equatableType)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Struct
-            || type.IsRefLikeType
-            || type.IsRecord
-            || type.IsImplicitlyDeclared
-            || (type.DeclaredAccessibility != Accessibility.Public && type.DeclaredAccessibility != Accessibility.Internal)
-            || type.Locations.IsEmpty
+        if (!IsCandidateStruct(type)
             || OverridesObjectEquals(type)
+            || equatableType.Get() is not { } equatableDefinition
             || ImplementsSelfEquatable(type, equatableDefinition))
         {
             return;
@@ -66,6 +57,17 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
             type.Locations[0],
             type.Name));
     }
+
+    /// <summary>Returns whether the type has the shape and visibility of a reportable struct.</summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>Whether the type needs its equality members checked.</returns>
+    private static bool IsCandidateStruct(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Struct
+            && !type.IsRefLikeType
+            && !type.IsRecord
+            && !type.IsImplicitlyDeclared
+            && type.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal
+            && !type.Locations.IsEmpty;
 
     /// <summary>Returns whether a struct overrides <c>Equals(object)</c>.</summary>
     /// <param name="type">The struct to inspect.</param>

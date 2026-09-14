@@ -39,7 +39,7 @@ public class Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixBen
     [Benchmark]
     public async Task<int> Sst1166LocalFunctionStatementParameterMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1166LocalFunctionStatementParameterMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

@@ -35,6 +35,14 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.FreezeStaticLookups);
 
+    /// <summary>The metadata names LookupTypes resolves, in slot order.</summary>
+    private static readonly string[] LookupTypesMetadataNames =
+    [
+        FrozenDictionaryMetadataName,
+        DictionaryMetadataName,
+        HashSetMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -44,22 +52,11 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(FrozenDictionaryMetadataName) is null)
-            {
-                return;
-            }
-
-            var dictionaryType = start.Compilation.GetTypeByMetadataName(DictionaryMetadataName);
-            var hashSetType = start.Compilation.GetTypeByMetadataName(HashSetMetadataName);
-            if (dictionaryType is null || hashSetType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeField(nodeContext, dictionaryType, hashSetType), SyntaxKind.FieldDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, LookupTypesMetadataNames),
+            AnalyzeField,
+            SyntaxKind.FieldDeclaration);
     }
 
     /// <summary>Returns the rightmost generic name of a type syntax when it is Dictionary or HashSet.</summary>
@@ -94,15 +91,13 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1114 for a private static readonly lookup field that is only ever read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dictionaryType">The dictionary type definition.</param>
-    /// <param name="hashSetType">The hash set type definition.</param>
-    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, INamedTypeSymbol hashSetType)
+    /// <param name="types">The lookup definitions resolved only after a syntax match.</param>
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         if (!HasCandidateShape(field)
             || TryGetLookupTypeName(field.Declaration.Type) is not { } typeName
-            || field.Parent is not TypeDeclarationSyntax containingType
-            || containingType.Modifiers.Any(SyntaxKind.PartialKeyword))
+            || !PrivateStaticReadonlyField.TryGetNonPartialContainingType(field, out var containingType))
         {
             return;
         }
@@ -117,11 +112,8 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var declaredType = context.SemanticModel.GetTypeInfo(field.Declaration.Type, context.CancellationToken).Type;
         var isDictionary = typeName.Identifier.ValueText == DictionaryTypeName;
-        var expectedType = isDictionary ? dictionaryType : hashSetType;
-        if (declaredType is not INamedTypeSymbol namedType
-            || !SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, expectedType))
+        if (!MatchesLookupType(context, field.Declaration.Type, isDictionary, types))
         {
             return;
         }
@@ -133,36 +125,31 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
             variable.Identifier.ValueText));
     }
 
-    /// <summary>Returns whether a field is a private static readonly single variable with an initializer.</summary>
-    /// <param name="field">The field declaration.</param>
-    /// <returns><see langword="true"/> when the candidate shape matches.</returns>
-    private static bool HasCandidateShape(FieldDeclarationSyntax field) =>
-        field.Declaration.Variables.Count == 1
-            && field.Declaration.Variables[0].Initializer is not null
-            && HasPrivateStaticReadonlyShape(field);
-
-    /// <summary>Returns whether a field is private (explicitly or by default), static, and readonly.</summary>
-    /// <param name="field">The field declaration.</param>
-    /// <returns><see langword="true"/> when the modifier shape matches.</returns>
-    private static bool HasPrivateStaticReadonlyShape(FieldDeclarationSyntax field)
+    /// <summary>Checks framework availability and binds the lookup after its syntax-only usage scan succeeds.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="type">The declared field type.</param>
+    /// <param name="isDictionary">Whether the syntax names a dictionary rather than a hash set.</param>
+    /// <param name="types">The cached framework lookup definitions.</param>
+    /// <returns>Whether the field binds to the expected lookup and frozen collections are available.</returns>
+    private static bool MatchesLookupType(in SyntaxNodeAnalysisContext context, TypeSyntax type, bool isDictionary, LazyMetadataTypes types)
     {
-        var modifiers = field.Modifiers;
-        if (!modifiers.Any(SyntaxKind.StaticKeyword) || !modifiers.Any(SyntaxKind.ReadOnlyKeyword))
+        var resolved = types.Get();
+        if (resolved[0] is null || resolved[1] is not { } dictionaryType || resolved[2] is not { } hashSetType)
         {
             return false;
         }
 
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            var kind = modifiers[i].Kind();
-            if (kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        var expectedType = isDictionary ? dictionaryType : hashSetType;
+        return context.SemanticModel.GetTypeInfo(type, context.CancellationToken).Type is INamedTypeSymbol namedType
+            && SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, expectedType);
     }
+
+    /// <summary>Returns whether a field is a private static readonly single variable with an initializer.</summary>
+    /// <param name="field">The field declaration.</param>
+    /// <returns><see langword="true"/> when the candidate shape matches.</returns>
+    private static bool HasCandidateShape(FieldDeclarationSyntax field) =>
+        PrivateStaticReadonlyField.IsSingleInitializedVariable(field)
+            && PrivateStaticReadonlyField.HasPrivateStaticReadonlyModifiers(field);
 
     /// <summary>Token-visitor state that whitelists read-only usages of one field name.</summary>
     private sealed class UsageScan
@@ -191,15 +178,12 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> to keep walking.</returns>
         public bool Visit(in SyntaxToken token)
         {
-            if (!token.IsKind(SyntaxKind.IdentifierToken)
-                || token.SpanStart == _declaratorStart
-                || token.ValueText != _name
-                || token.Parent is not IdentifierNameSyntax identifier)
+            if (!PrivateStaticReadonlyField.TryGetReference(in token, _name, _declaratorStart, out var identifier))
             {
                 return true;
             }
 
-            if (IsWhitelistedRead(identifier))
+            if (IsWhitelistedRead(PrivateStaticReadonlyField.GetUsage(identifier)))
             {
                 return true;
             }
@@ -208,18 +192,11 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        /// <summary>Returns whether an identifier occurrence is a whitelisted read of the lookup.</summary>
-        /// <param name="identifier">The identifier occurrence.</param>
+        /// <summary>Returns whether a use of the lookup is a whitelisted read.</summary>
+        /// <param name="usage">The lookup usage node, which is the whole access for a qualified reference.</param>
         /// <returns><see langword="true"/> for known read-only member calls, element reads, and foreach sources.</returns>
-        private static bool IsWhitelistedRead(IdentifierNameSyntax identifier)
-        {
-            // A qualified reference (Type.Field) puts the field on the right of the inner
-            // member access; the usage to classify is then that whole access.
-            var usage = identifier.Parent is MemberAccessExpressionSyntax qualification && qualification.Name == identifier
-                ? qualification
-                : (SyntaxNode)identifier;
-
-            return usage.Parent switch
+        private static bool IsWhitelistedRead(SyntaxNode usage) =>
+            usage.Parent switch
             {
                 MemberAccessExpressionSyntax member => IsWhitelistedMemberAccess(member, usage),
                 ElementAccessExpressionSyntax elementAccess when elementAccess.Expression == usage
@@ -228,7 +205,6 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
                 ForEachVariableStatementSyntax forEachVariable => forEachVariable.Expression == usage,
                 _ => false,
             };
-        }
 
         /// <summary>Returns whether a member access on the lookup is a whitelisted read member.</summary>
         /// <param name="member">The member access whose receiver is the lookup.</param>

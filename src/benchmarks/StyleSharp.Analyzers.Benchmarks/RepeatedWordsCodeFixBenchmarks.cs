@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -15,8 +16,8 @@ namespace StyleSharp.Analyzers.Benchmarks;
 [ShortRunJob]
 public class RepeatedWordsCodeFixBenchmarks
 {
-    /// <summary>The prepared benchmark document and representative repeated-word span.</summary>
-    private DirectCodeFixBenchmarkContext<TextSpan> _context = null!;
+    /// <summary>The prepared benchmark document and the diagnostic reported on the representative repeated word.</summary>
+    private DirectCodeFixBenchmarkContext<Diagnostic> _context = null!;
 
     /// <summary>Gets or sets the synthetic member count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
@@ -29,7 +30,7 @@ public class RepeatedWordsCodeFixBenchmarks
         _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             static count => RepeatedWordsBenchmarkSource.Generate(count, violating: true),
-            static (_, root, index) => Task.FromResult(FindWordSpan(root, index))).ConfigureAwait(false);
+            static (_, root, index) => Task.FromResult(Diagnostic.Create(DocumentationRules.NoRepeatedWords, Location.Create(root.SyntaxTree, FindWordSpan(root, index))))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,7 +42,7 @@ public class RepeatedWordsCodeFixBenchmarks
     [Benchmark]
     public async Task<int> RepeatedWords_ApplyFixAsync()
     {
-        var updated = await Sst1658NoRepeatedWordsCodeFixProvider.RemoveRepeatedWordAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await TextChangeCodeFix.ApplyAsync(_context.Document, _context.Target, Sst1658NoRepeatedWordsCodeFixProvider.RegisterTextChanges, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -24,33 +23,16 @@ public sealed class Sst2466EmptyFinallyClauseCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            // A directive inside the `try` declines the fix: removing the clause takes the braces that hold
-            // it, and lifting the body takes the try block's braces, where a closing directive would sit.
-            if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<TryStatementSyntax>() is not
-                    { Finally: not null } tryStatement
-                || DirectiveBoundaries.Cross(tryStatement, tryStatement.Span))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the empty finally clause",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(Rewrite(root, tryStatement))),
-                    nameof(Sst2466EmptyFinallyClauseCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove the empty finally clause",
+            nameof(Sst2466EmptyFinallyClauseCodeFixProvider),
+            static (root, diagnostic) => root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<TryStatementSyntax>() is { Finally: not null } tryStatement
+                && !DirectiveBoundaries.Cross(tryStatement, tryStatement.Span)
+                ? tryStatement
+                : null,
+            static (document, root, tryStatement) => document.WithSyntaxRoot(Rewrite(root, tryStatement)));
 
     /// <summary>Removes the clause, and the whole <c>try</c> when nothing is left to handle anything.</summary>
     /// <param name="root">The syntax root.</param>

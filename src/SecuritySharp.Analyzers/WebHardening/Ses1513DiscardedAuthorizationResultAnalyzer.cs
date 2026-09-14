@@ -13,10 +13,9 @@ namespace SecuritySharp.Analyzers;
 /// produced value is discarded: the call (optionally <c>await</c>ed, optionally wrapped in
 /// <c>.ConfigureAwait(...)</c>) forms an expression statement, or it is assigned to a discard (<c>_ = ...</c>).
 /// A call whose result is stored in a variable, returned, passed as an argument, or read (for example
-/// <c>.Succeeded</c>) is a legitimate use and is left alone. The rule is resolved once per compilation by
-/// probing <c>IAuthorizationService</c>; on a project without ASP.NET Core authorization nothing is registered,
-/// so a project that cannot call the API pays nothing. Detection is purely local to the single statement and
-/// never traces values across calls.
+/// <c>.Succeeded</c>) is a legitimate use and is left alone. The authorization service type is resolved on
+/// first demand after a discarded call passes the syntax checks, and cached for the compilation.
+/// Detection is purely local to the single statement and never traces values across calls.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnalyzer
@@ -45,22 +44,17 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var authorizationService = start.Compilation.GetTypeByMetadataName(AuthorizationServiceMetadataName);
-            if (authorizationService is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, authorizationService), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, AuthorizationServiceMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1513 for an <c>AuthorizeAsync</c> call on the authorization service whose result is discarded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="authorizationService">The <c>IAuthorizationService</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol authorizationService)
+    /// <param name="authorizationTypes">The authorization service type cache for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType authorizationTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -73,7 +67,8 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
         }
 
         // Rare path: confirm the call binds to IAuthorizationService.AuthorizeAsync before touching the model further.
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: AuthorizeAsyncMethodName } method
+        if (authorizationTypes.Get() is not { } authorizationService
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: AuthorizeAsyncMethodName } method
             || !IsAuthorizeAsyncOnAuthorizationService(method, authorizationService))
         {
             return;

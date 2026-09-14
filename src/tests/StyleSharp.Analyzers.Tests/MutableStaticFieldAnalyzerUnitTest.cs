@@ -17,6 +17,18 @@ public class MutableStaticFieldAnalyzerUnitTest
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
 
+    /// <summary>Verifies enum and readonly struct fields can be made readonly without defensive-copy changes.</summary>
+    /// <param name="declaration">The immutable value-type declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public enum Token { None }")]
+    [Arguments("public readonly struct Token { }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ImmutableValueFieldsGainReadonlyAsync(string declaration) =>
+        VerifyMutableStatic.VerifyCodeFixAsync(
+            $$"""{{declaration}} public class C { public static Token {|SST1499:Value|}; }""",
+            $$"""{{declaration}} public class C { public static readonly Token Value; }""");
+
     /// <summary>Verifies a visible static field that nothing reassigns is reported and simply gains <c>readonly</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

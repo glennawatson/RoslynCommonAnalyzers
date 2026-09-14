@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -69,7 +70,7 @@ public class MaterializeToEnumerateCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> MaterializeToEnumerate_ApplyFixAsync()
     {
-        var updated = Psh1120DoNotMaterializeToEnumerateCodeFixProvider.Apply(_document, _root, _invocation);
+        var updated = TargetCodeFix.Apply(_document, _root, _invocation, Psh1120DoNotMaterializeToEnumerateCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

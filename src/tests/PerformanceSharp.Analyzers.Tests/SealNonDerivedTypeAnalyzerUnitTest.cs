@@ -4,7 +4,10 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1411SealNonDerivedTypeAnalyzer,
@@ -410,6 +413,99 @@ public class SealNonDerivedTypeAnalyzerUnitTest
         test.TestState.OutputKind = OutputKind.ConsoleApplication;
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies qualified local constraints and symbol constraints protect their target classes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task QualifiedAndGenericConstraintsBlockSealingAsync() =>
+        VerifyAsync("""
+            using Alias = N;
+            namespace N { internal class Target { } internal class Other { } }
+            internal class Root { }
+            internal sealed class C<T, U> where T : U where U : Root
+            {
+                void M()
+                {
+                    void First<V>() where V : N.Target { }
+                    void Second<V>() where V : Alias::Other, new() { }
+                    void Third<V>() where V : class { }
+                    void Fourth<V>() where V : unmanaged { }
+                    void Plain() { }
+                }
+            }
+            """);
+
+    /// <summary>Verifies internal nesting and every protected accessibility are classified independently.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NestedAccessibilityLimitsExternalDerivationAsync() =>
+        VerifyAsync("""
+            [assembly: System.CLSCompliant(false)]
+            public class Outer
+            {
+                private protected class {|PSH1411:AssemblyDerived|} { }
+                protected class ExternalDerived { }
+                protected internal class ExternalOrAssembly { }
+                private class {|PSH1411:Private|} { }
+            }
+            internal class InternalOuter
+            {
+                protected class {|PSH1411:InternalDerived|} { }
+            }
+            """);
+
+    /// <summary>Verifies an override is legal in a sealed type, while new protected members are not.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task OverridesRemainSealableAndProtectedMembersDoNotAsync() =>
+        VerifyAsync("""
+            internal class {|PSH1411:OverrideOnly|} { public override string ToString() => ""; }
+            internal class ProtectedInternal { protected internal int Value; }
+            internal class PrivateProtected { private protected int Value; }
+            internal sealed class Constraints<T, U> where T : System.IDisposable where U : System.Exception { }
+            """);
+
+    /// <summary>Verifies both option spellings, precedence, and invalid values determine public reporting.</summary>
+    /// <param name="settings">The option lines.</param>
+    /// <param name="report">Whether the public class is diagnosed.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("performancesharp.PSH1411.include_public = false", false)]
+    [Arguments("performancesharp.include_public = true", true)]
+    [Arguments("performancesharp.include_public = false", false)]
+    [Arguments("performancesharp.PSH1411.include_public = invalid", false)]
+    [Arguments("performancesharp.PSH1411.include_public = false\nperformancesharp.include_public = true", false)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PublicVisibilityOptionsAreRespectedAsync(string settings, bool report) =>
+        VerifyWithConfigAsync(report ? "public class {|PSH1411:C|} { } public class {|PSH1411:D|} { }" : "public class C { } public class D { }", settings);
+
+    /// <summary>Verifies nullable local constraints retain the analyzer's current syntax-only behavior.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NullableLocalConstraintCurrentlyDoesNotBlockSealingAsync() =>
+        VerifyAsync("""
+            #nullable enable
+            internal class {|PSH1411:Target|} { }
+            internal static class Consumer
+            {
+                static void M() { void Local<T>() where T : Target? { } }
+            }
+            """);
+
+    /// <summary>Verifies an incomplete concrete class declaring an abstract member is not offered sealing.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task AbstractMemberInIncompleteClassPreventsSealingAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("internal class C { public abstract void M(); }");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1411SealNonDerivedTypeAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
     }
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>

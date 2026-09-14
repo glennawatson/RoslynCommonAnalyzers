@@ -7,6 +7,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the literal-suffix code-fix path.</summary>
@@ -27,11 +29,8 @@ public class UseLiteralSuffixCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative cast expression passed to the code fix.</summary>
-    private CastExpressionSyntax _cast = null!;
-
-    /// <summary>The literal suffix that replaces the representative cast expression.</summary>
-    private string _suffix = string.Empty;
+    /// <summary>The representative diagnostic on a casted literal passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -49,8 +48,8 @@ public class UseLiteralSuffixCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ModernizationCodeFixBenchmarkSource.GenerateUseLiteralSuffix(Nodes));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _cast = (CastExpressionSyntax)method.ExpressionBody!.Expression;
-        _suffix = Sst1139UseLiteralSuffixAnalyzer.SuffixFor(_cast)!;
+        var cast = (CastExpressionSyntax)method.ExpressionBody!.Expression;
+        _diagnostic = Diagnostic.Create(ReadabilityRules.UseLiteralSuffix, cast.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -70,7 +69,7 @@ public class UseLiteralSuffixCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseLiteralSuffix_ApplyFixAsync()
     {
-        var updated = Sst1139UseLiteralSuffixCodeFixProvider.Replace(_document, _root, _cast, _suffix);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst1139UseLiteralSuffixCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

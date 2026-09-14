@@ -12,8 +12,8 @@ namespace SecuritySharp.Analyzers;
 /// type is <c>Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions</c> or
 /// <c>Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions</c>. It stays silent when the
 /// assignment is lexically enclosed by an <c>if</c> statement or conditional whose condition calls a method
-/// named <c>IsDevelopment</c> (a purely local ancestor scan, no data-flow). The two option types are probed
-/// once per compilation; a project without ASP.NET Core authentication registers nothing and pays nothing.
+/// named <c>IsDevelopment</c> (a purely local ancestor scan, no data-flow). The two option types are resolved
+/// only after an unguarded assignment passes the syntactic property-name and literal checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyzer
@@ -40,36 +40,32 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var optionTypes = GetOptionTypes(start.Compilation);
-            if (optionTypes is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, optionTypes), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypeSet(compilation, OptionMetadataNames),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1105 for an unguarded <c>RequireHttpsMetadata = false</c> on a gated option type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionTypes">The gated authentication option types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] optionTypes)
+    /// <param name="optionTypes">The authentication option types resolved on first demand for the compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSet optionTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '<expr>.RequireHttpsMetadata = false' or the initializer form
         // 'RequireHttpsMetadata = false'. Both bind the left member to the option property below.
         if (!assignment.Right.IsKind(SyntaxKind.FalseLiteralExpression)
-            || GetRequireHttpsMetadataTarget(assignment.Left) is not { } memberExpression)
+            || GetRequireHttpsMetadataTarget(assignment.Left) is not { } memberExpression
+            || DevelopmentGuard.Encloses(assignment))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: RequireHttpsMetadataPropertyName } property
-            || !IsGatedOptionType(property.ContainingType, optionTypes)
-            || DevelopmentGuard.Encloses(assignment))
+        if (optionTypes.Get() is not { Length: > 0 } resolvedTypes
+            || context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: RequireHttpsMetadataPropertyName } property
+            || !TypeRelations.IsOneOf(property.ContainingType, resolvedTypes))
         {
             return;
         }
@@ -92,41 +88,4 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
 
             _ => null,
         };
-
-    /// <summary>Returns whether a property's containing type is one of the gated option types.</summary>
-    /// <param name="containingType">The bound property's containing type.</param>
-    /// <param name="optionTypes">The gated authentication option types resolved for the compilation.</param>
-    /// <returns><see langword="true"/> when the container is a gated option type.</returns>
-    private static bool IsGatedOptionType(INamedTypeSymbol containingType, INamedTypeSymbol?[] optionTypes)
-    {
-        for (var i = 0; i < optionTypes.Length; i++)
-        {
-            if (optionTypes[i] is { } optionType && SymbolEqualityComparer.Default.Equals(optionType, containingType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Resolves the authentication option types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved option type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetOptionTypes(Compilation compilation)
-    {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < OptionMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(OptionMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            types ??= new INamedTypeSymbol?[OptionMetadataNames.Length];
-            types[i] = type;
-        }
-
-        return types;
-    }
 }

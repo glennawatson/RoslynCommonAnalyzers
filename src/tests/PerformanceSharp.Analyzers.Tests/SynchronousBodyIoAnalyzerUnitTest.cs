@@ -387,6 +387,186 @@ public class SynchronousBodyIoAnalyzerUnitTest
         await VerifyCodeFixAsync(Source, Source);
     }
 
+    /// <summary>Verifies the remaining synchronous stream and reader methods are reported.</summary>
+    /// <param name="expression">The synchronous HTTP body operation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("((ctx.Request.Body)).WriteByte(1)")]
+    [Arguments("ctx.Response.Body.CopyTo(System.IO.Stream.Null)")]
+    [Arguments("new System.IO.StreamReader((ctx.Request.Body)).ReadLine()")]
+    [Arguments("new global::System.IO.StreamReader(ctx.Request.Body).ReadBlock(new char[1], 0, 1)")]
+    [Arguments("new System.IO.StreamWriter(ctx.Response.Body).Flush()")]
+    public Task SynchronousCounterpartsAreReportedAsync(string expression) =>
+        VerifyAnalyzerAsync($$"""
+            class Handler
+            {
+                void M(Microsoft.AspNetCore.Http.HttpContext ctx)
+                {
+                    {|PSH1506:{{expression}}|};
+                }
+            }
+            """ + AspNetStubs);
+
+    /// <summary>Verifies local initializer parentheses are peeled before identifying body streams.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ParenthesizedLocalInitializersAreReportedAsync() =>
+        VerifyAnalyzerAsync("""
+            class Handler
+            {
+                void M(Microsoft.AspNetCore.Http.HttpContext ctx)
+                {
+                    var body = ((ctx.Request.Body));
+                    {|PSH1506:(body).Flush()|};
+                    var writer = (new System.IO.StreamWriter(ctx.Response.Body));
+                    {|PSH1506:writer.Write('x')|};
+                }
+            }
+            """ + AspNetStubs);
+
+    /// <summary>Verifies unrelated receivers and untracked aliases do not report body I/O.</summary>
+    /// <param name="statement">The unrelated or untracked operation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("input.ReadByte();")]
+    [Arguments("Other.ReadByte();")]
+    [Arguments("Body.ReadByte();")]
+    [Arguments("var stream = input; stream.Flush();")]
+    [Arguments("System.IO.Stream stream; stream = ctx.Request.Body; stream.Flush();")]
+    [Arguments("var first = ctx.Request.Body; var second = first; second.Flush();")]
+    [Arguments("new System.IO.StreamReader(input).ReadToEnd();")]
+    [Arguments("new System.IO.StreamReader(Other).ReadToEnd();")]
+    [Arguments("new System.IO.StreamReader(Body).ReadToEnd();")]
+    [Arguments("new System.IO.StreamReader(System.IO.Stream.Null).ReadToEnd();")]
+    [Arguments("new System.IO.StreamReader(new System.IO.MemoryStream()).ReadToEnd();")]
+    [Arguments("new System.IO.StreamReader(\"file.txt\").ReadToEnd();")]
+    [Arguments("new System.IO.StreamReader((System.IO.Stream)input).ReadToEnd();")]
+    [Arguments("new System.IO.MemoryStream().ReadByte();")]
+    [Arguments("var reader = new System.IO.StreamReader(input); reader.ReadToEnd();")]
+    [Arguments("ctx.Request.Body.Close();")]
+    [Arguments("Read();")]
+    public Task UnrelatedReceiversAreCleanAsync(string statement) =>
+        VerifyAnalyzerAsync($$"""
+            class Handler
+            {
+                System.IO.Stream Other => System.IO.Stream.Null;
+                System.IO.Stream Body => System.IO.Stream.Null;
+                void Read() { }
+                void M(Microsoft.AspNetCore.Http.HttpContext ctx, System.IO.Stream input)
+                {
+                    {{statement}}
+                }
+            }
+            """ + AspNetStubs);
+
+    /// <summary>Verifies an inherited HTTP body property and an inherited async method are recognized.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InheritedBodyAndAsyncMethodAreReportedAsync() =>
+        VerifyAnalyzerAsync("""
+            namespace Microsoft.AspNetCore.Http { public class HttpRequest { } }
+            class Request : Microsoft.AspNetCore.Http.HttpRequest { public BodyStream Body => new BodyStream(); }
+            class AsyncStream { public void FlushAsync() { } }
+            class BodyStream : AsyncStream { public void Flush() { } }
+            class Handler { void M(Request request) { {|PSH1506:request.Body.Flush()|}; } }
+            """);
+
+    /// <summary>Verifies a missing async method, including a same-named property, prevents a diagnostic.</summary>
+    /// <param name="asyncMember">The unavailable or nonmethod async counterpart.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("")]
+    [Arguments("public int FlushAsync => 0;")]
+    public Task MissingAsyncCounterpartIsCleanAsync(string asyncMember) =>
+        VerifyAnalyzerAsync($$"""
+            namespace Microsoft.AspNetCore.Http
+            {
+                public class HttpRequest { public BodyStream Body => new BodyStream(); }
+            }
+            public class BodyStream { public void Flush() { } {{asyncMember}} }
+            class Handler { void M(Microsoft.AspNetCore.Http.HttpRequest request) { request.Body.Flush(); } }
+            """);
+
+    /// <summary>Verifies wrapper argument scanning skips nonbody arguments and recognizes a bare Body property.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task WrapperArgumentsAndAliasQualifiedNamesAreRecognizedAsync() =>
+        VerifyAnalyzerAsync("""
+            namespace Microsoft.AspNetCore.Http
+            {
+                public class HttpRequest { public System.IO.Stream Body => System.IO.Stream.Null; }
+            }
+            class StreamReader
+            {
+                public StreamReader(int count, System.IO.Stream stream) { }
+                public void ReadLine() { }
+                public void ReadLineAsync() { }
+            }
+            class Request : Microsoft.AspNetCore.Http.HttpRequest
+            {
+                void M() { {|PSH1506:new global::StreamReader(1, Body).ReadLine()|}; }
+            }
+            """);
+
+    /// <summary>Verifies wrapper construction without body arguments and unbound type shapes are ignored.</summary>
+    /// <param name="expression">The receiver construction.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("new StreamReader { }")]
+    [Arguments("new StreamReader()")]
+    [Arguments("new StreamReader(new())")]
+    [Arguments("new StreamReader(input)")]
+    [Arguments("new StreamReader(other.Body)")]
+    [Arguments("new StreamReader(request?.Body)")]
+    [Arguments("new int()")]
+    public Task WrapperWithoutBodyArgumentIsCleanAsync(string expression) =>
+        new AnalyzeBodyIo.Test
+        {
+            TestCode = $$"""
+                namespace Microsoft.AspNetCore.Http
+                {
+                    public class HttpRequest { public System.IO.Stream Body => System.IO.Stream.Null; }
+                }
+                class StreamReader
+                {
+                    public StreamReader() { }
+                    public StreamReader(System.IO.MemoryStream stream) { }
+                    public void ReadLine() { }
+                    public void ReadLineAsync() { }
+                }
+                class Other { public System.IO.MemoryStream Body => new(); }
+                class C
+                {
+                    void M(Microsoft.AspNetCore.Http.HttpRequest request, Other other, System.IO.MemoryStream input)
+                    {
+                        {{expression}}.ReadLine();
+                    }
+                }
+                """,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies failed invocation binding is ignored after a receiver is recognized as the body.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnresolvedBodyInvocationIsCleanAsync() =>
+        new AnalyzeBodyIo.Test
+        {
+            TestCode = $$"""
+                class C { void M(Microsoft.AspNetCore.Http.HttpRequest request) { request.Body.Read("invalid"); } }
+                {{AspNetStubs}}
+                """,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

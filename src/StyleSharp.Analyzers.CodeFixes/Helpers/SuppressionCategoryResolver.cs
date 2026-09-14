@@ -37,6 +37,13 @@ internal static class SuppressionCategoryResolver
             var assembly = typeof(Sst1426PragmaWarningDisableAnalyzer).Assembly;
             foreach (var type in assembly.GetTypes())
             {
+                // An open generic type's static fields cannot be read; compiler-generated delegate caches in
+                // generic methods are such types, and none of them holds a descriptor.
+                if (type.ContainsGenericParameters)
+                {
+                    continue;
+                }
+
                 foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
                 {
                     if (field.GetValue(null) is DiagnosticDescriptor descriptor)

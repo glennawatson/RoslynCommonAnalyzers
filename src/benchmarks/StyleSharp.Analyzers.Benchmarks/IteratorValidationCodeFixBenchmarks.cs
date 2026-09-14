@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -74,7 +75,7 @@ public class IteratorValidationCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> IteratorValidation_ApplyFixAsync()
     {
-        var updated = Sst2404IteratorValidatesTooLateCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2404IteratorValidatesTooLateCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

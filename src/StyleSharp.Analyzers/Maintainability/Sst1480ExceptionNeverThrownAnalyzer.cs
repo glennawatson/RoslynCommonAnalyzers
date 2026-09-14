@@ -37,24 +37,10 @@ public sealed class Sst1480ExceptionNeverThrownAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Sets up the per-compilation state, then analyzes every object creation.</summary>
-    /// <param name="context">The compilation start context.</param>
-    /// <remarks>
-    /// The implicit <c>new(...)</c> form is registered alongside the explicit one so the rule stays complete
-    /// as the language changes: today a target-typed creation cannot stand alone as a statement, because an
-    /// expression statement offers it no target type, but the analyzer does not depend on that being true.
-    /// </remarks>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        var compilation = context.Compilation;
-        var exceptionType = new Lazy<INamedTypeSymbol?>(
-            () => compilation.GetTypeByMetadataName("System.Exception"),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, exceptionType),
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.Exception"),
+            Analyze,
             SyntaxKind.ObjectCreationExpression,
             SyntaxKind.ImplicitObjectCreationExpression);
     }
@@ -62,7 +48,12 @@ public sealed class Sst1480ExceptionNeverThrownAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one exception whose value nothing consumes.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="exceptionType">The lazily resolved <see cref="Exception"/> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> exceptionType)
+    /// <remarks>
+    /// The implicit <c>new(...)</c> form is analyzed alongside the explicit one so the rule stays complete
+    /// as the language changes: today a target-typed creation cannot stand alone as a statement, because an
+    /// expression statement offers it no target type, but the analyzer does not depend on that being true.
+    /// </remarks>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType exceptionType)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.Parent is not ExpressionStatementSyntax)
@@ -71,7 +62,7 @@ public sealed class Sst1480ExceptionNeverThrownAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not INamedTypeSymbol created
-            || !InheritsFromException(created, exceptionType.Value))
+            || !TypeRelations.IsOrDerivesFrom(created, exceptionType.Get()))
         {
             return;
         }
@@ -80,27 +71,5 @@ public sealed class Sst1480ExceptionNeverThrownAnalyzer : DiagnosticAnalyzer
             MaintainabilityRules.ExceptionNeverThrown,
             creation.GetLocation(),
             created.Name));
-    }
-
-    /// <summary>Returns whether a type is <see cref="Exception"/> or derives from it.</summary>
-    /// <param name="type">The constructed type.</param>
-    /// <param name="exceptionType">The resolved <see cref="Exception"/> symbol.</param>
-    /// <returns><see langword="true"/> when the created object is an exception.</returns>
-    private static bool InheritsFromException(INamedTypeSymbol type, INamedTypeSymbol? exceptionType)
-    {
-        if (exceptionType is null)
-        {
-            return false;
-        }
-
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, exceptionType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

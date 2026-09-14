@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1104 — X509 certificate-chain validation is deliberately weakened.</summary>
-    public static readonly DiagnosticDescriptor WeakenedCertificateChainValidation = Create(
+    public static readonly DiagnosticDescriptor WeakenedCertificateChainValidation = DescriptorFactory.Create(
         "SES1104",
         "Certificate-chain validation must not be deliberately weakened",
         "X509 certificate-chain validation is weakened: 'X509ChainPolicy.{0}' is set to a value that suppresses genuine chain errors, so revoked or untrusted certificates are accepted",

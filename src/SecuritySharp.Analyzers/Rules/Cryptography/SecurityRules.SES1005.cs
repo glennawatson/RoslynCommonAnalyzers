@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1005 — a secret is compared with a short-circuiting, non-constant-time equality.</summary>
-    public static readonly DiagnosticDescriptor NonConstantTimeSecretComparison = Create(
+    public static readonly DiagnosticDescriptor NonConstantTimeSecretComparison = DescriptorFactory.Create(
         "SES1005",
         "Compare secret values in constant time",
         "'{0}' is compared with a short-circuiting equality; use CryptographicOperations.FixedTimeEquals so the comparison cannot be recovered a byte at a time through timing",

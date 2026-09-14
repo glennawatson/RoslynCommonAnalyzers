@@ -11,66 +11,31 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider))]
 [Shared]
-public sealed class Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(Resolve);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DesignRules.PrivateSetterOnlyWrittenDuringConstruction.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not var (property, updated))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Make the property get-only",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(property, updated))),
-                    equivalenceKey: nameof(Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not var (property, updated))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(property, updated);
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Make the property get-only", nameof(Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider), Resolve);
 
     /// <summary>Resolves the diagnostic to the property and its get-only rewrite.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The property and its rewrite, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (PropertyDeclarationSyntax Property, PropertyDeclarationSyntax Updated)? Resolve(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { AccessorList: { } accessors } property
-            || FindGetter(accessors) is not { } getter)
-        {
-            return null;
-        }
-
-        var updated = property.WithAccessorList(accessors.WithAccessors(SyntaxFactory.SingletonList(getter)));
-        return (property, updated);
-    }
+    private static NodeReplacement? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<PropertyDeclarationSyntax>() is { AccessorList: { } accessors } property
+            && FindGetter(accessors) is { } getter
+            ? new NodeReplacement(property, property.WithAccessorList(accessors.WithAccessors(SyntaxFactory.SingletonList(getter))))
+            : null;
 
     /// <summary>Finds the get accessor in an accessor list.</summary>
     /// <param name="accessors">The accessor list.</param>

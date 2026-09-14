@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyUnusedParameter = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1461UnusedParameterAnalyzer>;
 
@@ -11,6 +15,75 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst1461UnusedParameterAnalyzer"/>.</summary>
 public class UnusedParameterAnalyzerUnitTest
 {
+    /// <summary>The path of the analyzer configuration file supplied to a test.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>The most parameters the unread-parameter scan tracks on one declaration.</summary>
+    private const int MaximumScannedParameters = 64;
+
+    /// <summary>Verifies explicit false settings preserve public API signatures, including a rule-specific override.</summary>
+    /// <param name="settings">The option values supplied to the analyzer.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("stylesharp.SST1461.unread_parameter_include_public_api = false")]
+    [Arguments("stylesharp.unread_parameter_include_public_api = false")]
+    [Arguments("stylesharp.unread_parameter_include_public_api = true\nstylesharp.SST1461.unread_parameter_include_public_api = false")]
+    public async Task DisabledPublicApiOptionKeepsPublicParameterAsync(string settings)
+    {
+        var test = new VerifyUnusedParameter.Test { TestCode = "public class C { public void M(int unused) { } }" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $"root = true\n\n[*.cs]\n{settings}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies local-function exemptions are applied before inspecting unread parameters.</summary>
+    /// <param name="declaration">The exempt local function.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("void Local() { }")]
+    [Arguments("void Local(int unused);")]
+    [Arguments("[System.Obsolete] void Local(int unused) { }")]
+    [Arguments("extern void Local(int unused);")]
+    [Arguments("void Local(int unused) { throw new System.Exception(); }")]
+    [Arguments("int Local(int unused) => throw new System.Exception();")]
+    [Arguments("void Local(System.Runtime.Serialization.StreamingContext unused) { }")]
+    public async Task ExemptLocalFunctionIsIgnoredAsync(string declaration)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class C {{ void M() {{ {declaration} }} }}");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst1461UnusedParameterAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies the bounded parameter scan skips declarations exceeding its bitmask capacity.</summary>
+    /// <param name="count">The parameter count at the scan boundary.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(MaximumScannedParameters)]
+    [Arguments(MaximumScannedParameters + 1)]
+    public async Task ParameterLimitControlsUnreadReportingAsync(int count)
+    {
+        var parameters = string.Join(", ", Enumerable.Range(0, count).Select(static index => $"int p{index}"));
+        var tree = CSharpSyntaxTree.ParseText($"class C {{ void M({parameters}) {{ }} }}");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst1461UnusedParameterAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(count == MaximumScannedParameters ? MaximumScannedParameters : 0);
+        await Assert.That(diagnostics.All(static diagnostic => diagnostic.Id == "SST1461")).IsTrue();
+    }
+
+    /// <summary>Verifies qualified and generic callback type names retain the existing syntactic exemption.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task QualifiedAndGenericCallbackNamesAreExemptAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync("""
+            class DependencyObject<T> { }
+            class C
+            {
+                void Qualified(System.Runtime.Serialization.StreamingContext context) { }
+                void Generic(DependencyObject<int> value) { }
+            }
+            """);
+
     /// <summary>Verifies an unused private method parameter is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -143,7 +216,7 @@ public class UnusedParameterAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add((
-            "/.editorconfig",
+            EditorConfigPath,
             "root = true\n\n[*.cs]\nstylesharp.SST1461.unread_parameter_include_public_api = true\n"));
         await test.RunAsync(CancellationToken.None);
     }
@@ -164,7 +237,7 @@ public class UnusedParameterAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add((
-            "/.editorconfig",
+            EditorConfigPath,
             "root = true\n\n[*.cs]\nstylesharp.unread_parameter_include_public_api = true\n"));
         await test.RunAsync(CancellationToken.None);
     }

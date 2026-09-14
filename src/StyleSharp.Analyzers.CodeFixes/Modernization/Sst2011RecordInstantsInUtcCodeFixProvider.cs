@@ -30,100 +30,48 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2011RecordInstantsInUtcCodeFixProvider))]
 [Shared]
-public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.RecordInstantsInUtc.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryBuildReplacement(root, model, diagnostic, out var access, out var replacement))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Read the UTC clock",
-                    _ => Task.FromResult(Apply(context.Document, root, access!, replacement!)),
-                    equivalenceKey: nameof(Sst2011RecordInstantsInUtcCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryBuildReplacement(editor.OriginalRoot, editor.SemanticModel, diagnostic, out var access, out var replacement))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(access!, replacement!);
-    }
-
-    /// <summary>Rewrites one reported clock read to the UTC clock.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="access">The reported member access.</param>
-    /// <param name="replacement">The UTC member access built for the reported read.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(
-        Document document,
-        SyntaxNode root,
-        MemberAccessExpressionSyntax access,
-        MemberAccessExpressionSyntax replacement) =>
-        document.WithSyntaxRoot(root.ReplaceNode(access, replacement));
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Read the UTC clock",
+            nameof(Sst2011RecordInstantsInUtcCodeFixProvider),
+            CanRewrite,
+            TryRewrite);
 
     /// <summary>Resolves the reported clock read and builds its UTC replacement, if the rewrite binds.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="access">The reported member access, when the shape still matches.</param>
-    /// <param name="replacement">The UTC member access, when it binds.</param>
-    /// <returns><see langword="true"/> when the fix can be offered.</returns>
-    internal static bool TryBuildReplacement(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic,
-        out MemberAccessExpressionSyntax? access,
-        out MemberAccessExpressionSyntax? replacement)
+    /// <returns>The reported read and its UTC replacement, or <see langword="null"/> when the fix cannot be offered.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
-        replacement = null;
-        access = root.FindNode(diagnostic.Location.SourceSpan) as MemberAccessExpressionSyntax;
-        if (access is null)
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not MemberAccessExpressionSyntax access)
         {
-            return false;
+            return null;
         }
 
         var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
         if (shape == ClockPropertyAccess.LocalInstant.None)
         {
-            return false;
+            return null;
         }
 
         var candidate = BuildUtcRead(access, shape);
-        if (candidate is null || !PreservesTheRead(model, access, candidate))
-        {
-            return false;
-        }
-
-        replacement = candidate;
-        return true;
+        return candidate is not null && PreservesTheRead(model, access, candidate)
+            ? new NodeReplacement(access, candidate)
+            : null;
     }
 
     /// <summary>Builds the UTC read that replaces one local-instant read.</summary>
@@ -144,10 +92,13 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
                 // Local midnight becomes the UTC instant truncated to its date: DateTime.UtcNow.Date.
                 var utcNow = access.WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcNowName));
                 return SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        utcNow,
-                        SyntaxFactory.IdentifierName(ClockPropertyAccess.DatePropertyName))
-                    .WithTriviaFrom(access);
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    utcNow,
+                    SyntaxFactory.Token(default, SyntaxKind.DotToken, default),
+                    SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                        default,
+                        ClockPropertyAccess.DatePropertyName,
+                        access.GetTrailingTrivia())));
             }
 
             case ClockPropertyAccess.LocalInstant.OffsetLocalDateTime:
@@ -157,9 +108,13 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
                 // ambiguity being fixed. '.UtcDateTime' carries DateTimeKind.Utc.
                 return access.Expression is not MemberAccessExpressionSyntax clock
                     ? null
-                    : access
-                    .WithExpression(WithName(clock, ClockPropertyAccess.UtcNowName))
-                    .WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcDateTimePropertyName).WithTriviaFrom(access.Name));
+                    : access.Update(
+                        WithName(clock, ClockPropertyAccess.UtcNowName),
+                        access.OperatorToken,
+                        SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                            access.Name.GetLeadingTrivia(),
+                            ClockPropertyAccess.UtcDateTimePropertyName,
+                            access.Name.GetTrailingTrivia())));
                 }
 
             default:
@@ -197,5 +152,61 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
     /// <returns>The renamed member access.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MemberAccessExpressionSyntax WithName(MemberAccessExpressionSyntax access, string name) =>
-        access.WithName(SyntaxFactory.IdentifierName(name).WithTriviaFrom(access.Name));
+        access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(access.Name.GetLeadingTrivia(), name, access.Name.GetTrailingTrivia())));
+
+    /// <summary>Checks framework clock properties by symbol, retaining binding for lookalike receivers.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The document's semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the UTC read preserves the original type.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not MemberAccessExpressionSyntax access)
+        {
+            return false;
+        }
+
+        var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
+        if (shape == ClockPropertyAccess.LocalInstant.None)
+        {
+            return false;
+        }
+
+        var clock = shape == ClockPropertyAccess.LocalInstant.OffsetLocalDateTime
+            ? (MemberAccessExpressionSyntax)access.Expression
+            : access;
+        if (model.GetSymbolInfo(clock.Expression).Symbol is INamedTypeSymbol { DeclaringSyntaxReferences.Length: 0 } type
+            && (type.SpecialType == SpecialType.System_DateTime
+                || SymbolEqualityComparer.Default.Equals(type, model.Compilation.GetTypeByMetadataName(ClockPropertyAccess.DateTimeOffsetMetadataName)))
+            && GetClockPropertyType(type, ClockPropertyAccess.UtcNowName, isStatic: true) is { } utcType)
+        {
+            var rewrittenType = shape switch
+            {
+                ClockPropertyAccess.LocalInstant.Now => utcType,
+                ClockPropertyAccess.LocalInstant.Today => GetClockPropertyType(utcType, ClockPropertyAccess.DatePropertyName, isStatic: false),
+                ClockPropertyAccess.LocalInstant.OffsetLocalDateTime => GetClockPropertyType(utcType, ClockPropertyAccess.UtcDateTimePropertyName, isStatic: false),
+                _ => null
+            };
+            return rewrittenType is not null
+                && SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(access).Type, rewrittenType);
+        }
+
+        // A lookalike may hide members or bind its receiver differently after the rename.
+        return TryRewrite(root, model, diagnostic) is not null;
+    }
+
+    /// <summary>Gets the type of an unambiguous public property on a framework clock type.</summary>
+    /// <param name="type">The clock or projected value type.</param>
+    /// <param name="name">The property name.</param>
+    /// <param name="isStatic">The required receiver form.</param>
+    /// <returns>The property type, or null when the member does not match.</returns>
+    private static ITypeSymbol? GetClockPropertyType(ITypeSymbol type, string name, bool isStatic)
+    {
+        var members = type.GetMembers(name);
+        return members.Length == 1
+            && members[0] is IPropertySymbol { DeclaredAccessibility: Accessibility.Public, Parameters.Length: 0 } property
+            && property.IsStatic == isStatic
+            ? property.Type
+            : null;
+    }
 }

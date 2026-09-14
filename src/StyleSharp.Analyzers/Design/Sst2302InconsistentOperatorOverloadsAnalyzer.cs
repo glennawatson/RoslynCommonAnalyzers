@@ -155,18 +155,18 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <param name="location">The operator token's location.</param>
     private static void AnalyzeEqualityOperator(in SyntaxNodeAnalysisContext context, INamedTypeSymbol type, Location location)
     {
-        var missingEquals = !OverridesObjectMethod(type, nameof(Equals), parameterCount: 1);
-        var missingHashCode = !OverridesObjectMethod(type, nameof(GetHashCode), parameterCount: 0);
+        var missingEquals = !SymbolFacts.HasOverride(type, nameof(Equals), parameterCount: 1);
+        var missingHashCode = !SymbolFacts.HasOverride(type, nameof(GetHashCode), parameterCount: 0);
         if (!missingEquals && !missingHashCode)
         {
             return;
         }
 
-        var missing = (missingEquals, missingHashCode) switch
+        var missing = missingEquals switch
         {
-            (true, true) => "Equals(object) and GetHashCode()",
-            (true, false) => "Equals(object)",
-            _ => "GetHashCode()",
+            true when missingHashCode => "Equals(object) and GetHashCode()",
+            true => "Equals(object)",
+            false => "GetHashCode()",
         };
 
         Report(context, location, type, "==", missing);
@@ -217,36 +217,12 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     {
         var pair = declaresLessThan ? "<= and >=" : "< and >";
         var comparable = $"IComparable<{typeName}>";
-        return (missingPair, missingComparable) switch
+        return missingPair switch
         {
-            (true, true) => $"{pair} and {comparable}",
-            (true, false) => pair,
-            _ => comparable,
+            true when missingComparable => $"{pair} and {comparable}",
+            true => pair,
+            false => comparable,
         };
-    }
-
-    /// <summary>Returns whether a type overrides one of <c>object</c>'s equality members.</summary>
-    /// <param name="type">The type that declares the operator.</param>
-    /// <param name="name">The member name.</param>
-    /// <param name="parameterCount">The member's parameter count.</param>
-    /// <returns><see langword="true"/> when the type declares the override itself.</returns>
-    /// <remarks>
-    /// An override declared on a base class does not count. The base decides equality over the base's
-    /// state; a derived type that adds state and an <c>==</c> of its own has to say how that state
-    /// participates, and inheriting the answer is exactly the bug.
-    /// </remarks>
-    private static bool OverridesObjectMethod(INamedTypeSymbol type, string name, int parameterCount)
-    {
-        var members = type.GetMembers(name);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsOverride: true } method && method.Parameters.Length == parameterCount)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a type implements either form of the ordering contract.</summary>
@@ -348,8 +324,8 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <remarks>A type with any one of these is trying; the equality checks own the shape of what remains.</remarks>
     private static bool DeclaresValueEquality(INamedTypeSymbol type) =>
         !type.GetMembers(EqualityOperatorName).IsEmpty
-            || OverridesObjectMethod(type, nameof(Equals), parameterCount: 1)
-            || OverridesObjectMethod(type, nameof(GetHashCode), parameterCount: 0);
+            || SymbolFacts.HasOverride(type, nameof(Equals), parameterCount: 1)
+            || SymbolFacts.HasOverride(type, nameof(GetHashCode), parameterCount: 0);
 
     /// <summary>Reports one gap in an operator set.</summary>
     /// <param name="context">The syntax node context.</param>

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1503 — JWT signature verification is disabled on <c>TokenValidationParameters</c>.</summary>
-    public static readonly DiagnosticDescriptor JwtSignatureValidationDisabled = Create(
+    public static readonly DiagnosticDescriptor JwtSignatureValidationDisabled = DescriptorFactory.Create(
         "SES1503",
         "JWT signature verification must not be disabled on TokenValidationParameters",
         JwtSignatureValidationDisabledMessage,

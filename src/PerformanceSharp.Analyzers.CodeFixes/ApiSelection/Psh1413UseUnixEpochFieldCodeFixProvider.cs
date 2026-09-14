@@ -22,13 +22,16 @@ namespace PerformanceSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1413UseUnixEpochFieldCodeFixProvider))]
 [Shared]
-public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.UseUnixEpochField.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -36,32 +39,26 @@ public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider, I
             context,
             "Use the UnixEpoch field",
             nameof(Psh1413UseUnixEpochFieldCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported allocation with the epoch field.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="creation">The reported allocation.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ObjectCreationExpressionSyntax creation) =>
-        Psh1413UseUnixEpochFieldAnalyzer.IsEpochCreationShape(creation)
-            ? document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation)))
-            : document;
 
     /// <summary>Resolves the reported allocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is ObjectCreationExpressionSyntax creation
             && Psh1413UseUnixEpochFieldAnalyzer.IsEpochCreationShape(creation)
             ? new NodeReplacement(creation, Rewrite(creation))
             : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is ObjectCreationExpressionSyntax creation
+            && Psh1413UseUnixEpochFieldAnalyzer.IsEpochCreationShape(creation);
 
     /// <summary>Builds the <c>UnixEpoch</c> access, reusing the type name the author wrote.</summary>
     /// <param name="creation">The reported allocation.</param>
@@ -70,7 +67,10 @@ public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider, I
     private static MemberAccessExpressionSyntax Rewrite(ObjectCreationExpressionSyntax creation) =>
         SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            TypeNameExpression.From(((NameSyntax)creation.Type).WithoutTrivia()),
-            SyntaxFactory.IdentifierName(Psh1413UseUnixEpochFieldAnalyzer.UnixEpochFieldName))
-            .WithTriviaFrom(creation);
+            TypeNameExpression.From(((NameSyntax)creation.Type).WithoutTrivia()).WithLeadingTrivia(creation.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                Psh1413UseUnixEpochFieldAnalyzer.UnixEpochFieldName,
+                creation.GetTrailingTrivia())));
 }

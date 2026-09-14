@@ -10,34 +10,33 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes the blank line before a chained <c>else</c>/<c>catch</c>/<c>finally</c> (SST1510) or the <c>while</c> footer of a do/while loop (SST1511).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ChainedBlockSpacingCodeFixProvider))]
 [Shared]
-public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.ChainedBlockNotPrecededByBlankLine.Id,
         LayoutRules.WhileFooterNotPrecededByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove blank line before keyword",
-                    cancellationToken => RemoveAsync(context.Document, diagnostic.Location.SourceSpan, cancellationToken),
-                    equivalenceKey: nameof(ChainedBlockSpacingCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static _ => "Remove blank line before keyword",
+            nameof(ChainedBlockSpacingCodeFixProvider),
+            RegisterTextChanges);
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryBuildChange(text, diagnostic.Location.SourceSpan, out var change))
         {
@@ -45,19 +44,6 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider, ITextC
         }
 
         changes.Add(change);
-    }
-
-    /// <summary>Removes the run of blank lines directly above the reported keyword.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="keywordSpan">The span of the reported keyword.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> RemoveAsync(Document document, TextSpan keywordSpan, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return TryBuildChange(text, keywordSpan, out var change)
-            ? document.WithText(text.WithChanges(change))
-            : document;
     }
 
     /// <summary>Computes the change that removes the run of blank lines directly above the reported keyword.</summary>

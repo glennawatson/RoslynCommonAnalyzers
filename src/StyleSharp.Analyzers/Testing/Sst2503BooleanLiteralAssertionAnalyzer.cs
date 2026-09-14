@@ -14,12 +14,11 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on at least one recognised <c>Assert</c> type resolving, so a
-/// project that references no test framework registers nothing. The clean path is a syntactic prepass: the invoked
-/// name must be <c>Equal</c> or <c>AreEqual</c>, the call must have exactly two arguments, and one of them must be a
-/// <c>true</c>/<c>false</c> literal. Only then does the rule bind — confirming the call resolves to a framework
-/// <c>Assert</c> type, that the other operand is itself a boolean value, and that the target boolean assertion
-/// exists — so a suggestion is never made toward a method that is not there.
+/// The clean path is a syntactic prepass: the invoked name must be <c>Equal</c> or <c>AreEqual</c>, the call must
+/// have exactly two arguments, and one of them must be a <c>true</c>/<c>false</c> literal. Only then does the rule
+/// resolve the recognised <c>Assert</c> types and bind — confirming the call resolves to a framework <c>Assert</c>
+/// type, that the other operand is itself a boolean value, and that the target boolean assertion exists — so a
+/// suggestion is never made toward a method that is not there.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -75,27 +74,8 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (!ReferencesAnyAssertType(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
     }
-
-    /// <summary>Returns the invoked member's simple name for the supported call shapes.</summary>
-    /// <param name="invocation">The invocation to inspect.</param>
-    /// <returns>The invoked name, or <see langword="null"/> for unsupported expression shapes.</returns>
-    internal static string? GetInvokedSimpleName(InvocationExpressionSyntax invocation) => invocation.Expression switch
-    {
-        MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
-        MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        _ => null,
-    };
 
     /// <summary>Returns the index of the first argument that is a boolean literal, or <c>-1</c>.</summary>
     /// <param name="arguments">The call's argument list.</param>
@@ -143,11 +123,11 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Maps a recognised assertion class to its equality and boolean assertion method names.</summary>
     /// <param name="assertType">The assertion class.</param>
     /// <returns>The framework's method names, or <see langword="null"/> when the namespace is unrecognised.</returns>
-    private static (string Equality, string True, string False)? GetFrameworkMethods(INamedTypeSymbol assertType) =>
+    private static BooleanAssertionNames? GetFrameworkMethods(INamedTypeSymbol assertType) =>
         assertType.ContainingNamespace?.ToDisplayString() switch
         {
-            XunitNamespace => (XunitEqualityMethod, XunitTrueMethod, XunitFalseMethod),
-            NUnitNamespace or MSTestNamespace => (ClassicEqualityMethod, ClassicTrueMethod, ClassicFalseMethod),
+            XunitNamespace => new BooleanAssertionNames(XunitEqualityMethod, XunitTrueMethod, XunitFalseMethod),
+            NUnitNamespace or MSTestNamespace => new BooleanAssertionNames(ClassicEqualityMethod, ClassicTrueMethod, ClassicFalseMethod),
             _ => null,
         };
 
@@ -157,7 +137,7 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
-        var name = GetInvokedSimpleName(invocation);
+        var name = InvokedSimpleName.Of(invocation);
         if (name is not (XunitEqualityMethod or ClassicEqualityMethod))
         {
             return;
@@ -171,6 +151,11 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
 
         var literalIndex = GetBooleanLiteralArgumentIndex(arguments);
         if (literalIndex < 0)
+        {
+            return;
+        }
+
+        if (!MetadataTypeLookup.AnyResolves(context.Compilation, AssertTypeMetadataNames))
         {
             return;
         }
@@ -195,24 +180,8 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(DiagnosticHelper.Create(
             TestingRules.BooleanLiteralAssertion,
-            GetNameLocation(invocation),
+            InvokedSimpleName.LocationOf(invocation),
             targetMethod));
-    }
-
-    /// <summary>Returns whether the compilation references any recognised assertion type.</summary>
-    /// <param name="compilation">The compilation being analyzed.</param>
-    /// <returns><see langword="true"/> when at least one assertion type resolves.</returns>
-    private static bool ReferencesAnyAssertType(Compilation compilation)
-    {
-        for (var i = 0; i < AssertTypeMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(AssertTypeMetadataNames[i]) is not null)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether an assertion type exposes a boolean assertion callable with a single argument.</summary>
@@ -265,15 +234,4 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
                 OriginalDefinition.SpecialType: SpecialType.System_Nullable_T,
                 TypeArguments: [{ SpecialType: SpecialType.System_Boolean }],
             };
-
-    /// <summary>Returns the location of the invoked assertion method's name.</summary>
-    /// <param name="invocation">The reported invocation.</param>
-    /// <returns>The name's location, or the whole invocation's when it has no simple name.</returns>
-    private static Location GetNameLocation(InvocationExpressionSyntax invocation) => invocation.Expression switch
-    {
-        MemberAccessExpressionSyntax access => access.Name.GetLocation(),
-        MemberBindingExpressionSyntax binding => binding.Name.GetLocation(),
-        SimpleNameSyntax simple => simple.GetLocation(),
-        _ => invocation.GetLocation(),
-    };
 }

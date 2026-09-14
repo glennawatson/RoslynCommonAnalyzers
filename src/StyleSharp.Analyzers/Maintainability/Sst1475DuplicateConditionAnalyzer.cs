@@ -32,7 +32,7 @@ namespace StyleSharp.Analyzers;
 /// can change what the condition reads, the second test is not a duplicate at all but a re-read of something
 /// that has since moved. So the pair is reported only when the first <c>if</c>, body and <c>else</c>
 /// included, contains no call, allocation or <c>await</c> (any of which can touch anything), and writes
-/// nothing but plain local variables the condition does not read. That is deliberately strict: it is the
+/// nothing but discards and plain local variables the condition does not read. That is deliberately strict: it is the
 /// difference between a rule that finds copy-paste bugs and one that invents them.
 /// </para>
 /// <para>
@@ -122,8 +122,8 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// The condition is already known to be pure, so it reads names and nothing else. What the first branch
     /// must not do is move any of them. A call, an allocation or an <c>await</c> is treated as moving
     /// everything, because it can: a method it reaches may write any field the condition reads. A write is
-    /// allowed only to a plain, non-<c>ref</c> local or parameter whose name the condition never mentions —
-    /// which can change no field, no property and no other variable, and so cannot change the answer.
+    /// allowed only to a discard, or to a plain, non-<c>ref</c> local or parameter whose name the condition
+    /// never mentions — which can change no field, no property and no other variable, and so cannot change the answer.
     /// </remarks>
     private static bool CanChangeCondition(in SyntaxNodeAnalysisContext context, IfStatementSyntax earlier, ExpressionSyntax condition)
     {
@@ -545,14 +545,15 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
         /// <remarks>
         /// Three things have to hold. The target must be a bare identifier — a <c>x.Y = …</c> runs a property
         /// setter, which can do anything, and an <c>a[i] = …</c> can be seen through any alias of the array.
-        /// The name must be one the condition never reads. And it must bind to a by-value local or parameter:
-        /// a <c>ref</c> local can be an alias for the very field the condition reads, and writing through it
-        /// would change the answer while naming something else entirely.
+        /// The name must be one the condition never reads. And it must bind to a discard, which stores nothing,
+        /// or to a by-value local or parameter: a <c>ref</c> local can be an alias for the very field the
+        /// condition reads, and writing through it would change the answer while naming something else entirely.
         /// </remarks>
         public bool IsHarmlessWrite(ExpressionSyntax target) =>
             target is IdentifierNameSyntax identifier
                 && !_readNames.Contains(identifier.Identifier.ValueText)
-                && _model.GetSymbolInfo(identifier, _cancellationToken).Symbol is ILocalSymbol { RefKind: RefKind.None }
+                && _model.GetSymbolInfo(identifier, _cancellationToken).Symbol is IDiscardSymbol
+                    or ILocalSymbol { RefKind: RefKind.None }
                     or IParameterSymbol { RefKind: RefKind.None };
     }
 }

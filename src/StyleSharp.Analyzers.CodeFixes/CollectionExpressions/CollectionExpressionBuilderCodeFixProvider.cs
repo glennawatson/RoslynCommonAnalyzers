@@ -19,31 +19,16 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
     public override FixAllProvider? GetFixAllProvider() => null;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            if (FindLocal(root, diagnostic.Location.SourceSpan) is not { } local
-                || BuildReplacementRoot(root, local) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use collection expression",
-                    _ => Task.FromResult(Apply(context.Document, root, local)),
-                    equivalenceKey: CollectionExpressionRules.UseCollectionExpressionForBuilder.Id),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use collection expression",
+            CollectionExpressionRules.UseCollectionExpressionForBuilder.Id,
+            static (root, diagnostic) => FindLocal(root, diagnostic.Location.SourceSpan) is { } local
+                && BuildReplacementRoot(root, local) is not null
+                ? local
+                : null,
+            Apply);
 
     /// <summary>Applies the builder sequence replacement.</summary>
     /// <param name="document">The document.</param>
@@ -75,8 +60,11 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
             return null;
         }
 
-        var replacement = SyntaxFactory.ParseStatement($"return {CollectionExpressionText(elements)};")
-            .WithTriviaFrom(local);
+        var replacement = SyntaxFactory.ReturnStatement(
+            attributeLists: default,
+            SyntaxFactory.Token(local.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            SyntaxFactory.ParseExpression(CollectionExpressionText(elements)),
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, local.GetTrailingTrivia()));
         var statements = ReplaceStatementRange(block.Statements, start, end, replacement);
         return root.ReplaceNode(block, block.WithStatements(statements));
     }
@@ -121,7 +109,17 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
     /// <returns>The collection expression text.</returns>
     private static string CollectionExpressionText(ExpressionSyntax[] elements)
     {
-        var builder = new System.Text.StringBuilder();
+        var capacity = 2;
+        for (var i = 0; i < elements.Length; i++)
+        {
+            capacity += elements[i].Span.Length;
+            if (i > 0)
+            {
+                capacity += ", ".Length;
+            }
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
         _ = builder.Append('[');
         for (var i = 0; i < elements.Length; i++)
         {

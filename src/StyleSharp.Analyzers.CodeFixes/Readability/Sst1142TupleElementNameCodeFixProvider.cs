@@ -7,13 +7,16 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a positional <c>ItemN</c> tuple access with the element's name (SST1142).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1142TupleElementNameCodeFixProvider))]
 [Shared]
-public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
+public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly AsyncBatchEditFixAllProvider FixAll = new(RegisterEditsAsync);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.ReferToTupleElementByName.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -45,8 +48,12 @@ public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IA
         }
     }
 
-    /// <inheritdoc/>
-    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
     {
         var semanticModel = await editor.OriginalDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
         if (semanticModel is null)
@@ -63,7 +70,7 @@ public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IA
             return;
         }
 
-        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name!).WithTriviaFrom(identifier.Identifier));
+        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(identifier.Identifier.LeadingTrivia, name!, identifier.Identifier.TrailingTrivia));
         editor.ReplaceNode(identifier, renamed);
     }
 
@@ -75,7 +82,7 @@ public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IA
     /// <returns>The updated document.</returns>
     internal static Document Replace(Document document, SyntaxNode root, IdentifierNameSyntax identifier, string name)
     {
-        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name).WithTriviaFrom(identifier.Identifier));
+        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(identifier.Identifier.LeadingTrivia, name, identifier.Identifier.TrailingTrivia));
         return document.WithSyntaxRoot(root.ReplaceNode(identifier, renamed));
     }
 }

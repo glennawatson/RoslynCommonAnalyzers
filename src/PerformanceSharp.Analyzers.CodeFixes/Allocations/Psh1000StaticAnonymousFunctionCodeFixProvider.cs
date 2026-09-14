@@ -12,31 +12,37 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1000StaticAnonymousFunctionCodeFixProvider))]
 [Shared]
-public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.MakeAnonymousFunctionStatic.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Make the anonymous function static", nameof(Psh1000StaticAnonymousFunctionCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Make the anonymous function static", nameof(Psh1000StaticAnonymousFunctionCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Adds the <c>static</c> modifier to the reported anonymous function.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Inserts a leading <c>static</c> modifier, keeping the function's leading trivia on it.</summary>
     /// <param name="function">The anonymous function to rewrite.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, AnonymousFunctionExpressionSyntax function) =>
-        document.WithSyntaxRoot(root.ReplaceNode(function, Rewrite(function)));
+    /// <returns>The rewritten anonymous function.</returns>
+    internal static AnonymousFunctionExpressionSyntax Rewrite(AnonymousFunctionExpressionSyntax function)
+    {
+        var staticKeyword = SyntaxFactory.Token(function.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+        var stripped = function.WithLeadingTrivia(SyntaxFactory.TriviaList());
+        return stripped.WithModifiers(stripped.Modifiers.Insert(0, staticKeyword));
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>()is { };
 
     /// <summary>Resolves the reported anonymous function and builds its static replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -53,14 +59,4 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static AnonymousFunctionExpressionSyntax RewriteCurrent(SyntaxNode current) =>
         Rewrite((AnonymousFunctionExpressionSyntax)current);
-
-    /// <summary>Inserts a leading <c>static</c> modifier, keeping the function's leading trivia on it.</summary>
-    /// <param name="function">The anonymous function to rewrite.</param>
-    /// <returns>The rewritten anonymous function.</returns>
-    private static AnonymousFunctionExpressionSyntax Rewrite(AnonymousFunctionExpressionSyntax function)
-    {
-        var staticKeyword = SyntaxFactory.Token(function.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        var stripped = function.WithLeadingTrivia(SyntaxFactory.TriviaList());
-        return stripped.WithModifiers(stripped.Modifiers.Insert(0, staticKeyword));
-    }
 }

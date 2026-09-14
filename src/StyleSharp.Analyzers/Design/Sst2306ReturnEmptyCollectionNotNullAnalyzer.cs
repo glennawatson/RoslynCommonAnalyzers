@@ -58,12 +58,6 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> for a <c>null</c> literal.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
-
     /// <summary>Returns whether a tree's language version can write an empty collection expression.</summary>
     /// <param name="tree">The syntax tree being analyzed or fixed.</param>
     /// <returns><see langword="true"/> on C# 12 and later.</returns>
@@ -122,7 +116,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// </remarks>
     private static void AnalyzeReturnedExpression(in SyntaxNodeAnalysisContext context, ExpressionSyntax returned, EmptyCollectionTypes types)
     {
-        var unwrapped = Unwrap(returned);
+        var unwrapped = ExpressionShapes.WalkDownParentheses(returned);
         if (!ContainsNull(unwrapped)
             || FindEnclosingMember(returned) is not { } member
             || GetDeclaredReturnType(member) is not { } returnTypeSyntax
@@ -148,7 +142,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="replacement">The suggested empty-collection expression, when one can be written.</param>
     private static void ReportNulls(in SyntaxNodeAnalysisContext context, ExpressionSyntax unwrapped, string memberName, string? replacement)
     {
-        if (IsNullLiteral(unwrapped))
+        if (ExpressionShapes.IsNullLiteral(unwrapped))
         {
             Report(context, unwrapped, memberName, replacement);
             return;
@@ -173,8 +167,8 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="replacement">The suggested empty-collection expression, when one can be written.</param>
     private static void ReportBranch(in SyntaxNodeAnalysisContext context, ExpressionSyntax branch, string memberName, string? replacement)
     {
-        var unwrapped = Unwrap(branch);
-        if (!IsNullLiteral(unwrapped))
+        var unwrapped = ExpressionShapes.WalkDownParentheses(branch);
+        if (!ExpressionShapes.IsNullLiteral(unwrapped))
         {
             return;
         }
@@ -215,27 +209,14 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <returns><see langword="true"/> when a null literal is in return position.</returns>
     private static bool ContainsNull(ExpressionSyntax unwrapped)
     {
-        if (IsNullLiteral(unwrapped))
+        if (ExpressionShapes.IsNullLiteral(unwrapped))
         {
             return true;
         }
 
         return unwrapped is ConditionalExpressionSyntax conditional
-            && (IsNullLiteral(Unwrap(conditional.WhenTrue)) || IsNullLiteral(Unwrap(conditional.WhenFalse)));
-    }
-
-    /// <summary>Strips the parentheses wrapping a returned expression.</summary>
-    /// <param name="expression">The returned expression.</param>
-    /// <returns>The expression the member actually hands back.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        var current = expression;
-        while (current is ParenthesizedExpressionSyntax parenthesized)
-        {
-            current = parenthesized.Expression;
-        }
-
-        return current;
+            && (ExpressionShapes.IsNullLiteral(ExpressionShapes.WalkDownParentheses(conditional.WhenTrue))
+                || ExpressionShapes.IsNullLiteral(ExpressionShapes.WalkDownParentheses(conditional.WhenFalse)));
     }
 
     /// <summary>Finds the member whose declared return type gives a returned expression its meaning.</summary>

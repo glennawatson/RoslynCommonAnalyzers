@@ -56,7 +56,7 @@ public sealed class Sst2409ThrowsGeneralExceptionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         if (GetThrownExpression(context.Node) is not ObjectCreationExpressionSyntax creation
-            || GetReservedReason(GetSimpleName(creation.Type)) is null)
+            || GetReservedReason(SyntaxNames.GetIdentifierName(creation.Type)) is null)
         {
             return;
         }
@@ -101,15 +101,4 @@ public sealed class Sst2409ThrowsGeneralExceptionAnalyzer : DiagnosticAnalyzer
     private static bool IsInSystemNamespace(INamedTypeSymbol type) =>
         type.ContainingNamespace is { Name: SystemNamespace } ns
             && ns.ContainingNamespace is { IsGlobalNamespace: true };
-
-    /// <summary>Gets the rightmost name of a possibly qualified type.</summary>
-    /// <param name="type">The type as written.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the type is not a name.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-        _ => null,
-    };
 }

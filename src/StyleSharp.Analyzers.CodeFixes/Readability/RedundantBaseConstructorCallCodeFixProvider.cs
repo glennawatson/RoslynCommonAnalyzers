@@ -9,58 +9,39 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a redundant parameterless <c>: base()</c> constructor initializer (SST1178).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantBaseConstructorCallCodeFixProvider))]
 [Shared]
-public sealed class RedundantBaseConstructorCallCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class RedundantBaseConstructorCallCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindConstructor, static (current, _) => RemoveInitializer((ConstructorDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantBaseConstructorCall.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove the redundant ': base()' call",
+            nameof(RedundantBaseConstructorCallCodeFixProvider),
+            FindConstructor,
+            RemoveInitializer);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not ConstructorInitializerSyntax initializer
-                || initializer.Parent is not ConstructorDeclarationSyntax constructor)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant ': base()' call",
-                    _ => Task.FromResult(Apply(context.Document, root, constructor)),
-                    equivalenceKey: nameof(RedundantBaseConstructorCallCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not ConstructorInitializerSyntax initializer
-            || initializer.Parent is not ConstructorDeclarationSyntax constructor)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(constructor, constructor.WithInitializer(null));
-    }
-
-    /// <summary>Drops the constructor initializer, leaving the parameter list to flow into the body.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Drops a constructor's initializer, leaving the parameter list to flow into the body.</summary>
     /// <param name="constructor">The constructor whose initializer is redundant.</param>
-    /// <returns>The updated document.</returns>
+    /// <returns>The constructor without its initializer.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, ConstructorDeclarationSyntax constructor) =>
-        document.WithSyntaxRoot(root.ReplaceNode(constructor, constructor.WithInitializer(null)));
+    private static ConstructorDeclarationSyntax RemoveInitializer(ConstructorDeclarationSyntax constructor) =>
+        constructor.WithInitializer(null);
+
+    /// <summary>Finds the constructor that owns the reported initializer.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The constructor, or <see langword="null"/> when the reported node is not its initializer.</returns>
+    private static ConstructorDeclarationSyntax? FindConstructor(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is ConstructorInitializerSyntax { Parent: ConstructorDeclarationSyntax constructor }
+            ? constructor
+            : null;
 }

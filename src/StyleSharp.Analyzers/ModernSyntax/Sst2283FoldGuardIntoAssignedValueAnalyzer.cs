@@ -69,21 +69,23 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         return true;
     }
 
-    /// <summary>Registers the argument-null-helper probe, then analyzes every <c>if</c> statement.</summary>
+    /// <summary>Defers the argument-null-helper probe until a matching guard needs it.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var argumentNullFolded = HasStaticThrowIfNull(context.Compilation.GetTypeByMetadataName("System.ArgumentNullException"));
+        var argumentNullFolded = LazyCompilationProbe.Create(context.Compilation, HasStaticThrowIfNull);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, argumentNullFolded), SyntaxKind.IfStatement);
     }
 
     /// <summary>Reports a foldable guard-then-assignment shape.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="argumentNullFolded">Whether the runtime argument-null helper exists in this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, bool argumentNullFolded)
+    /// <param name="argumentNullFolded">The deferred runtime argument-null-helper probe.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationProbe argumentNullFolded)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
-        if (!TryGetFold(ifStatement, context.SemanticModel, argumentNullFolded, context.CancellationToken, out _, out _, out _))
+        if (!TryMatchGuardShape(ifStatement, argumentNullFolded: false, out var checkedIdentifier, out _, out _)
+            || (ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _) && argumentNullFolded.Get())
+            || !IsFoldableGuardedValue(ifStatement.Condition, checkedIdentifier, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -110,7 +112,7 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         assignmentStatement = null!;
 
         if (ifStatement.Else is not null
-            || HasNonWhitespaceTrivia(ifStatement)
+            || SurroundingTrivia.HasNonWhitespace(ifStatement)
             || !SupportsThrowExpression(ifStatement)
             || !TryGetNullCheckedIdentifier(ifStatement.Condition, out checkedIdentifier)
             || !TryGetSingleThrowOperand(ifStatement.Statement, out thrown)
@@ -137,7 +139,7 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         CancellationToken cancellationToken)
     {
         // A user-defined '==' is not the reference null check '?? throw' performs, so leave it alone.
-        var unwrapped = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        var unwrapped = ExpressionShapes.WalkDownParentheses(condition);
         if (unwrapped is BinaryExpressionSyntax
             && model.GetSymbolInfo(unwrapped, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
         {
@@ -150,28 +152,6 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
             && model.GetTypeInfo(checkedIdentifier, cancellationToken).Type is { IsReferenceType: true };
     }
 
-    /// <summary>Returns whether a type declares a static <c>ThrowIfNull</c> method.</summary>
-    /// <param name="type">The resolved <c>ArgumentNullException</c> type, when available.</param>
-    /// <returns><see langword="true"/> when the runtime null-check helper exists.</returns>
-    private static bool HasStaticThrowIfNull(INamedTypeSymbol? type)
-    {
-        if (type is null)
-        {
-            return false;
-        }
-
-        var members = type.GetMembers("ThrowIfNull");
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Finds the identifier checked against <see langword="null"/> by the guard condition.</summary>
     /// <param name="condition">The guard condition.</param>
     /// <param name="identifier">The guarded identifier when matched.</param>
@@ -179,7 +159,7 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
     private static bool TryGetNullCheckedIdentifier(ExpressionSyntax condition, out IdentifierNameSyntax identifier)
     {
         identifier = null!;
-        condition = ExpressionSimplificationAnalyzer.Unwrap(condition);
+        condition = ExpressionShapes.WalkDownParentheses(condition);
         if (condition is IsPatternExpressionSyntax
             {
                 Expression: IdentifierNameSyntax patternIdentifier,
@@ -205,8 +185,8 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
     /// <returns>The non-null operand, or <see langword="null"/> when neither side is the <c>null</c> literal.</returns>
     private static ExpressionSyntax? NonNullEqualityOperand(BinaryExpressionSyntax binary)
     {
-        var left = ExpressionSimplificationAnalyzer.Unwrap(binary.Left);
-        var right = ExpressionSimplificationAnalyzer.Unwrap(binary.Right);
+        var left = ExpressionShapes.WalkDownParentheses(binary.Left);
+        var right = ExpressionShapes.WalkDownParentheses(binary.Right);
         if (right.IsKind(SyntaxKind.NullLiteralExpression))
         {
             return left;
@@ -273,7 +253,7 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         }
 
         if (!IsSafeAssignmentTarget(target)
-            || !SyntaxFactory.AreEquivalent(ExpressionSimplificationAnalyzer.Unwrap(right), checkedIdentifier))
+            || !SyntaxFactory.AreEquivalent(ExpressionShapes.WalkDownParentheses(right), checkedIdentifier))
         {
             return false;
         }
@@ -296,22 +276,26 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         _ => false,
     };
 
-    /// <summary>Returns whether the leading or trailing trivia carries a comment the fold would move.</summary>
-    /// <param name="node">The node to inspect.</param>
-    /// <returns><see langword="true"/> when non-whitespace trivia is present.</returns>
-    private static bool HasNonWhitespaceTrivia(SyntaxNode node)
+    /// <summary>Returns whether the tree's language version supports throw expressions (C# 7).</summary>
+    /// <param name="node">A node in the tree.</param>
+    /// <returns><see langword="true"/> when throw expressions are available.</returns>
+    private static bool SupportsThrowExpression(SyntaxNode node) =>
+        node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
+
+    /// <summary>Returns whether the runtime supplies a static argument-null helper.</summary>
+    /// <param name="compilation">The compilation whose helper is resolved.</param>
+    /// <returns><see langword="true"/> when <c>ArgumentNullException</c> declares a static <c>ThrowIfNull</c> method.</returns>
+    private static bool HasStaticThrowIfNull(Compilation compilation)
     {
-        foreach (var trivia in node.GetLeadingTrivia())
+        if (compilation.GetTypeByMetadataName("System.ArgumentNullException") is not { } type)
         {
-            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return true;
-            }
+            return false;
         }
 
-        foreach (var trivia in node.GetTrailingTrivia())
+        var members = type.GetMembers("ThrowIfNull");
+        for (var i = 0; i < members.Length; i++)
         {
-            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            if (members[i] is IMethodSymbol { IsStatic: true })
             {
                 return true;
             }
@@ -319,10 +303,4 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
 
         return false;
     }
-
-    /// <summary>Returns whether the tree's language version supports throw expressions (C# 7).</summary>
-    /// <param name="node">A node in the tree.</param>
-    /// <returns><see langword="true"/> when throw expressions are available.</returns>
-    private static bool SupportsThrowExpression(SyntaxNode node) =>
-        node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
 }

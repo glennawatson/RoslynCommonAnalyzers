@@ -10,9 +10,8 @@ namespace PerformanceSharp.Analyzers;
 /// is consumed once by the loop and discarded, so the source can be enumerated directly. Before
 /// reporting, the loop body is scanned for the receiver's root identifier: a body that mentions
 /// the source again may be materializing on purpose to survive mutation during enumeration, so
-/// those loops stay clean. <c>await foreach</c> is skipped, and the rule is resolved once per
-/// compilation by probing for <c>System.Linq.Enumerable</c>, so it costs nothing when LINQ is
-/// absent.
+/// those loops stay clean. <c>await foreach</c> is skipped, and <c>System.Linq.Enumerable</c>
+/// is resolved only after the loop passes these syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnalyzer
@@ -38,15 +37,11 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeForEach(nodeContext, enumerableType), SyntaxKind.ForEachStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeForEach,
+            SyntaxKind.ForEachStatement);
     }
 
     /// <summary>Returns whether an invocation is a parameterless member-access ToList/ToArray call, before any binding.</summary>
@@ -60,8 +55,8 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports PSH1120 for a foreach that enumerates a ToList/ToArray copy it then discards.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, LazyMetadataType typeCache)
     {
         var forEach = (ForEachStatementSyntax)context.Node;
         if (forEach.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
@@ -77,7 +72,8 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (!IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
+        if (typeCache.Get() is not { } enumerableType
+            || !EnumerableInvocationHelper.IsSourceOnlyExtensionOn(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
         {
             return;
         }
@@ -95,14 +91,7 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
     private static bool BodyMentionsReceiverRoot(StatementSyntax body, ExpressionSyntax receiver)
     {
         var guardIdentifier = FindGuardIdentifier(receiver);
-        if (guardIdentifier.IsKind(SyntaxKind.None))
-        {
-            return false;
-        }
-
-        var state = new IdentifierScanState(guardIdentifier.ValueText);
-        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref state, VisitIdentifierToken);
-        return state.Found;
+        return !guardIdentifier.IsKind(SyntaxKind.None) && IdentifierReferences.ContainsIdentifierToken(body, guardIdentifier.ValueText);
     }
 
     /// <summary>Walks a receiver down to its root identifier, or the nearest name when the root is not a simple identifier.</summary>
@@ -147,42 +136,5 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
                     return nearestName;
             }
         }
-    }
-
-    /// <summary>Classifies one token encountered during the loop-body scan.</summary>
-    /// <param name="token">The visited token.</param>
-    /// <param name="state">The current scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once the identifier is found.</returns>
-    private static bool VisitIdentifierToken(in SyntaxToken token, ref IdentifierScanState state)
-    {
-        if (!token.IsKind(SyntaxKind.IdentifierToken) || token.ValueText != state.Name)
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an invocation binds to an Enumerable extension whose only parameter is the source.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the call is a reduced source-only Enumerable extension.</returns>
-    private static bool IsSourceOnlyEnumerableExtension(
-        SemanticModel model,
-        InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType,
-        CancellationToken cancellationToken) =>
-        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
-            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
-
-    /// <summary>Tracks the guarded identifier while scanning the loop body.</summary>
-    /// <param name="Name">The receiver's root identifier text.</param>
-    private record struct IdentifierScanState(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the identifier was found in the body.</summary>
-        public bool Found { get; set; }
     }
 }

@@ -7,13 +7,16 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a modifier that restates the declaration's default (SST1491).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1491RedundantModifierCodeFixProvider))]
 [Shared]
-public sealed class Sst1491RedundantModifierCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1491RedundantModifierCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.RedundantModifier.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -26,9 +29,7 @@ public sealed class Sst1491RedundantModifierCodeFixProvider : CodeFixProvider, I
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
-            if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration
-                || declaration.Modifiers.IndexOf(token) < 0)
+            if (!ReportedModifier.TryFind(root, diagnostic, out var declaration, out var token, out _))
             {
                 continue;
             }
@@ -42,12 +43,12 @@ public sealed class Sst1491RedundantModifierCodeFixProvider : CodeFixProvider, I
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var token = editor.OriginalRoot.FindToken(diagnostic.Location.SourceSpan.Start);
-        if (token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } declaration
-            || declaration.Modifiers.IndexOf(token) < 0)
+        if (!ReportedModifier.TryFind(editor.OriginalRoot, diagnostic, out var declaration, out var token, out _))
         {
             return;
         }
@@ -56,29 +57,6 @@ public sealed class Sst1491RedundantModifierCodeFixProvider : CodeFixProvider, I
         // first has already shortened — so the modifier is found by kind in the current node rather than by
         // its index in the original. A modifier kind cannot repeat within one list, so the match is exact.
         var kind = token.Kind();
-        editor.ReplaceNode(declaration, (current, _) => RemoveModifierOfKind((MemberDeclarationSyntax)current, kind));
-    }
-
-    /// <summary>Removes the modifier of one kind from a declaration, if it is still there.</summary>
-    /// <param name="member">The current member declaration, including any edits already applied.</param>
-    /// <param name="kind">The modifier kind to remove.</param>
-    /// <returns>The member without the modifier.</returns>
-    private static MemberDeclarationSyntax RemoveModifierOfKind(MemberDeclarationSyntax member, SyntaxKind kind)
-    {
-        var modifiers = member.Modifiers;
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (!modifiers[i].IsKind(kind))
-            {
-                continue;
-            }
-
-            // Removing the first modifier would otherwise take the declaration's indentation with it.
-            return member
-                .WithModifiers(modifiers.RemoveAt(i))
-                .WithLeadingTrivia(member.GetLeadingTrivia());
-        }
-
-        return member;
+        editor.ReplaceNode(declaration, (current, _) => ModifierRemoval.RemoveKind((MemberDeclarationSyntax)current, kind));
     }
 }

@@ -18,15 +18,18 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ExtensionBlockMemberCodeFixProvider))]
 [Shared]
-public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ExtensionRules.PreferExtensionBlock.Id,
         ExtensionRules.DoNotMixExtensionStyles.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -35,11 +38,6 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             "Move into an extension block",
             nameof(ExtensionBlockMemberCodeFixProvider),
             TryRewrite);
-
-    /// <inheritdoc/>
-    [global::System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites a helper whose first parameter is the receiver but is not marked <c>this</c> (SST1709).</summary>
     /// <param name="root">The syntax root.</param>
@@ -138,12 +136,44 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        var introduced = block.AddMembers(member)
-            .WithLeadingTrivia(LayoutTriviaOf(method).AddRange(BlockDocumentation(receiverType, NewLineOf(containingClass))))
-            .WithTrailingTrivia(method.GetTrailingTrivia())
-            .WithAdditionalAnnotations(Formatter.Annotation);
-        return containingClass.ReplaceNode(method, introduced);
+        var leading = LayoutTriviaOf(method).AddRange(BlockDocumentation(receiverType, NewLineOf(containingClass)));
+        var introduced = IntroduceBlock(block, member, leading, method.GetTrailingTrivia());
+        return containingClass.ReplaceNode(method, introduced.WithAdditionalAnnotations(Formatter.Annotation));
     }
+
+    /// <summary>Populates a parsed block and transfers the replaced method's surrounding trivia.</summary>
+    /// <param name="block">The empty parsed block.</param>
+    /// <param name="member">The converted method.</param>
+    /// <param name="leading">The block's leading trivia.</param>
+    /// <param name="trailing">The block's trailing trivia.</param>
+    /// <returns>The populated block.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static TypeDeclarationSyntax IntroduceBlock(
+        TypeDeclarationSyntax block,
+        MethodDeclarationSyntax member,
+        in SyntaxTriviaList leading,
+        in SyntaxTriviaList trailing) =>
+#if ROSLYN_5_OR_GREATER
+        block is ExtensionBlockDeclarationSyntax extension
+            ? extension.Update(
+                extension.AttributeLists,
+                extension.Modifiers,
+                extension.Keyword.WithLeadingTrivia(leading),
+                extension.TypeParameterList,
+                extension.ParameterList,
+                extension.ConstraintClauses,
+                extension.OpenBraceToken,
+                extension.Members.Add(member),
+                extension.CloseBraceToken.WithTrailingTrivia(trailing),
+                extension.SemicolonToken)
+            : block.AddMembers(member)
+                .WithLeadingTrivia(leading)
+                .WithTrailingTrivia(trailing);
+#else
+        block.AddMembers(member)
+            .WithLeadingTrivia(leading)
+            .WithTrailingTrivia(trailing);
+#endif
 
     /// <summary>Builds the documentation the opened block carries.</summary>
     /// <param name="receiverType">The receiver type the block extends.</param>
@@ -159,35 +189,13 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static SyntaxTriviaList BlockDocumentation(TypeSyntax receiverType, string newLine) =>
         SyntaxFactory.ParseLeadingTrivia(
-            $"/// <summary>Extension members for <c>{EscapeXml(receiverType.WithoutTrivia().ToString())}</c>.</summary>{newLine}");
-
-    /// <summary>Escapes the markup characters a type name can contain.</summary>
-    /// <param name="text">The type name as it is written in source.</param>
-    /// <returns>The name as XML character data.</returns>
-    /// <remarks>
-    /// A constructed generic receiver is written with angle brackets, which close the element around it and
-    /// leave the comment malformed. The ampersand goes first so the entities this introduces are not escaped
-    /// a second time.
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string EscapeXml(string text) =>
-        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+            $"/// <summary>Extension members for <c>{XmlTextEscaping.Escape(receiverType.WithoutTrivia().ToString())}</c>.</summary>{newLine}");
 
     /// <summary>Gets the line ending a declaration is already written with.</summary>
     /// <param name="node">The declaration to read.</param>
     /// <returns>The first line ending found, or a bare line feed when there is none.</returns>
-    private static string NewLineOf(SyntaxNode node)
-    {
-        foreach (var trivia in node.DescendantTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return trivia.ToFullString();
-            }
-        }
-
-        return "\n";
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string NewLineOf(SyntaxNode node) => LineEndingHelper.GetLineBreak(node).ToFullString();
 
     /// <summary>Gets a method's leading trivia without its documentation comment.</summary>
     /// <param name="method">The classic extension method being moved.</param>
@@ -198,8 +206,9 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// </remarks>
     private static SyntaxTriviaList LayoutTriviaOf(MethodDeclarationSyntax method)
     {
-        var kept = new List<SyntaxTrivia>();
-        foreach (var trivia in method.GetLeadingTrivia())
+        var leadingTrivia = method.GetLeadingTrivia();
+        var kept = new List<SyntaxTrivia>(leadingTrivia.Count);
+        foreach (var trivia in leadingTrivia)
         {
             if (!trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
                 && !trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
@@ -216,8 +225,9 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The documentation trivia, or an empty list when the declaration has none.</returns>
     private static SyntaxTriviaList DocumentationOf(SyntaxNode node)
     {
-        var kept = new List<SyntaxTrivia>();
-        foreach (var trivia in node.GetLeadingTrivia())
+        var leadingTrivia = node.GetLeadingTrivia();
+        var kept = new List<SyntaxTrivia>(leadingTrivia.Count);
+        foreach (var trivia in leadingTrivia)
         {
             if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
                 || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
@@ -338,7 +348,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         for (var index = 0; index < parameters.Count; index++)
         {
             var parameter = parameters[index];
-            var destination = MentionsName(receiverType, parameter.Identifier.ValueText) ? onBlock : onMember;
+            var destination = IdentifierReferences.MentionsName(receiverType, parameter.Identifier.ValueText) ? onBlock : onMember;
             destination.Add(parameter);
         }
     }
@@ -406,29 +416,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     {
         for (var index = 0; index < parameters.Count; index++)
         {
-            if (MentionsName(node, parameters[index].Identifier.ValueText))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a node names an identifier anywhere within it.</summary>
-    /// <param name="node">The node to search.</param>
-    /// <param name="name">The identifier to find.</param>
-    /// <returns><see langword="true"/> when the identifier appears.</returns>
-    private static bool MentionsName(SyntaxNode node, string name)
-    {
-        if (node is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText == name;
-        }
-
-        foreach (var child in node.ChildNodes())
-        {
-            if (MentionsName(child, name))
+            if (IdentifierReferences.MentionsName(node, parameters[index].Identifier.ValueText))
             {
                 return true;
             }
@@ -447,7 +435,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return string.Empty;
         }
 
-        var rendered = new StringBuilder("<");
+        var rendered = new StringBuilder("<", parameters.Span.Length + parameters.Parameters.Count);
         for (var index = 0; index < parameters.Parameters.Count; index++)
         {
             if (index > 0)
@@ -471,7 +459,13 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return string.Empty;
         }
 
-        var rendered = new StringBuilder();
+        var capacity = clauses.Count;
+        for (var index = 0; index < clauses.Count; index++)
+        {
+            capacity += clauses[index].Span.Length;
+        }
+
+        var rendered = new StringBuilder(capacity);
         for (var index = 0; index < clauses.Count; index++)
         {
             _ = rendered.Append('\n').Append(clauses[index].NormalizeWhitespace().ToString());
@@ -543,7 +537,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// </remarks>
     private static string ReceiverModifierText(in SyntaxTokenList modifiers)
     {
-        var rendered = new StringBuilder();
+        var rendered = new StringBuilder(modifiers.Span.Length);
         for (var i = 0; i < modifiers.Count; i++)
         {
             if (modifiers[i].IsKind(SyntaxKind.ThisKeyword))
@@ -591,11 +585,30 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        return split.BlockConstraints.Count == 0
-            ? block
-            : block
-                .WithParameterList(block.ParameterList!.WithCloseParenToken(block.ParameterList.CloseParenToken.WithTrailingTrivia(SyntaxFactory.ElasticMarker)))
-                .WithConstraintClauses(Elastic(split.BlockConstraints));
+        if (split.BlockConstraints.Count == 0)
+        {
+            return block;
+        }
+
+        var parameterList = block.ParameterList!.WithCloseParenToken(block.ParameterList.CloseParenToken.WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+        var constraints = Elastic(split.BlockConstraints);
+#if ROSLYN_5_OR_GREATER
+        return block is ExtensionBlockDeclarationSyntax extension
+            ? extension.Update(
+                extension.AttributeLists,
+                extension.Modifiers,
+                extension.Keyword,
+                extension.TypeParameterList,
+                parameterList,
+                constraints,
+                extension.OpenBraceToken,
+                extension.Members,
+                extension.CloseBraceToken,
+                extension.SemicolonToken)
+            : block.WithParameterList(parameterList).WithConstraintClauses(constraints);
+#else
+        return block.WithParameterList(parameterList).WithConstraintClauses(constraints);
+#endif
     }
 
     /// <summary>Hands constraint clauses to the formatter to place.</summary>
@@ -606,10 +619,24 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         var placed = new List<TypeParameterConstraintClauseSyntax>(clauses.Count);
         for (var index = 0; index < clauses.Count; index++)
         {
-            placed.Add(clauses[index]
-                .NormalizeWhitespace()
-                .WithLeadingTrivia(SyntaxFactory.ElasticSpace)
-                .WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+            var clause = clauses[index].NormalizeWhitespace();
+            var constraints = clause.Constraints;
+            var colon = clause.ColonToken;
+            if (constraints.Count == 0)
+            {
+                colon = colon.WithTrailingTrivia(SyntaxFactory.ElasticMarker);
+            }
+            else
+            {
+                var last = constraints[constraints.Count - 1];
+                constraints = constraints.Replace(last, last.WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+            }
+
+            placed.Add(clause.Update(
+                clause.WhereKeyword.WithLeadingTrivia(SyntaxFactory.ElasticSpace),
+                clause.Name,
+                colon,
+                constraints));
         }
 
         return SyntaxFactory.List(placed);
@@ -638,11 +665,18 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
 
         // The trivia goes on last: replacing the modifiers restores the tokens' own leading trivia,
         // which still carries the documentation this strips.
-        return method
-            .WithModifiers(WithoutStatic(method.Modifiers))
-            .WithTypeParameterList(split.MemberTypeParameters)
-            .WithConstraintClauses(split.MemberConstraints)
-            .WithParameterList(parameterList)
+        return method.Update(
+                method.AttributeLists,
+                WithoutStatic(method.Modifiers),
+                method.ReturnType,
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                split.MemberTypeParameters,
+                parameterList,
+                split.MemberConstraints,
+                method.Body,
+                method.ExpressionBody,
+                method.SemicolonToken)
             .WithLeadingTrivia(WithoutMovedDocumentation(method.GetLeadingTrivia(), receiverName, split));
     }
 

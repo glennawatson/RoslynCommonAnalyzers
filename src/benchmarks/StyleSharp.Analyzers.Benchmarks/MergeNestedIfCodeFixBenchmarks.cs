@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -30,8 +31,8 @@ public class MergeNestedIfCodeFixBenchmarks : IDisposable
     /// <summary>The representative outer if statement passed to the code fix.</summary>
     private IfStatementSyntax _outer = null!;
 
-    /// <summary>The inner if statement the outer one wraps.</summary>
-    private IfStatementSyntax _inner = null!;
+    /// <summary>The diagnostic reported on the representative outer if statement.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -53,7 +54,7 @@ public class MergeNestedIfCodeFixBenchmarks : IDisposable
             _root,
             RepresentativeNodeIndex,
             static statement => Sst2013MergeNestedIfAnalyzer.GetMergeableInnerIf(statement) is not null);
-        _inner = Sst2013MergeNestedIfAnalyzer.GetMergeableInnerIf(_outer)!;
+        _diagnostic = Diagnostic.Create(ModernizationRules.MergeNestedIf, _outer.GetLocation());
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
@@ -73,7 +74,7 @@ public class MergeNestedIfCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> MergeNestedIf_ApplyFixAsync()
     {
-        var updated = Sst2013MergeNestedIfCodeFixProvider.Apply(_document, _root, _outer, _inner);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2013MergeNestedIfCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

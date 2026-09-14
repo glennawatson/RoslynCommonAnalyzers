@@ -50,6 +50,16 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// <summary>The number of parameters an equality method declares.</summary>
     private const int OneParameter = 1;
 
+    /// <summary>The body-bearing member kinds shared by every compilation.</summary>
+    private static readonly SyntaxKind[] MemberKinds =
+    [
+        SyntaxKind.MethodDeclaration,
+        SyntaxKind.ConstructorDeclaration,
+        SyntaxKind.DestructorDeclaration,
+        SyntaxKind.OperatorDeclaration,
+        SyntaxKind.ConversionOperatorDeclaration,
+    ];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.UnexpectedThrow);
 
@@ -73,17 +83,19 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         var compilation = context.Compilation;
-        var allowed = new Lazy<AllowedThrowTypes>(
-            () => AllowedThrowTypes.Create(compilation),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions>();
+        var allowed = new LazyCompilationValue<AllowedThrowTypes>(compilation, AllowedThrowTypes.Create, runOnce: true);
+        var treeCount = 0;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions>(
+            concurrencyLevel: 1,
+            capacity: treeCount);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree, allowed),
-            SyntaxKind.MethodDeclaration,
-            SyntaxKind.ConstructorDeclaration,
-            SyntaxKind.DestructorDeclaration,
-            SyntaxKind.OperatorDeclaration,
-            SyntaxKind.ConversionOperatorDeclaration);
+            MemberKinds);
     }
 
     /// <summary>Walks the body of a member that must not throw and reports the throws it originates.</summary>
@@ -93,7 +105,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree,
-        Lazy<AllowedThrowTypes> allowed)
+        LazyCompilationValue<AllowedThrowTypes> allowed)
     {
         var member = (BaseMethodDeclarationSyntax)context.Node;
         if (!MustNotThrow(member, context, optionsByTree))
@@ -137,7 +149,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree) => member switch
         {
             MethodDeclarationSyntax method => IsImplicitlyInvoked(method)
-                || GetOptions(context, optionsByTree).Contains(method.Identifier.ValueText),
+                || TreeOptionsCache.GetOrRead(optionsByTree, context, UnexpectedThrowOptions.Read).Contains(method.Identifier.ValueText),
             ConstructorDeclarationSyntax constructor => ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
             DestructorDeclarationSyntax => true,
             OperatorDeclarationSyntax @operator => IsComparisonOperator(@operator.OperatorToken),
@@ -173,25 +185,6 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         or SyntaxKind.LessThanEqualsToken
         or SyntaxKind.GreaterThanEqualsToken;
 
-    /// <summary>Reads the settings for the member's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static UnexpectedThrowOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = UnexpectedThrowOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
-
     /// <summary>Walks a member's body in preorder, reporting every throw the member itself originates.</summary>
     /// <param name="node">The node being scanned.</param>
     /// <param name="context">The syntax node context.</param>
@@ -206,7 +199,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         in SyntaxNodeAnalysisContext context,
         BaseMethodDeclarationSyntax member,
-        Lazy<AllowedThrowTypes> allowed)
+        LazyCompilationValue<AllowedThrowTypes> allowed)
     {
         var children = node.ChildNodesAndTokens();
         for (var i = 0; i < children.Count; i++)
@@ -241,7 +234,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         in SyntaxNodeAnalysisContext context,
         BaseMethodDeclarationSyntax member,
-        Lazy<AllowedThrowTypes> allowed)
+        LazyCompilationValue<AllowedThrowTypes> allowed)
     {
         SyntaxToken keyword;
         ExpressionSyntax thrown;
@@ -289,15 +282,15 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static bool IsDeliberateAbsence(
         ExpressionSyntax thrown,
         in SyntaxNodeAnalysisContext context,
-        Lazy<AllowedThrowTypes> allowed)
+        LazyCompilationValue<AllowedThrowTypes> allowed)
     {
         if (thrown is ObjectCreationExpressionSyntax creation
-            && GetSimpleName(creation.Type) is AllowedThrowTypes.NotImplementedName or AllowedThrowTypes.NotSupportedName)
+            && SyntaxNames.GetSimpleName(creation.Type) is AllowedThrowTypes.NotImplementedName or AllowedThrowTypes.NotSupportedName)
         {
             return true;
         }
 
-        return allowed.Value.Contains(context.SemanticModel.GetTypeInfo(thrown, context.CancellationToken).Type);
+        return allowed.Get().Contains(context.SemanticModel.GetTypeInfo(thrown, context.CancellationToken).Type);
     }
 
     /// <summary>Gets the name the diagnostic uses for the member.</summary>
@@ -310,17 +303,6 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         DestructorDeclarationSyntax destructor => $"~{destructor.Identifier.ValueText}",
         OperatorDeclarationSyntax @operator => $"operator {@operator.OperatorToken.ValueText}",
         ConversionOperatorDeclarationSyntax conversion => $"implicit operator {conversion.Type}",
-        _ => string.Empty,
-    };
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased type name.</summary>
-    /// <param name="type">The constructed type.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
         _ => string.Empty,
     };
 }

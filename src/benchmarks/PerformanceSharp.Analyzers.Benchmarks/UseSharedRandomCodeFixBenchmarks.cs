@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class UseSharedRandomCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative node passed to the code fix.</summary>
-    private ObjectCreationExpressionSyntax _target = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +47,7 @@ public class UseSharedRandomCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, UseSharedRandomBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _target = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ObjectCreationExpressionSyntax>(type, 0, static _ => true);
+        _diagnostic = Diagnostic.Create(ApiSelectionRules.UseSharedRandom, CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ObjectCreationExpressionSyntax>(type, 0, static _ => true).GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +67,7 @@ public class UseSharedRandomCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseSharedRandom_ApplyFixAsync()
     {
-        var updated = Psh1412UseSharedRandomCodeFixProvider.Apply(_document, _root, _target);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1412UseSharedRandomCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

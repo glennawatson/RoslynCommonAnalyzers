@@ -47,17 +47,18 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var expressionType = start.Compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1");
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, expressionType), SyntaxKind.BitwiseAndExpression, SyntaxKind.BitwiseOrExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.Linq.Expressions.Expression`1"),
+            Analyze,
+            SyntaxKind.BitwiseAndExpression,
+            SyntaxKind.BitwiseOrExpression);
     }
 
     /// <summary>Reports a boolean <c>&amp;</c> / <c>|</c>, choosing the id by whether the right operand does work.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionType">The resolved <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
+    /// <param name="expressionType">The expression-tree type, resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType expressionType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!IsBoolean(binary.Left, context.SemanticModel, context.CancellationToken)
@@ -66,7 +67,7 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (expressionType is not null && IsInExpressionTree(binary, context.SemanticModel, expressionType, context.CancellationToken))
+        if (IsInExpressionTree(binary, context.SemanticModel, expressionType, context.CancellationToken))
         {
             return;
         }
@@ -100,17 +101,22 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the operator appears inside a lambda converted to an expression tree.</summary>
     /// <param name="node">The reported binary expression.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="expressionType">The resolved <c>Expression&lt;TDelegate&gt;</c> definition.</param>
+    /// <param name="expressionType">The <c>Expression&lt;TDelegate&gt;</c> definition, resolved only inside a lambda.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a containing lambda is an expression tree.</returns>
-    private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, INamedTypeSymbol expressionType, CancellationToken cancellationToken)
+    private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, LazyMetadataType expressionType, CancellationToken cancellationToken)
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
             if (current is AnonymousFunctionExpressionSyntax anonymous)
             {
+                if (expressionType.Get() is not { } resolved)
+                {
+                    return false;
+                }
+
                 if (model.GetTypeInfo(anonymous, cancellationToken).ConvertedType is INamedTypeSymbol converted
-                    && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, expressionType))
+                    && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, resolved))
                 {
                     return true;
                 }

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1309 — an XSLT stylesheet is loaded with settings that enable embedded script.</summary>
-    public static readonly DiagnosticDescriptor XsltScriptExecution = Create(
+    public static readonly DiagnosticDescriptor XsltScriptExecution = DescriptorFactory.Create(
         "SES1309",
         "Do not load an XSLT stylesheet with script execution enabled",
         "The 'XsltSettings' passed to 'XslCompiledTransform.Load' enable script; a stylesheet can then run embedded code in the host process",

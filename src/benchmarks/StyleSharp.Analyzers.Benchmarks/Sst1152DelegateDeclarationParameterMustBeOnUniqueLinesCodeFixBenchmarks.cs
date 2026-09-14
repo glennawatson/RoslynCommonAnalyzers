@@ -39,7 +39,7 @@ public class Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixBenchm
     [Benchmark]
     public async Task<int> Sst1152DelegateDeclarationParameterMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

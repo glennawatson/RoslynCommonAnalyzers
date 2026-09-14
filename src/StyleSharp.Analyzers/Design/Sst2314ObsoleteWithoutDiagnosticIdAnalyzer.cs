@@ -85,14 +85,8 @@ public sealed class Sst2314ObsoleteWithoutDiagnosticIdAnalyzer : DiagnosticAnaly
 
         // No message at all is SST2308's diagnostic, not this one: an attribute that explains nothing is a
         // bigger problem than an attribute that explains itself without an id, and one report is enough.
-        if (ObsoleteAttributeFacts.HasNoUsableMessage(context.SemanticModel, attribute, context.CancellationToken))
-        {
-            return;
-        }
-
-        var target = ObsoleteAttributeFacts.GetAnnotatedName(attribute.Parent?.Parent);
-        if (target.Length == 0
-            || !ObsoleteAttributeFacts.IsFrameworkObsoleteAttribute(context.SemanticModel, attribute, context.CancellationToken))
+        if (ObsoleteAttributeFacts.HasNoUsableMessage(context.SemanticModel, attribute, context.CancellationToken)
+            || ObsoleteAttributeFacts.GetFrameworkObsoleteTarget(context.SemanticModel, attribute, context.CancellationToken) is not { } target)
         {
             return;
         }

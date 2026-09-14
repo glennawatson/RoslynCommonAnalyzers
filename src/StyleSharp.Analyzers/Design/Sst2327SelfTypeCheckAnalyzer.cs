@@ -92,13 +92,15 @@ public sealed class Sst2327SelfTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the tested type of a <c>this.GetType() == typeof(T)</c> comparison, in either order, or <see langword="null"/>.</summary>
     /// <param name="binary">The equality or inequality expression.</param>
     /// <returns>The <c>typeof</c> operand's type when the other side is <c>this.GetType()</c>; otherwise <see langword="null"/>.</returns>
-    private static TypeSyntax? SelfGetTypeComparisonType(BinaryExpressionSyntax binary) =>
-        (TypeOfOperandType(binary.Left), TypeOfOperandType(binary.Right)) switch
+    private static TypeSyntax? SelfGetTypeComparisonType(BinaryExpressionSyntax binary)
+    {
+        if (TypeOfOperandType(binary.Left) is { } leftType && IsThisGetTypeCall(binary.Right))
         {
-            ({ } leftType, _) when IsThisGetTypeCall(binary.Right) => leftType,
-            (_, { } rightType) when IsThisGetTypeCall(binary.Left) => rightType,
-            _ => null,
-        };
+            return leftType;
+        }
+
+        return TypeOfOperandType(binary.Right) is { } rightType && IsThisGetTypeCall(binary.Left) ? rightType : null;
+    }
 
     /// <summary>Returns the operand type of a <c>typeof(...)</c> expression, or <see langword="null"/> when the node is not one.</summary>
     /// <param name="expression">The candidate <c>typeof</c> expression.</param>

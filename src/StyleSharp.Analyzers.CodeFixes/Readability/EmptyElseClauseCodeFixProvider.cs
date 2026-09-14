@@ -2,29 +2,32 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes an empty <c>else</c> clause from its <c>if</c> statement (SST1180).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EmptyElseClauseCodeFixProvider))]
 [Shared]
-public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoEmptyElseClause.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the empty 'else' clause", nameof(EmptyElseClauseCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the empty 'else' clause", nameof(EmptyElseClauseCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>()is { Parent: IfStatementSyntax };
 
     /// <summary>Resolves the reported else clause and builds the if statement without it.</summary>
     /// <param name="root">The syntax root.</param>
@@ -37,10 +40,14 @@ public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider, IBatchFixa
             return null;
         }
 
-        var withoutElse = ifStatement
-            .WithStatement(ifStatement.Statement.WithTrailingTrivia(SyntaxFactory.TriviaList()))
-            .WithElse(null)
-            .WithTrailingTrivia(ifStatement.GetTrailingTrivia());
+        var withoutElse = ifStatement.Update(
+            ifStatement.AttributeLists,
+            ifStatement.IfKeyword,
+            ifStatement.OpenParenToken,
+            ifStatement.Condition,
+            ifStatement.CloseParenToken,
+            ifStatement.Statement.WithTrailingTrivia(ifStatement.GetTrailingTrivia()),
+            @else: null);
 
         return new NodeReplacement(ifStatement, withoutElse);
     }

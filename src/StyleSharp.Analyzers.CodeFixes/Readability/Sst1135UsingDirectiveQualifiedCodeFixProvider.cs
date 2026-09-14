@@ -10,13 +10,16 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a using directive's name in fully qualified form (SST1135).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1135UsingDirectiveQualifiedCodeFixProvider))]
 [Shared]
-public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
+public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly AsyncBatchEditFixAllProvider FixAll = new(RegisterEditsAsync);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UsingDirectiveQualified.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -28,19 +31,19 @@ public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvi
             return;
         }
 
+        if (root.FindNode(context.Span) is not NameSyntax name)
+        {
+            return;
+        }
+
+        var symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
+        if (symbol is not (INamespaceSymbol or INamedTypeSymbol))
+        {
+            return;
+        }
+
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not NameSyntax name)
-            {
-                continue;
-            }
-
-            var symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
-            if (symbol is not (INamespaceSymbol or INamedTypeSymbol))
-            {
-                continue;
-            }
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Qualify the using directive",
@@ -50,8 +53,12 @@ public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvi
         }
     }
 
-    /// <inheritdoc/>
-    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
     {
         var model = await editor.OriginalDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
         if (model is null)

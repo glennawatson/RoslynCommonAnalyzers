@@ -30,7 +30,7 @@ public sealed class Sst2469DiscardedReceiverWriteAnalyzer : DiagnosticAnalyzer
 
         // An extension block has no syntax kind to register on across every Roslyn slot, so the
         // containing class is walked instead.
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ClassDeclaration);
+        context.RegisterSyntaxNodeAction(static nodeContext => ExtensionBlockHelper.AnalyzeExtensionBlocks(nodeContext, AnalyzeBlock), SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Returns the identifier a write target is rooted at, or <see langword="null"/>.</summary>
@@ -78,20 +78,6 @@ public sealed class Sst2469DiscardedReceiverWriteAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Reports every discarded receiver write in a class's extension blocks.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        var containingClass = (ClassDeclarationSyntax)context.Node;
-        foreach (var member in containingClass.Members)
-        {
-            if (member is TypeDeclarationSyntax block && ExtensionBlockHelper.IsExtensionBlock(block))
-            {
-                AnalyzeBlock(in context, block);
-            }
-        }
-    }
-
     /// <summary>Reports the writes one block makes into a by-value struct receiver.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
@@ -99,8 +85,7 @@ public sealed class Sst2469DiscardedReceiverWriteAnalyzer : DiagnosticAnalyzer
     {
         // A 'ref' receiver writes through to the caller's value; 'in' and 'ref readonly' cannot be
         // assigned at all, so the compiler already rejects those.
-        if (block.ParameterList?.Parameters is not { Count: > 0 } parameters
-            || parameters[0] is not { Type: { } receiverType } receiver
+        if (!ExtensionBlockHelper.TryGetReceiver(block, out var receiver, out var receiverType)
             || ModifierListHelper.Contains(receiver.Modifiers, SyntaxKind.RefKeyword))
         {
             return;
@@ -112,7 +97,7 @@ public sealed class Sst2469DiscardedReceiverWriteAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var writes = new List<ExpressionSyntax>();
+        var writes = new List<ExpressionSyntax>(block.Members.Count);
         CollectReceiverWrites(block, receiverName, writes);
         if (writes.Count == 0)
         {

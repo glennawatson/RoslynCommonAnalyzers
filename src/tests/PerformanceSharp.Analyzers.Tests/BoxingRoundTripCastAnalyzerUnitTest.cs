@@ -14,6 +14,51 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1015BoxingRoundTripCastAnalyzer"/> (PSH1015 boxing round-trip casts).</summary>
 public class BoxingRoundTripCastAnalyzerUnitTest
 {
+    /// <summary>Verifies nullable concrete value types retain the rule's direct-conversion behavior.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NullableRoundTripIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync("class C { int? M(int? value) => {|PSH1015:(int?)(object)value|}; }");
+
+    /// <summary>Verifies unresolved source or target types do not produce speculative conversion diagnostics.</summary>
+    /// <param name="source">The source containing an unresolved type.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C { Missing M(int value) => (Missing)(object)value; }")]
+    [Arguments("class C { int M(Missing value) => (int)(object)value; }")]
+    public Task UnresolvedTypesAreCleanAsync(string source) =>
+        new Verify.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies object spellings and extra grouping still identify a boxed round trip.</summary>
+    /// <param name="expression">The round-trip expression.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("(int)((object)value)")]
+    [Arguments("(int)(Object)value")]
+    [Arguments("(int)(System.Object)value")]
+    [Arguments("(int)(global::System.Object)value")]
+    public Task ObjectSpellingsAreReportedAsync(string expression) =>
+        Verify.VerifyAnalyzerAsync($$"""using System; class C { int M(int value) => {|PSH1015:{{expression}}|}; }""");
+
+    /// <summary>Verifies casts without a built-in concrete value conversion are ignored.</summary>
+    /// <param name="source">The nonmatching casts and their type declarations.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C { int M(int value) => (int)(long)value; }")]
+    [Arguments("class C { int M(int value) => (int)(System.Int64)value; }")]
+    [Arguments("using Number = System.Int64; class C { int M(int value) => (int)(Number)value; }")]
+    [Arguments("class C { int? M(int value) => (int?)(int?)value; }")]
+    [Arguments("class C { int M() => (int)(object)null; }")]
+    [Arguments("class C { object M(int value) => (object)(object)value; }")]
+    [Arguments("class C { T M<T>(int value) where T : struct => (T)(object)value; }")]
+    [Arguments("struct A { } struct B { } class C { B M(A value) => (B)(object)value; }")]
+    [Arguments("struct A { public static explicit operator int(A value) => 0; } class C { int M(A value) => (int)(object)value; }")]
+    public Task NonmatchingConversionsAreCleanAsync(string source) => Verify.VerifyAnalyzerAsync(source);
+
     /// <summary>Verifies an enum-to-int round trip through object is flagged and cast directly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

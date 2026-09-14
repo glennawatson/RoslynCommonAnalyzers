@@ -30,14 +30,17 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <summary>The store member name accepted alongside the indexer in the value-slot shape.</summary>
     internal const string AddMethodName = "Add";
 
+    /// <summary>The member name of the value-slot API.</summary>
+    private const string GetValueRefMethodName = "GetValueRefOrAddDefault";
+
     /// <summary>The metadata name of the dictionary type.</summary>
     private const string DictionaryMetadataName = "System.Collections.Generic.Dictionary`2";
 
     /// <summary>The metadata name of the marshal type providing the value-slot API.</summary>
     private const string CollectionsMarshalMetadataName = "System.Runtime.InteropServices.CollectionsMarshal";
 
-    /// <summary>The member name of the value-slot API.</summary>
-    private const string GetValueRefMethodName = "GetValueRefOrAddDefault";
+    /// <summary>The dictionary and marshal metadata names, in slot order.</summary>
+    private static readonly string[] InsertMetadataNames = [DictionaryMetadataName, CollectionsMarshalMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.SingleProbeInsert);
@@ -51,20 +54,11 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var slotShapeEnabled = start.Compilation.GetTypeByMetadataName(CollectionsMarshalMetadataName)
-                ?.GetMembers(GetValueRefMethodName).IsEmpty == false;
-            var dictionaryType = start.Compilation.GetTypeByMetadataName(DictionaryMetadataName);
-            if (dictionaryType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeIf(nodeContext, dictionaryType, slotShapeEnabled),
-                SyntaxKind.IfStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, InsertMetadataNames),
+            AnalyzeIf,
+            SyntaxKind.IfStatement);
     }
 
     /// <summary>Returns the parts of a <c>!receiver.Method(key)</c> guard condition, before any binding.</summary>
@@ -72,7 +66,7 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <param name="methodName">The required guard member name.</param>
     /// <param name="argumentCount">The required guard argument count.</param>
     /// <returns>The receiver and key, or <see langword="null"/> when the shape does not match.</returns>
-    internal static (ExpressionSyntax Receiver, ExpressionSyntax Key)? TryGetNegatedGuard(
+    internal static NegatedGuard? TryGetNegatedGuard(
         IfStatementSyntax ifStatement,
         string methodName,
         int argumentCount) => ifStatement.Else is not null
@@ -82,7 +76,7 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
             || guard.Expression is not MemberAccessExpressionSyntax access
             || access.Name.Identifier.ValueText != methodName
             ? null
-            : (access.Expression, guard.ArgumentList.Arguments[0].Expression);
+            : new NegatedGuard(access.Expression, guard.ArgumentList.Arguments[0].Expression);
 
     /// <summary>Returns the indexer store assigned inside the TryAdd shape's guarded statement.</summary>
     /// <param name="ifStatement">The if statement to inspect.</param>
@@ -113,24 +107,24 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1115 for a double-probing insert-if-absent shape.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dictionaryType">The dictionary type definition.</param>
-    /// <param name="slotShapeEnabled">Whether the value-slot API exists in the compilation.</param>
-    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, bool slotShapeEnabled)
+    /// <param name="markers">The compilation's deferred dictionary and marshal types.</param>
+    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markers)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
-        if (TryGetTryAddShape(context, ifStatement) || !slotShapeEnabled)
+        if (TryGetTryAddShape(context, ifStatement, markers))
         {
             return;
         }
 
-        AnalyzeValueSlotShape(context, ifStatement, dictionaryType);
+        AnalyzeValueSlotShape(context, ifStatement, markers);
     }
 
     /// <summary>Reports the TryAdd shape when it matches and the receiver offers TryAdd.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="ifStatement">The if statement.</param>
+    /// <param name="markers">The compilation's deferred dictionary and marshal types.</param>
     /// <returns><see langword="true"/> when the shape matched and was handled.</returns>
-    private static bool TryGetTryAddShape(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement)
+    private static bool TryGetTryAddShape(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, LazyMetadataTypes markers)
     {
         if (TryGetNegatedGuard(ifStatement, ContainsKeyMethodName, argumentCount: 1) is not { } guard
             || TryGetGuardedIndexerStore(ifStatement, guard.Receiver, guard.Key) is null)
@@ -138,7 +132,8 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (context.SemanticModel.GetTypeInfo(guard.Receiver, context.CancellationToken).Type is not INamedTypeSymbol receiverType
+        if (markers.Get() is not [not null, _]
+            || context.SemanticModel.GetTypeInfo(guard.Receiver, context.CancellationToken).Type is not INamedTypeSymbol receiverType
             || receiverType.OriginalDefinition.GetMembers(TryAddMethodName).IsEmpty)
         {
             return false;
@@ -155,8 +150,8 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the value-slot shape for a failed TryGetValue followed by a store.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="ifStatement">The if statement.</param>
-    /// <param name="dictionaryType">The dictionary type definition.</param>
-    private static void AnalyzeValueSlotShape(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, INamedTypeSymbol dictionaryType)
+    /// <param name="markers">The compilation's deferred dictionary and marshal types.</param>
+    private static void AnalyzeValueSlotShape(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, LazyMetadataTypes markers)
     {
         if (TryGetNegatedGuard(ifStatement, TryGetValueMethodName, argumentCount: 2) is not { } guard
             || !EndsWithStore(ifStatement, guard.Receiver, guard.Key))
@@ -164,7 +159,9 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetTypeInfo(guard.Receiver, context.CancellationToken).Type is not INamedTypeSymbol receiverType
+        if (markers.Get() is not [{ } dictionaryType, { } collectionsMarshalType]
+            || collectionsMarshalType.GetMembers(GetValueRefMethodName).IsEmpty
+            || context.SemanticModel.GetTypeInfo(guard.Receiver, context.CancellationToken).Type is not INamedTypeSymbol receiverType
             || !SymbolEqualityComparer.Default.Equals(receiverType.OriginalDefinition, dictionaryType))
         {
             return;

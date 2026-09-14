@@ -7,6 +7,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -76,7 +77,7 @@ public class ReferenceEqualityOnValueEqualTypeCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ReferenceEqualityOnValueEqualType_ApplyFixAsync()
     {
-        var updated = Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider.Apply(_document, _root, _comparison);
+        var updated = TargetCodeFix.Apply(_document, _root, _comparison, Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider.BuildEqualsCall);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

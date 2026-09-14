@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,22 +12,31 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2452PureVoidMethodCodeFixProvider))]
 [Shared]
-public sealed class Sst2452PureVoidMethodCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2452PureVoidMethodCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.PureMethodWithoutResult.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the [Pure] attribute", nameof(Sst2452PureVoidMethodCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the [Pure] attribute", nameof(Sst2452PureVoidMethodCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<AttributeSyntax>()is { } attribute
+            && Sst2452PureVoidMethodAnalyzer.IsPureAttributeName(attribute.Name)
+            && attribute.Parent is AttributeListSyntax list)
+            && ((list.Attributes.Count > 1)
+            || (list.Parent is MethodDeclarationSyntax));
 
     /// <summary>Resolves the reported attribute and builds the edit that removes it.</summary>
     /// <param name="root">The syntax root.</param>

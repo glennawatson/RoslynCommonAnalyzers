@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -66,7 +65,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
             return;
         }
 
-        var thrown = new List<ThrownException>();
+        var thrown = new List<ThrownException>(member.Body?.Statements.Count ?? 1);
         CollectDirectThrows(body, thrown);
         if (thrown.Count == 0)
         {
@@ -97,9 +96,10 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <param name="into">The list receiving each <c>throw new T</c> and what reaches it.</param>
     private static void CollectDirectThrows(SyntaxNode node, List<ThrownException> into)
     {
-        foreach (var child in node.ChildNodes())
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            if (IsDeferredScope(child))
+            if (children[i].AsNode() is not { } child || IsDeferredScope(child))
             {
                 // A throw inside a closure or nested function runs in a different context; not "this member throws".
                 continue;
@@ -107,7 +107,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
             if (ThrownObjectCreationType(child) is { } type)
             {
-                into.Add(new(type, DescribeTrigger(child)));
+                into.Add(new(type, child));
                 continue;
             }
 
@@ -159,8 +159,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// </remarks>
     private static string Escape(SyntaxNode expression)
     {
-        var builder = new StringBuilder();
         var text = expression.ToString();
+        var builder = new StringBuilder(text.Length);
         var pendingSpace = false;
         for (var i = 0; i < text.Length; i++)
         {
@@ -210,10 +210,10 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
     /// <summary>Collects the simple names documented by the member's top-level <c>&lt;exception&gt;</c> elements.</summary>
     /// <param name="documentation">The documentation comment.</param>
-    /// <returns>The set of documented exception simple names.</returns>
-    private static HashSet<string> CollectDocumentedExceptionNames(DocumentationCommentTriviaSyntax documentation)
+    /// <returns>The documented exception simple-name slices.</returns>
+    private static List<ReadOnlyMemory<char>> CollectDocumentedExceptionNames(DocumentationCommentTriviaSyntax documentation)
     {
-        var names = new HashSet<string>(StringComparer.Ordinal);
+        var names = new List<ReadOnlyMemory<char>>(documentation.Content.Count);
         foreach (var node in documentation.Content)
         {
             if (XmlDocumentationHelper.GetElementName(node) != "exception")
@@ -223,7 +223,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
             if (CrefSimpleName(node) is { } simpleName)
             {
-                _ = names.Add(simpleName);
+                names.Add(simpleName);
             }
         }
 
@@ -238,61 +238,99 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <returns><see langword="true"/> when at least one thrown type is undocumented.</returns>
     private static bool TrySelectMissing(
         List<ThrownException> thrown,
-        HashSet<string> documented,
+        List<ReadOnlyMemory<char>> documented,
         out string missing,
         out string descriptions)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var types = new StringBuilder();
-        var reasons = new StringBuilder();
-        var found = false;
+        HashSet<string>? seen = null;
+        var typeCapacity = thrown.Count;
         foreach (var exception in thrown)
         {
-            var simpleName = SimpleName(exception.Type);
-            if (simpleName.Length == 0 || documented.Contains(simpleName) || !seen.Add(simpleName))
+            typeCapacity += exception.Type.Span.Length;
+        }
+
+        StringBuilder? types = null;
+        StringBuilder? reasons = null;
+        foreach (var exception in thrown)
+        {
+            var simpleName = SyntaxNames.GetSimpleName(exception.Type) ?? string.Empty;
+            if (simpleName.Length == 0 || IsDocumented(documented, simpleName))
             {
                 continue;
             }
 
-            if (found)
+            seen ??= new HashSet<string>(StringComparer.Ordinal);
+            if (!seen.Add(simpleName))
             {
-                _ = types.Append('\n');
-                _ = reasons.Append('\n');
+                continue;
             }
 
-            _ = types.Append(CrefForm(exception.Type));
-            _ = reasons.Append(exception.Description);
-            found = true;
+            var description = DescribeTrigger(exception.ThrowNode);
+            if (types is null)
+            {
+                types = new(typeCapacity);
+                reasons = new(description.Length);
+            }
+            else
+            {
+                _ = types.Append('\n');
+                _ = reasons!.Append('\n');
+            }
+
+            AppendCrefForm(types, exception.Type);
+            _ = reasons!.Append(description);
+        }
+
+        if (types is null)
+        {
+            missing = string.Empty;
+            descriptions = string.Empty;
+            return false;
         }
 
         missing = types.ToString();
-        descriptions = reasons.ToString();
-        return found;
+        descriptions = reasons!.ToString();
+        return true;
     }
 
-    /// <summary>Returns the simple (rightmost, non-generic) name of a type as written.</summary>
-    /// <param name="type">The type syntax.</param>
-    /// <returns>The simple name, or an empty string when the type is not a plain name.</returns>
-    private static string SimpleName(TypeSyntax type) => type switch
+    /// <summary>Compares a thrown type's simple name to the documented name slices.</summary>
+    /// <param name="documented">The documented exception names.</param>
+    /// <param name="simpleName">The thrown type's simple name.</param>
+    /// <returns>Whether a documented name matches ordinally.</returns>
+    private static bool IsDocumented(List<ReadOnlyMemory<char>> documented, string simpleName)
     {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        GenericNameSyntax generic => generic.Identifier.ValueText,
-        QualifiedNameSyntax qualified => SimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => SimpleName(alias.Name),
-        _ => string.Empty,
-    };
+        foreach (var name in documented)
+        {
+            if (name.Span.SequenceEqual(simpleName.AsSpan()))
+            {
+                return true;
+            }
+        }
 
-    /// <summary>Returns a cref-attribute form of a thrown type, converting generic angle brackets to braces.</summary>
+        return false;
+    }
+
+    /// <summary>Appends a thrown type as cref text, converting generic angle brackets to braces.</summary>
+    /// <param name="builder">The diagnostic property builder receiving the type text.</param>
     /// <param name="type">The type syntax as written.</param>
-    /// <returns>The cref-safe type text.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string CrefForm(TypeSyntax type) =>
-        type.ToString().Replace('<', '{').Replace('>', '}');
+    private static void AppendCrefForm(StringBuilder builder, TypeSyntax type)
+    {
+        var text = type.ToString();
+        for (var i = 0; i < text.Length; i++)
+        {
+            _ = builder.Append(text[i] switch
+            {
+                '<' => '{',
+                '>' => '}',
+                var character => character,
+            });
+        }
+    }
 
     /// <summary>Returns the simple name an <c>&lt;exception&gt;</c> element's cref refers to, or <see langword="null"/>.</summary>
     /// <param name="node">The <c>&lt;exception&gt;</c> element.</param>
     /// <returns>The documented type's simple name, or <see langword="null"/>.</returns>
-    private static string? CrefSimpleName(XmlNodeSyntax node)
+    private static ReadOnlyMemory<char>? CrefSimpleName(XmlNodeSyntax node)
     {
         var attributes = node switch
         {
@@ -305,59 +343,71 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         {
             if (attribute is XmlCrefAttributeSyntax cref)
             {
-                return LastNameSegment(cref.Cref.ToString());
+                return LastNameSegment(cref.Cref);
             }
         }
 
         return null;
     }
 
-    /// <summary>Extracts the rightmost identifier from a cref's textual form, dropping any generic or parameter suffix.</summary>
-    /// <param name="cref">The cref text.</param>
-    /// <returns>The rightmost identifier segment.</returns>
-    private static string LastNameSegment(string cref)
+    /// <summary>Reads the last name token before a cref's first generic or parameter suffix without rendering syntax.</summary>
+    /// <param name="cref">The cref syntax.</param>
+    /// <returns>The written identifier segment, or empty memory when the segment includes other text.</returns>
+    private static ReadOnlyMemory<char> LastNameSegment(CrefSyntax cref)
     {
-        var end = cref.Length;
-        for (var i = 0; i < cref.Length; i++)
-        {
-            if (cref[i] is not ('{' or '(' or '<'))
+        var state = new CrefNameScan(cref.SpanStart, cref.Span.End);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            cref,
+            ref state,
+            static (in SyntaxToken token, ref CrefNameScan current) =>
             {
-                continue;
-            }
+                switch (token.Text)
+                {
+                    case "{" or "(" or "<":
+                    {
+                        current.End = token.SpanStart;
+                        return false;
+                    }
 
-            end = i;
-            break;
-        }
+                    case "." or "::":
+                    {
+                        current.Start = token.Span.End;
+                        break;
+                    }
 
-        var start = 0;
-        for (var i = end - 1; i >= 0; i--)
-        {
-            if (cref[i] is not ('.' or ':'))
-            {
-                continue;
-            }
+                    default:
+                    {
+                        if (token.IsKind(SyntaxKind.IdentifierToken))
+                        {
+                            current.Name = token;
+                        }
 
-            start = i + 1;
-            break;
-        }
+                        break;
+                    }
+                }
 
-        return cref.Substring(start, end - start);
+                return true;
+            });
+
+        return state.Name.SpanStart == state.Start && state.Name.Span.End == state.End
+            ? state.Name.Text.AsMemory()
+            : ReadOnlyMemory<char>.Empty;
     }
 
     /// <summary>Returns the reported name token and text for a member.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The token to report at and the member name, or <see langword="null"/>.</returns>
-    private static (SyntaxToken Token, string Name)? MemberName(BaseMethodDeclarationSyntax member) => member switch
+    private static MemberNameToken? MemberName(BaseMethodDeclarationSyntax member) => member switch
     {
-        MethodDeclarationSyntax method => (method.Identifier, method.Identifier.ValueText),
-        ConstructorDeclarationSyntax constructor => (constructor.Identifier, constructor.Identifier.ValueText),
-        OperatorDeclarationSyntax @operator => (@operator.OperatorToken, $"operator {@operator.OperatorToken.ValueText}"),
-        ConversionOperatorDeclarationSyntax conversion => (conversion.OperatorKeyword, $"operator {conversion.Type}"),
+        MethodDeclarationSyntax method => new MemberNameToken(method.Identifier, method.Identifier.ValueText),
+        ConstructorDeclarationSyntax constructor => new MemberNameToken(constructor.Identifier, constructor.Identifier.ValueText),
+        OperatorDeclarationSyntax @operator => new MemberNameToken(@operator.OperatorToken, $"operator {@operator.OperatorToken.ValueText}"),
+        ConversionOperatorDeclarationSyntax conversion => new MemberNameToken(conversion.OperatorKeyword, $"operator {conversion.Type}"),
         _ => null,
     };
 
-    /// <summary>An exception a member throws directly, and what reaches it.</summary>
+    /// <summary>An exception a member throws directly, retaining its syntax until a description is needed.</summary>
     /// <param name="Type">The constructed exception type as written.</param>
-    /// <param name="Description">The documentation text for the trigger, empty when the throw is unconditional.</param>
-    private readonly record struct ThrownException(TypeSyntax Type, string Description);
+    /// <param name="ThrowNode">The throw whose guarding condition supplies a missing exception's description.</param>
+    private readonly record struct ThrownException(TypeSyntax Type, SyntaxNode ThrowNode);
 }

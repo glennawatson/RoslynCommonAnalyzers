@@ -13,49 +13,25 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2701JSInvokableMustBePublicCodeFixProvider))]
 [Shared]
-public sealed class Sst2701JSInvokableMustBePublicCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2701JSInvokableMustBePublicCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindDeclaration, static (current, generator) => generator.WithAccessibility(current, Accessibility.Public));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(FrameworksRules.JSInvokableMustBePublic.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindDeclaration(root, diagnostic) is not { } method)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Make the method public",
-                    _ => Task.FromResult(Apply(context.Document, root, method)),
-                    equivalenceKey: nameof(Sst2701JSInvokableMustBePublicCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (FindDeclaration(editor.OriginalRoot, diagnostic) is not { } method)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(method, static (current, generator) => generator.WithAccessibility(current, Accessibility.Public));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Make the method public",
+            nameof(Sst2701JSInvokableMustBePublicCodeFixProvider),
+            FindDeclaration,
+            Apply);
 
     /// <summary>Applies the fix for one non-public invokable method.</summary>
     /// <param name="document">The document being fixed.</param>

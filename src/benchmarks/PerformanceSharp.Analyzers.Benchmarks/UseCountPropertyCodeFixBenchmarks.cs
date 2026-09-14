@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class UseCountPropertyCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative Count() invocation passed to the code fix.</summary>
-    private InvocationExpressionSyntax _invocation = null!;
+    /// <summary>The diagnostic reported on the representative Count() invocation.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -47,7 +48,7 @@ public class UseCountPropertyCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
         var method = (MethodDeclarationSyntax)type.Members[0];
-        _invocation = (InvocationExpressionSyntax)method.ExpressionBody!.Expression;
+        _diagnostic = Diagnostic.Create(CollectionRules.UseCountProperty, method.ExpressionBody!.Expression.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -67,7 +68,7 @@ public class UseCountPropertyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseCountProperty_ApplyFixAsync()
     {
-        var updated = Psh1103UseCountPropertyCodeFixProvider.Apply(_document, _root, _invocation, "Count");
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1103UseCountPropertyCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

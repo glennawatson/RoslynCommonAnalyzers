@@ -68,13 +68,13 @@ internal static class IteratorGuardAnalysis
         {
             case IfStatementSyntax { Else: null } guard when Throws(guard.Statement):
             {
-                checksAnArgument |= ReferencesParameter(guard.Condition, parameters);
+                checksAnArgument |= IdentifierReferences.MentionsParameter(guard.Condition, parameters);
                 return true;
             }
 
             case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax invocation } when IsThrowHelper(invocation):
             {
-                checksAnArgument |= ReferencesParameter(invocation.ArgumentList, parameters);
+                checksAnArgument |= IdentifierReferences.MentionsParameter(invocation.ArgumentList, parameters);
                 return true;
             }
 
@@ -117,51 +117,6 @@ internal static class IteratorGuardAnalysis
         _ => null,
     };
 
-    /// <summary>Returns whether a node reads one of the method's parameters.</summary>
-    /// <param name="node">The node to search.</param>
-    /// <param name="parameters">The method's parameters.</param>
-    /// <returns><see langword="true"/> when a parameter's name appears.</returns>
-    private static bool ReferencesParameter(SyntaxNode node, ParameterListSyntax parameters)
-    {
-        var scan = new ParameterScan(parameters);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ParameterScan>(node, ref scan, VisitIdentifier);
-        return scan.Found || (node is IdentifierNameSyntax self && NamesParameter(self, parameters));
-    }
-
-    /// <summary>Records whether an identifier names one of the method's parameters.</summary>
-    /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once a parameter is found, which stops the walk.</returns>
-    private static bool VisitIdentifier(IdentifierNameSyntax identifier, ref ParameterScan state)
-    {
-        if (!NamesParameter(identifier, state.Parameters))
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an identifier names one of the parameters.</summary>
-    /// <param name="identifier">The identifier.</param>
-    /// <param name="parameters">The method's parameters.</param>
-    /// <returns><see langword="true"/> when the name matches a parameter.</returns>
-    private static bool NamesParameter(IdentifierNameSyntax identifier, ParameterListSyntax parameters)
-    {
-        var name = identifier.Identifier.ValueText;
-        var list = parameters.Parameters;
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (list[i].Identifier.ValueText == name)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a node yields, without descending into a nested function.</summary>
     /// <param name="node">The node to search.</param>
     /// <returns><see langword="true"/> when the node's own code contains a <c>yield</c>.</returns>
@@ -192,13 +147,5 @@ internal static class IteratorGuardAnalysis
         }
 
         return false;
-    }
-
-    /// <summary>The state threaded through the search for a parameter reference.</summary>
-    /// <param name="Parameters">The method's parameters.</param>
-    private record struct ParameterScan(ParameterListSyntax Parameters)
-    {
-        /// <summary>Gets or sets a value indicating whether a parameter was referenced.</summary>
-        public bool Found { get; set; }
     }
 }

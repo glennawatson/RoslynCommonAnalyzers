@@ -10,13 +10,16 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a framework type name with its built-in keyword alias (SST1121).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1121BuiltInTypeAliasCodeFixProvider))]
 [Shared]
-public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IAsyncBatchableCodeFix
+public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly AsyncBatchEditFixAllProvider FixAll = new(RegisterEditsAsync);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseBuiltInTypeAlias.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => AsyncBatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -28,15 +31,27 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
             return;
         }
 
+        var node = root.FindNode(context.Span);
+        var qualifiedName = node switch
+        {
+            QualifiedNameSyntax qualified => qualified.Right,
+            AliasQualifiedNameSyntax alias => alias.Name,
+            MemberAccessExpressionSyntax member => member.Name,
+            _ => null,
+        };
+        if (qualifiedName is not null && !BuiltInTypeAliases.IsAliasedName(qualifiedName.Identifier.ValueText))
+        {
+            return;
+        }
+
+        if (model.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
+            || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
+        {
+            return;
+        }
+
         foreach (var diagnostic in context.Diagnostics)
         {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-            if (model.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
-                || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
-            {
-                continue;
-            }
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Use '{keyword}'",
@@ -46,8 +61,12 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
         }
     }
 
-    /// <inheritdoc/>
-    async Task IAsyncBatchableCodeFix.RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterEditsAsync(DocumentEditor editor, Diagnostic diagnostic, CancellationToken cancellationToken)
     {
         var model = await editor.OriginalDocument.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
         if (model is null)
@@ -62,7 +81,7 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
             return;
         }
 
-        editor.ReplaceNode(node, SyntaxFactory.PredefinedType(SyntaxFactory.Token(BuiltInTypeAliases.TokenKind(keyword))).WithTriviaFrom(node));
+        editor.ReplaceNode(node, SyntaxFactory.PredefinedType(SyntaxFactory.Token(node.GetLeadingTrivia(), BuiltInTypeAliases.TokenKind(keyword), node.GetTrailingTrivia())));
     }
 
     /// <summary>Replaces the type node with a predefined-type keyword.</summary>
@@ -73,7 +92,7 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
     /// <returns>The updated document.</returns>
     internal static Document Replace(Document document, SyntaxNode root, SyntaxNode node, string keyword)
     {
-        var predefined = SyntaxFactory.PredefinedType(SyntaxFactory.Token(BuiltInTypeAliases.TokenKind(keyword))).WithTriviaFrom(node);
+        var predefined = SyntaxFactory.PredefinedType(SyntaxFactory.Token(node.GetLeadingTrivia(), BuiltInTypeAliases.TokenKind(keyword), node.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(node, predefined));
     }
 }

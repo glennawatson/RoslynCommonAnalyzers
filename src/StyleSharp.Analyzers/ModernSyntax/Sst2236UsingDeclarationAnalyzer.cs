@@ -30,7 +30,7 @@ public sealed class Sst2236UsingDeclarationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeUsingStatement(SyntaxNodeAnalysisContext context)
     {
         var usingStatement = (UsingStatementSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(usingStatement, CSharp8)
+        if (!LanguageVersions.IsAtLeast(usingStatement, CSharp8)
             || usingStatement.Declaration is null
             || usingStatement.Statement is not BlockSyntax
             || usingStatement.Parent is not BlockSyntax block
@@ -42,11 +42,4 @@ public sealed class Sst2236UsingDeclarationAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseUsingDeclaration, usingStatement.UsingKeyword.GetLocation()));
     }
-
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

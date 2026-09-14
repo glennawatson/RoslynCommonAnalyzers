@@ -332,8 +332,14 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
             return receiver;
         }
 
-        var builder = new System.Text.StringBuilder();
         var modifiers = parameters[0].Modifiers;
+        var capacity = receiver.Length;
+        for (var i = 0; i < modifiers.Count; i++)
+        {
+            capacity += modifiers[i].ValueText.Length + 1;
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
         for (var i = 0; i < modifiers.Count; i++)
         {
             _ = builder.Append(modifiers[i].ValueText).Append(' ');

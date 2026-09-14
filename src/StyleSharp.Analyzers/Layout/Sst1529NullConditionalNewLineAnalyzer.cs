@@ -56,19 +56,12 @@ public sealed class Sst1529NullConditionalNewLineAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
-        var wantBreakBefore = LayoutStyleOptions.ReadBreakBefore(options, SpecificKey, GeneralKey, defaultBreakBefore: true);
-        if (wantBreakBefore ? !breakAfter : !breakBefore)
+        if (!LayoutHelpers.IsBreakMisplaced(context, SpecificKey, GeneralKey, defaultBreakBefore: true, breakBefore, breakAfter, out var wantBreakBefore))
         {
             return;
         }
 
         var display = context.Node.IsKind(SyntaxKind.ConditionalAccessExpression) ? "?." : ".";
-        context.ReportDiagnostic(Diagnostic.Create(
-            LayoutRules.NullConditionalNewLine,
-            leadToken.GetLocation(),
-            LayoutHelpers.PlacementProperties(wantBreakBefore),
-            display,
-            wantBreakBefore ? "start" : "end"));
+        LayoutHelpers.ReportMisplacedBreak(context, LayoutRules.NullConditionalNewLine, leadToken, display, wantBreakBefore);
     }
 }

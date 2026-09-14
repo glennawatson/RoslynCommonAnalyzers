@@ -20,9 +20,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole family is gated on the logging extension type resolving in the compilation, so a project that
-/// does not log registers no syntax action and pays a single type lookup. Each call is filtered syntactically
-/// before it is bound — the invoked member must start with <c>Log</c> or be <c>BeginScope</c>, and one of its
+/// The logging types are resolved only after a call passes the syntax checks, and the result is cached for
+/// the compilation even when a type is missing. Each call is filtered syntactically before resolution or
+/// binding — the invoked member must start with <c>Log</c> or be <c>BeginScope</c>, and one of its
 /// arguments must be a string literal — so a call with a non-constant template, which is a separate concern,
 /// is never bound here.
 /// </para>
@@ -49,15 +49,6 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
     /// <summary>The property carrying the swap partner's position for the SST2440 fix.</summary>
     internal const string SwapWithKey = "SwapWith";
 
-    /// <summary>The metadata name of the logging abstraction that gates the whole family.</summary>
-    private const string LoggerMetadataName = "Microsoft.Extensions.Logging.ILogger";
-
-    /// <summary>The metadata name of the logging extension type whose members these calls resolve to.</summary>
-    private const string LoggerExtensionsMetadataName = "Microsoft.Extensions.Logging.LoggerExtensions";
-
-    /// <summary>The metadata name of the exception base type.</summary>
-    private const string ExceptionMetadataName = "System.Exception";
-
     /// <summary>The fewest tail values a transposition needs.</summary>
     private const int MinimumTransposableValues = 2;
 
@@ -80,33 +71,32 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Resolves the logging types once and, only when they are present, registers the call action.</summary>
+    /// <summary>Registers the call action with compilation-scoped caches and deferred symbol resolution.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var logger = context.Compilation.GetTypeByMetadataName(LoggerMetadataName);
-        var loggerExtensions = context.Compilation.GetTypeByMetadataName(LoggerExtensionsMetadataName);
-        var exceptionType = context.Compilation.GetTypeByMetadataName(ExceptionMetadataName);
-        if (logger is null || loggerExtensions is null || exceptionType is null)
-        {
-            return;
-        }
-
-        var state = new LoggingState(loggerExtensions, exceptionType);
-        var floors = new ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions>();
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, state, floors), SyntaxKind.InvocationExpression);
+        var symbols = new LazyCompilationValue<LoggingState?>(context.Compilation, LoggingState.Resolve, runOnce: true);
+        var floors = new ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions>(concurrencyLevel: 1, capacity: 4);
+        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, symbols, floors), SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Analyzes one call, if it is a logging call with a literal template.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="state">The resolved logging symbols.</param>
+    /// <param name="symbols">The lazily resolved logging symbols.</param>
     /// <param name="floors">The per-tree SST2438 level floor cache.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        LoggingState state,
+        LazyCompilationValue<LoggingState?> symbols,
         ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions> floors)
     {
-        if (!TryBind(context, state, out var call))
+        var invocation = (InvocationExpressionSyntax)context.Node;
+        if (GetInvokedName(invocation) is not { } nameToken || !IsLoggingName(nameToken.ValueText)
+            || !HasStringLiteralArgument(invocation.ArgumentList.Arguments))
+        {
+            return;
+        }
+
+        if (symbols.Get() is not { } state || !TryBind(context, invocation, nameToken, state, out var call))
         {
             return;
         }
@@ -118,26 +108,22 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         ReportDiscardedException(context, call, state, floors);
     }
 
-    /// <summary>Filters a call syntactically, then binds it and describes it as a logging call.</summary>
+    /// <summary>Binds a syntax candidate and describes it as a logging call.</summary>
     /// <param name="context">The syntax node context.</param>
+    /// <param name="invocation">The invocation that passed the syntax checks.</param>
+    /// <param name="nameToken">The invoked logging name.</param>
     /// <param name="state">The resolved logging symbols.</param>
     /// <param name="call">The described call, when the node is a logging call with a literal template.</param>
     /// <returns><see langword="true"/> when the node is a logging call worth analyzing.</returns>
-    private static bool TryBind(in SyntaxNodeAnalysisContext context, LoggingState state, out LogCall call)
+    private static bool TryBind(
+        in SyntaxNodeAnalysisContext context,
+        InvocationExpressionSyntax invocation,
+        in SyntaxToken nameToken,
+        LoggingState state,
+        out LogCall call)
     {
         call = null!;
-        var invocation = (InvocationExpressionSyntax)context.Node;
-        if (GetInvokedName(invocation) is not { } nameToken || !IsLoggingName(nameToken.ValueText))
-        {
-            return false;
-        }
-
         var arguments = invocation.ArgumentList.Arguments;
-        if (!HasStringLiteralArgument(arguments))
-        {
-            return false;
-        }
-
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, state.LoggerExtensions)
             || !TryResolveTemplate(method, arguments, out var templateIndex, out var paramsIndex, out var literal))
@@ -258,7 +244,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         for (var i = call.ParamsIndex; i < arguments.Count; i++)
         {
             var argument = arguments[i];
-            if (!DerivesFromException(context.SemanticModel.GetTypeInfo(argument.Expression, context.CancellationToken).Type, state.ExceptionType))
+            if (!TypeRelations.IsOrDerivesFrom(context.SemanticModel.GetTypeInfo(argument.Expression, context.CancellationToken).Type, state.ExceptionType))
             {
                 continue;
             }
@@ -343,7 +329,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions> floors)
     {
         var level = LevelOf(context, call.MethodName, call.Arguments);
-        if (level < 0 || !GetFloor(context, floors).Includes(level) || !state.HasExceptionOverload(call.MethodName))
+        if (level < 0 || !TreeOptionsCache.GetOrRead(floors, context, LogLevelFloorOptions.Read).Includes(level) || !state.HasExceptionOverload(call.MethodName))
         {
             return;
         }
@@ -406,7 +392,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
     {
         degradedArgument = -1;
         if (call.ExceptionIndex >= 0 && call.ExceptionIndex < call.Arguments.Count
-            && ExpressionReferencesLocal(context, call.Arguments[call.ExceptionIndex].Expression, local))
+            && IdentifierReferences.References(call.Arguments[call.ExceptionIndex].Expression, local, context.SemanticModel, context.CancellationToken))
         {
             return false;
         }
@@ -433,12 +419,12 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         for (var i = call.ParamsIndex; i < arguments.Count; i++)
         {
             var expression = arguments[i].Expression;
-            if (expression is IdentifierNameSyntax bare && ReferencesLocal(context, bare, local))
+            if (expression is IdentifierNameSyntax bare && IdentifierReferences.IsReferenceTo(bare, local, context.SemanticModel, context.CancellationToken))
             {
                 return false;
             }
 
-            if (degradedArgument < 0 && ExpressionReferencesLocal(context, expression, local))
+            if (degradedArgument < 0 && IdentifierReferences.References(expression, local, context.SemanticModel, context.CancellationToken))
             {
                 degradedArgument = i;
             }
@@ -506,23 +492,6 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         return -1;
     }
 
-    /// <summary>Reads the SST2438 level floor for a call's tree, parsing each tree at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="floors">The per-tree level floor cache.</param>
-    /// <returns>The resolved floor.</returns>
-    private static LogLevelFloorOptions GetFloor(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions> floors)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (floors.TryGetValue(tree, out var floor))
-        {
-            return floor;
-        }
-
-        floor = LogLevelFloorOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = floors.TryAdd(tree, floor);
-        return floor;
-    }
-
     /// <summary>Finds the catch clause a call sits directly inside, stopping at a function boundary.</summary>
     /// <param name="invocation">The logging call.</param>
     /// <returns>The enclosing catch clause, or <see langword="null"/>.</returns>
@@ -580,49 +549,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
     /// <param name="local">The caught exception local.</param>
     /// <returns><see langword="true"/> when the local is referenced.</returns>
     private static bool ReferencedInBlock(in SyntaxNodeAnalysisContext context, CatchClauseSyntax catchClause, ISymbol local) =>
-        catchClause.Block is { } block && ExpressionReferencesLocal(context, block, local);
-
-    /// <summary>Returns whether any identifier in a node binds to a local.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="node">The node to scan.</param>
-    /// <param name="local">The local symbol.</param>
-    /// <returns><see langword="true"/> when the local is referenced.</returns>
-    private static bool ExpressionReferencesLocal(in SyntaxNodeAnalysisContext context, SyntaxNode node, ISymbol local)
-    {
-        if (node is IdentifierNameSyntax identifier)
-        {
-            return ReferencesLocal(context, identifier, local);
-        }
-
-        var scan = new ReferenceScan(context.SemanticModel, local, local.Name, context.CancellationToken);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ReferenceScan>(node, ref scan, VisitIdentifier);
-        return scan.Found;
-    }
-
-    /// <summary>Visits one identifier, recording whether it binds to the scanned local.</summary>
-    /// <param name="identifier">The identifier.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> to stop once the local is found.</returns>
-    private static bool VisitIdentifier(IdentifierNameSyntax identifier, ref ReferenceScan scan)
-    {
-        if (identifier.Identifier.ValueText != scan.Name
-            || !SymbolEqualityComparer.Default.Equals(scan.Model.GetSymbolInfo(identifier, scan.CancellationToken).Symbol, scan.Local))
-        {
-            return true;
-        }
-
-        scan.Found = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an identifier binds to a local.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="identifier">The identifier.</param>
-    /// <param name="local">The local symbol.</param>
-    /// <returns><see langword="true"/> when the identifier is the local.</returns>
-    private static bool ReferencesLocal(in SyntaxNodeAnalysisContext context, IdentifierNameSyntax identifier, ISymbol local) =>
-        identifier.Identifier.ValueText == local.Name
-            && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol, local);
+        catchClause.Block is { } block && IdentifierReferences.References(block, local, context.SemanticModel, context.CancellationToken);
 
     /// <summary>Returns whether every placeholder is named and no name repeats.</summary>
     /// <param name="text">The template's value text.</param>
@@ -697,30 +624,13 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < templateIndex; i++)
         {
-            if (DerivesFromException(parameters[i].Type, exceptionType))
+            if (TypeRelations.IsOrDerivesFrom(parameters[i].Type, exceptionType))
             {
                 return i;
             }
         }
 
         return -1;
-    }
-
-    /// <summary>Returns whether a type is the exception base type or derives from it.</summary>
-    /// <param name="type">The type, if resolved.</param>
-    /// <param name="exceptionType">The exception base type.</param>
-    /// <returns><see langword="true"/> when the type is an exception.</returns>
-    private static bool DerivesFromException(ITypeSymbol? type, INamedTypeSymbol exceptionType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, exceptionType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether an argument list carries a string literal in any position.</summary>
@@ -800,41 +710,18 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         public LogPlaceholder[] Placeholders { get; init; } = [];
     }
 
-    /// <summary>The scan state threaded through a local-reference descendant walk.</summary>
-    private sealed class ReferenceScan
-    {
-        /// <summary>Initializes a new instance of the <see cref="ReferenceScan"/> class.</summary>
-        /// <param name="model">The semantic model.</param>
-        /// <param name="local">The local symbol.</param>
-        /// <param name="name">The local's name.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        public ReferenceScan(SemanticModel model, ISymbol local, string name, CancellationToken cancellationToken)
-        {
-            Model = model;
-            Local = local;
-            Name = name;
-            CancellationToken = cancellationToken;
-        }
-
-        /// <summary>Gets the semantic model.</summary>
-        public SemanticModel Model { get; }
-
-        /// <summary>Gets the local symbol.</summary>
-        public ISymbol Local { get; }
-
-        /// <summary>Gets the local's name.</summary>
-        public string Name { get; }
-
-        /// <summary>Gets the cancellation token.</summary>
-        public CancellationToken CancellationToken { get; }
-
-        /// <summary>Gets or sets a value indicating whether the local was found.</summary>
-        public bool Found { get; set; }
-    }
-
     /// <summary>The resolved logging symbols shared across a compilation's calls.</summary>
     private sealed class LoggingState
     {
+        /// <summary>The metadata name of the logging abstraction that gates the whole family.</summary>
+        private const string LoggerMetadataName = "Microsoft.Extensions.Logging.ILogger";
+
+        /// <summary>The metadata name of the logging extension type whose members these calls resolve to.</summary>
+        private const string LoggerExtensionsMetadataName = "Microsoft.Extensions.Logging.LoggerExtensions";
+
+        /// <summary>The metadata name of the exception base type.</summary>
+        private const string ExceptionMetadataName = "System.Exception";
+
         /// <summary>The logging method names that offer an exception-first overload.</summary>
         private readonly HashSet<string> _namesWithExceptionOverload;
 
@@ -853,6 +740,16 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets the exception base type.</summary>
         public INamedTypeSymbol ExceptionType { get; }
+
+        /// <summary>Resolves the logging state, stopping as soon as a required logging type is missing.</summary>
+        /// <param name="compilation">The compilation whose logging types are probed.</param>
+        /// <returns>The logging state, or null when the framework is unavailable.</returns>
+        public static LoggingState? Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(LoggerMetadataName) is not null
+                && compilation.GetTypeByMetadataName(LoggerExtensionsMetadataName) is { } loggerExtensions
+                && compilation.GetTypeByMetadataName(ExceptionMetadataName) is { } exceptionType
+                ? new LoggingState(loggerExtensions, exceptionType)
+                : null;
 
         /// <summary>Returns whether a logging method has an overload that takes the exception directly.</summary>
         /// <param name="methodName">The logging method's name.</param>
@@ -888,7 +785,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
             var parameters = method.Parameters;
             for (var i = 0; i < parameters.Length; i++)
             {
-                if (DerivesFromException(parameters[i].Type, exceptionType))
+                if (TypeRelations.IsOrDerivesFrom(parameters[i].Type, exceptionType))
                 {
                     return true;
                 }

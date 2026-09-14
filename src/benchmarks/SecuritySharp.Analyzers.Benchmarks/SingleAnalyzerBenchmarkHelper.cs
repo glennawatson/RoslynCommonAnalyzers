@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace SecuritySharp.Analyzers.Benchmarks;
@@ -19,7 +20,7 @@ internal static class SingleAnalyzerBenchmarkHelper
         DiagnosticAnalyzer analyzer,
         AnalyzerBenchmarkScenario cleanScenario,
         AnalyzerBenchmarkScenario violatingScenario) =>
-        new([analyzer], cleanScenario, violatingScenario);
+        new([analyzer], EnableRules(cleanScenario, analyzer), EnableRules(violatingScenario, analyzer));
 
     /// <summary>Runs the clean benchmark scenario.</summary>
     /// <param name="state">The prepared benchmark state.</param>
@@ -34,4 +35,30 @@ internal static class SingleAnalyzerBenchmarkHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Task<int> RunViolatingAsync(SingleAnalyzerBenchmarkState state) =>
         AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(state.ViolatingScenario, state.Analyzers);
+
+    /// <summary>Enables every descriptor once during setup, including rules disabled by default.</summary>
+    /// <param name="scenario">The prepared input and analyzer configuration.</param>
+    /// <param name="analyzer">The analyzer whose descriptors must execute.</param>
+    /// <returns>The scenario with explicit diagnostic severities.</returns>
+    private static AnalyzerBenchmarkScenario EnableRules(AnalyzerBenchmarkScenario scenario, DiagnosticAnalyzer analyzer)
+    {
+        var compilation = scenario.Compilation;
+        var descriptors = analyzer.SupportedDiagnostics;
+        var overrides = new Dictionary<string, ReportDiagnostic>(
+            compilation.Options.SpecificDiagnosticOptions.Count + descriptors.Length,
+            StringComparer.Ordinal);
+        foreach (var option in compilation.Options.SpecificDiagnosticOptions)
+        {
+            overrides.Add(option.Key, option.Value);
+        }
+
+        foreach (var descriptor in descriptors)
+        {
+            overrides[descriptor.Id] = ReportDiagnostic.Warn;
+        }
+
+        return new(
+            compilation.WithOptions(compilation.Options.WithSpecificDiagnosticOptions(overrides)),
+            scenario.OptionsProvider);
+    }
 }

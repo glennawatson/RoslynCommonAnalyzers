@@ -14,49 +14,35 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2241PrimaryConstructorStorageCodeFixProvider))]
 [Shared]
-public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixProvider
 {
     /// <summary>The number of characters in a CRLF line ending.</summary>
     private const int CrlfLength = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UsePrimaryConstructorStorage.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Move storage to primary constructor",
+            nameof(Sst2241PrimaryConstructorStorageCodeFixProvider),
+            static (root, diagnostic) => TryFindRewritableConstructor(root, diagnostic, out _, out _),
+            Apply);
+
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryCreateReplacement(root, diagnostic, out _, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Move storage to primary constructor",
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: nameof(Sst2241PrimaryConstructorStorageCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryFindConstructor(editor.OriginalRoot, diagnostic, out var type, out var constructor)
-            || type is null
-            || constructor is null
-            || !TryCreateReplacement(type, constructor, out _))
+        if (!TryFindRewritableConstructor(editor.OriginalRoot, diagnostic, out var type, out var constructor))
         {
             return;
         }
@@ -132,12 +118,12 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        replacement = WithParameterList(
-                ClearPrimaryConstructorInsertionTrivia(containingType),
-                CreatePrimaryConstructorParameterList(containingType, constructor.ParameterList))
-            .WithBaseList(baseList)
-            .WithMembers(members)
-            .WithLeadingTrivia(MoveParameterDocsToType(containingType, constructor));
+        var cleared = ClearPrimaryConstructorInsertionTrivia(containingType);
+        var parameterList = CreatePrimaryConstructorParameterList(containingType, constructor.ParameterList);
+        replacement = cleared is ClassDeclarationSyntax or StructDeclarationSyntax
+            ? TypeDeclarationRewrite.WithBody(cleared, parameterList, baseList, members, cleared.CloseBraceToken, cleared.SemicolonToken)!
+            : cleared.WithBaseList(baseList).WithMembers(members);
+        replacement = replacement.WithLeadingTrivia(MoveParameterDocsToType(containingType, constructor));
         return true;
     }
 
@@ -184,18 +170,6 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         return false;
     }
 
-    /// <summary>Copies a constructor parameter list onto a type declaration.</summary>
-    /// <param name="type">The type declaration.</param>
-    /// <param name="parameterList">The primary-constructor parameter list.</param>
-    /// <returns>The type with the primary-constructor parameter list.</returns>
-    private static TypeDeclarationSyntax WithParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList) =>
-        type switch
-        {
-            ClassDeclarationSyntax classDeclaration => classDeclaration.WithParameterList(parameterList),
-            StructDeclarationSyntax structDeclaration => structDeclaration.WithParameterList(parameterList),
-            _ => type
-        };
-
     /// <summary>Clears trivia before the primary-constructor insertion point so the parameter list touches the type name.</summary>
     /// <param name="type">The type declaration.</param>
     /// <returns>The type declaration with insertion-point trailing trivia removed.</returns>
@@ -209,10 +183,10 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <returns>The parameter list to attach to the type declaration.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ParameterListSyntax CreatePrimaryConstructorParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList) =>
-        parameterList
-            .WithoutTrivia()
-            .WithLeadingTrivia(default(SyntaxTriviaList))
-            .WithTrailingTrivia(GetPrimaryConstructorTrailingTrivia(type));
+        parameterList.Update(
+            parameterList.OpenParenToken.WithLeadingTrivia(default(SyntaxTriviaList)),
+            parameterList.Parameters,
+            parameterList.CloseParenToken.WithTrailingTrivia(GetPrimaryConstructorTrailingTrivia(type)));
 
     /// <summary>Gets the trivia that should follow the inserted primary-constructor parameter list.</summary>
     /// <param name="type">The type declaration.</param>
@@ -254,8 +228,11 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         BaseTypeSyntax? replacement = first switch
         {
             SimpleBaseTypeSyntax simple => SyntaxFactory.PrimaryConstructorBaseType(
-                simple.Type.WithoutTrivia(),
-                initializer.ArgumentList.WithoutTrivia()).WithTriviaFrom(simple),
+                simple.Type.WithoutTrailingTrivia(),
+                initializer.ArgumentList.Update(
+                    initializer.ArgumentList.OpenParenToken.WithLeadingTrivia(default(SyntaxTriviaList)),
+                    initializer.ArgumentList.Arguments,
+                    initializer.ArgumentList.CloseParenToken.WithTrailingTrivia(simple.GetTrailingTrivia()))),
             PrimaryConstructorBaseTypeSyntax primary => primary.WithArgumentList(initializer.ArgumentList.WithoutTrivia()),
             _ => null
         };
@@ -331,17 +308,9 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <param name="node">The node to inspect.</param>
     /// <param name="parameters">The promoted constructor parameters.</param>
     /// <returns><see langword="true"/> when the node declares a matching name.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsPromotedParameterDeclaration(SyntaxNode node, SeparatedSyntaxList<ParameterSyntax> parameters) =>
-        node switch
-        {
-            ParameterSyntax parameter => IsPromotedParameterName(parameter.Identifier, parameters),
-            VariableDeclaratorSyntax variable => IsPromotedParameterName(variable.Identifier, parameters),
-            ForEachStatementSyntax forEach => IsPromotedParameterName(forEach.Identifier, parameters),
-            CatchDeclarationSyntax catchDeclaration => IsPromotedParameterName(catchDeclaration.Identifier, parameters),
-            SingleVariableDesignationSyntax designation => IsPromotedParameterName(designation.Identifier, parameters),
-            LocalFunctionStatementSyntax localFunction => IsPromotedParameterName(localFunction.Identifier, parameters),
-            _ => false
-        };
+        IsPromotedParameterName(DeclarationIdentifier.Of(node), parameters);
 
     /// <summary>Returns whether an identifier matches a promoted constructor parameter name.</summary>
     /// <param name="identifier">The identifier to inspect.</param>
@@ -389,7 +358,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 return false;
             }
 
-            collected[i] = new(targetName, parameter.WithoutTrivia());
+            collected[i] = new(targetName, parameter);
         }
 
         assignments = collected;
@@ -412,19 +381,21 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         return name.Length > 0;
     }
 
-    /// <summary>Rewrites type members by removing the constructor and adding storage initializers.</summary>
+    /// <summary>Validates storage targets, optionally rebuilding members with their initializers.</summary>
     /// <param name="type">The containing type.</param>
     /// <param name="constructor">The constructor to remove.</param>
     /// <param name="assignments">The storage assignments.</param>
-    /// <param name="members">The rewritten members.</param>
-    /// <returns><see langword="true"/> when every assignment was applied to a member.</returns>
+    /// <param name="members">The rewritten members when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether every assignment can be applied to a member.</returns>
     private static bool TryRewriteMembers(
         TypeDeclarationSyntax type,
         ConstructorDeclarationSyntax constructor,
         StorageAssignment[] assignments,
-        out SyntaxList<MemberDeclarationSyntax> members)
+        out SyntaxList<MemberDeclarationSyntax> members,
+        bool buildReplacement = true)
     {
-        var rewritten = new List<MemberDeclarationSyntax>(type.Members.Count - 1);
+        var rewritten = buildReplacement ? new List<MemberDeclarationSyntax>(type.Members.Count - 1) : null;
         var applied = new bool[assignments.Length];
         var typeMembers = type.Members;
         for (var i = 0; i < typeMembers.Count; i++)
@@ -435,13 +406,13 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 continue;
             }
 
-            if (!TryRewriteMember(member, assignments, applied, out var updated))
+            if (!TryRewriteMember(member, assignments, applied, out var updated, buildReplacement))
             {
                 members = default;
                 return false;
             }
 
-            rewritten.Add(updated);
+            rewritten?.Add(updated);
         }
 
         for (var i = 0; i < applied.Length; i++)
@@ -455,42 +426,46 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        members = SyntaxFactory.List(rewritten);
+        members = rewritten is null ? default : SyntaxFactory.List(rewritten);
         return true;
     }
 
-    /// <summary>Rewrites one member declaration with any matching storage initializer.</summary>
+    /// <summary>Validates or rewrites one member's matching storage initializer.</summary>
     /// <param name="member">The member declaration.</param>
     /// <param name="assignments">The storage assignments.</param>
     /// <param name="applied">Tracks assignments already applied.</param>
-    /// <param name="updated">The updated member.</param>
-    /// <returns><see langword="true"/> when the member can be preserved safely.</returns>
+    /// <param name="updated">The updated member when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether the member can be preserved safely.</returns>
     private static bool TryRewriteMember(
         MemberDeclarationSyntax member,
         StorageAssignment[] assignments,
         bool[] applied,
-        out MemberDeclarationSyntax updated)
+        out MemberDeclarationSyntax updated,
+        bool buildReplacement)
     {
         updated = member;
         return member switch
         {
-            FieldDeclarationSyntax field => TryRewriteField(field, assignments, applied, out updated),
-            PropertyDeclarationSyntax property => TryRewriteProperty(property, assignments, applied, out updated),
+            FieldDeclarationSyntax field => TryRewriteField(field, assignments, applied, out updated, buildReplacement),
+            PropertyDeclarationSyntax property => TryRewriteProperty(property, assignments, applied, out updated, buildReplacement),
             _ => true
         };
     }
 
-    /// <summary>Rewrites field variables that receive constructor parameters.</summary>
+    /// <summary>Validates or rewrites field variables receiving constructor parameters.</summary>
     /// <param name="field">The field declaration.</param>
     /// <param name="assignments">The storage assignments.</param>
     /// <param name="applied">Tracks assignments already applied.</param>
-    /// <param name="updated">The updated member.</param>
-    /// <returns><see langword="true"/> when the field declaration can be rewritten safely.</returns>
+    /// <param name="updated">The updated member when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether the field can carry the initializers.</returns>
     private static bool TryRewriteField(
         FieldDeclarationSyntax field,
         StorageAssignment[] assignments,
         bool[] applied,
-        out MemberDeclarationSyntax updated)
+        out MemberDeclarationSyntax updated,
+        bool buildReplacement)
     {
         var variables = field.Declaration.Variables;
         var changed = false;
@@ -508,26 +483,38 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 return false;
             }
 
-            variables = variables.Replace(variable, variable.WithInitializer(CreateInitializer(value!)));
+            if (buildReplacement)
+            {
+                variables = variables.Replace(variable, variable.Update(variable.Identifier, variable.ArgumentList, CreateInitializer(value!)));
+                changed = true;
+            }
+
             applied[assignmentIndex] = true;
-            changed = true;
         }
 
-        updated = changed ? field.WithDeclaration(field.Declaration.WithVariables(variables)) : field;
+        updated = changed
+            ? field.Update(
+                field.AttributeLists,
+                field.Modifiers,
+                field.Declaration.Update(field.Declaration.Type, variables),
+                field.SemicolonToken)
+            : field;
         return true;
     }
 
-    /// <summary>Rewrites an auto-property that receives a constructor parameter.</summary>
+    /// <summary>Validates or rewrites an auto-property receiving a constructor parameter.</summary>
     /// <param name="property">The property declaration.</param>
     /// <param name="assignments">The storage assignments.</param>
     /// <param name="applied">Tracks assignments already applied.</param>
-    /// <param name="updated">The updated member.</param>
-    /// <returns><see langword="true"/> when the property can be rewritten safely.</returns>
+    /// <param name="updated">The updated member when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether the property can carry an initializer.</returns>
     private static bool TryRewriteProperty(
         PropertyDeclarationSyntax property,
         StorageAssignment[] assignments,
         bool[] applied,
-        out MemberDeclarationSyntax updated)
+        out MemberDeclarationSyntax updated,
+        bool buildReplacement)
     {
         updated = property;
         if (!TryFindAssignment(assignments, applied, property.Identifier.ValueText, out var assignmentIndex, out var value))
@@ -540,9 +527,20 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        updated = property
-            .WithInitializer(CreateInitializer(value!))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        if (buildReplacement)
+        {
+            updated = property.Update(
+                property.AttributeLists,
+                property.Modifiers,
+                property.Type,
+                property.ExplicitInterfaceSpecifier,
+                property.Identifier,
+                property.AccessorList,
+                property.ExpressionBody,
+                CreateInitializer(value!),
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        }
+
         applied[assignmentIndex] = true;
         return true;
     }
@@ -649,7 +647,10 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     private static List<SyntaxTrivia> CollectParameterDocs(TypeDeclarationSyntax type, ConstructorDeclarationSyntax constructor)
     {
         var indentation = GetTypeIndentation(type);
-        var collected = new List<SyntaxTrivia>();
+
+        // A parameter line normally parses as indentation followed by documentation trivia.
+        const int TriviaPerParameter = 2;
+        var collected = new List<SyntaxTrivia>(constructor.ParameterList.Parameters.Count * TriviaPerParameter);
         var text = constructor.GetLeadingTrivia().ToFullString();
         var start = 0;
         while (start < text.Length)
@@ -672,7 +673,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 }
             }
 
-            var line = text.Substring(start, end - start);
+            var line = text.AsSpan(start, end - start);
             if (IsParameterDocumentationLine(line))
             {
                 AddNormalizedDocumentationLine(collected, line, indentation);
@@ -688,15 +689,26 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <param name="collected">The destination trivia list.</param>
     /// <param name="line">The source documentation line.</param>
     /// <param name="indentation">The target indentation.</param>
-    private static void AddNormalizedDocumentationLine(List<SyntaxTrivia> collected, string line, string indentation)
+    private static void AddNormalizedDocumentationLine(List<SyntaxTrivia> collected, ReadOnlySpan<char> line, ReadOnlySpan<char> indentation)
     {
-        var markerIndex = line.IndexOf("///", StringComparison.Ordinal);
+        var markerIndex = line.IndexOf("///".AsSpan(), StringComparison.Ordinal);
         if (markerIndex < 0)
         {
             return;
         }
 
-        var parsed = SyntaxFactory.ParseLeadingTrivia(indentation + line[markerIndex..]);
+        var builder = new System.Text.StringBuilder(indentation.Length + line.Length - markerIndex);
+        foreach (var character in indentation)
+        {
+            _ = builder.Append(character);
+        }
+
+        foreach (var character in line[markerIndex..])
+        {
+            _ = builder.Append(character);
+        }
+
+        var parsed = SyntaxFactory.ParseLeadingTrivia(builder.ToString());
         for (var i = 0; i < parsed.Count; i++)
         {
             collected.Add(parsed[i]);
@@ -706,9 +718,9 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Returns whether a documentation line is constructor parameter documentation.</summary>
     /// <param name="line">The line to inspect.</param>
     /// <returns><see langword="true"/> when the trivia contains a <c>param</c> element.</returns>
-    private static bool IsParameterDocumentationLine(string line) =>
-        line.IndexOf("///", StringComparison.Ordinal) >= 0
-            && line.IndexOf("<param ", StringComparison.Ordinal) >= 0;
+    private static bool IsParameterDocumentationLine(ReadOnlySpan<char> line) =>
+        line.IndexOf("///".AsSpan(), StringComparison.Ordinal) >= 0
+            && line.IndexOf("<param ".AsSpan(), StringComparison.Ordinal) >= 0;
 
     /// <summary>Finds where constructor parameter docs should be inserted in type leading trivia.</summary>
     /// <param name="leading">The type leading trivia.</param>
@@ -730,7 +742,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Gets the indentation used by the type declaration's documentation.</summary>
     /// <param name="type">The type declaration.</param>
     /// <returns>The indentation text.</returns>
-    private static string GetTypeIndentation(TypeDeclarationSyntax type)
+    private static ReadOnlySpan<char> GetTypeIndentation(TypeDeclarationSyntax type)
     {
         var leading = type.GetLeadingTrivia();
         var text = leading.ToFullString();
@@ -741,14 +753,14 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         }
 
         var lineStart = Math.Max(text.LastIndexOf('\n'), text.LastIndexOf('\r')) + 1;
-        return lineStart < text.Length ? text[lineStart..] : text;
+        return lineStart < text.Length ? text.AsSpan(lineStart) : text.AsSpan();
     }
 
     /// <summary>Gets the text before a target index on the same line.</summary>
     /// <param name="text">The text to inspect.</param>
     /// <param name="index">The target index.</param>
     /// <returns>The text between the start of the line and the target index.</returns>
-    private static string GetLinePrefix(string text, int index)
+    private static ReadOnlySpan<char> GetLinePrefix(string text, int index)
     {
         var lineStart = index;
         while (lineStart > 0 && text[lineStart - 1] != '\r' && text[lineStart - 1] != '\n')
@@ -756,8 +768,39 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             lineStart--;
         }
 
-        return lineStart < index ? text.Substring(lineStart, index - lineStart) : string.Empty;
+        return text.AsSpan(lineStart, index - lineStart);
     }
+
+    /// <summary>Resolves the reported constructor and checks its storage targets without building initializers or moving documentation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="type">The containing type.</param>
+    /// <param name="constructor">The constructor declaration.</param>
+    /// <returns>Whether the constructor can be rewritten.</returns>
+    private static bool TryFindRewritableConstructor(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        [NotNullWhen(true)] out TypeDeclarationSyntax? type,
+        [NotNullWhen(true)] out ConstructorDeclarationSyntax? constructor) =>
+        TryFindConstructor(root, diagnostic, out type, out constructor)
+            && type is not null
+            && constructor is { Body: { } body }
+            && !DirectiveBoundaries.SeparateMembers(type)
+            && TryCollectAssignments(body, out var assignments)
+            && !HasBodyScopeNameCollision(type, constructor)
+            && TryRewriteMembers(type, constructor, assignments, out _, buildReplacement: false)
+            && CanMoveBaseInitializer(type, constructor.Initializer);
+
+    /// <summary>Checks whether a constructor initializer can move onto the first base type.</summary>
+    /// <param name="type">The containing type.</param>
+    /// <param name="initializer">The constructor initializer.</param>
+    /// <returns>Whether the initializer is representable without building its replacement.</returns>
+    private static bool CanMoveBaseInitializer(TypeDeclarationSyntax type, ConstructorInitializerSyntax? initializer) =>
+        initializer is null
+            || initializer.ArgumentList.Arguments.Count == 0
+            || (initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword)
+                && type.BaseList is { Types.Count: > 0 } baseList
+                && baseList.Types[0] is SimpleBaseTypeSyntax or PrimaryConstructorBaseTypeSyntax);
 
     /// <summary>Captures a constructor storage assignment.</summary>
     /// <param name="TargetName">The assigned member name.</param>

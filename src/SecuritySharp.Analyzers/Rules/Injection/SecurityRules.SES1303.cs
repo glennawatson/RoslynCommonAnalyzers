@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1303 — a regular-expression pattern is built from non-constant data.</summary>
-    public static readonly DiagnosticDescriptor RegexInjection = Create(
+    public static readonly DiagnosticDescriptor RegexInjection = DescriptorFactory.Create(
         "SES1303",
         "Regular-expression pattern must not be built from non-constant data",
         "The regular-expression pattern passed to '{0}' is built from non-constant data; wrap untrusted text in Regex.Escape and compose it into a fixed pattern",

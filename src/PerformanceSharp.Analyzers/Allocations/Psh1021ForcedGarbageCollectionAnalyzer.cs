@@ -19,17 +19,14 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The GC type name used by the syntax gate.</summary>
-    private const string GcTypeName = "GC";
-
-    /// <summary>The metadata name of the GC type.</summary>
-    private const string GcMetadataName = "System.GC";
-
     /// <summary>The forced-collection method name.</summary>
     private const string CollectMethodName = "Collect";
 
     /// <summary>The finalizer-drain method name.</summary>
     private const string WaitForPendingFinalizersMethodName = "WaitForPendingFinalizers";
+
+    /// <summary>The metadata name of the GC type.</summary>
+    private const string GcMetadataName = "System.GC";
 
     /// <summary>The <c>System.GC</c> allocation-sampling methods whose presence marks a measurement context.</summary>
     private static readonly string[] AllocationSampleMethodNames =
@@ -51,23 +48,17 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(GcMetadataName) is not { } gcType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, gcType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, GcMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1021 for a call that manually drives the garbage collector.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gcType">The compilation's GC type symbol.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
+    /// <param name="types">The compilation's deferred GC type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetForcedGcMemberName(invocation) is not { } memberName)
@@ -75,8 +66,8 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, gcType))
+        if (types.Get() is not { } gcType
+            || !GcInvocation.BindsToGcMethod(context.SemanticModel, invocation, gcType, context.CancellationToken))
         {
             return;
         }
@@ -109,15 +100,7 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        var receiverIsGc = memberAccess.Expression switch
-        {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText == GcTypeName,
-            MemberAccessExpressionSyntax qualified => qualified.Name.Identifier.ValueText == GcTypeName,
-            AliasQualifiedNameSyntax aliasQualified => aliasQualified.Name.Identifier.ValueText == GcTypeName,
-            _ => false,
-        };
-
-        return receiverIsGc ? memberName : null;
+        return GcInvocation.IsGcReceiver(memberAccess.Expression) ? memberName : null;
     }
 
     /// <summary>Returns whether the forced-GC call sits in a method that also samples allocations, making it a measurement.</summary>
@@ -138,18 +121,14 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var descendant in scope.DescendantNodes())
-        {
-            if (descendant is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: { } name } } candidate
-                && IsAllocationSampleName(name)
-                && model.GetSymbolInfo(candidate, cancellationToken).Symbol is IMethodSymbol sample
-                && SymbolEqualityComparer.Default.Equals(sample.ContainingType, gcType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var state = new SymbolReferenceSearch(gcType, model, cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, SymbolReferenceSearch>(
+            scope,
+            ref state,
+            static (candidate, ref current) => candidate.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: { } name }
+                || !IsAllocationSampleName(name)
+                || current.Model.GetSymbolInfo(candidate, current.CancellationToken).Symbol is not IMethodSymbol sample
+                || !SymbolEqualityComparer.Default.Equals(sample.ContainingType, current.Symbol));
     }
 
     /// <summary>Returns the nearest enclosing method-like declaration whose body to scan, or <see langword="null"/>.</summary>

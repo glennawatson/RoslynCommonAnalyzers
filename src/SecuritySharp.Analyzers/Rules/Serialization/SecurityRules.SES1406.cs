@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1406 — reflection reaches a non-public member, bypassing the accessibility the type declared.</summary>
-    public static readonly DiagnosticDescriptor NonPublicReflection = CreateOptIn(
+    public static readonly DiagnosticDescriptor NonPublicReflection = DescriptorFactory.CreateOptIn(
         "SES1406",
         "Reflection must not reach non-public members to bypass their declared accessibility",
         NonPublicReflectionMessage,

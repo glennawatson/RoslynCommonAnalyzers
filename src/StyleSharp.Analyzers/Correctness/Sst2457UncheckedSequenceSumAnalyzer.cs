@@ -49,30 +49,26 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var compilation = start.Compilation;
-            var enumerableType = new Lazy<INamedTypeSymbol?>(
-                () => compilation.GetTypeByMetadataName(EnumerableMetadataName),
-                LazyThreadSafetyMode.ExecutionAndPublication);
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, enumerableType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(
+                compilation,
+                static target => target.GetTypeByMetadataName(EnumerableMetadataName),
+                runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports one invocation when it is an integral sequence Sum wrapped in unchecked.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="enumerableType">The lazily resolved <c>System.Linq.Enumerable</c> type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> enumerableType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> enumerableType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count > 2
             || GetInvokedName(invocation.Expression) != SumMethodName
             || !IsInsideUnchecked(invocation)
-            || enumerableType.Value is not { } enumerable
-            || !IsIntegralEnumerableSum(context, invocation, enumerable))
+            || !IsIntegralEnumerableSum(context, invocation, enumerableType))
         {
             return;
         }
@@ -126,15 +122,17 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation binds to an int or long overload of the sequence Sum operator.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
+    /// <param name="enumerableType">The sequence host type, resolved only after the bound method passes the filters.</param>
     /// <returns><see langword="true"/> when the call is a Sum overload that accumulates with checked arithmetic.</returns>
     private static bool IsIntegralEnumerableSum(
         in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType) =>
+        LazyCompilationValue<INamedTypeSymbol?> enumerableType) =>
         context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
-            && SymbolEqualityComparer.Default.Equals((method.ReducedFrom ?? method).ContainingType, enumerableType)
-            && IsIntegralSumResult(method.ReturnType);
+            && IsIntegralSumResult(method.ReturnType)
+            && (method.ReducedFrom ?? method).ContainingType is { MetadataName: "Enumerable" } containingType
+            && enumerableType.Get() is { } resolvedType
+            && SymbolEqualityComparer.Default.Equals(containingType, resolvedType);
 
     /// <summary>Returns whether a Sum overload's result type is one the operator accumulates with checked arithmetic.</summary>
     /// <param name="returnType">The bound Sum overload's return type.</param>

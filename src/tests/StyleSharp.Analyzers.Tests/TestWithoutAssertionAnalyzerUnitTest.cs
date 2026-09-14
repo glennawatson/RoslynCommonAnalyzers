@@ -341,6 +341,302 @@ public class TestWithoutAssertionAnalyzerUnitTest
             }
             """ + XunitStubs);
 
+    /// <summary>Verifies a framework attribute on an abstract method has no body to inspect.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AbstractTestMethodIsSilentAsync() =>
+        VerifyReportAsync("""
+            public abstract class Tests
+            {
+                [Xunit.Fact]
+                public abstract void Pending();
+            }
+            """ + XunitStubs);
+
+    /// <summary>Verifies qualified, alias-qualified and suffixed framework attributes are recognized.</summary>
+    /// <param name="attribute">The spelling of the test attribute.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Xunit.Fact")]
+    [Arguments("Xunit.FactAttribute")]
+    [Arguments("Alias::Fact")]
+    [Arguments("Alias::TheoryAttribute")]
+    public Task QualifiedTestAttributeIsReportedAsync(string attribute) =>
+        VerifyReportAsync($$"""
+            using Alias = Xunit;
+            public class Tests
+            {
+                [{{attribute}}]
+                public int {|SST2500:Computes|}() => 1 + 1;
+            }
+            """ + XunitStubs);
+
+    /// <summary>Verifies every NUnit and data-driven MSTest marker activates the rule.</summary>
+    /// <param name="frameworkNamespace">The recognized framework namespace.</param>
+    /// <param name="attribute">The recognized marker's simple name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("NUnit.Framework", "TestCase")]
+    [Arguments("NUnit.Framework", "TestCaseSource")]
+    [Arguments("NUnit.Framework", "Theory")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "DataTestMethod")]
+    public Task DataDrivenFrameworkMarkerIsReportedAsync(string frameworkNamespace, string attribute) =>
+        VerifyReportAsync($$"""
+            public class Tests
+            {
+                [{{frameworkNamespace}}.{{attribute}}]
+                public void {|SST2500:Empty|}() { }
+            }
+            namespace {{frameworkNamespace}}
+            {
+                public sealed class {{attribute}}Attribute : System.Attribute { }
+            }
+            """);
+
+    /// <summary>Verifies all attribute lists are scanned while unrelated markers do not make a method a test.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MixedAttributeListsStillFindTestMarkerAsync() =>
+        VerifyReportAsync("""
+            public class MarkerAttribute : System.Attribute { }
+            public class Tests
+            {
+                [Marker]
+                [Xunit.Fact, Xunit.Theory]
+                public void {|SST2500:Empty|}() { }
+                [Marker]
+                public void Ordinary() { }
+            }
+            """ + XunitStubs);
+
+    /// <summary>Verifies similarly spelled attributes do not pass the syntactic test-marker check.</summary>
+    /// <param name="attribute">The unrecognized attribute name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Fast")]
+    [Arguments("Themed")]
+    [Arguments("Task")]
+    [Arguments("Note")]
+    [Arguments("TestData")]
+    [Arguments("TestDataSource")]
+    [Arguments("TestAction")]
+    [Arguments("DataTestAction")]
+    [Arguments("OtherTestNames")]
+    [Arguments("Attribute")]
+    public Task UnrecognizedAttributeSpellingIsSilentAsync(string attribute) =>
+        VerifyReportAsync($$"""
+            public sealed class {{attribute}}Attribute : System.Attribute { }
+            public class Tests { [{{attribute}}] public void Ordinary() { } }
+            """ + XunitStubs);
+
+    /// <summary>Verifies BCL assertion helpers count as verification.</summary>
+    /// <param name="call">The verification helper invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("System.Diagnostics.Debug.Assert(true)")]
+    [Arguments("System.Diagnostics.Trace.Assert(true)")]
+    [Arguments("System.Diagnostics.Contracts.Contract.Assert(true)")]
+    public Task BclVerificationHelperIsSilentAsync(string call) =>
+        VerifyReportAsync($$"""
+            public class Tests
+            {
+                [Xunit.Fact]
+                public void Verifies() { {{call}}; }
+            }
+            """ + XunitStubs);
+
+    /// <summary>Verifies target-typed platform construction without an assertion is reported.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ImplicitPlatformConstructionIsReportedAsync() =>
+        VerifyReportAsync("""
+            public class Tests
+            {
+                [Xunit.Fact]
+                public void {|SST2500:Builds|}() { System.Text.StringBuilder builder = new(); }
+            }
+            """ + XunitStubs);
+
+    /// <summary>Verifies a throw expression in an expression-bodied test is not reported.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ThrowExpressionIsSilentAsync() =>
+        VerifyReportAsync("""
+            public class Tests
+            {
+                [Xunit.Fact]
+                public int Pending() => throw new System.NotImplementedException();
+            }
+            """ + XunitStubs);
+
+    /// <summary>Verifies an unresolved invocation may be an assertion and must remain silent.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnresolvedInvocationIsSilentAsync() =>
+        new VerifyKey.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""class Tests { [Xunit.Fact] public void Verifies() { Missing(); } }{{XunitStubs}}""",
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies an incomplete neighbouring attribute does not hide a recognized test marker.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task IncompleteAttributeStillReportsEmptyTestAsync() =>
+        new VerifyKey.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""class Tests { [Xunit.Fact, ] public void {|SST2500:Empty|}() { } }{{XunitStubs}}""",
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies function-pointer calls remain silent because they have no containing platform assembly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task FunctionPointerInvocationIsSilentAsync()
+    {
+        var test = new VerifyKey.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""class Tests { [Xunit.Fact] public unsafe void Verifies(delegate*<void> check) { check(); } }{{XunitStubs}}""",
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) => solution.WithProjectCompilationOptions(
+            projectId,
+            ((Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!).WithAllowUnsafe(true)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies platform types with assertion-like names still need the exact verification namespace.</summary>
+    /// <param name="typeNamespace">The namespace that does not identify a BCL assertion helper.</param>
+    /// <param name="typeName">The assertion-like type name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Other", "Debug")]
+    [Arguments("Other.Diagnostics", "Trace")]
+    [Arguments("Other.System.Diagnostics", "Debug")]
+    [Arguments("Other", "Contract")]
+    [Arguments("Other.Contracts", "Contract")]
+    [Arguments("Other.Diagnostics.Contracts", "Contract")]
+    [Arguments("Other.System.Diagnostics.Contracts", "Contract")]
+    public async Task PlatformDecoyVerificationTypeIsReportedAsync(string typeNamespace, string typeName)
+    {
+        var test = new VerifyKey.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                class Tests
+                {
+                    [Xunit.Fact]
+                    public void {|SST2500:Computes|}() { {{typeNamespace}}.{{typeName}}.Check(); }
+                }
+                namespace {{typeNamespace}}
+                {
+                    public static class {{typeName}} { public static void Check() { } }
+                }
+                """ + XunitStubs,
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) => solution.WithProjectAssemblyName(projectId, "System.VerificationProbe"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies platform assembly identities are recognized without accepting a similar user assembly name.</summary>
+    /// <param name="assemblyName">The assembly containing the invoked helper.</param>
+    /// <param name="reports">Whether calls from this assembly are classified as platform operations.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("mscorlib", true)]
+    [Arguments("netstandard", true)]
+    [Arguments("System.Private.CoreLib", true)]
+    [Arguments("System", true)]
+    [Arguments("Systematic.Tests", false)]
+    public async Task PlatformAssemblyIdentityControlsReportingAsync(string assemblyName, bool reports)
+    {
+        var name = reports ? "{|SST2500:Computes|}" : "Computes";
+        var test = new VerifyKey.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                public class Tests
+                {
+                    [Xunit.Fact]
+                    public void {{name}}() { Helper.Compute(); }
+                }
+                public static class Helper { public static void Compute() { } }
+                """ + XunitStubs,
+        };
+        test.SolutionTransforms.Add((solution, projectId) => solution.WithProjectAssemblyName(projectId, assemblyName));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the concrete expected-exception marker is used when its framework has no base marker.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ConcreteExpectedExceptionFallbackIsSilentAsync() =>
+        VerifyReportAsync("""
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            public class Tests
+            {
+                [ExpectedException, TestMethod]
+                public void ExpectsThrow() { }
+            }
+            namespace Microsoft.VisualStudio.TestTools.UnitTesting
+            {
+                public sealed class TestMethodAttribute : System.Attribute { }
+                public sealed class ExpectedExceptionAttribute : System.Attribute { }
+            }
+            """);
+
+    /// <summary>Verifies multiple derived expected-exception attributes preserve the exception verdict.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DerivedExpectedExceptionAttributesAreSilentAsync() =>
+        VerifyReportAsync("""
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            public sealed class FirstAttribute : ExpectedExceptionBaseAttribute { }
+            public sealed class SecondAttribute : ExpectedExceptionBaseAttribute { }
+            public class Tests
+            {
+                [First, Second, TestMethod]
+                public void ExpectsThrow() { }
+            }
+            """ + MsTestStubs);
+
+    /// <summary>Verifies an empty test marked with an attribute derived from the xUnit fact is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DerivedFactMarkerIsReportedAsync() =>
+        VerifyReportAsync(
+            """
+            public class Tests
+            {
+                [Xunit.SkippableFact]
+                public void {|SST2500:Case|}()
+                {
+                }
+            }
+
+            namespace Xunit
+            {
+                public class FactAttribute : System.Attribute { }
+
+                public sealed class SkippableFactAttribute : FactAttribute { }
+            }
+            """);
+
     /// <summary>Verifies the rule is silent when no supported test framework is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

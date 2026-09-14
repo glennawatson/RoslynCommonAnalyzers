@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -18,7 +16,7 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2416SignedRemainderTestCodeFixProvider))]
 [Shared]
-public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider
 {
     /// <summary>The divisor of the parity test the fix rewrites.</summary>
     private const int Divisor = 2;
@@ -26,11 +24,14 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
     /// <summary>The remainder an odd value leaves when divided by two.</summary>
     private const int OddRemainder = 1;
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.SignedRemainderTest.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -38,12 +39,18 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
             context,
             "Test parity in a way that is correct for negative values",
             nameof(Sst2416SignedRemainderTestCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is { } comparison
+            && IsEqualityComparison(comparison)
+            && TryGetParity(comparison, model, out var _, out var _);
 
     /// <summary>Resolves the reported parity test and rewrites it.</summary>
     /// <param name="root">The syntax root.</param>
@@ -127,7 +134,10 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
         var tokenKind = isOddTest ? SyntaxKind.ExclamationEqualsToken : SyntaxKind.EqualsEqualsToken;
         var operatorToken = SyntaxFactory.Token(comparison.OperatorToken.LeadingTrivia, tokenKind, comparison.OperatorToken.TrailingTrivia);
         var zero = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
-        return SyntaxFactory.BinaryExpression(kind, modulo, operatorToken, zero);
+
+        // The space before the operator belongs to the original left operand, which a right-hand remainder is not.
+        var left = ReferenceEquals(modulo, comparison.Left) ? modulo : modulo.WithTrailingTrivia(comparison.Left.GetTrailingTrivia());
+        return SyntaxFactory.BinaryExpression(kind, left, operatorToken, zero);
     }
 
     /// <summary>Returns whether a type declares an accessible static one-argument parity helper.</summary>

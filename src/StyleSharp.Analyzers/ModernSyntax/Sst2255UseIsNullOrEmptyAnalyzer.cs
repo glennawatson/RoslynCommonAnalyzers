@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -52,31 +50,26 @@ public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
         value = null!;
         negated = binary.IsKind(SyntaxKind.LogicalAndExpression);
 
-        var left = Unparenthesize(binary.Left);
-        var right = Unparenthesize(binary.Right);
+        var left = ExpressionShapes.WalkDownParentheses(binary.Left);
+        var right = ExpressionShapes.WalkDownParentheses(binary.Right);
         var leftPart = Classify(left, negated, out var leftValue, out var leftDeref);
-        var rightPart = Classify(right, negated, out var rightValue, out var rightDeref);
+        var rightPart = Classify(right, negated, out var rightValue, out _);
 
         ExpressionSyntax nullValue;
         ExpressionSyntax emptyValue;
-        bool emptyDeref;
-        bool emptyOnLeft;
         if (leftPart == Part.Null && rightPart == Part.Empty)
         {
-            (nullValue, emptyValue, emptyDeref, emptyOnLeft) = (leftValue, rightValue, rightDeref, false);
+            nullValue = leftValue;
+            emptyValue = rightValue;
         }
-        else if (leftPart == Part.Empty && rightPart == Part.Null)
+        else if (leftPart == Part.Empty && rightPart == Part.Null && !leftDeref)
         {
-            (nullValue, emptyValue, emptyDeref, emptyOnLeft) = (rightValue, leftValue, leftDeref, true);
+            // A '.Length' read before the null check would throw on null, so folding this order to a
+            // null-safe helper is only safe when the emptiness check does not dereference.
+            nullValue = rightValue;
+            emptyValue = leftValue;
         }
         else
-        {
-            return false;
-        }
-
-        // A '.Length' read before the null check would throw on null, so the fold to a null-safe helper
-        // would change behaviour. That order is only safe when the emptiness check does not dereference.
-        if (emptyDeref && emptyOnLeft)
         {
             return false;
         }
@@ -129,15 +122,15 @@ public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
             return Part.None;
         }
 
-        var left = Unparenthesize(comparison.Left);
-        var right = Unparenthesize(comparison.Right);
-        if (TryTakeOther(left, right, IsNullLiteral, out var nullOther))
+        var left = ExpressionShapes.WalkDownParentheses(comparison.Left);
+        var right = ExpressionShapes.WalkDownParentheses(comparison.Right);
+        if (TryTakeOther(left, right, ExpressionShapes.IsNullLiteral, out var nullOther))
         {
             value = nullOther;
             return Part.Null;
         }
 
-        if (TryTakeOther(left, right, IsEmptyStringLiteral, out var emptyOther))
+        if (TryTakeOther(left, right, EmptyStringExpressions.IsEmptyStringLiteral, out var emptyOther))
         {
             value = emptyOther;
             return Part.Empty;
@@ -214,34 +207,9 @@ public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether an expression is the <see langword="null"/> literal.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> for the null literal.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
-
-    /// <summary>Returns whether an expression is an empty string literal.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> for <c>""</c>.</returns>
-    private static bool IsEmptyStringLiteral(ExpressionSyntax expression) =>
-        expression is LiteralExpressionSyntax { Token.ValueText: "" } literal && literal.IsKind(SyntaxKind.StringLiteralExpression);
-
     /// <summary>Returns whether an expression is the integer literal <c>0</c>.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for <c>0</c>.</returns>
     private static bool IsZeroLiteral(ExpressionSyntax expression) =>
         expression is LiteralExpressionSyntax { Token.Value: 0 } literal && literal.IsKind(SyntaxKind.NumericLiteralExpression);
-
-    /// <summary>Strips redundant parentheses from an operand.</summary>
-    /// <param name="expression">The operand.</param>
-    /// <returns>The operand with any surrounding parentheses removed.</returns>
-    private static ExpressionSyntax Unparenthesize(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
 }

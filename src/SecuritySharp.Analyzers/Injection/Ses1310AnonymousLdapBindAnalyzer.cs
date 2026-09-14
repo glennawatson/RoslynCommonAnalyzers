@@ -17,8 +17,8 @@ namespace SecuritySharp.Analyzers;
 /// The clean path is syntactic: a creation is ignored unless its type name is <c>DirectoryEntry</c> (or, for a
 /// target-typed <c>new(...)</c>, unless a candidate anonymous/empty-credential shape appears), and the type is
 /// bound and the <c>Anonymous</c> field confirmed only after that screen passes. The rule is gated on
-/// <c>DirectoryEntry</c> and <c>AuthenticationTypes</c> resolving in the compilation; a project without
-/// <c>System.DirectoryServices</c> registers nothing and pays nothing.
+/// <c>DirectoryEntry</c> and <c>AuthenticationTypes</c> resolving in the compilation; those lookups are
+/// cached on first candidate, including when <c>System.DirectoryServices</c> is unavailable.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
@@ -59,12 +59,6 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>The message detail describing an empty-credential bind.</summary>
     private const string EmptyCredentialDetail = "its username and password are both empty";
 
-    /// <summary>The metadata name of the guarded directory-bind sink.</summary>
-    private const string DirectoryEntryMetadataName = "System.DirectoryServices.DirectoryEntry";
-
-    /// <summary>The metadata name of the authentication-type enum.</summary>
-    private const string AuthenticationTypesMetadataName = "System.DirectoryServices.AuthenticationTypes";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AnonymousLdapBind);
 
@@ -77,49 +71,44 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var directoryEntry = start.Compilation.GetTypeByMetadataName(DirectoryEntryMetadataName);
-            var authenticationTypes = start.Compilation.GetTypeByMetadataName(AuthenticationTypesMetadataName);
-            if (directoryEntry is null || authenticationTypes is null)
-            {
-                return;
-            }
-
-            var types = new DirectoryBindTypes(directoryEntry, authenticationTypes);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeObjectCreation(nodeContext, types),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<DirectoryBindTypes?>(compilation, ResolveDirectoryTypes),
+            AnalyzeObjectCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Reports SES1310 for a <c>DirectoryEntry</c> construction that binds anonymously.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated directory types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, DirectoryBindTypes types)
+    /// <param name="markers">The directory types resolved on first candidate.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DirectoryBindTypes?> markers)
     {
-        var (argumentList, initializer) = Decompose(context.Node, out var explicitTypeName);
+        var creation = (BaseObjectCreationExpressionSyntax)context.Node;
 
         // For an explicit 'new DirectoryEntry(...)' the type name is the cheapest, most selective screen. A
         // target-typed 'new(...)' has no type name, so it falls through to the candidate-shape screen below.
-        if (explicitTypeName is not null and not DirectoryEntryTypeName)
+        if (ExplicitTypeName(creation) is not null and not DirectoryEntryTypeName)
         {
             return;
         }
 
         // Syntactic candidate detection: does the construction name 'AuthenticationTypes.Anonymous', or bind an
         // LDAP path with empty credentials? Neither branch touches the semantic model.
-        var anonymousValue = GetAnonymousAuthenticationExpression(argumentList, initializer);
-        var hasEmptyCredentialBind = anonymousValue is null && HasEmptyCredentialLdapBind(argumentList);
+        var anonymousValue = GetAnonymousAuthenticationExpression(creation.ArgumentList, creation.Initializer);
+        var hasEmptyCredentialBind = anonymousValue is null && HasEmptyCredentialLdapBind(creation.ArgumentList);
         if (anonymousValue is null && !hasEmptyCredentialBind)
         {
             return;
         }
 
+        if (markers.Get() is not { } types)
+        {
+            return;
+        }
+
         // Semantic confirmation: the created type is the gated 'DirectoryEntry'.
-        if (context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is not INamedTypeSymbol createdType
-            || !SymbolEqualityComparer.Default.Equals(createdType, types.DirectoryEntry))
+        if (!CreatesDirectoryEntry(context, types))
         {
             return;
         }
@@ -139,6 +128,14 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
         Report(context, EmptyCredentialDetail);
     }
 
+    /// <summary>Confirms the candidate creates the directory-entry type resolved for this compilation.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="types">The resolved directory types.</param>
+    /// <returns>Whether the constructed type is the framework's directory entry.</returns>
+    private static bool CreatesDirectoryEntry(in SyntaxNodeAnalysisContext context, DirectoryBindTypes types) =>
+        context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is INamedTypeSymbol createdType
+        && SymbolEqualityComparer.Default.Equals(createdType, types.DirectoryEntry);
+
     /// <summary>Reports SES1310 on the object-creation node with the given message detail.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="detail">The message detail describing the offending shape.</param>
@@ -150,22 +147,11 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
             context.Node.Span,
             detail));
 
-    /// <summary>Splits an object-creation node into its argument list and initializer, and reads any explicit type name.</summary>
-    /// <param name="node">The explicit or implicit object-creation node.</param>
-    /// <param name="explicitTypeName">The simple type name of an explicit creation, or <see langword="null"/> for a target-typed <c>new(...)</c>.</param>
-    /// <returns>The argument list and object initializer, either of which may be <see langword="null"/>.</returns>
-    private static (ArgumentListSyntax? ArgumentList, InitializerExpressionSyntax? Initializer) Decompose(SyntaxNode node, out string? explicitTypeName)
-    {
-        if (node is ObjectCreationExpressionSyntax creation)
-        {
-            explicitTypeName = GetSimpleTypeName(creation.Type);
-            return (creation.ArgumentList, creation.Initializer);
-        }
-
-        explicitTypeName = null;
-        var implicitCreation = (ImplicitObjectCreationExpressionSyntax)node;
-        return (implicitCreation.ArgumentList, implicitCreation.Initializer);
-    }
+    /// <summary>Returns the simple type name of an explicit creation.</summary>
+    /// <param name="creation">The explicit or target-typed object creation.</param>
+    /// <returns>The type name, or <see langword="null"/> for a target-typed <c>new(...)</c>.</returns>
+    private static string? ExplicitTypeName(BaseObjectCreationExpressionSyntax creation) =>
+        creation is ObjectCreationExpressionSyntax explicitCreation ? GetSimpleTypeName(explicitCreation.Type) : null;
 
     /// <summary>Returns the expression that syntactically names <c>AuthenticationTypes.Anonymous</c> for this creation.</summary>
     /// <param name="argumentList">The constructor argument list, if any.</param>
@@ -180,8 +166,8 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
             for (var i = 0; i < expressions.Count; i++)
             {
                 if (expressions[i] is AssignmentExpressionSyntax { Left: { } left, Right: { } right }
-                    && GetTrailingName(left) is AuthenticationTypeMemberName
-                    && GetTrailingName(right) is AnonymousMemberName)
+                    && MemberReferenceName.Of(left) is AuthenticationTypeMemberName
+                    && MemberReferenceName.Of(right) is AnonymousMemberName)
                 {
                     return right;
                 }
@@ -195,7 +181,7 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
             var arguments = argumentList.Arguments;
             for (var i = 0; i < arguments.Count; i++)
             {
-                if (GetTrailingName(arguments[i].Expression) is AnonymousMemberName)
+                if (MemberReferenceName.Of(arguments[i].Expression) is AnonymousMemberName)
                 {
                     return arguments[i].Expression;
                 }
@@ -331,17 +317,6 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     private static char ToLowerAscii(char c) =>
         c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 
-    /// <summary>Returns the right-most simple identifier of a member access or bare identifier expression.</summary>
-    /// <param name="expression">The expression to read.</param>
-    /// <returns>The trailing simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetTrailingName(ExpressionSyntax expression) =>
-        expression switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
     /// <summary>Returns the right-most simple identifier of a type name.</summary>
     /// <param name="type">The constructed type syntax.</param>
     /// <returns>The simple type name, or <see langword="null"/> when it cannot be read syntactically.</returns>
@@ -352,6 +327,15 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
             _ => null,
         };
+
+    /// <summary>Resolves the directory types after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose directory types are probed.</param>
+    /// <returns>The type pair, or <see langword="null"/> when either type is unavailable.</returns>
+    private static DirectoryBindTypes? ResolveDirectoryTypes(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.DirectoryServices.DirectoryEntry") is { } directoryEntry
+            && compilation.GetTypeByMetadataName("System.DirectoryServices.AuthenticationTypes") is { } authenticationTypes
+            ? new DirectoryBindTypes(directoryEntry, authenticationTypes)
+            : null;
 
     /// <summary>The directory types resolved once per compilation for SES1310.</summary>
     /// <param name="DirectoryEntry">The resolved <c>System.DirectoryServices.DirectoryEntry</c> sink type.</param>

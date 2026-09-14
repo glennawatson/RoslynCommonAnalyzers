@@ -16,7 +16,7 @@ namespace StyleSharp.Analyzers;
 /// <c>null!</c>). Only then does the rule bind, confirm the target is a delegate <c>Invoke</c> of the
 /// <c>(object sender, EventArgs args)</c> shape whose receiver is an event, and check the exemptions: a static
 /// event may take a null sender, and <c>EventArgs.Empty</c> is the fix rather than the bug. <c>System.EventArgs</c>
-/// is resolved once at compilation start.
+/// is resolved only after an invocation passes the syntax checks.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
@@ -42,22 +42,17 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var eventArgsType = start.Compilation.GetTypeByMetadataName("System.EventArgs");
-            if (eventArgsType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, eventArgsType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.EventArgs"),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Analyzes one invocation for a null-sender or null-args event raise.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="eventArgsType">The resolved <c>System.EventArgs</c> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
+    /// <param name="eventTypes">The event-args type cache for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType eventTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var arguments = invocation.ArgumentList.Arguments;
@@ -73,12 +68,29 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!TryGetRaisedEvent(context, invocation, eventArgsType, out var raisedEvent, out var invoke))
+        if (eventTypes.Get() is not { } eventArgsType
+            || !TryGetRaisedEvent(context, invocation, eventArgsType, out var raisedEvent, out var invoke))
         {
             return;
         }
 
-        if (senderIsNull && !raisedEvent.IsStatic)
+        ReportNullArguments(context, arguments, raisedEvent, invoke, eventArgsType);
+    }
+
+    /// <summary>Reports null sender and event-args values after the event has been bound.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="arguments">The two event invocation arguments.</param>
+    /// <param name="raisedEvent">The event being raised.</param>
+    /// <param name="invoke">The bound delegate invocation.</param>
+    /// <param name="eventArgsType">The resolved System.EventArgs type.</param>
+    private static void ReportNullArguments(
+        in SyntaxNodeAnalysisContext context,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        IEventSymbol raisedEvent,
+        IMethodSymbol invoke,
+        INamedTypeSymbol eventArgsType)
+    {
+        if (IsNullLiteral(arguments[0].Expression) && !raisedEvent.IsStatic)
         {
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 CorrectnessRules.NullEventRaise,
@@ -88,7 +100,7 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
                 "this"));
         }
 
-        if (!argsIsNull)
+        if (!IsNullLiteral(arguments[1].Expression))
         {
             return;
         }
@@ -147,24 +159,7 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
         var parameters = invoke.Parameters;
         return parameters.Length == 2
             && parameters[0].Type.SpecialType == SpecialType.System_Object
-            && IsOrDerivesFrom(parameters[1].Type, eventArgsType);
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the target type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The target base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
-    private static bool IsOrDerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
-    {
-        for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
+            && TypeRelations.IsOrDerivesFrom(parameters[1].Type, eventArgsType);
     }
 
     /// <summary>Reads the invoked member's simple name without binding.</summary>

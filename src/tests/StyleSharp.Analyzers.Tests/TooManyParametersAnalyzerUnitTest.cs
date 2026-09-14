@@ -3,6 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyParameters = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1472TooManyParametersAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -18,6 +21,205 @@ public class TooManyParametersAnalyzerUnitTest
 
         namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
         """;
+
+    /// <summary>Verifies similarly spelled attributes cannot exempt caller-written parameters.</summary>
+    /// <param name="name">The attribute name that nearly matches a caller-info attribute.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("CallerMemberNamo")]
+    [Arguments("CallerFilePatx")]
+    [Arguments("CallerLineNumbex")]
+    [Arguments("CallerArgumentExpressiom")]
+    [Arguments("CallerMemberNameAttributx")]
+    [Arguments("CallerFilePathAttributx")]
+    [Arguments("CallerLineNumberAttributx")]
+    [Arguments("CallerArgumentExpressionAttributx")]
+    [Arguments("CallerArgumentExpressionAttributes")]
+    [Arguments("DallerMemberName")]
+    [Arguments("DallerFilePath")]
+    [Arguments("DallerLineNumber")]
+    [Arguments("DallerArgumentExpression")]
+    [Arguments("CallerXemberName")]
+    [Arguments("CallerXemberNameAttribute")]
+    public Task CallerInfoNearMissesRemainCountedAsync(string name) =>
+        VerifyParameters.VerifyAnalyzerAsync($$"""
+            class {{name}} : System.Attribute { }
+            class C
+            {
+                void {|SST1472:M|}(int a, int b, int c, int d, int e, int f, int g, [{{name}}] int h = 0) { }
+            }
+            """);
+
+    /// <summary>Verifies malformed namespace-level methods remain measurable without a containing type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MethodWithoutContainingTypeIsMeasuredAsync() =>
+        new VerifyParameters.Test { TestCode = "namespace N { void {|SST1472:M|}(int a, int b, int c, int d, int e, int f, int g, int h) { } }", CompilerDiagnostics = CompilerDiagnostics.None }
+            .RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies indexer implementations are exempt while their defining interface is measured.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceIndexersAreReportedAtTheirDefinitionAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync("""
+            interface I
+            {
+                int {|SST1472:this|}[int a, int b, int c, int d, int e, int f, int g, int h] { get; }
+                void Small();
+            }
+            class C : I
+            {
+                public int this[int a, int b, int c, int d, int e, int f, int g, int h] => a;
+                public void Small() { }
+                public void {|SST1472:Unrelated|}(int a, int b, int c, int d, int e, int f, int g, int h) { }
+                public void {|SST1472:Small|}(int a, int b, int c, int d, int e, int f, int g, int h) { }
+            }
+            class D : I
+            {
+                int I.this[int a, int b, int c, int d, int e, int f, int g, int h] => a;
+                public void Small() { }
+            }
+            """);
+
+    /// <summary>Verifies each body shape identifies the implementing half of a partial indexer.</summary>
+    /// <param name="body">The implementation body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("=> a;")]
+    [Arguments("{ get { return a; } }")]
+    [Arguments("{ get => a; }")]
+    public Task PartialIndexerIsReportedOnlyAtDefinitionAsync(string body) =>
+        VerifyParameters.VerifyAnalyzerAsync($$"""
+            partial class C
+            {
+                public partial int {|SST1472:this|}[int a, int b, int c, int d, int e, int f, int g, int h] { get; }
+                public partial int this[int a, int b, int c, int d, int e, int f, int g, int h] {{body}}
+            }
+            """);
+
+    /// <summary>Verifies incomplete partial signatures still follow their syntax's definition/body distinction.</summary>
+    /// <param name="member">The incomplete signature and expected diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("partial C(int a, int b, int c, int d, int e, int f, int g, int h) { }")]
+    [Arguments("partial C(int a, int b, int c, int d, int e, int f, int g, int h) => M();")]
+    [Arguments("partial C(int a, int b, int c, int d, int e, int f, int g, int h);")]
+    [Arguments("partial int {|SST1472:this|}[int a, int b, int c, int d, int e, int f, int g, int h];")]
+    public Task IncompletePartialSignatureUsesExistingBodyAsync(string member) =>
+        new VerifyParameters.Test { TestCode = $"partial class C {{ {member} void M() {{ }} }}", CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies a partial indexer with no accessor list counts as a definition rather than an implementation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    /// <remarks>The compiler cannot build a symbol for this shape, so the helper is checked on the syntax alone.</remarks>
+    [Test]
+    public async Task PartialIndexerWithoutAccessorListHasNoAccessorBodyAsync()
+    {
+        var root = SyntaxFactory.ParseCompilationUnit("partial class C { partial int this[int a] { get; } }");
+        var indexer = root.DescendantNodes().OfType<IndexerDeclarationSyntax>().Single().WithAccessorList(null);
+        await Assert.That(Sst1472TooManyParametersAnalyzer.HasAccessorBody(indexer)).IsFalse();
+    }
+
+    /// <summary>Verifies a partial primary constructor remains author-controlled.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task PartialTypePrimaryConstructorIsMeasuredAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync("partial class {|SST1472:C|}(int a, int b, int c, int d, int e, int f, int g, int h);");
+
+    /// <summary>Verifies native import spellings are recognized after unrelated attributes.</summary>
+    /// <param name="attribute">The attribute name spelling.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("DllImport")]
+    [Arguments("DllImportAttribute")]
+    [Arguments("System.Runtime.InteropServices.LibraryImport")]
+    [Arguments("global::System.Runtime.InteropServices.LibraryImportAttribute")]
+    public Task NativeImportNamesExemptSignaturesAsync(string attribute) =>
+        new VerifyParameters.Test
+        {
+            TestCode = $$"""
+                using System.Runtime.InteropServices;
+                class C
+                {
+                    [System.Obsolete, {{attribute}}("native")]
+                    public static int M(int a, int b, int c, int d, int e, int f, int g, int h) => a;
+                }
+                namespace System.Runtime.InteropServices
+                {
+                    class LibraryImportAttribute : System.Attribute
+                    {
+                        public LibraryImportAttribute(string library) { }
+                    }
+                }
+                """,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies unrelated attributes do not exempt methods or optional parameters.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnrelatedAttributesKeepParametersCountedAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync("""
+            class MarkerAttribute : System.Attribute { }
+            class C
+            {
+                [Marker]
+                void {|SST1472:M|}(int a, int b, int c, int d, int e, int f, int g, [Marker] int h = 0) { }
+            }
+            """);
+
+    /// <summary>Verifies qualified, suffixed and aliased caller-info attributes are all excluded.</summary>
+    /// <param name="attribute">The caller-info spelling.</param>
+    /// <param name="parameter">The optional parameter matching the attribute.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("CallerMemberNameAttribute", "string h = null")]
+    [Arguments("System.Runtime.CompilerServices.CallerFilePathAttribute", "string h = null")]
+    [Arguments("global::System.Runtime.CompilerServices.CallerLineNumberAttribute", "int h = 0")]
+    [Arguments("CallerArgumentExpression(\"a\")", "string h = null")]
+    [Arguments("CallerArgumentExpressionAttribute(\"a\")", "string h = null")]
+    [Arguments("info::CallerMemberName", "string h = null")]
+    public Task CallerInfoNameVariantsAreExcludedAsync(string attribute, string parameter) =>
+        VerifyParameters.VerifyAnalyzerAsync($$"""
+            using System.Runtime.CompilerServices;
+            using info = System.Runtime.CompilerServices;
+            class MarkerAttribute : System.Attribute { }
+            class C
+            {
+                void M(int a, int b, int c, int d, int e, int f, int g, [Marker, {{attribute}}] {{parameter}}) { }
+            }
+            namespace System.Runtime.CompilerServices
+            {
+                class CallerArgumentExpressionAttribute : System.Attribute
+                {
+                    public CallerArgumentExpressionAttribute(string parameter) { }
+                }
+            }
+            """);
+
+    /// <summary>Verifies explicit option values retain the documented defaults.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ExplicitDefaultOptionsPreserveCountingAsync()
+    {
+        var test = new VerifyParameters.Test
+        {
+            TestCode = $$"""
+                class C { void {|SST1472:M|}(int a, int b, int c, int d, int e, int f, int g, int h = 0) { } }
+                record R(int A, int B, int C, int D, int E, int F, int G, int H);{{IsExternalInit}}
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, "root = true\n[*.cs]\nstylesharp.SST1472.count_optional_parameters = true\nstylesharp.SST1472.check_positional_records = false\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies a method over the default maximum is reported and one at the maximum is not.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

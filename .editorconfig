@@ -1792,6 +1792,7 @@ dotnet_diagnostic.PAS0005.severity = error # The public API baseline could not b
 ###################
 # External scanner inspections
 ###################
+dotnet_diagnostic.S2589.severity = none # Null checks are judged against nullability annotations that differ across the Roslyn slots
 dotnet_diagnostic.S3267.severity = none # Asks for LINQ; production code here is deliberately LINQ-free
 dotnet_diagnostic.S8969.severity = none # Null-forgiving operators are not portable across the Roslyn slots
 

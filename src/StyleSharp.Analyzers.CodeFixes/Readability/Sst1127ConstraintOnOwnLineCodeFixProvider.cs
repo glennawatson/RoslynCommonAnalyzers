@@ -11,43 +11,31 @@ namespace StyleSharp.Analyzers;
 /// <summary>A code fix provider for the <see cref="Sst1127ConstraintOnOwnLineAnalyzer"/> analyzer.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1127ConstraintOnOwnLineCodeFixProvider))]
 [Shared]
-public sealed class Sst1127ConstraintOnOwnLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1127ConstraintOnOwnLineCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.ConstraintOnOwnLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (text, root, diagnostic) => TryBuildChange(text, root, diagnostic, out _) ? "Place the constraint on its own line" : null,
+            nameof(Sst1127ConstraintOnOwnLineCodeFixProvider),
+            RegisterTextChanges);
 
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            if (!TryBuildChange(text, root, diagnostic, out var change))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Place the constraint on its own line",
-                    _ => Task.FromResult(context.Document.WithText(text.WithChanges(change))),
-                    equivalenceKey: nameof(Sst1127ConstraintOnOwnLineCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryBuildChange(text, root, diagnostic, out var change))
         {

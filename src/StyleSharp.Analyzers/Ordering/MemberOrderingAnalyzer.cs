@@ -41,17 +41,15 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var unionMarkerCache = new UnionMarkerCache();
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, unionMarkerCache),
-                SyntaxKind.ClassDeclaration,
-                SyntaxKind.StructDeclaration,
-                SyntaxKind.RecordDeclaration,
-                SyntaxKind.RecordStructDeclaration,
-                SyntaxKind.InterfaceDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, MemberOrder.ResolveUnionMarker),
+            Analyze,
+            SyntaxKind.ClassDeclaration,
+            SyntaxKind.StructDeclaration,
+            SyntaxKind.RecordDeclaration,
+            SyntaxKind.RecordStructDeclaration,
+            SyntaxKind.InterfaceDeclaration);
     }
 
     /// <summary>Returns whether a member list contains nested class/record declarations that may need union detection.</summary>
@@ -74,11 +72,11 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
     /// <summary>Orders a type's members and, for C# 14 extension blocks, the members nested inside them.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="unionMarkerCache">The lazy cache for the resolved <c>IUnion</c> marker.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, UnionMarkerCache unionMarkerCache)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> unionMarkerCache)
     {
         var members = ((TypeDeclarationSyntax)context.Node).Members;
         var unionMarker = HasUnionCandidateMembers(members)
-            ? unionMarkerCache.Get(context.SemanticModel.Compilation)
+            ? unionMarkerCache.Get()
             : null;
 
         OrderMembers(context, members, unionMarker);
@@ -136,36 +134,4 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
             or SyntaxKind.RecordDeclaration
             or SyntaxKind.RecordStructDeclaration
             or SyntaxKind.InterfaceDeclaration;
-
-    /// <summary>Lazily caches the resolved union marker for one compilation start.</summary>
-    private sealed class UnionMarkerCache
-    {
-        /// <summary>The cached union marker, once resolved.</summary>
-        private INamedTypeSymbol? _marker;
-
-        /// <summary>The latch that publishes <see cref="_marker"/>, zero until it holds the resolved marker.</summary>
-        private int _resolved;
-
-        /// <summary>Gets the cached union marker, resolving it only when first needed.</summary>
-        /// <param name="compilation">The compilation that may contain the marker.</param>
-        /// <returns>The resolved marker, or <see langword="null"/>.</returns>
-        /// <remarks>
-        /// Resolution is deterministic for one compilation, so a caller that arrives before the latch is set
-        /// resolves the marker itself and hands back what it resolved rather than waiting on the winner. The
-        /// latch exists to publish the field: the exchange releases the write of <see cref="_marker"/>, and the
-        /// volatile read acquires it, so a later caller never reads the field back empty.
-        /// </remarks>
-        public INamedTypeSymbol? Get(Compilation compilation)
-        {
-            if (Volatile.Read(ref _resolved) != 0)
-            {
-                return _marker;
-            }
-
-            var marker = MemberOrder.ResolveUnionMarker(compilation);
-            _marker = marker;
-            _ = Interlocked.Exchange(ref _resolved, 1);
-            return marker;
-        }
-    }
 }

@@ -34,18 +34,11 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(SearchValuesMetadataName) is null
-                || start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, extensions),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveExtensions, runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether a member name is one of the any-of search methods.</summary>
@@ -112,8 +105,8 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1213 for an any-of search over an inline constant set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="extensions">The span extensions type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol extensions)
+    /// <param name="extensions">The span extensions type resolved on first demand when <c>SearchValues</c> exists.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> extensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 1
@@ -124,8 +117,9 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsSearchApi(method, extensions))
+        if (extensions.Get() is not { } extensionsType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsSearchApi(method, extensionsType))
         {
             return;
         }
@@ -146,4 +140,12 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
         return containingType.SpecialType == SpecialType.System_String
             || SymbolEqualityComparer.Default.Equals(containingType, extensions);
     }
+
+    /// <summary>Resolves the span extensions type, gated on <c>SearchValues</c> existing.</summary>
+    /// <param name="compilation">The compilation whose search APIs are inspected.</param>
+    /// <returns>The extensions type, or null when required APIs are absent.</returns>
+    private static INamedTypeSymbol? ResolveExtensions(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(SearchValuesMetadataName) is null
+            ? null
+            : compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName);
 }

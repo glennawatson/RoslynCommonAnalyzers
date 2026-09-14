@@ -2,7 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using Microsoft.CodeAnalysis.Text;
 using VerifyBranches = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.IdenticalBranchesAnalyzer>;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.IdenticalBranchesAnalyzer,
@@ -13,6 +20,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2414 (two branches of one conditional share an implementation).</summary>
 public class DuplicateBranchImplementationAnalyzerUnitTest
 {
+    /// <summary>The document name used for direct fix-provider tests.</summary>
+    private const string DocumentName = "Test.cs";
+
     /// <summary>A switch statement whose first and third sections share a body.</summary>
     private const string DuplicateSectionSource = """
         public sealed class C
@@ -61,6 +71,99 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
             private static int B() => 2;
         }
         """;
+
+    /// <summary>Verifies stale section diagnostics are rejected by single and batch fixes.</summary>
+    /// <param name="sections">The switch sections after the diagnostic became stale.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("case 1: return 1;")]
+    [Arguments("case 1: return 1; case 2: return 2;")]
+    [Arguments("case 1: M(); return 1; case 2: return 1;")]
+    [Arguments("case 1: return 1;\n#if UNUSED\ncase 9: return 9;\n#endif\ncase 2: return 1;")]
+    public async Task UnmergeableSectionHasNoFixAsync(string sections)
+    {
+        var source = $"class C {{ int M(int x = 0) {{ switch (x) {{ {sections} }} return 0; }} }}";
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, DocumentName, SourceText.From(source));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var section = root.DescendantNodes().OfType<SwitchSectionSyntax>().Last();
+        await VerifyNoFixAsync(document, section.GetLocation());
+    }
+
+    /// <summary>Verifies stale arm diagnostics reject first arms, guards, mismatched values, and directives.</summary>
+    /// <param name="arms">The switch-expression arms after the diagnostic became stale.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("1 => 1")]
+    [Arguments("1 => 1, 2 when x > 0 => 1")]
+    [Arguments("1 when x > 0 => 1, 2 => 1")]
+    [Arguments("1 => 1, 2 => 2")]
+    [Arguments("1 => 1,\n#if UNUSED\n9 => 9,\n#endif\n2 => 1")]
+    public async Task UnmergeableArmHasNoFixAsync(string arms)
+    {
+        var source = $"class C {{ int M(int x) => x switch {{ {arms} }}; }}";
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, DocumentName, SourceText.From(source));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var arm = root.DescendantNodes().OfType<SwitchExpressionArmSyntax>().Last();
+        await VerifyNoFixAsync(document, arm.Pattern.GetLocation());
+    }
+
+    /// <summary>Verifies a diagnostic outside a switch is ignored by both fix paths.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DiagnosticOutsideSwitchHasNoFixAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, DocumentName, SourceText.From("class C { }"));
+        var root = (await document.GetSyntaxRootAsync())!;
+        await VerifyNoFixAsync(document, root.GetLocation());
+    }
+
+    /// <summary>Verifies an incomplete earlier section cannot be selected as a merge partner.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task EmptyEarlierSectionHasNoFixAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, DocumentName, SourceText.From("class C { int M(int x) { switch (x) { case 1: return 1; case 2: return 1; } return 0; } }"));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var first = root.DescendantNodes().OfType<SwitchSectionSyntax>().First();
+        document = document.WithSyntaxRoot(root.ReplaceNode(first, first.WithStatements(default)));
+        root = (await document.GetSyntaxRootAsync())!;
+        await VerifyNoFixAsync(document, root.DescendantNodes().OfType<SwitchSectionSyntax>().Last().GetLocation());
+    }
+
+    /// <summary>Verifies a later matching arm is found after guarded and unequal candidates.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MergeSkipsEarlierIncompatibleArmsAsync() =>
+        VerifyFix.VerifyCodeFixAsync(
+            "class C { int M(int x) => x switch { 1 when x > 0 => 1, 2 => 2, 3 or 4 => 1, {|SST2414:5|} => 1, _ => 0 }; }",
+            "class C { int M(int x) => x switch { 1 when x > 0 => 1, 2 => 2, 3 or 4 or 5 => 1, _ => 0 }; }");
+
+    /// <summary>Verifies an and-pattern keeps its precedence when it becomes an or alternative.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task JoinedAndPatternKeepsItsPrecedenceAsync() =>
+        VerifyFix.VerifyCodeFixAsync(
+            "class C { int M(int x) => x switch { 1 and > 0 => 1, 2 => 2, {|SST2414:3|} => 1, _ => 0 }; }",
+            "class C { int M(int x) => x switch { 1 and > 0 or 3 => 1, 2 => 2, _ => 0 }; }");
+
+    /// <summary>Verifies sections of different lengths and bodies are skipped before the matching section.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MergeSkipsEarlierIncompatibleSectionsAsync() =>
+        VerifyFix.VerifyCodeFixAsync(
+            "class C { int M(int x) { switch (x) { case 1: M(0); return 1; case 2: return 2; case 3: return 1; {|SST2414:case 4:|} return 1; } return 0; } }",
+            "class C { int M(int x) { switch (x) { case 1: M(0); return 1; case 2: return 2; case 3: case 4: return 1; } return 0; } }");
 
     /// <summary>Verifies two switch sections with the same body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -454,4 +557,22 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
                 private static int B() => 2;
             }
             """);
+
+    /// <summary>Checks that registration offers nothing and a batch edit retains the original syntax.</summary>
+    /// <param name="document">The document containing the stale diagnostic.</param>
+    /// <param name="location">The diagnostic location.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    private static async Task VerifyNoFixAsync(Document document, Location location)
+    {
+        var root = (await document.GetSyntaxRootAsync())!;
+        var diagnostic = Diagnostic.Create(CorrectnessRules.DuplicateBranchImplementation, location);
+        using var container = new ContainerConfiguration().WithPart<Sst2414DuplicateBranchImplementationCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        BatchEditRegistration.Register<Sst2414DuplicateBranchImplementationCodeFixProvider>(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(root.ToFullString());
+    }
 }

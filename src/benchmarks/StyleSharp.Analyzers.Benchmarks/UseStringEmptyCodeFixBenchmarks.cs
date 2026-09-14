@@ -7,6 +7,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the string-empty code-fix path.</summary>
@@ -27,8 +29,8 @@ public class UseStringEmptyCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative string literal passed to the code fix.</summary>
-    private LiteralExpressionSyntax _literal = null!;
+    /// <summary>The representative diagnostic on a string literal passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -46,7 +48,8 @@ public class UseStringEmptyCodeFixBenchmarks : IDisposable
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, SemanticTypeBenchmarkSource.GenerateUseStringEmpty(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _literal = (LiteralExpressionSyntax)method.ExpressionBody!.Expression;
+        var literal = (LiteralExpressionSyntax)method.ExpressionBody!.Expression;
+        _diagnostic = Diagnostic.Create(ReadabilityRules.UseStringEmpty, literal.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -66,7 +69,7 @@ public class UseStringEmptyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseStringEmpty_ApplyFixAsync()
     {
-        var updated = Sst1122UseStringEmptyCodeFixProvider.Replace(_document, _root, _literal);
+        var updated = TargetCodeFix.Apply(_document, _root, ReportedNode.Find<LiteralExpressionSyntax>(_root, _diagnostic)!, Sst1122UseStringEmptyCodeFixProvider.CreateStringEmpty);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

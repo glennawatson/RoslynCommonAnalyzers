@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1002 — a password-based key-derivation call is given a constant or predictable salt.</summary>
-    public static readonly DiagnosticDescriptor ConstantKdfSalt = Create(
+    public static readonly DiagnosticDescriptor ConstantKdfSalt = DescriptorFactory.Create(
         "SES1002",
         "Password-based key derivation must not use a constant or predictable salt",
         "The salt passed to {0} is a fixed value; a predictable salt lets an attacker precompute a rainbow table and defeats the per-secret uniqueness a salt exists to provide",

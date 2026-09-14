@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -17,8 +16,11 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(TokenLineBreakCodeFixProvider))]
 [Shared]
-public sealed class TokenLineBreakCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class TokenLineBreakCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(TryAppendChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.BinaryOperatorNewLine.Id,
@@ -26,16 +28,11 @@ public sealed class TokenLineBreakCodeFixProvider : CodeFixProvider, ITextChange
         LayoutRules.EqualsTokenNewLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(TokenLineBreakCodeFixProvider), TryAppendChanges);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
-        TryAppendChanges(text, root, diagnostic, changes);
 
     /// <summary>Appends the break-moving changes when the token carries exactly one break on the wrong side.</summary>
     /// <param name="text">The source text.</param>

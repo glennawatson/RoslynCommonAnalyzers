@@ -155,23 +155,19 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
 
         if (variable.Initializer is { } initializer)
         {
-            updated = updated.WithInitializer(initializer).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+            updated = updated.Update(
+                updated.AttributeLists,
+                updated.Modifiers,
+                updated.Type,
+                updated.ExplicitInterfaceSpecifier,
+                updated.Identifier,
+                updated.AccessorList,
+                updated.ExpressionBody,
+                initializer,
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken));
         }
 
-        var annotation = new SyntaxAnnotation();
-        updated = updated.WithAdditionalAnnotations(annotation);
-        var changed = root.TrackNodes(property, field);
-        var trackedProperty = changed.GetCurrentNode(property)!;
-        changed = changed.ReplaceNode(trackedProperty, updated);
-        var trackedField = changed.GetCurrentNode(field)!;
-        changed = changed.RemoveNode(trackedField, SyntaxRemoveOptions.KeepNoTrivia)!;
-        var currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
-        var previousToken = currentProperty.GetFirstToken().GetPreviousToken();
-        var leadingTrivia = previousToken.TrailingTrivia.AddRange(currentProperty.GetLeadingTrivia());
-        changed = changed.ReplaceToken(previousToken, previousToken.WithTrailingTrivia(default(SyntaxTriviaList)));
-        currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
-        var normalizedProperty = currentProperty.WithLeadingTrivia(CodeFixTriviaHelper.CollapseLeadingBlankLine(leadingTrivia));
-        return changed.ReplaceNode(currentProperty, normalizedProperty);
+        return CodeFixTriviaHelper.ReplacePropertyRemovingField(root, property, updated, field);
     }
 
     /// <summary>Creates the backing-field expression supported by the current Roslyn slot.</summary>

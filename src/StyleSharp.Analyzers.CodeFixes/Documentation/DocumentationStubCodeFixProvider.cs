@@ -98,17 +98,46 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
             return false;
         }
 
-        var elementName = element.Substring(1, nameEnd - 1);
+        var elementName = element.AsSpan(1, nameEnd - 1);
         var attributeStart = element.IndexOf(NameAttributePrefix, StringComparison.Ordinal);
-        if (attributeStart < 0)
+        ReadOnlySpan<char> nameAttribute = default;
+        if (attributeStart >= 0)
         {
-            return XmlDocumentationHelper.FindElement(documentation, elementName) is not null;
+            attributeStart += NameAttributePrefix.Length;
+            var attributeEnd = element.IndexOf('"', attributeStart);
+            if (attributeEnd < 0)
+            {
+                return false;
+            }
+
+            nameAttribute = element.AsSpan(attributeStart, attributeEnd - attributeStart);
         }
 
-        attributeStart += NameAttributePrefix.Length;
-        var attributeEnd = element.IndexOf('"', attributeStart);
-        return attributeEnd >= 0
-            && XmlDocumentationHelper.FindNamedElement(documentation, elementName, element.Substring(attributeStart, attributeEnd - attributeStart)) is not null;
+        foreach (var node in documentation.Content)
+        {
+            if (XmlDocumentationHelper.GetElementName(node) is not { } name
+                || !elementName.SequenceEqual(name.AsSpan()))
+            {
+                continue;
+            }
+
+            if (attributeStart < 0 || HasNameAttribute(node, nameAttribute))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Compares a present name attribute with the requested value without copying it.</summary>
+    /// <param name="node">The documentation element.</param>
+    /// <param name="expected">The requested name attribute value.</param>
+    /// <returns>Whether the attribute is present and matches the value ordinally.</returns>
+    private static bool HasNameAttribute(XmlNodeSyntax node, ReadOnlySpan<char> expected)
+    {
+        var name = XmlDocumentationHelper.NameAttribute(node);
+        return name is not null && expected.SequenceEqual(name.AsSpan());
     }
 
     /// <summary>Registers the appropriate stub fix for one diagnostic.</summary>

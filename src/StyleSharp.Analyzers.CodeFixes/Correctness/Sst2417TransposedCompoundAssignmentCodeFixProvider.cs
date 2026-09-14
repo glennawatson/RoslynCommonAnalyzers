@@ -65,9 +65,10 @@ public sealed class Sst2417TransposedCompoundAssignmentCodeFixProvider : CodeFix
         PrefixUnaryExpressionSyntax prefix,
         Diagnostic diagnostic)
     {
-        var rewritten = assignment
-            .WithOperatorToken(assignment.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space))
-            .WithRight(prefix.WithOperatorToken(prefix.OperatorToken.WithTrailingTrivia()));
+        var rewritten = assignment.Update(
+            assignment.Left,
+            assignment.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space),
+            prefix.WithOperatorToken(prefix.OperatorToken.WithTrailingTrivia()));
         context.RegisterCodeFix(
             CodeAction.Create(
                 $"Assign the unary value ('= {prefix.OperatorToken.Text}')",
@@ -95,24 +96,24 @@ public sealed class Sst2417TransposedCompoundAssignmentCodeFixProvider : CodeFix
             return;
         }
 
-        var (compoundKind, tokenKind) = compound.Value;
+        var (compoundKind, tokenKind, text) = compound.Value;
         var operatorToken = SyntaxFactory.Token(assignment.OperatorToken.LeadingTrivia, tokenKind, prefix.OperatorToken.TrailingTrivia);
         var rewritten = SyntaxFactory.AssignmentExpression(compoundKind, assignment.Left, operatorToken, prefix.Operand);
         context.RegisterCodeFix(
             CodeAction.Create(
-                $"Use the compound operator ('{prefix.OperatorToken.Text}=')",
+                $"Use the compound operator ('{text}')",
                 _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(assignment, rewritten))),
                 CompoundKey),
             diagnostic);
     }
 
-    /// <summary>Maps a unary operator to its compound-assignment kind and token, when one exists.</summary>
+    /// <summary>Maps a unary operator to its compound-assignment form, when one exists.</summary>
     /// <param name="unaryKind">The unary expression kind.</param>
-    /// <returns>The compound kind and token, or <see langword="null"/> for <c>!</c>.</returns>
-    private static (SyntaxKind CompoundKind, SyntaxKind TokenKind)? Compound(SyntaxKind unaryKind) => unaryKind switch
+    /// <returns>The compound-assignment form, or <see langword="null"/> for <c>!</c>.</returns>
+    private static OperatorForm? Compound(SyntaxKind unaryKind) => unaryKind switch
     {
-        SyntaxKind.UnaryPlusExpression => (SyntaxKind.AddAssignmentExpression, SyntaxKind.PlusEqualsToken),
-        SyntaxKind.UnaryMinusExpression => (SyntaxKind.SubtractAssignmentExpression, SyntaxKind.MinusEqualsToken),
+        SyntaxKind.UnaryPlusExpression => new OperatorForm(SyntaxKind.AddAssignmentExpression, SyntaxKind.PlusEqualsToken, "+="),
+        SyntaxKind.UnaryMinusExpression => new OperatorForm(SyntaxKind.SubtractAssignmentExpression, SyntaxKind.MinusEqualsToken, "-="),
         _ => null,
     };
 }

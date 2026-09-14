@@ -91,18 +91,9 @@ public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyz
         var sections = switchStatement.Sections;
         for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
         {
-            if (sections[sectionIndex].Statements.Count == 0)
+            if (sections[sectionIndex].Statements.Count == 0 || SwitchLabels.ContainsDefault(sections[sectionIndex].Labels))
             {
                 return true;
-            }
-
-            var labels = sections[sectionIndex].Labels;
-            for (var labelIndex = 0; labelIndex < labels.Count; labelIndex++)
-            {
-                if (labels[labelIndex].IsKind(SyntaxKind.DefaultSwitchLabel))
-                {
-                    return true;
-                }
             }
         }
 

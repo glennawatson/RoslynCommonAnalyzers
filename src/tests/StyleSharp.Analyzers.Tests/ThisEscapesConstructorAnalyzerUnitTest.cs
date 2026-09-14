@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyThisEscapes = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2403ThisEscapesConstructorAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -10,6 +11,53 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2403 (a half-built instance escaping its own constructor).</summary>
 public class ThisEscapesConstructorAnalyzerUnitTest
 {
+    /// <summary>Checks static and bodyless constructors have no instance escape scan.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ConstructorsWithoutInstanceBodiesAreCleanAsync() =>
+        new VerifyThisEscapes.Test { TestCode = "class C { static C() {} public extern C(); }", CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Checks constructor expression shapes and external stores independently.</summary>
+    /// <param name="body">The constructor body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("_ = this[0]; _ = this?.ToString();")]
+    [Arguments("other.Value = {|SST2403:this|};")]
+    [Arguments("array[0] = this;")]
+    [Arguments("other = this;")]
+    [Arguments("callback -= () => this.ToString();")]
+    [Arguments("void Local() { this.ToString(); } Local();")]
+    [Arguments("object Local() => this; _ = Local();")]
+    [Arguments("this.Value = Make(this);")]
+    [Arguments("var value = new State({|SST2403:this|});")]
+    [Arguments("other.State = new State({|SST2403:this|});")]
+    [Arguments("this.State = new State(this);")]
+    [Arguments("StateProperty = new State({|SST2403:this|});")]
+    [Arguments("Action local = () => this.ToString();")]
+    [Arguments("Use({|SST2403:delegate { this.ToString(); }|});")]
+    [Arguments("Use({|SST2403:() => { Action inner = () => this.ToString(); inner(); }|});")]
+    [Arguments("other?.Take({|SST2403:this|});")]
+    [Arguments("((Action<object>)other.Take)({|SST2403:this|});")]
+    public Task ConstructorStoresAndClosuresRespectCurrentEscapeRulesAsync(string body) =>
+        VerifyThisEscapes.VerifyAnalyzerAsync($$"""
+            using System;
+            class C
+            {
+                public object Value;
+                public State State;
+                public State StateProperty { get; set; }
+                public object this[int index] => null;
+                Action callback;
+                public C(C other, object[] array) { {{body}} }
+                static object Make(object value) => value;
+                static void Use(Action action) {}
+                public void Take(object value) {}
+            }
+            struct State { public State(object value) {} }
+            """);
+
     /// <summary>Verifies handing the object to somebody else as an argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

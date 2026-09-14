@@ -10,44 +10,57 @@ using Microsoft.CodeAnalysis.CodeFixes;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// A <see cref="FixAllProvider"/> for fixes whose change is at the solution level — adding or
-/// renaming documents — which <see cref="WellKnownFixAllProviders.BatchFixer"/> (text-edit merging
-/// only) cannot carry. It groups the diagnostics in the requested scope by document and applies the
-/// per-document fix to the evolving solution one document at a time, so each fix sees the result of
-/// the previous one (and a document already removed by an earlier linked-file fix is skipped).
-/// </summary>
-internal abstract class DocumentDiagnosticFixAllProvider : FixAllProvider
+/// <summary>Fixes a Fix All scope one document at a time against the evolving solution, for fixes that add, remove or rename documents.</summary>
+internal sealed class DocumentDiagnosticFixAllProvider : FixAllProvider
 {
-    /// <summary>Gets the title shown for the Fix All code action.</summary>
-    protected abstract string Title { get; }
+    /// <summary>The title shown for the Fix All code action.</summary>
+    private readonly string _title;
+
+    /// <summary>Applies the fix for every diagnostic reported in one document.</summary>
+    private readonly Func<Solution, Document, ImmutableArray<Diagnostic>, CancellationToken, Task<Solution>> _fixDocumentAsync;
+
+    /// <summary>Initializes a new instance of the <see cref="DocumentDiagnosticFixAllProvider"/> class.</summary>
+    /// <param name="title">The title shown for the Fix All code action.</param>
+    /// <param name="fixDocumentAsync">Applies the fix for every diagnostic reported in one document and returns the updated solution.</param>
+    internal DocumentDiagnosticFixAllProvider(string title, Func<Solution, Document, ImmutableArray<Diagnostic>, CancellationToken, Task<Solution>> fixDocumentAsync)
+    {
+        _title = title;
+        _fixDocumentAsync = fixDocumentAsync;
+    }
 
     /// <inheritdoc/>
-    public sealed override async Task<CodeAction?> GetFixAsync(FixAllContext fixAllContext)
+    public override async Task<CodeAction?> GetFixAsync(FixAllContext fixAllContext)
     {
         var documents = await CollectAsync(fixAllContext).ConfigureAwait(false);
         return documents.Count == 0
             ? null
             : CodeAction.Create(
-                Title,
+                _title,
                 cancellationToken => ApplyAsync(fixAllContext.Solution, documents, cancellationToken),
-                equivalenceKey: fixAllContext.CodeActionEquivalenceKey ?? Title);
+                equivalenceKey: fixAllContext.CodeActionEquivalenceKey ?? _title);
     }
-
-    /// <summary>Applies the fix for every diagnostic reported in one document to the evolving solution.</summary>
-    /// <param name="solution">The current (evolving) solution.</param>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="diagnostics">The diagnostics reported in that document.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated solution.</returns>
-    protected abstract Task<Solution> FixDocumentAsync(Solution solution, Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellationToken);
 
     /// <summary>Collects the diagnostics in the Fix All scope, grouped by the document that reported them.</summary>
     /// <param name="fixAllContext">The Fix All context.</param>
     /// <returns>One entry per document that has at least one diagnostic.</returns>
     private static async Task<List<DocumentDiagnostics>> CollectAsync(FixAllContext fixAllContext)
     {
-        var result = new List<DocumentDiagnostics>();
+        var capacity = fixAllContext.Scope switch
+        {
+            FixAllScope.Document => 1,
+            FixAllScope.Project => fixAllContext.Project.DocumentIds.Count,
+            _ => 0
+        };
+
+        if (fixAllContext.Scope == FixAllScope.Solution)
+        {
+            foreach (var project in fixAllContext.Solution.Projects)
+            {
+                capacity += project.DocumentIds.Count;
+            }
+        }
+
+        var result = new List<DocumentDiagnostics>(capacity);
         switch (fixAllContext.Scope)
         {
             case FixAllScope.Document when fixAllContext.Document is { } document:
@@ -123,7 +136,7 @@ internal abstract class DocumentDiagnosticFixAllProvider : FixAllProvider
             // A null document means an earlier fix on a linked copy of the same physical file handled it.
             if (document is not null)
             {
-                solution = await FixDocumentAsync(solution, document, entry.Diagnostics, cancellationToken).ConfigureAwait(false);
+                solution = await _fixDocumentAsync(solution, document, entry.Diagnostics, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -131,7 +144,7 @@ internal abstract class DocumentDiagnosticFixAllProvider : FixAllProvider
     }
 
     /// <summary>One document and the diagnostics reported in it.</summary>
-    /// <param name="DocumentId">The document's id (resolved against the evolving solution at apply time).</param>
+    /// <param name="DocumentId">The document's id, resolved against the evolving solution at apply time.</param>
     /// <param name="Diagnostics">The diagnostics reported in the document.</param>
     private readonly record struct DocumentDiagnostics(DocumentId DocumentId, ImmutableArray<Diagnostic> Diagnostics);
 }

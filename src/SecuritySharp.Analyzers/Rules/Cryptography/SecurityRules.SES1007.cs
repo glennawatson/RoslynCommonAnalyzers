@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1007 — a cryptographic primitive is implemented by hand by deriving from an abstract primitive base.</summary>
-    public static readonly DiagnosticDescriptor HomeRolledCryptography = Create(
+    public static readonly DiagnosticDescriptor HomeRolledCryptography = DescriptorFactory.Create(
         "SES1007",
         "Do not hand-implement a cryptographic primitive",
         "'{0}' derives from the abstract cryptographic base '{1}' and supplies a primitive by hand; use a platform-provided algorithm instead of rolling your own",

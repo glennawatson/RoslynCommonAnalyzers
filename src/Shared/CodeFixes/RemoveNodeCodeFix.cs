@@ -9,37 +9,14 @@ using Microsoft.CodeAnalysis.Editing;
 
 namespace RoslynCommon.Analyzers.CodeFixes;
 
-/// <summary>
-/// Runs the registration skeleton shared by every code fix whose edit is "delete this node": resolve
-/// the syntax root (and semantic model when the selector needs one), re-derive the node from each
-/// diagnostic, and register one code action that drops it — with a matching batch entry point for
-/// <see cref="BatchEditFixAllProvider"/>. Providers keep only their shape re-validation.
-/// </summary>
-/// <remarks>
-/// The replacement sibling is <see cref="ReplaceNodeCodeFix"/>; a deletion cannot go through it because
-/// there is no replacement node to swap in and the removal options travel with the edit.
-/// </remarks>
+/// <summary>Registers and batch-applies code fixes whose edit deletes one node per diagnostic.</summary>
 internal static class RemoveNodeCodeFix
 {
-    /// <summary>Resolves the node a diagnostic asks to delete.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
-    internal delegate NodeRemoval? NodeSelector(SyntaxNode root, Diagnostic diagnostic);
-
-    /// <summary>Resolves the node a diagnostic asks to delete, with semantic model access.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="model">The semantic model for the document.</param>
-    /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
-    internal delegate NodeRemoval? SemanticNodeSelector(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
-
     /// <summary>Selects the reported node itself when it is of the expected kind.</summary>
     /// <typeparam name="T">The node type the diagnostic reports.</typeparam>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
-    /// <remarks>Pass this as the selector when the diagnostic is reported on the node being deleted.</remarks>
     internal static NodeRemoval? Node<T>(SyntaxNode root, Diagnostic diagnostic)
         where T : SyntaxNode =>
         root.FindNode(diagnostic.Location.SourceSpan) is T node ? new NodeRemoval(node) : null;
@@ -49,10 +26,6 @@ internal static class RemoveNodeCodeFix
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
-    /// <remarks>
-    /// Pass this as the selector when the diagnostic lands on a name or modifier inside the declaration
-    /// that is actually being deleted.
-    /// </remarks>
     internal static NodeRemoval? Ancestor<T>(SyntaxNode root, Diagnostic diagnostic)
         where T : SyntaxNode =>
         root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<T>() is { } node
@@ -63,9 +36,9 @@ internal static class RemoveNodeCodeFix
     /// <param name="context">The code fix context.</param>
     /// <param name="title">The code action title.</param>
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
-    /// <param name="trySelect">The provider's node resolution.</param>
+    /// <param name="trySelect">Resolves the node to remove, or <see langword="null"/> when the shape no longer matches.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, NodeSelector trySelect)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, Func<SyntaxNode, Diagnostic, NodeRemoval?> trySelect)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
@@ -88,9 +61,9 @@ internal static class RemoveNodeCodeFix
     /// <param name="context">The code fix context.</param>
     /// <param name="title">The code action title.</param>
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
-    /// <param name="trySelect">The provider's node resolution.</param>
+    /// <param name="trySelect">Resolves the node to remove, or <see langword="null"/> when the shape no longer matches.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticNodeSelector trySelect)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, Func<SyntaxNode, SemanticModel, Diagnostic, NodeRemoval?> trySelect)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
@@ -113,8 +86,8 @@ internal static class RemoveNodeCodeFix
     /// <summary>Applies one diagnostic's removal inside a batch fix-all edit.</summary>
     /// <param name="editor">The document editor.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="trySelect">The provider's node resolution.</param>
-    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, NodeSelector trySelect)
+    /// <param name="trySelect">Resolves the node to remove.</param>
+    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, Func<SyntaxNode, Diagnostic, NodeRemoval?> trySelect)
     {
         if (trySelect(editor.OriginalRoot, diagnostic) is not { } removal)
         {
@@ -127,8 +100,8 @@ internal static class RemoveNodeCodeFix
     /// <summary>Applies one diagnostic's removal inside a batch fix-all edit, with semantic model access.</summary>
     /// <param name="editor">The document editor.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="trySelect">The provider's node resolution.</param>
-    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SemanticNodeSelector trySelect)
+    /// <param name="trySelect">Resolves the node to remove.</param>
+    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, Func<SyntaxNode, SemanticModel, Diagnostic, NodeRemoval?> trySelect)
     {
         if (trySelect(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } removal)
         {
@@ -145,10 +118,6 @@ internal static class RemoveNodeCodeFix
     /// <param name="title">The code action title.</param>
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="diagnostic">The diagnostic being fixed.</param>
-    /// <remarks>
-    /// Removing every node from a root is not something a fix does, but the API allows it, so an empty
-    /// result leaves the document untouched rather than throwing at the user.
-    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void RegisterRemoval(
         CodeFixContext context,
@@ -156,7 +125,9 @@ internal static class RemoveNodeCodeFix
         NodeRemoval removal,
         string title,
         string equivalenceKey,
-        Diagnostic diagnostic) =>
+        Diagnostic diagnostic)
+    {
+        // RemoveNode returns null only when the whole root would go; leave the document untouched then.
         context.RegisterCodeFix(
             CodeAction.Create(
                 title,
@@ -166,4 +137,5 @@ internal static class RemoveNodeCodeFix
                         : context.Document),
                 equivalenceKey),
             diagnostic);
+    }
 }

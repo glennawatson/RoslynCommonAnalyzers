@@ -15,9 +15,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on at least one test framework's <c>Assert</c> type resolving —
+/// The rule resolves test framework <c>Assert</c> types only after a syntactic candidate is found —
 /// <c>Xunit.Assert</c>, <c>NUnit.Framework.Assert</c>, <c>NUnit.Framework.Legacy.ClassicAssert</c>, or the MSTest
-/// <c>Assert</c>. A project that references none registers no callback and pays nothing.
+/// <c>Assert</c>. The result is cached for the compilation, including when no framework is present.
 /// </para>
 /// <para>
 /// The clean path is syntax only. Every invocation is seen, but all but the equality/identity assertion names are
@@ -82,45 +82,17 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Resolves the framework <c>Assert</c> types once, then analyzes each invocation when at least one is present.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        var names = AssertionHostMetadataNames;
-        var resolved = new INamedTypeSymbol[names.Length];
-        var count = 0;
-        for (var i = 0; i < names.Length; i++)
-        {
-            if (context.Compilation.GetTypeByMetadataName(names[i]) is not { } type)
-            {
-                continue;
-            }
-
-            resolved[count] = type;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return;
-        }
-
-        var hosts = new INamedTypeSymbol[count];
-        for (var i = 0; i < count; i++)
-        {
-            hosts[i] = resolved[i];
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, hosts), SyntaxKind.InvocationExpression);
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypeSet(compilation, AssertionHostMetadataNames),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Analyzes one invocation for a self-comparing assertion.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="hosts">The resolved framework <c>Assert</c> types.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] hosts)
+    /// <param name="hosts">The lazily resolved framework <c>Assert</c> types.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSet hosts)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var shape = Classify(GetInvokedSimpleName(invocation.Expression));
@@ -135,8 +107,10 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsAssertionHost(method.ContainingType, hosts))
+        var resolvedHosts = hosts.Get();
+        if (resolvedHosts.Length == 0
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !TypeRelations.IsOneOf(method.ContainingType, resolvedHosts))
         {
             return;
         }
@@ -259,32 +233,8 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an operand is provably value-stable, so comparing it with itself is guaranteed regardless of value.</summary>
     /// <param name="operand">The operand to classify.</param>
     /// <returns><see langword="false"/> when the operand or any descendant can have a side effect or vary between evaluations.</returns>
-    private static bool IsStableOperand(ExpressionSyntax operand)
-    {
-        if (IsVolatileNode(operand))
-        {
-            return false;
-        }
-
-        StabilityScan scan = default;
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, StabilityScan>(operand, ref scan, VisitForVolatility);
-        return !scan.FoundVolatile;
-    }
-
-    /// <summary>Records the first side-effecting or non-deterministic descendant and stops the walk.</summary>
-    /// <param name="node">The node being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once such a node is found, which stops the walk.</returns>
-    private static bool VisitForVolatility(SyntaxNode node, ref StabilityScan scan)
-    {
-        if (!IsVolatileNode(node))
-        {
-            return true;
-        }
-
-        scan.FoundVolatile = true;
-        return false;
-    }
+    private static bool IsStableOperand(ExpressionSyntax operand) =>
+        !IsVolatileNode(operand) && DescendantTraversalHelper.VisitDescendants<SyntaxNode>(operand, static node => !IsVolatileNode(node));
 
     /// <summary>Returns whether a node can have a side effect or evaluate to a different value on a second read.</summary>
     /// <param name="node">The node to classify.</param>
@@ -336,28 +286,4 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <returns>The negated tail for a negated assertion; otherwise the positive tail.</returns>
     private static string Consequence(AssertionShape shape) =>
         shape == AssertionShape.NegativeEquality ? NegativeConsequence : PositiveConsequence;
-
-    /// <summary>Returns whether a bound method's containing type is one of the resolved framework <c>Assert</c> types.</summary>
-    /// <param name="containingType">The bound method's containing type.</param>
-    /// <param name="hosts">The resolved framework <c>Assert</c> types.</param>
-    /// <returns><see langword="true"/> when the call belongs to a framework <c>Assert</c>.</returns>
-    private static bool IsAssertionHost(INamedTypeSymbol containingType, INamedTypeSymbol[] hosts)
-    {
-        for (var i = 0; i < hosts.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(containingType, hosts[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>The state threaded through an operand's stability scan.</summary>
-    private record struct StabilityScan
-    {
-        /// <summary>Gets or sets a value indicating whether a side-effecting or non-deterministic node was found.</summary>
-        public bool FoundVolatile { get; set; }
-    }
 }

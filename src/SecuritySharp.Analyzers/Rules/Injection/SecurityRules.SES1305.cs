@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1305 — an uploaded file name is used to build a storage path.</summary>
-    public static readonly DiagnosticDescriptor UploadFilenameInPath = Create(
+    public static readonly DiagnosticDescriptor UploadFilenameInPath = DescriptorFactory.Create(
         "SES1305",
         "Do not build a storage path from an uploaded file name",
         UploadFilenameInPathMessage,

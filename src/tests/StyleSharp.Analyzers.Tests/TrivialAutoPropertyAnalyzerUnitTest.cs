@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using VerifyAutoProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -14,6 +15,131 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1420 (use an auto-property for trivial accessors).</summary>
 public class TrivialAutoPropertyAnalyzerUnitTest
 {
+    /// <summary>The field name used by the accessor checks.</summary>
+    private const string BackingFieldName = "_value";
+
+    /// <summary>Verifies semantic accessor checks reject nontrivial bodies and different field symbols.</summary>
+    /// <param name="propertyText">The property whose accessor semantics are inspected.</param>
+    /// <param name="expected">Whether every accessor directly uses the selected backing field.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int Value => _value;", true)]
+    [Arguments("int Value => this._value;", true)]
+    [Arguments("int Value => _other;", false)]
+    [Arguments("int Value => 1;", false)]
+    [Arguments("int Value { }", false)]
+    [Arguments("int Value { get; set; }", false)]
+    [Arguments("int Value { get => _value; set; }", false)]
+    [Arguments("int Value { get { return _value; } set { _value = value; } }", true)]
+    [Arguments("int Value { get => _value; init => _value = value; }", true)]
+    [Arguments("int Value { get => _other; set => _value = value; }", false)]
+    [Arguments("int Value { get => _value; set => _other = value; }", false)]
+    [Arguments("int Value { get => _value; set => _value = 1; }", false)]
+    [Arguments("int Value { get => _value; set => _value = _other; }", false)]
+    [Arguments("int Value { get => _value; set { } }", false)]
+    [Arguments("int Value { get => _value; set { M(); } }", false)]
+    [Arguments("int Value { get => _value; set { M(); _value = value; } }", false)]
+    [Arguments("int Value { get { M(); return _value; } }", false)]
+    [Arguments("int Value { get { M(); } }", false)]
+    [Arguments("int Value { get { return; } }", false)]
+    [Arguments("int Value { get => _value; set { return; } }", false)]
+    [Arguments("int Value { get => _value; set => this._value = value; }", true)]
+    [Arguments("int Value { get => _value; set => other._value = value; }", true)]
+    public async Task SemanticAccessorsMatchTheBackingFieldAsync(string propertyText, bool expected)
+    {
+        var (root, model) = SemanticModelFactory.Create($"class C {{ int _value; int _other; C other; void M() {{ }} {propertyText} }}");
+        var property = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var variable = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+        var field = (IFieldSymbol)model.GetDeclaredSymbol(variable)!;
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.HasOnlyTrivialAccessors(model, property, field, CancellationToken.None)).IsEqualTo(expected);
+        var namedExpected = expected && !propertyText.Contains("other._value", StringComparison.Ordinal);
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.HasOnlyTrivialAccessors(model, property, field, BackingFieldName, CancellationToken.None)).IsEqualTo(namedExpected);
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.HasOnlyTrivialAccessors(model, property, field, "missing", CancellationToken.None)).IsFalse();
+    }
+
+    /// <summary>Verifies matching identifier text cannot substitute for the required field symbol.</summary>
+    /// <param name="propertyText">The property referring to a different field from the supplied symbol.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int Value => _value;")]
+    [Arguments("int Value { get => _value; }")]
+    [Arguments("int Value { set => _value = value; }")]
+    public async Task MatchingNameStillRequiresMatchingSymbolAsync(string propertyText)
+    {
+        var (root, model) = SemanticModelFactory.Create($"class C {{ int _other; int _value; {propertyText} }}");
+        var property = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var variable = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
+        var field = (IFieldSymbol)model.GetDeclaredSymbol(variable)!;
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.HasOnlyTrivialAccessors(model, property, field, BackingFieldName, CancellationToken.None)).IsFalse();
+    }
+
+    /// <summary>Verifies escaped identifiers, block accessors, and nullable generic fields are recognized.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EscapedGenericBackingFieldIsReportedAsync() =>
+        VerifyAutoProperty.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            class C<T> where T : class
+            {
+                private T? @event;
+                public T? {|SST1420:Value|} { get { return this.@event; } set { this.@event = value; } }
+            }
+            """);
+
+    /// <summary>Verifies incomplete and unsupported accessor shapes fail the syntax prepass.</summary>
+    /// <param name="propertyText">The property syntax to inspect.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int Value { }")]
+    [Arguments("int Value { get; set; }")]
+    [Arguments("int Value { get => _value; set; }")]
+    [Arguments("int Value { get { return; } }")]
+    [Arguments("int Value { get => _value; set => _value = other; }")]
+    [Arguments("int Value { get => _value; set { _value = 1; } }")]
+    [Arguments("int Value { get => _value; set { M(); } }")]
+    [Arguments("int Value { get => _value; set { M(); _value = value; } }")]
+    [Arguments("int Value => other._value;")]
+    [Arguments("int Value => this._value<int>;")]
+    [Arguments("int Value => 1;")]
+    public async Task UnsupportedPropertySyntaxIsRejectedAsync(string propertyText)
+    {
+        var property = ParseProperty($"class C {{ {propertyText} }}");
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out _)).IsFalse();
+    }
+
+    /// <summary>Verifies an event accessor accidentally supplied as a property accessor is rejected.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnsupportedAccessorKindIsRejectedAsync()
+    {
+        var property = ParseProperty("class C { int Value { get => _value; } }");
+        property = property.WithAccessorList(SyntaxFactory.AccessorList(SyntaxFactory.SingletonList(SyntaxFactory.AccessorDeclaration(SyntaxKind.AddAccessorDeclaration))));
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out _)).IsFalse();
+    }
+
+    /// <summary>Verifies init accessors share the same syntactic backing-field check as setters.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task SyntaxPrepassRecognizesInitAccessorAsync()
+    {
+        var property = ParseProperty("class C { int Value { get => _value; init => _value = value; } }");
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)).IsTrue();
+        await Assert.That(fieldName).IsEqualTo(BackingFieldName);
+    }
+
+    /// <summary>Verifies missing identifier tokens yield an empty name for subsequent field resolution.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingIdentifierProducesEmptyFieldNameAsync()
+    {
+        var property = ParseProperty("class C { int Value => _value; }");
+        property = property.WithExpressionBody(SyntaxFactory.ArrowExpressionClause(SyntaxFactory.IdentifierName(SyntaxFactory.MissingToken(SyntaxKind.IdentifierToken))));
+        await Assert.That(Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)).IsTrue();
+        await Assert.That(fieldName).IsEqualTo(string.Empty);
+    }
+
     /// <summary>Verifies a type carrying a region is reported but keeps its backing field.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
@@ -245,7 +371,7 @@ public class TrivialAutoPropertyAnalyzerUnitTest
         var success = Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName);
 
         await Assert.That(success).IsTrue();
-        await Assert.That(fieldName).IsEqualTo("_value");
+        await Assert.That(fieldName).IsEqualTo(BackingFieldName);
     }
 
     /// <summary>Verifies the syntax prepass rejects accessors that do not consistently target the same field.</summary>

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,22 +11,29 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2262UseRegularStringLiteralCodeFixProvider))]
 [Shared]
-public sealed class Sst2262UseRegularStringLiteralCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2262UseRegularStringLiteralCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UseRegularStringLiteral.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use a regular string literal", nameof(Sst2262UseRegularStringLiteralCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a regular string literal", nameof(Sst2262UseRegularStringLiteralCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is LiteralExpressionSyntax literal
+            && literal.Token.IsKind(SyntaxKind.SingleLineRawStringLiteralToken)
+            && Sst2262UseRegularStringLiteralAnalyzer.IsPlainContent(literal.Token.ValueText);
 
     /// <summary>Resolves the reported raw string literal and rewrites it to a regular literal.</summary>
     /// <param name="root">The syntax root.</param>
@@ -43,9 +48,13 @@ public sealed class Sst2262UseRegularStringLiteralCodeFixProvider : CodeFixProvi
             return null;
         }
 
-        var replacement = SyntaxFactory
-            .LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(literal.Token.ValueText))
-            .WithTriviaFrom(literal);
+        var replacement = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                SymbolDisplay.FormatLiteral(literal.Token.ValueText, quote: true),
+                literal.Token.ValueText,
+                literal.GetTrailingTrivia()));
 
         return new NodeReplacement(literal, replacement);
     }

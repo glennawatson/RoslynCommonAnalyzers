@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -13,22 +12,20 @@ namespace StyleSharp.Analyzers;
 /// <summary>Moves a wrapped call-chain link's line break to the configured side (SST1529).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1529NullConditionalNewLineCodeFixProvider))]
 [Shared]
-public sealed class Sst1529NullConditionalNewLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1529NullConditionalNewLineCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(TryAppendChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.NullConditionalNewLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(Sst1529NullConditionalNewLineCodeFixProvider), TryAppendChanges);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
-        TryAppendChanges(text, root, diagnostic, changes);
 
     /// <summary>Appends the changes that move a wrapped chain link's break to the configured side.</summary>
     /// <param name="text">The source text.</param>

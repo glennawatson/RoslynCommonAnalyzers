@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -17,65 +15,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1660ParameterDocumentationOrderCodeFixProvider))]
 [Shared]
-public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(BuildChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DocumentationRules.ParameterDocumentationOrder.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var changes = new List<TextChange>();
-            BuildChanges(text, root, diagnostic, changes);
-            if (changes.Count == 0)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Order <param> elements to match the parameters",
-                    cancellationToken => ReorderAsync(context.Document, changes, cancellationToken),
-                    equivalenceKey: nameof(Sst1660ParameterDocumentationOrderCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
-        BuildChanges(text, root, diagnostic, changes);
-
-    /// <summary>Applies the reordering text changes to the document.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="changes">The reordering text changes.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> ReorderAsync(Document document, List<TextChange> changes, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithText(text.WithChanges(changes));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            nameof(Sst1660ParameterDocumentationOrderCodeFixProvider),
+            BuildChanges);
 
     /// <summary>Computes the changes that swap each <c>&lt;param&gt;</c> element's text into its declaration-order slot.</summary>
     /// <param name="text">The document's source text.</param>
     /// <param name="root">The document's syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <param name="changes">The accumulating list of text changes.</param>
-    private static void BuildChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    internal static void BuildChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
         if (node.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>() is not { } documentation
@@ -111,6 +76,20 @@ public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixP
                 changes.Add(new(elements[slot].Span, text.ToString(elements[sourceIndex].Span)));
             }
         }
+    }
+
+    /// <summary>Words the action when the reported documentation's parameter elements can be reordered.</summary>
+    /// <param name="text">The document's source text.</param>
+    /// <param name="root">The document's syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when no reorder applies.</returns>
+    private static string? TryCreateTitle(SourceText text, SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
+        var capacity = XmlDocumentationHelper.DocumentedMember(node) is { } member ? DocumentedParameterList.Of(member).Count : 0;
+        var changes = new List<TextChange>(capacity);
+        BuildChanges(text, root, diagnostic, changes);
+        return changes.Count == 0 ? null : "Order <param> elements to match the parameters";
     }
 
     /// <summary>Collects the <c>&lt;param&gt;</c> elements and their names in document order.</summary>

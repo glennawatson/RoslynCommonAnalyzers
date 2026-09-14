@@ -7,58 +7,27 @@ namespace StyleSharp.Analyzers;
 /// <summary>Removes a self-assignment statement (SST1189).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SelfAssignmentCodeFixProvider))]
 [Shared]
-public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class SelfAssignmentCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TrySelect);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoSelfAssignment.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(context, "Remove the self-assignment", nameof(SelfAssignmentCodeFixProvider), TrySelect);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not AssignmentExpressionSyntax { Parent: ExpressionStatementSyntax statement })
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the self-assignment",
-                    _ => Task.FromResult(Apply(context.Document, root, statement)),
-                    equivalenceKey: nameof(SelfAssignmentCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not AssignmentExpressionSyntax { Parent: ExpressionStatementSyntax statement })
-        {
-            return;
-        }
-
-        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives);
-    }
-
-    /// <summary>Removes the self-assignment statement, dropping its line.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the statement holding the reported self-assignment.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="statement">The self-assignment statement.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement)
-    {
-        var updated = root.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives);
-        return document.WithSyntaxRoot(updated!);
-    }
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The statement to remove, or <see langword="null"/> when the assignment is not a statement of its own.</returns>
+    private static NodeRemoval? TrySelect(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is AssignmentExpressionSyntax { Parent: ExpressionStatementSyntax statement }
+            ? new NodeRemoval(statement)
+            : null;
 }

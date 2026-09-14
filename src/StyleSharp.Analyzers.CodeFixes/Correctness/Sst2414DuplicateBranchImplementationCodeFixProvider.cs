@@ -19,16 +19,19 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2414DuplicateBranchImplementationCodeFixProvider))]
 [Shared]
-public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFixProvider
 {
     /// <summary>The characters an arm adds around its pattern: <c> =&gt; </c> and the trailing comma.</summary>
     private const int ArmWidth = 5;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.DuplicateBranchImplementation.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -44,11 +47,14 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
             context,
             "Merge the duplicated sections",
             nameof(Sst2414DuplicateBranchImplementationCodeFixProvider),
+            CanRewrite,
             (current, reported) => TryRewrite(current, options, reported)).ConfigureAwait(false);
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         var options = editor.OriginalDocument.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(editor.OriginalRoot.SyntaxTree);
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, (current, reported) => TryRewrite(current, options, reported));
@@ -78,6 +84,19 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         return partnerIndex < 0 ? null : new NodeReplacement(switchStatement, Merge(switchStatement, partnerIndex, duplicateIndex));
     }
 
+    /// <summary>Finds a compatible earlier branch without constructing the merged branch.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a matching branch can be merged.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var reported = root.FindNode(diagnostic.Location.SourceSpan);
+        return reported?.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax expression } arm
+            ? FindArmPartner(expression.Arms, expression.Arms.IndexOf(arm)) >= 0
+            : reported?.FirstAncestorOrSelf<SwitchSectionSyntax>()is { Parent: SwitchStatementSyntax statement } section
+            && FindPartner(statement.Sections, statement.Sections.IndexOf(section)) >= 0;
+    }
+
     /// <summary>Joins a duplicated switch-expression arm into the earlier arm that produces the same value.</summary>
     /// <param name="switchExpression">The switch expression.</param>
     /// <param name="options">The tree's configuration.</param>
@@ -92,27 +111,42 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
     {
         var arms = switchExpression.Arms;
         var duplicateIndex = arms.IndexOf(duplicate);
-        if (duplicateIndex <= 0 || duplicate.WhenClause is not null)
+        var partnerIndex = FindArmPartner(arms, duplicateIndex);
+        if (partnerIndex < 0)
         {
             return null;
         }
 
+        var partner = arms[partnerIndex];
+        var joined = LayOutPattern(partner, options, duplicate.Pattern);
+        var merged = partner.WithPattern(joined.WithTriviaFrom(partner.Pattern));
+        return new NodeReplacement(switchExpression, switchExpression.WithArms(arms.Replace(partner, merged).RemoveAt(duplicateIndex)));
+    }
+
+    /// <summary>Finds the earlier unguarded arm that produces the same value as the duplicate.</summary>
+    /// <param name="arms">The switch expression's arms.</param>
+    /// <param name="duplicateIndex">The reported arm's position.</param>
+    /// <returns>The partner's position, or <c>-1</c> when the duplicate is first, guarded, or has no partner.</returns>
+    private static int FindArmPartner(SeparatedSyntaxList<SwitchExpressionArmSyntax> arms, int duplicateIndex)
+    {
+        if (duplicateIndex <= 0 || arms[duplicateIndex].WhenClause is not null)
+        {
+            return -1;
+        }
+
+        var duplicate = arms[duplicateIndex];
         for (var i = 0; i < duplicateIndex; i++)
         {
             var partner = arms[i];
-            if (partner.WhenClause is not null
-                || !SyntaxFactory.AreEquivalent(partner.Expression, duplicate.Expression, topLevel: false)
-                || DirectiveBoundaries.Separate(partner, duplicate))
+            if (partner.WhenClause is null
+                && SyntaxFactory.AreEquivalent(partner.Expression, duplicate.Expression, topLevel: false)
+                && !DirectiveBoundaries.Separate(partner, duplicate))
             {
-                continue;
+                return i;
             }
-
-            var joined = LayOutPattern(partner, options, duplicate.Pattern);
-            var merged = partner.WithPattern(joined.WithTriviaFrom(partner.Pattern));
-            return new NodeReplacement(switchExpression, switchExpression.WithArms(arms.Replace(partner, merged).RemoveAt(duplicateIndex)));
         }
 
-        return null;
+        return -1;
     }
 
     /// <summary>Builds the joined pattern, wrapping its alternatives when one line would run past the maximum.</summary>
@@ -174,7 +208,7 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         for (var i = 0; i < duplicateIndex; i++)
         {
             if (sections[i].Statements.Count > 0
-                && AreEquivalentStatements(sections[i].Statements, duplicate)
+                && IdenticalBranchesAnalyzer.AreEquivalentStatements(sections[i].Statements, duplicate)
                 && !DirectiveBoundaries.Separate(sections[i], sections[duplicateIndex]))
             {
                 return i;
@@ -198,27 +232,5 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         var merged = partner.WithLabels(mergedLabels).WithAdditionalAnnotations(Formatter.Annotation);
         var updated = sections.Replace(partner, merged).RemoveAt(duplicateIndex);
         return switchStatement.WithSections(updated);
-    }
-
-    /// <summary>Returns whether two statement lists run the same statements in the same order.</summary>
-    /// <param name="first">The first statement list.</param>
-    /// <param name="second">The second statement list.</param>
-    /// <returns><see langword="true"/> when the lists match, ignoring trivia.</returns>
-    private static bool AreEquivalentStatements(SyntaxList<StatementSyntax> first, SyntaxList<StatementSyntax> second)
-    {
-        if (first.Count != second.Count)
-        {
-            return false;
-        }
-
-        for (var index = 0; index < first.Count; index++)
-        {
-            if (!SyntaxFactory.AreEquivalent(first[index], second[index], topLevel: false))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

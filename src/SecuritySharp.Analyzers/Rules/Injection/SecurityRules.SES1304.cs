@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1304 — an archive entry name is joined into a filesystem path with no containment check.</summary>
-    public static readonly DiagnosticDescriptor ArchiveEntryPathTraversal = Create(
+    public static readonly DiagnosticDescriptor ArchiveEntryPathTraversal = DescriptorFactory.Create(
         "SES1304",
         "An archive entry name must not build a write path without a containment check",
         ArchiveEntryPathTraversalMessage,

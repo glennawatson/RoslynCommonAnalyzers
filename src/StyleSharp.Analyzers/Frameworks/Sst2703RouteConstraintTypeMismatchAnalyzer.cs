@@ -20,9 +20,9 @@ namespace StyleSharp.Analyzers;
 /// type is the <c>Nullable&lt;&gt;</c> form of the constrained type matches, since <c>{id:int?}</c> and an
 /// <c>int?</c> parameter agree.
 /// <para>
-/// The whole rule is gated at compilation start on both the <c>Microsoft.AspNetCore.Components.RouteAttribute</c>
-/// and <c>Microsoft.AspNetCore.Components.ParameterAttribute</c> markers resolving; a project that references
-/// neither registers nothing and pays nothing. The clean path scans each type's attributes for a route marker and
+/// The binding model is resolved only for a candidate route attribute and requires both the
+/// <c>Microsoft.AspNetCore.Components.RouteAttribute</c> and <c>Microsoft.AspNetCore.Components.ParameterAttribute</c>
+/// markers. The clean path scans each type's attributes for a route marker and
 /// parses a template only for a type that carries one, so a non-routable type costs a single attribute scan.
 /// </para>
 /// </remarks>
@@ -44,22 +44,17 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var model = RouteBindingModel.Resolve(start.Compilation);
-            if (model is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, model), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<RouteBindingModel?>(compilation, RouteBindingModel.Resolve),
+            AnalyzeType,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Parses each route template on a type and reports every typed segment whose parameter type disagrees.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="model">The resolved markers and constraint-to-type map.</param>
-    private static void AnalyzeType(in SymbolAnalysisContext context, RouteBindingModel model)
+    /// <param name="models">The markers and constraint-to-type map resolved on demand.</param>
+    private static void AnalyzeType(in SymbolAnalysisContext context, LazyCompilationValue<RouteBindingModel?> models)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class)
@@ -71,7 +66,18 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         HashSet<ISymbol>? reported = null;
         for (var i = 0; i < attributes.Length; i++)
         {
-            if (!model.IsRoute(attributes[i].AttributeClass) || !TryGetTemplate(attributes[i], out var template))
+            if (attributes[i].AttributeClass?.Name != "RouteAttribute" || !TryGetTemplate(attributes[i], out var template))
+            {
+                continue;
+            }
+
+            var model = models.Get();
+            if (model is null)
+            {
+                return;
+            }
+
+            if (!model.IsRoute(attributes[i].AttributeClass))
             {
                 continue;
             }
@@ -130,7 +136,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
                     return;
                 }
 
-                InspectSegment(context, model, type, template.Substring(index + 1, close - index - 1), reported);
+                InspectSegment(context, model, type, template.AsSpan(index + 1, close - index - 1), reported);
                 index = close + 1;
                 continue;
             }
@@ -146,7 +152,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <param name="type">The routable component type.</param>
     /// <param name="segment">The template segment content, without its enclosing braces.</param>
     /// <param name="reported">The set of already-reported parameters.</param>
-    private static void InspectSegment(in SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, string segment, HashSet<ISymbol> reported)
+    private static void InspectSegment(in SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, ReadOnlySpan<char> segment, HashSet<ISymbol> reported)
     {
         var colon = segment.IndexOf(':');
         if (colon < 0)
@@ -166,7 +172,8 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (FindParameter(model, type, name) is not { } parameter)
+        if (!HasMismatchedPropertyType(type, name, constraintType)
+            || FindParameter(model, type, name) is not { } parameter)
         {
             return;
         }
@@ -194,7 +201,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <param name="segment">The segment content.</param>
     /// <param name="colon">The index of the first colon.</param>
     /// <returns>The parameter name.</returns>
-    private static string NormalizeName(string segment, int colon)
+    private static string NormalizeName(ReadOnlySpan<char> segment, int colon)
     {
         var start = 0;
         while (start < colon && segment[start] == '*')
@@ -214,15 +221,24 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             break;
         }
 
-        return segment.Substring(start, end - start);
+        return segment.Slice(start, end - start).ToString();
     }
 
-    /// <summary>Reads the first constraint token, dropping any additional constraints, arguments, or optional marker.</summary>
+    /// <summary>Reads the first typed constraint, dropping additional constraints, arguments, and optional markers.</summary>
     /// <param name="segment">The segment content.</param>
     /// <param name="start">The index just after the first colon.</param>
-    /// <returns>The lowercased constraint token.</returns>
-    private static string NormalizeConstraint(string segment, int start)
+    /// <returns>The canonical constraint keyword, or an empty string for an untyped constraint.</returns>
+    private static string NormalizeConstraint(ReadOnlySpan<char> segment, int start)
     {
+        const string IntConstraint = "int";
+        const string LongConstraint = "long";
+        const string GuidConstraint = "guid";
+        const string BoolConstraint = "bool";
+        const string DateTimeConstraint = "datetime";
+        const string DecimalConstraint = "decimal";
+        const string DoubleConstraint = "double";
+        const string FloatConstraint = "float";
+
         var end = segment.Length;
         for (var i = start; i < segment.Length; i++)
         {
@@ -235,8 +251,52 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             break;
         }
 
-        var token = segment.Substring(start, end - start).TrimEnd('?');
-        return token.ToLowerInvariant();
+        while (end > start && segment[end - 1] == '?')
+        {
+            end--;
+        }
+
+        return segment.Slice(start, end - start) switch
+        {
+            var token when token.Equals(IntConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => IntConstraint,
+            var token when token.Equals(LongConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => LongConstraint,
+            var token when token.Equals(GuidConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => GuidConstraint,
+            var token when token.Equals(BoolConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => BoolConstraint,
+            var token when token.Equals(DateTimeConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => DateTimeConstraint,
+            var token when token.Equals(DecimalConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => DecimalConstraint,
+            var token when token.Equals(DoubleConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => DoubleConstraint,
+            var token when token.Equals(FloatConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => FloatConstraint,
+            _ => string.Empty,
+        };
+    }
+
+    /// <summary>Rejects a matching route before binding property attributes when no property type could produce a diagnostic.</summary>
+    /// <param name="type">The routable component type.</param>
+    /// <param name="name">The route parameter name.</param>
+    /// <param name="constraintType">The type required by the route constraint.</param>
+    /// <returns>Whether a same-named property has a non-error type that differs from the constraint.</returns>
+    private static bool HasMismatchedPropertyType(INamedTypeSymbol type, string name, ITypeSymbol constraintType)
+    {
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            var members = current.GetMembers();
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is not IPropertySymbol property
+                    || !string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var propertyType = UnwrapNullable(property.Type);
+                if (propertyType.TypeKind != TypeKind.Error && !SymbolEqualityComparer.Default.Equals(propertyType, constraintType))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Finds a same-named component parameter on the type or one of its base types.</summary>
@@ -340,19 +400,8 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         /// <summary>Returns whether a property carries the parameter marker attribute.</summary>
         /// <param name="property">The property to inspect.</param>
         /// <returns><see langword="true"/> when the marker is present.</returns>
-        public bool HasParameter(IPropertySymbol property)
-        {
-            var attributes = property.GetAttributes();
-            for (var i = 0; i < attributes.Length; i++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(attributes[i].AttributeClass, _parameterAttribute))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool HasParameter(IPropertySymbol property) => SymbolFacts.HasAttribute(property.GetAttributes(), _parameterAttribute);
 
         /// <summary>Looks up the CLR type a route constraint keyword maps to.</summary>
         /// <param name="constraint">The lowercased constraint keyword.</param>

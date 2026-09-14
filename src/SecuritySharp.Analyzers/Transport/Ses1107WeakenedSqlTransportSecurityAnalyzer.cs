@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -15,7 +17,7 @@ namespace SecuritySharp.Analyzers;
 /// types. Second, a <c>SqlConnectionStringBuilder</c> object-initializer member or property assignment setting
 /// <c>TrustServerCertificate = true</c>, <c>Encrypt = false</c>, or
 /// <c>Encrypt = SqlConnectionEncryptOption.Optional</c>. The rule is gated on a <c>SqlConnection</c> type
-/// resolving in the compilation; a project without either SQL client registers nothing and pays nothing. Only a
+/// resolving in the compilation, with the lookup deferred until the syntax checks find a candidate. Only a
 /// local configuration is examined -- a connection string built from a variable, interpolation, or configuration
 /// is deliberately not tracked -- so the rule stays fast and free of false positives.
 /// </summary>
@@ -55,6 +57,10 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <summary>The metadata name of the modern-client encryption option type.</summary>
     private const string EncryptOptionMetadataName = "Microsoft.Data.SqlClient.SqlConnectionEncryptOption";
 
+    /// <summary>The connection, builder and encryption-option metadata names, in slot order.</summary>
+    private static readonly string[] SqlTypeMetadataNames =
+        [MicrosoftConnectionMetadataName, SystemConnectionMetadataName, MicrosoftBuilderMetadataName, SystemBuilderMetadataName, EncryptOptionMetadataName];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.WeakenedSqlTransportSecurity);
 
@@ -67,26 +73,17 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var types = GetSqlTypes(start.Compilation);
-            if (types is not { } sqlTypes)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeObjectCreation(nodeContext, sqlTypes),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, sqlTypes), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, SqlTypeMetadataNames),
+            new(AnalyzeObjectCreation, [SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression]),
+            new(AnalyzeAssignment, [SyntaxKind.SimpleAssignmentExpression]));
     }
 
     /// <summary>Reports SES1107 for a weakening literal connection string passed to a SQL constructor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in SqlTransportTypes types)
+    /// <param name="metadataTypes">The compilation-scoped SQL client type cache.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes metadataTypes)
     {
         // Syntactic prefilter: an object creation carrying a string-literal argument whose text names a
         // weakening keyword. No semantic model is touched until this cheap scan matches.
@@ -97,7 +94,8 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
         }
 
         // Semantic confirmation: the created type is a gated SqlConnection or SqlConnectionStringBuilder.
-        if (context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is not INamedTypeSymbol createdType
+        if (GetSqlTypes(metadataTypes) is not { } types
+            || context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is not INamedTypeSymbol createdType
             || !IsConnectionOrBuilderType(createdType, types))
         {
             return;
@@ -108,26 +106,26 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
 
     /// <summary>Reports SES1107 for a weakening connection-string literal assignment or builder member assignment.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, in SqlTransportTypes types)
+    /// <param name="metadataTypes">The compilation-scoped SQL client type cache.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataTypes metadataTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
-        var memberName = GetAssignedMemberName(assignment.Left);
+        var memberName = MemberReferenceName.Of(assignment.Left);
         if (memberName is ConnectionStringMemberName)
         {
-            AnalyzeConnectionStringAssignment(context, assignment, types);
+            AnalyzeConnectionStringAssignment(context, assignment, metadataTypes);
         }
         else if (memberName is TrustServerCertificateMemberName or EncryptMemberName)
         {
-            AnalyzeBuilderMemberAssignment(context, assignment, memberName, types);
+            AnalyzeBuilderMemberAssignment(context, assignment, memberName, metadataTypes);
         }
     }
 
     /// <summary>Reports SES1107 for a <c>ConnectionString = "…"</c> literal that carries a weakening setting.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assignment">The assignment expression.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeConnectionStringAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, in SqlTransportTypes types)
+    /// <param name="metadataTypes">The compilation-scoped SQL client type cache.</param>
+    private static void AnalyzeConnectionStringAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, LazyMetadataTypes metadataTypes)
     {
         // Syntactic prefilter: a string literal whose text carries a weakening keyword setting.
         if (GetWeakeningStringLiteral(assignment.Right, out var setting) is not { } literal)
@@ -136,7 +134,8 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
         }
 
         // Semantic confirmation: the assigned instance is a gated SqlConnection or SqlConnectionStringBuilder.
-        if (GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
+        if (GetSqlTypes(metadataTypes) is not { } types
+            || GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
             || !IsConnectionOrBuilderType(instanceType, types))
         {
             return;
@@ -149,11 +148,12 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assignment">The assignment expression.</param>
     /// <param name="memberName">The assigned member name.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeBuilderMemberAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, string memberName, in SqlTransportTypes types)
+    /// <param name="metadataTypes">The compilation-scoped SQL client type cache.</param>
+    private static void AnalyzeBuilderMemberAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, string memberName, LazyMetadataTypes metadataTypes)
     {
         // Semantic confirmation: the assigned instance is a gated SqlConnectionStringBuilder.
-        if (GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
+        if (GetSqlTypes(metadataTypes) is not { } types
+            || GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
             || !IsBuilderType(instanceType, types)
             || !IsWeakeningMemberValue(context.SemanticModel, memberName, assignment.Right, types, context.CancellationToken))
         {
@@ -191,7 +191,7 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     private static bool IsEncryptOptionalReference(SemanticModel model, ExpressionSyntax value, in SqlTransportTypes types, CancellationToken cancellationToken)
     {
         if (types.EncryptOption is not { } encryptOption
-            || GetTrailingName(value) is not OptionalMemberName)
+            || MemberReferenceName.Of(value) is not OptionalMemberName)
         {
             return false;
         }
@@ -217,24 +217,15 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <returns>The weakening literal, or <see langword="null"/> when no argument matches.</returns>
     private static LiteralExpressionSyntax? GetWeakeningLiteral(ArgumentListSyntax argumentList, out string setting)
     {
-        setting = string.Empty;
-        var arguments = argumentList.Arguments;
-        if (arguments.Count == 0)
+        // The connection string is the first parameter of every guarded constructor, so a leading positional
+        // argument is it.
+        if (ArgumentLookup.Find(argumentList.Arguments, "connectionString", 0) is not { } connectionString)
         {
+            setting = string.Empty;
             return null;
         }
 
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: "connectionString" })
-            {
-                return GetWeakeningStringLiteral(arguments[i].Expression, out setting);
-            }
-        }
-
-        // The connection string is the first parameter of every guarded constructor, so a leading positional
-        // argument is it.
-        return arguments[0].NameColon is null ? GetWeakeningStringLiteral(arguments[0].Expression, out setting) : null;
+        return GetWeakeningStringLiteral(connectionString.Expression, out setting);
     }
 
     /// <summary>Returns the string literal when its text carries a weakening connection-string setting.</summary>
@@ -347,8 +338,24 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <param name="valueStart">The inclusive start of the trimmed value.</param>
     /// <param name="valueEnd">The exclusive end of the trimmed value.</param>
     /// <returns>The <c>keyword=value</c> label.</returns>
-    private static string BuildSetting(string text, int keyStart, int keyEnd, int valueStart, int valueEnd) =>
-        $"{text.Substring(keyStart, keyEnd - keyStart)}={text.Substring(valueStart, valueEnd - valueStart)}";
+    private static string BuildSetting(string text, int keyStart, int keyEnd, int valueStart, int valueEnd)
+    {
+        var keyLength = keyEnd - keyStart;
+        var valueLength = valueEnd - valueStart;
+        var length = keyLength + 1 + valueLength;
+        var buffer = ArrayPool<char>.Shared.Rent(length);
+        try
+        {
+            text.AsSpan(keyStart, keyLength).CopyTo(buffer.AsSpan());
+            buffer[keyLength] = '=';
+            text.AsSpan(valueStart, valueLength).CopyTo(buffer.AsSpan(keyLength + 1));
+            return new(buffer, 0, length);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
+    }
 
     /// <summary>Returns the index of a character within a half-open range, or <c>-1</c>.</summary>
     /// <param name="text">The text to scan.</param>
@@ -416,28 +423,6 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     private static char ToLowerAscii(char c) =>
         c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 
-    /// <summary>Returns the assigned member name of an assignment's left side (member access or initializer identifier).</summary>
-    /// <param name="left">The assignment's left-hand side.</param>
-    /// <returns>The member name, or <see langword="null"/> when the target is not a simple member reference.</returns>
-    private static string? GetAssignedMemberName(ExpressionSyntax left) =>
-        left switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
-    /// <summary>Returns the trailing simple name of a member access or identifier expression.</summary>
-    /// <param name="expression">The value expression to read.</param>
-    /// <returns>The trailing name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetTrailingName(ExpressionSyntax expression) =>
-        expression switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
-
     /// <summary>Returns the type of the instance targeted by an assignment (a member receiver or an initializer's object).</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="assignment">The assignment expression.</param>
@@ -484,24 +469,16 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     private static bool Matches(INamedTypeSymbol type, INamedTypeSymbol? gated) =>
         gated is not null && SymbolEqualityComparer.Default.Equals(type, gated);
 
-    /// <summary>Resolves the SQL client types the rule gates on.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
+    /// <summary>Returns the SQL client types the rule gates on.</summary>
+    /// <param name="metadataTypes">The compilation-scoped SQL client type cache.</param>
     /// <returns>The resolved types, or <see langword="null"/> when neither SQL connection type is present.</returns>
-    private static SqlTransportTypes? GetSqlTypes(Compilation compilation)
-    {
-        var microsoftConnection = compilation.GetTypeByMetadataName(MicrosoftConnectionMetadataName);
-        var systemConnection = compilation.GetTypeByMetadataName(SystemConnectionMetadataName);
-        return microsoftConnection is null && systemConnection is null
-            ? null
-            : new SqlTransportTypes(
-            microsoftConnection,
-            systemConnection,
-            compilation.GetTypeByMetadataName(MicrosoftBuilderMetadataName),
-            compilation.GetTypeByMetadataName(SystemBuilderMetadataName),
-            compilation.GetTypeByMetadataName(EncryptOptionMetadataName));
-    }
+    private static SqlTransportTypes? GetSqlTypes(LazyMetadataTypes metadataTypes) =>
+        metadataTypes.Get() is [var microsoftConnection, var systemConnection, var microsoftBuilder, var systemBuilder, var encryptOption]
+            && (microsoftConnection is not null || systemConnection is not null)
+            ? new SqlTransportTypes(microsoftConnection, systemConnection, microsoftBuilder, systemBuilder, encryptOption)
+            : null;
 
-    /// <summary>The SQL client types resolved once per compilation for SES1107.</summary>
+    /// <summary>The SQL client types resolved for a syntax candidate for SES1107.</summary>
     /// <param name="MicrosoftConnection">The resolved <c>Microsoft.Data.SqlClient.SqlConnection</c>, or <see langword="null"/>.</param>
     /// <param name="SystemConnection">The resolved <c>System.Data.SqlClient.SqlConnection</c>, or <see langword="null"/>.</param>
     /// <param name="MicrosoftBuilder">The resolved <c>Microsoft.Data.SqlClient.SqlConnectionStringBuilder</c>, or <see langword="null"/>.</param>

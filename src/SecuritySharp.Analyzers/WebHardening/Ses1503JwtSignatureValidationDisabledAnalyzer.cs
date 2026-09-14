@@ -12,8 +12,8 @@ namespace SecuritySharp.Analyzers;
 /// (<c>new TokenValidationParameters { ValidateIssuerSigningKey = false }</c>) -- when the assigned member's containing
 /// type is <c>TokenValidationParameters</c>. Either flag, once false, lets a forged or unsigned token pass validation,
 /// the most dangerous JWT misconfiguration. The issuer, audience, and lifetime flags are deliberately out of scope. The
-/// options type is probed once per compilation; a project without <c>Microsoft.IdentityModel</c> registers nothing and
-/// never receives a diagnostic it cannot act on.
+/// options type is resolved only after an assignment passes the syntax checks; a project without
+/// <c>Microsoft.IdentityModel</c> never receives a diagnostic it cannot act on.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAnalyzer
@@ -39,34 +39,31 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var parametersType = start.Compilation.GetTypeByMetadataName(TokenValidationParametersMetadataName);
-            if (parametersType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, parametersType), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, TokenValidationParametersMetadataName),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1503 for a signature flag set to <c>false</c> on the gated options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="parametersType">The gated <c>TokenValidationParameters</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol parametersType)
+    /// <param name="parameterTypes">The token-validation type cache for this compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataType parameterTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '<expr>.RequireSignedTokens = false' / '...ValidateIssuerSigningKey = false', or the
         // object-initializer member forms. Both bind the left member to the options property below.
         if (!assignment.Right.IsKind(SyntaxKind.FalseLiteralExpression)
-            || !IsSignatureFlagTarget(assignment.Left))
+            || SyntaxNames.GetMemberName(assignment.Left) is not { } name
+            || !IsSignatureFlag(name))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
+        if (parameterTypes.Get() is not { } parametersType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
             || !IsSignatureFlag(property.Name)
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, parametersType))
         {
@@ -79,21 +76,6 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
             assignment.Span,
             property.Name));
     }
-
-    /// <summary>Returns whether an assignment target syntactically names one of the two signature flags.</summary>
-    /// <param name="left">The assignment's left-hand expression.</param>
-    /// <returns><see langword="true"/> for <c>x.RequireSignedTokens</c>/<c>x.ValidateIssuerSigningKey</c> or their bare initializer forms.</returns>
-    private static bool IsSignatureFlagTarget(ExpressionSyntax left) =>
-        left switch
-        {
-            // 'parameters.RequireSignedTokens = false' / '...ValidateIssuerSigningKey = false'.
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } => IsSignatureFlag(name),
-
-            // 'new TokenValidationParameters { RequireSignedTokens = false }' (object-initializer member).
-            IdentifierNameSyntax { Identifier.ValueText: var name } => IsSignatureFlag(name),
-
-            _ => false,
-        };
 
     /// <summary>Returns whether a member name is one of the two guarded signature-verification flags.</summary>
     /// <param name="name">The member name to test.</param>

@@ -25,6 +25,23 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
         }
         """;
 
+    /// <summary>Minimal xUnit v3 attribute stubs, whose data attributes implement the v3 data-attribute interface.</summary>
+    private const string XunitV3Stubs = """
+        namespace Xunit
+        {
+            using System;
+            public class FactAttribute : Attribute { }
+            public class TheoryAttribute : FactAttribute { }
+            public class SkippableTheoryAttribute : TheoryAttribute { }
+            namespace v3
+            {
+                public interface IDataAttribute { }
+                public abstract class DataAttribute : Attribute, IDataAttribute { }
+            }
+            public sealed class InlineDataAttribute : Xunit.v3.DataAttribute { public InlineDataAttribute(params object[] data) { } }
+        }
+        """;
+
     /// <summary>Minimal NUnit attribute stubs, including the test-builder and per-parameter data-source interfaces.</summary>
     private const string NUnitStubs = """
         namespace NUnit.Framework
@@ -65,6 +82,72 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
             public sealed class ArgumentsAttribute : Attribute, IDataSourceAttribute { public ArgumentsAttribute(params object[] values) { } }
         }
         """;
+
+    /// <summary>Verifies an attributed method misplaced in a namespace still binds, so its missing data source is reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MisplacedNamespaceTestIsReportedAsync()
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = $"namespace N {{ [TUnit.Core.Test] void {{|SST2505:Run|}}(int value) {{ }} }}{TUnitStubs}",
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies incomplete attribute lists and unresolved parameter attributes do not masquerade as data.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IncompleteAttributesDoNotSupplyDataAsync()
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = """
+                class Tests
+                {
+                    [] public void Helper(int value) { }
+                    [TUnit.Core.Test] public void {|SST2505:Run|}([Missing] int value) { }
+                }
+                """ + TUnitStubs,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies aliased test markers and a complete set of framework symbols are recognized.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AliasedTestMarkerWithAllFrameworksIsReportedAsync() =>
+        VerifyAsync("""
+            using Framework = TUnit.Core;
+            class Tests
+            {
+                [System.Obsolete, Framework::Test, System.CLSCompliant(false)]
+                public void {|SST2505:Run|}([System.ComponentModel.Description("value")] int value) { }
+                [System.Obsolete] public void Helper(int value) { }
+            }
+            """ + XunitStubs + NUnitStubs + MsTestStubs + TUnitStubs);
+
+    /// <summary>Verifies a parameter attribute with an unrelated interface does not supply test data.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedParameterAttributeDoesNotSupplyDataAsync() =>
+        VerifyAsync("""
+            interface IMarker { }
+            class MarkerAttribute : System.Attribute, IMarker { }
+            class Tests
+            {
+                [NUnit.Framework.Test]
+                public void {|SST2505:Run|}([Marker] int value) { }
+                [NUnit.Framework.Test]
+                public void WithData([NUnit.Framework.Values(1)] int value) { }
+            }
+            """ + XunitStubs + NUnitStubs + MsTestStubs + TUnitStubs);
 
     /// <summary>Verifies a TUnit test whose only parameter is an injected <c>CancellationToken</c> is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -155,6 +238,37 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
                 [Xunit.Theory]
                 [Xunit.MemberData("Source")]
                 public void Case(int value) { }
+            }
+            """);
+
+    /// <summary>Verifies an xUnit v3 theory whose inline data implements the v3 data-attribute interface is never reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task XunitV3TheoryWithInlineDataIsCleanAsync() =>
+        VerifyAsync(
+            XunitV3Stubs + """
+
+            public class Tests
+            {
+                [Xunit.Theory]
+                [Xunit.InlineData(1)]
+                public void Case(int value) { }
+            }
+            """);
+
+    /// <summary>Verifies a theory marked with an attribute derived from the xUnit theory is reported when it has no data.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DerivedTheoryWithoutDataIsReportedAsync() =>
+        VerifyAsync(
+            XunitV3Stubs + """
+
+            public class Tests
+            {
+                [Xunit.SkippableTheory]
+                public void {|SST2505:Case|}(int value) { }
             }
             """);
 

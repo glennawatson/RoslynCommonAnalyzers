@@ -191,6 +191,147 @@ public class BoundModelUnderpostingAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies inherited controller markers and overridden actions still discover a model exactly once.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task InheritedControllerAndOverriddenActionReportOnceAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Mvc;
+            public class Payload { public int {|SST2705:Count|}; }
+            [ApiController]
+            public abstract class BaseController : ControllerBase
+            {
+                public abstract void Save(Payload value);
+            }
+            public class Controller : BaseController
+            {
+                public override void Save(Payload value) { }
+                public void Again(Payload first, Payload second) { }
+                public override bool Equals(object other) => false;
+                public override int GetHashCode() => 0;
+            }
+            """);
+
+    /// <summary>Verifies action discovery excludes non-actions and unsuitable method shapes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonActionAndNonInstanceMethodsAreIgnoredAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Mvc;
+            public class Payload { public int Count; }
+            [ApiController]
+            public abstract class Controller : ControllerBase
+            {
+                [NonAction] public void Excluded(Payload value) { }
+                [CustomNonAction] public void AlsoExcluded(Payload value) { }
+                [System.Obsolete] public void Included(object value) { }
+                public static void Static(Payload value) { }
+                public abstract void Abstract(Payload value);
+                public void Generic<T>(Payload value) { }
+                private void Private(Payload value) { }
+                public Controller(Payload value) { }
+                public int this[Payload value] => 0;
+            }
+            public class CustomNonActionAttribute : NonActionAttribute { }
+            namespace Microsoft.AspNetCore.Mvc { public class NonActionAttribute : System.Attribute { } }
+            """);
+
+    /// <summary>Verifies collection, metadata, array, and type-parameter inputs are not source model classes.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonModelParameterShapesAreIgnoredAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Mvc;
+            public class Collection : System.Collections.IEnumerable
+            {
+                public int Count;
+                public System.Collections.IEnumerator GetEnumerator() => null;
+            }
+            public class Payload { public int Count; }
+            [ApiController]
+            public class Controller<T> : ControllerBase where T : class
+            {
+                public void Save(Collection collection, string text, Payload[] array, T generic) { }
+            }
+            """);
+
+    /// <summary>Verifies all non-body source markers, including derived markers, exclude parameters.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EveryNonBodyBindingSourceIsExcludedAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Mvc;
+            public class Payload { public int Count; }
+            [ApiController]
+            public class Controller : ControllerBase
+            {
+                public void Save([FromQuery] Payload query, [FromRoute] Payload route,
+                    [FromForm] Payload form, [FromHeader] Payload header, [FromServices] Payload services,
+                    [CustomRoute] Payload derived) { }
+            }
+            public class CustomRouteAttribute : FromRouteAttribute { }
+            namespace Microsoft.AspNetCore.Mvc
+            {
+                public class FromRouteAttribute : System.Attribute { }
+                public class FromFormAttribute : System.Attribute { }
+                public class FromHeaderAttribute : System.Attribute { }
+                public class FromServicesAttribute : System.Attribute { }
+            }
+            """);
+
+    /// <summary>Verifies only public writable non-nullable value members are underpostable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MemberShapesAndUnrelatedAttributesAreDistinguishedAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Mvc;
+            public class MarkerAttribute : System.Attribute { }
+            public class Payload<T> where T : struct
+            {
+                [Marker] public int {|SST2705:Count|} { get; init; }
+                [Marker] public int {|SST2705:Field|};
+                public T Generic { get; set; }
+                public static int Static { get; set; }
+                public static int StaticField;
+                public const int Constant = 1;
+                public readonly int Readonly;
+                internal int Internal;
+                public int? Nullable;
+                public object Reference;
+                public int this[int i] { get => 0; set { } }
+            }
+            [ApiController]
+            public class Controller<T> : ControllerBase where T : struct
+            {
+                [Marker] public void Save([Marker] Payload<T> value) { }
+            }
+            """);
+
+    /// <summary>Verifies either missing required MVC marker disables the rule.</summary>
+    /// <param name="marker">The one marker available in the compilation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public class ApiControllerAttribute : System.Attribute { }")]
+    [Arguments("public class ControllerBase { }")]
+    public async Task MissingMvcMarkerDisablesAnalysisAsync(string marker)
+    {
+        var test = new VerifyUnderposting.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                public class Payload { public int Count; }
+                public class Controller { public void Save(Payload value) { } }
+                namespace Microsoft.AspNetCore.Mvc { {{marker}} }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies with the binding stubs appended.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

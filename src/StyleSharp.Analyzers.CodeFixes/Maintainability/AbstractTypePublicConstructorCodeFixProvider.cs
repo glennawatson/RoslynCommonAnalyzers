@@ -16,30 +16,13 @@ public sealed class AbstractTypePublicConstructorCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
-            if (!token.IsKind(SyntaxKind.PublicKeyword))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Make the constructor 'protected'",
-                    _ => Task.FromResult(Apply(context.Document, root, token)),
-                    equivalenceKey: nameof(AbstractTypePublicConstructorCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<SyntaxToken>(
+            context,
+            "Make the constructor 'protected'",
+            nameof(AbstractTypePublicConstructorCodeFixProvider),
+            TryFindPublicKeyword,
+            Apply);
 
     /// <summary>Swaps the <c>public</c> keyword for <c>protected</c>, keeping its trivia.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -50,5 +33,16 @@ public sealed class AbstractTypePublicConstructorCodeFixProvider : CodeFixProvid
     {
         var protectedKeyword = SyntaxFactory.Token(publicKeyword.LeadingTrivia, SyntaxKind.ProtectedKeyword, publicKeyword.TrailingTrivia);
         return document.WithSyntaxRoot(root.ReplaceToken(publicKeyword, protectedKeyword));
+    }
+
+    /// <summary>Finds the <c>public</c> modifier a diagnostic reports.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="publicKeyword">The token at the diagnostic's start.</param>
+    /// <returns><see langword="true"/> when that token is the <c>public</c> keyword.</returns>
+    private static bool TryFindPublicKeyword(SyntaxNode root, Diagnostic diagnostic, out SyntaxToken publicKeyword)
+    {
+        publicKeyword = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        return publicKeyword.IsKind(SyntaxKind.PublicKeyword);
     }
 }

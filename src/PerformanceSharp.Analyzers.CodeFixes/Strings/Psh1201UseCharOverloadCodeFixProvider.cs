@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,22 +13,20 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1201UseCharOverloadCodeFixProvider))]
 [Shared]
-public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.UseCharOverload.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1201UseCharOverloadCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1201UseCharOverloadCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Replaces the reported string argument with the char overload's argument list.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -42,32 +38,23 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
             ? document.WithSyntaxRoot(root.ReplaceNode(arguments, Rewrite(arguments, literal)))
             : document;
 
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        SingleCharacterLiteralFix.TryFind(root, diagnostic, out var literal)
+            && literal!.Parent is ArgumentSyntax { Parent: ArgumentListSyntax };
+
     /// <summary>Resolves the reported string argument and builds the char overload's argument list.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetLiteral(root, diagnostic, out var literal)
+        SingleCharacterLiteralFix.TryFind(root, diagnostic, out var literal)
             && literal!.Parent is ArgumentSyntax { Parent: ArgumentListSyntax arguments }
             ? new NodeReplacement(arguments, Rewrite(arguments, literal))
             : null;
-
-    /// <summary>Finds the reported single-character string literal for a diagnostic.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="literal">The reported literal when found.</param>
-    /// <returns><see langword="true"/> when the literal was found.</returns>
-    private static bool TryGetLiteral(SyntaxNode root, Diagnostic diagnostic, out LiteralExpressionSyntax? literal)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is ExpressionSyntax expression
-            && StringLiteralHelper.TryGetSingleCharacterLiteral(expression, out literal, out _))
-        {
-            return true;
-        }
-
-        literal = null;
-        return false;
-    }
 
     /// <summary>Builds the char-overload argument list: the char literal alone, comparison argument dropped.</summary>
     /// <param name="arguments">The original argument list.</param>
@@ -75,11 +62,7 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
     /// <returns>The rewritten argument list.</returns>
     private static ArgumentListSyntax Rewrite(ArgumentListSyntax arguments, LiteralExpressionSyntax literal)
     {
-        var charLiteral = SyntaxFactory.LiteralExpression(
-            SyntaxKind.CharacterLiteralExpression,
-            SyntaxFactory.Literal(literal.Token.ValueText[0])).WithTriviaFrom(literal);
-
-        var firstArgument = arguments.Arguments[0].WithExpression(charLiteral);
+        var firstArgument = arguments.Arguments[0].WithExpression(SingleCharacterLiteralFix.ToCharacterLiteral(literal));
         return arguments.WithArguments(SyntaxFactory.SingletonSeparatedList(firstArgument));
     }
 }

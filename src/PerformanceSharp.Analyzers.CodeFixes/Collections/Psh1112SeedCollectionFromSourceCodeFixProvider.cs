@@ -15,13 +15,16 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1112SeedCollectionFromSourceCodeFixProvider))]
 [Shared]
-public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CollectionRules.SeedCollectionFromSource.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -49,8 +52,10 @@ public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProv
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (TryGetShape(editor.OriginalRoot, diagnostic) is not { } shape)
         {
@@ -108,8 +113,10 @@ public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProv
             var spread = SyntaxFactory.SpreadElement(
                 SyntaxFactory.Token(default, SyntaxKind.DotDotToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 source);
-            return SyntaxFactory.CollectionExpression(SyntaxFactory.SingletonSeparatedList<CollectionElementSyntax>(spread))
-                .WithTriviaFrom(shape.Creation);
+            return SyntaxFactory.CollectionExpression(
+                SyntaxFactory.Token(shape.Creation.GetLeadingTrivia(), SyntaxKind.OpenBracketToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.SingletonSeparatedList<CollectionElementSyntax>(spread),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, shape.Creation.GetTrailingTrivia()));
         }
 
         return shape.Creation.WithArgumentList(

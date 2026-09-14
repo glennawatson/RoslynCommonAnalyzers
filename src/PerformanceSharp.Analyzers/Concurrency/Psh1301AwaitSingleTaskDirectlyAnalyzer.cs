@@ -31,6 +31,13 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.AwaitSingleTaskDirectly);
 
+    /// <summary>The metadata names TaskTypes resolves, in slot order.</summary>
+    private static readonly string[] TaskTypesMetadataNames =
+    [
+        TaskMetadataName,
+        TaskOfTMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -40,17 +47,11 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var taskType = start.Compilation.GetTypeByMetadataName(TaskMetadataName);
-            if (taskType is null)
-            {
-                return;
-            }
-
-            var taskOfTType = start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, taskType, taskOfTType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, TaskTypesMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the single-argument <c>X.WhenAll(t)</c>/<c>X.WaitAll(t)</c> syntax shape.</summary>
@@ -78,12 +79,17 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1301 for a WhenAll/WaitAll invocation wrapping a single task.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type, when it exists.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
+    /// <param name="types">The compilation's deferred task types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsSingleArgumentCombinatorShape(invocation, out var isWaitAll)
+        if (!IsSingleArgumentCombinatorShape(invocation, out var isWaitAll))
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } taskType
             || !BindsToTaskCombinator(context.SemanticModel, invocation, taskType, context.CancellationToken))
         {
             return;
@@ -91,7 +97,7 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
 
         var argument = invocation.ArgumentList.Arguments[0].Expression;
         var argumentType = context.SemanticModel.GetTypeInfo(argument, context.CancellationToken).Type;
-        if (!TryClassifyArgumentTask(argumentType, taskType, taskOfTType, out var isGenericTask))
+        if (!TryClassifyArgumentTask(argumentType, taskType, resolved[1], out var isGenericTask))
         {
             return;
         }

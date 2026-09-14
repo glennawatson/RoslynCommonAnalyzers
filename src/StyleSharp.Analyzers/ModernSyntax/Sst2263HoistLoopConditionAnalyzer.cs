@@ -145,28 +145,15 @@ public sealed class Sst2263HoistLoopConditionAnalyzer : DiagnosticAnalyzer
     /// <returns>The negated condition, unwrapping a leading <c>!</c> where present.</returns>
     private static ExpressionSyntax Negate(ExpressionSyntax condition)
     {
-        var inner = Unparenthesize(condition);
+        var inner = ExpressionShapes.WalkDownParentheses(condition);
         if (inner is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation)
         {
-            return Unparenthesize(negation.Operand).WithoutTrivia();
+            return ExpressionShapes.WalkDownParentheses(negation.Operand).WithoutTrivia();
         }
 
         var operand = PrimaryExpressionClassification.IsPrimary(inner)
             ? inner.WithoutTrivia()
             : SyntaxFactory.ParenthesizedExpression(inner.WithoutTrivia());
         return SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, operand);
-    }
-
-    /// <summary>Strips redundant parentheses from a condition.</summary>
-    /// <param name="expression">The condition.</param>
-    /// <returns>The condition with any surrounding parentheses removed.</returns>
-    private static ExpressionSyntax Unparenthesize(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
     }
 }

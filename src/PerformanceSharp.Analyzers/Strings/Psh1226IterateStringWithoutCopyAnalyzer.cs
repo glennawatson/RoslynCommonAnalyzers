@@ -57,8 +57,7 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the shape matches.</returns>
     internal static bool IsToCharArrayShape(InvocationExpressionSyntax invocation) =>
         invocation.ArgumentList.Arguments.Count == 0
-            && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
-            && access.Name.Identifier.ValueText == ToCharArrayMethodName;
+            && SimpleMemberCall.IsNamed(invocation, ToCharArrayMethodName);
 
     /// <summary>Resolves the local a <c>ToCharArray</c> copy initializes, when the retypeable-local shape matches.</summary>
     /// <param name="invocation">The copying invocation.</param>
@@ -161,29 +160,28 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var name = local.Name;
-        var iterated = false;
-        foreach (var node in scope.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax identifier || identifier.Identifier.ValueText != name)
+        var state = new IterationScanState(model, local, local.Name, cancellationToken);
+        return DescendantTraversalHelper.VisitDescendants(
+            scope,
+            ref state,
+            static (IdentifierNameSyntax identifier, ref IterationScanState current) =>
             {
-                continue;
-            }
+                if (identifier.Identifier.ValueText != current.Name
+                    || (identifier.Parent is MemberAccessExpressionSyntax access && access.Name == identifier)
+                    || identifier.Parent is MemberBindingExpressionSyntax or QualifiedNameSyntax or AliasQualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
+                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Local))
+                {
+                    return true;
+                }
 
-            if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, local))
-            {
-                continue;
-            }
+                if (!IsIterationUse(identifier))
+                {
+                    return false;
+                }
 
-            if (!IsIterationUse(identifier))
-            {
-                return false;
-            }
-
-            iterated = true;
-        }
-
-        return iterated;
+                current.Iterated = true;
+                return true;
+            }) && state.Iterated;
     }
 
     /// <summary>Returns whether a reference to the local reads it as a sequence a string would satisfy.</summary>
@@ -195,24 +193,22 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
         MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access =>
             access.Expression == identifier && access.Name.Identifier.ValueText == LengthPropertyName,
         ElementAccessExpressionSyntax elementAccess =>
-            elementAccess.Expression == identifier && !IsWriteTarget(elementAccess),
+            elementAccess.Expression == identifier && !WriteTargetSyntax.IsElementWriteTarget(elementAccess),
         _ => false,
     };
 
-    /// <summary>Returns whether an element access writes to, or takes a reference to, its element.</summary>
-    /// <param name="elementAccess">The element access on the local.</param>
-    /// <returns><see langword="true"/> when the element is not merely read.</returns>
-    /// <remarks>
-    /// A <c>char[]</c> element is a writable storage location; a <c>string</c> element is not. Every
-    /// shape that needs the location rather than the value would stop compiling after the retype.
-    /// </remarks>
-    private static bool IsWriteTarget(ElementAccessExpressionSyntax elementAccess) => elementAccess.Parent switch
+    /// <summary>Tracks the local's iteration uses while retaining semantic identity checks.</summary>
+    /// <param name="Model">The semantic model used to bind matching names.</param>
+    /// <param name="Local">The local whose references are checked.</param>
+    /// <param name="Name">The local name used by the syntax filter.</param>
+    /// <param name="CancellationToken">A token that cancels symbol resolution.</param>
+    private record struct IterationScanState(
+        SemanticModel Model,
+        ILocalSymbol Local,
+        string Name,
+        CancellationToken CancellationToken)
     {
-        AssignmentExpressionSyntax assignment => assignment.Left == elementAccess,
-        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression }
-            or PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression }
-            or RefExpressionSyntax => true,
-        ArgumentSyntax argument => argument.RefOrOutKeyword.RawKind != (int)SyntaxKind.None,
-        _ => false,
-    };
+        /// <summary>Gets or sets whether an iteration use has been found.</summary>
+        public bool Iterated { get; set; }
+    }
 }

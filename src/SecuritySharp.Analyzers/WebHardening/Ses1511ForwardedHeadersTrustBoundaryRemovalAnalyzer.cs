@@ -16,8 +16,7 @@ namespace SecuritySharp.Analyzers;
 /// (<c>new ForwardedHeadersOptions { ForwardLimit = null }</c>), which removes the cap on how many forwarded
 /// hops are honoured. In both shapes the accessed member is bound to its symbol and its containing type is
 /// confirmed to be <c>ForwardedHeadersOptions</c>, so a same-named member on any other type is ignored. The
-/// options type is probed once per compilation; a project without ASP.NET Core registers nothing and pays no
-/// analysis cost.
+/// options type is resolved only after a matching call or assignment survives the syntactic prefilter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : DiagnosticAnalyzer
@@ -58,22 +57,17 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(OptionsMetadataName) is not { } optionsType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeClearInvocation(nodeContext, optionsType), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeForwardLimitAssignment(nodeContext, optionsType), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyMetadataType(compilation, OptionsMetadataName),
+            new(AnalyzeClearInvocation, [SyntaxKind.InvocationExpression]),
+            new(AnalyzeForwardLimitAssignment, [SyntaxKind.SimpleAssignmentExpression]));
     }
 
     /// <summary>Reports SES1511 for a <c>.Clear()</c> call on a gated trusted-proxy/network list member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The gated <c>ForwardedHeadersOptions</c> type.</param>
-    private static void AnalyzeClearInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    /// <param name="types">The compilation-scoped forwarded-headers type cache.</param>
+    private static void AnalyzeClearInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -86,7 +80,8 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(listAccess, context.CancellationToken).Symbol is not IPropertySymbol property
+        if (types.Get() is not { } optionsType
+            || context.SemanticModel.GetSymbolInfo(listAccess, context.CancellationToken).Symbol is not IPropertySymbol property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, optionsType))
         {
             return;
@@ -101,8 +96,8 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
 
     /// <summary>Reports SES1511 for a <c>ForwardLimit = null</c> assignment on a gated options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The gated <c>ForwardedHeadersOptions</c> type.</param>
-    private static void AnalyzeForwardLimitAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    /// <param name="types">The compilation-scoped forwarded-headers type cache.</param>
+    private static void AnalyzeForwardLimitAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -113,7 +108,8 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: ForwardLimitPropertyName } property
+        if (types.Get() is not { } optionsType
+            || context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: ForwardLimitPropertyName } property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, optionsType))
         {
             return;

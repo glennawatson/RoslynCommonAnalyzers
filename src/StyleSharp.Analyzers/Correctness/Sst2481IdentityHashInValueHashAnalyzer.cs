@@ -58,7 +58,7 @@ public sealed class Sst2481IdentityHashInValueHashAnalyzer : DiagnosticAnalyzer
 
         // A base call that is the member's whole result is reference delegation, not mixing, and belongs to the
         // reference-delegation rule; only a call combined with other state folds the identity hash into a value hash.
-        if (IsWholeResult(invocation) || !IsInsideHashOverride(invocation))
+        if (MemberResult.IsWholeResult(invocation) || !IsInsideHashOverride(invocation))
         {
             return;
         }
@@ -83,25 +83,6 @@ public sealed class Sst2481IdentityHashInValueHashAnalyzer : DiagnosticAnalyzer
     private static bool IsBaseGetHashCodeCall(InvocationExpressionSyntax invocation) =>
         invocation.Expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax, Name.Identifier.ValueText: GetHashCodeName }
             && invocation.ArgumentList.Arguments.Count == 0;
-
-    /// <summary>Returns whether the base call is the entire value the member yields.</summary>
-    /// <param name="invocation">The base hash invocation.</param>
-    /// <returns><see langword="true"/> when the call is the member's expression body or a returned expression.</returns>
-    private static bool IsWholeResult(InvocationExpressionSyntax invocation)
-    {
-        SyntaxNode node = invocation;
-        while (node.Parent is ParenthesizedExpressionSyntax parenthesized)
-        {
-            node = parenthesized;
-        }
-
-        return node.Parent switch
-        {
-            ArrowExpressionClauseSyntax arrow => arrow.Expression == node,
-            ReturnStatementSyntax returnStatement => returnStatement.Expression == node,
-            _ => false,
-        };
-    }
 
     /// <summary>Returns whether the node sits inside a parameterless <c>GetHashCode</c> override.</summary>
     /// <param name="node">The invocation being inspected.</param>

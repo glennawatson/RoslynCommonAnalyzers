@@ -29,11 +29,11 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the debugger-display attribute the rule and its fix depend on.</summary>
-    private const string DebuggerDisplayMetadataName = "System.Diagnostics.DebuggerDisplayAttribute";
-
     /// <summary>The name of the method whose override makes a <c>ToString</c>-based display string meaningful.</summary>
     private const string ToStringName = "ToString";
+
+    /// <summary>The metadata name of the debugger-display attribute.</summary>
+    private const string DebuggerDisplayMetadataName = "System.Diagnostics.DebuggerDisplayAttribute";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingDebuggerDisplay);
@@ -48,30 +48,23 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(DebuggerDisplayMetadataName) is not { } attribute)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, attribute), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, DebuggerDisplayMetadataName),
+            Analyze,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Reports a publicly visible type with no debugger-display attribute.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="attributeType">The resolved debugger-display attribute type.</param>
-    private static void Analyze(in SymbolAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="attribute">The debugger-display attribute resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, LazyMetadataType attribute)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
-            || type.IsStatic
-            || !SymbolVisibility.IsExternallyVisible(type)
-            || type.Locations.IsEmpty
-            || !type.Locations[0].IsInSource
-            || HasDebuggerDisplay(type, attributeType)
-            || !HasDisplayableState(type))
+        if (!ExternallyVisibleSourceTypes.IsInstanceClassOrStruct(type)
+            || !HasDisplayableState(type)
+            || attribute.Get() is not { } attributeType
+            || SymbolFacts.HasAttribute(type.GetAttributes(), attributeType))
         {
             return;
         }
@@ -111,24 +104,6 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
             if (member is IFieldSymbol
                 or IPropertySymbol { IsIndexer: false, IsOverride: false, GetMethod: not null }
                 or IMethodSymbol { IsOverride: true, Name: ToStringName, Parameters.Length: 0 })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type already carries the debugger-display attribute.</summary>
-    /// <param name="type">The type to inspect.</param>
-    /// <param name="attributeType">The debugger-display attribute type.</param>
-    /// <returns><see langword="true"/> when the attribute is present.</returns>
-    private static bool HasDebuggerDisplay(INamedTypeSymbol type, INamedTypeSymbol attributeType)
-    {
-        var attributes = type.GetAttributes();
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(attributes[i].AttributeClass, attributeType))
             {
                 return true;
             }

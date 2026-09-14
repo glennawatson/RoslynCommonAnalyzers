@@ -14,8 +14,8 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on <c>TimeZoneConverter.TZConvert</c> resolving: a project
-/// that does not reference the package registers no syntax action and pays nothing. It is gated a second
+/// The rule resolves <c>TimeZoneConverter.TZConvert</c> on first demand after a candidate method name
+/// passes the syntax check, caching missing types too. It is gated a second
 /// time on the replacement existing — <see cref="System.TimeZoneInfo"/> with a
 /// <c>FindSystemTimeZoneById</c> method — so a framework that has no built-in equivalent is never handed a
 /// suggestion it cannot take. The conversion helpers arrived with .NET 6 and are each probed separately;
@@ -77,22 +77,11 @@ public sealed class Psh1419PreferBuiltInTimeZoneAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(TimeZoneConverterTypeMetadataName) is not { } converterType
-                || start.Compilation.GetTypeByMetadataName(TimeZoneInfoMetadataName) is not { } timeZoneInfoType
-                || timeZoneInfoType.GetMembers(FindSystemTimeZoneByIdMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            var hasIanaToWindows = !timeZoneInfoType.GetMembers(TryConvertIanaIdToWindowsIdMethodName).IsEmpty;
-            var hasWindowsToIana = !timeZoneInfoType.GetMembers(TryConvertWindowsIdToIanaIdMethodName).IsEmpty;
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, converterType, hasIanaToWindows, hasWindowsToIana),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<TimeZoneGate>(compilation, ResolveGate),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation is a single-argument <c>GetTimeZoneInfo</c> call, before any binding.</summary>
@@ -100,22 +89,23 @@ public sealed class Psh1419PreferBuiltInTimeZoneAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the code fix can rewrite it one-to-one.</returns>
     internal static bool IsGetTimeZoneInfoInvocation(InvocationExpressionSyntax invocation) =>
         invocation.ArgumentList.Arguments.Count == 1
-            && GetInvokedSimpleName(invocation.Expression) == GetTimeZoneInfoMethodName;
+            && MemberReferenceName.Of(invocation.Expression) == GetTimeZoneInfoMethodName;
 
     /// <summary>Reports PSH1419 for a converter call whose built-in replacement is available.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="converterType">The resolved converter entry-point type.</param>
-    /// <param name="hasIanaToWindows">Whether the IANA-to-Windows conversion helper resolves.</param>
-    /// <param name="hasWindowsToIana">Whether the Windows-to-IANA conversion helper resolves.</param>
-    private static void AnalyzeInvocation(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol converterType,
-        bool hasIanaToWindows,
-        bool hasWindowsToIana)
+    /// <param name="types">The lazily resolved converter and replacement availability.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<TimeZoneGate> types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        var methodName = GetInvokedSimpleName(invocation.Expression);
-        if (methodName is null || GetReplacement(methodName, hasIanaToWindows, hasWindowsToIana) is not { } replacement)
+        var methodName = MemberReferenceName.Of(invocation.Expression);
+        if (methodName is not (GetTimeZoneInfoMethodName or IanaToWindowsMethodName or WindowsToIanaMethodName))
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved.ConverterType is not { } converterType
+            || GetReplacement(methodName, resolved.HasIanaToWindows, resolved.HasWindowsToIana) is not { } replacement)
         {
             return;
         }
@@ -146,13 +136,22 @@ public sealed class Psh1419PreferBuiltInTimeZoneAnalyzer : DiagnosticAnalyzer
         _ => null,
     };
 
-    /// <summary>Returns the simple name an invocation calls, without binding it.</summary>
-    /// <param name="expression">The invoked expression.</param>
-    /// <returns>The rightmost identifier, or <see langword="null"/> when the expression names none.</returns>
-    private static string? GetInvokedSimpleName(ExpressionSyntax expression) => expression switch
-    {
-        MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        _ => null,
-    };
+    /// <summary>Resolves the converter type and probes each built-in replacement once.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>The converter and replacement availability, or an empty gate when unavailable.</returns>
+    private static TimeZoneGate ResolveGate(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(TimeZoneConverterTypeMetadataName) is not { } converterType
+            || compilation.GetTypeByMetadataName(TimeZoneInfoMetadataName) is not { } timeZoneInfoType
+            || timeZoneInfoType.GetMembers(FindSystemTimeZoneByIdMethodName).IsEmpty
+            ? default
+            : new(
+                converterType,
+                !timeZoneInfoType.GetMembers(TryConvertIanaIdToWindowsIdMethodName).IsEmpty,
+                !timeZoneInfoType.GetMembers(TryConvertWindowsIdToIanaIdMethodName).IsEmpty);
+
+    /// <summary>The converter type and the available built-in conversion helpers.</summary>
+    /// <param name="ConverterType">The converter type, or null when a required type or replacement is absent.</param>
+    /// <param name="HasIanaToWindows">Whether the IANA-to-Windows helper is available.</param>
+    /// <param name="HasWindowsToIana">Whether the Windows-to-IANA helper is available.</param>
+    private readonly record struct TimeZoneGate(INamedTypeSymbol? ConverterType, bool HasIanaToWindows, bool HasWindowsToIana);
 }

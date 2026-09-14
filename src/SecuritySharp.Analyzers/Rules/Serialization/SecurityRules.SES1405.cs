@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1405 — a MessagePack typeless deserializer reconstructs arbitrary types from untrusted input.</summary>
-    public static readonly DiagnosticDescriptor TypelessDeserialization = Create(
+    public static readonly DiagnosticDescriptor TypelessDeserialization = DescriptorFactory.Create(
         "SES1405",
         "A MessagePack typeless deserializer must not reconstruct arbitrary types from untrusted input",
         TypelessDeserializationMessage,

@@ -11,49 +11,37 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces "Gets or sets" with "Gets" for SST1624.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RestrictedPropertySummaryCodeFixProvider))]
 [Shared]
-public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider
 {
     /// <summary>The phrase removed by the fix.</summary>
     private const string ExistingPrefix = "Gets or sets";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DocumentationRules.PropertySummaryOmitsRestrictedSetter.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Describe the readable accessor only",
+            nameof(RestrictedPropertySummaryCodeFixProvider),
+            DocumentationElementFix.FindElement,
+            ApplyAsync);
+
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-            if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Describe the readable accessor only",
-                    cancellationToken => ApplyAsync(context.Document, summary, cancellationToken),
-                    equivalenceKey: nameof(RestrictedPropertySummaryCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { } summary)
+        if (DocumentationElementFix.FindElement(root, diagnostic) is not { } summary)
         {
             return;
         }
@@ -71,16 +59,10 @@ public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider, 
     /// <param name="summary">The summary element.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    internal static async Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken)
-    {
-        if (!TryBuildChange(summary, out var change))
-        {
-            return document;
-        }
-
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithText(text.WithChanges(change));
-    }
+    internal static Task<Document> ApplyAsync(Document document, XmlElementSyntax summary, CancellationToken cancellationToken) =>
+        TryBuildChange(summary, out var change)
+            ? DocumentationElementFix.ApplyAsync(document, change, cancellationToken)
+            : Task.FromResult(document);
 
     /// <summary>Builds the change that replaces the leading "Gets or sets" phrase with "Gets" in the first XML text token.</summary>
     /// <param name="summary">The summary element.</param>
@@ -88,31 +70,41 @@ public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider, 
     /// <returns><see langword="true"/> when a change was produced.</returns>
     private static bool TryBuildChange(XmlElementSyntax summary, out TextChange change)
     {
-        foreach (var token in summary.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        var token = default(SyntaxToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            summary,
+            ref token,
+            static (in SyntaxToken current, ref SyntaxToken firstText) =>
             {
-                continue;
-            }
+                if (!current.IsKind(SyntaxKind.XmlTextLiteralToken))
+                {
+                    return true;
+                }
 
-            var value = token.ValueText.AsSpan();
-            var start = 0;
-            while (start < value.Length && char.IsWhiteSpace(value[start]))
-            {
-                start++;
-            }
-
-            if (!value[start..].StartsWith(ExistingPrefix.AsSpan(), StringComparison.Ordinal))
-            {
-                change = default;
+                firstText = current;
                 return false;
-            }
+            });
 
-            change = new(new(token.SpanStart + start, ExistingPrefix.Length), "Gets");
-            return true;
+        if (token.RawKind == 0)
+        {
+            change = default;
+            return false;
         }
 
-        change = default;
-        return false;
+        var value = token.ValueText.AsSpan();
+        var start = 0;
+        while (start < value.Length && char.IsWhiteSpace(value[start]))
+        {
+            start++;
+        }
+
+        if (!value[start..].StartsWith(ExistingPrefix.AsSpan(), StringComparison.Ordinal))
+        {
+            change = default;
+            return false;
+        }
+
+        change = new(new(token.SpanStart + start, ExistingPrefix.Length), "Gets");
+        return true;
     }
 }

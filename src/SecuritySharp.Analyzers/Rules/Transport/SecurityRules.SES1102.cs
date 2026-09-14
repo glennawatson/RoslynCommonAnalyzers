@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1102 — the accept-any server-certificate validator disables TLS authentication.</summary>
-    public static readonly DiagnosticDescriptor AcceptAnyServerCertificate = Create(
+    public static readonly DiagnosticDescriptor AcceptAnyServerCertificate = DescriptorFactory.Create(
         "SES1102",
         "Do not accept any server certificate",
         "'HttpClientHandler.DangerousAcceptAnyServerCertificateValidator' accepts every server certificate, disabling TLS authentication and exposing the connection to man-in-the-middle attacks",

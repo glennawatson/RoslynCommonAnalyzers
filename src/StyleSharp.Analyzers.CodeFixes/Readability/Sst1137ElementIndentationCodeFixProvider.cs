@@ -74,15 +74,17 @@ public sealed class Sst1137ElementIndentationCodeFixProvider : CodeFixProvider
     /// <returns><see langword="true"/> when shifting the lines would edit a string's value.</returns>
     private static bool CarriesItsOwnLineBreaks(SyntaxNode element)
     {
-        foreach (var token in element.DescendantTokens())
-        {
-            if (HoldsText(token) && token.Text.IndexOf('\n') >= 0)
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            element,
+            ref found,
+            static (in SyntaxToken token, ref bool state) =>
             {
-                return true;
-            }
-        }
+                state = HoldsText(token) && token.Text.IndexOf('\n') >= 0;
+                return !state;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Returns whether a token's own text is string content.</summary>

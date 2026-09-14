@@ -28,8 +28,9 @@ namespace PerformanceSharp.Analyzers;
 /// <para>
 /// <b>Gated on the field, never on a version number.</b> The two <c>UnixEpoch</c> fields arrived with
 /// .NET Core 2.1 and .NET Standard 2.1, so each is probed for separately in the compilation; a target
-/// framework that has neither registers no action, and one that has only one of them reports only that
-/// one. Every component is read as a <em>constant</em>, so a named <c>const int EpochYear = 1970</c>
+/// framework that has neither reports nothing, and one that has only one of them reports only that
+/// one. The probes run once on first demand after the creation passes the syntax checks. Every component
+/// is read as a <em>constant</em>, so a named <c>const int EpochYear = 1970</c>
 /// matches exactly as the literal does, and a computed value matches nothing.
 /// </para>
 /// </remarks>
@@ -38,12 +39,6 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The replacement field.</summary>
     internal const string UnixEpochFieldName = "UnixEpoch";
-
-    /// <summary>The metadata name of the date type.</summary>
-    private const string DateTimeMetadataName = "System.DateTime";
-
-    /// <summary>The metadata name of the offset date type.</summary>
-    private const string DateTimeOffsetMetadataName = "System.DateTimeOffset";
 
     /// <summary>The simple name of the kind enum a date's last parameter may take.</summary>
     private const string DateTimeKindTypeName = "DateTimeKind";
@@ -75,6 +70,12 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The position of the day component.</summary>
     private const int DayIndex = 2;
 
+    /// <summary>The metadata name of the date type.</summary>
+    private const string DateTimeMetadataName = "System.DateTime";
+
+    /// <summary>The metadata name of the offset date type.</summary>
+    private const string DateTimeOffsetMetadataName = "System.DateTimeOffset";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseUnixEpochField);
 
@@ -87,19 +88,11 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var dateTime = GetTypeWithUnixEpoch(start.Compilation, DateTimeMetadataName);
-            var dateTimeOffset = GetTypeWithUnixEpoch(start.Compilation, DateTimeOffsetMetadataName);
-            if (dateTime is null && dateTimeOffset is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, dateTime, dateTimeOffset),
-                SyntaxKind.ObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?[]>(compilation, ResolveEpochTypes),
+            AnalyzeCreation,
+            SyntaxKind.ObjectCreationExpression);
     }
 
     /// <summary>Returns whether an allocation has the shape of a hand-written epoch, before any binding.</summary>
@@ -112,12 +105,28 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1413 for an epoch the framework already holds as a field.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dateTime">The compilation's date type, when it has the field.</param>
-    /// <param name="dateTimeOffset">The compilation's offset date type, when it has the field.</param>
-    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? dateTime, INamedTypeSymbol? dateTimeOffset)
+    /// <param name="types">The lazily resolved date types for the compilation.</param>
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?[]> types)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
         if (!IsEpochCreationShape(creation))
+        {
+            return;
+        }
+
+        var arguments = creation.ArgumentList!.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].NameColon is not null)
+            {
+                return;
+            }
+        }
+
+        var resolved = types.Get();
+        var dateTime = resolved[0];
+        var dateTimeOffset = resolved[1];
+        if (dateTime is null && dateTimeOffset is null)
         {
             return;
         }
@@ -242,6 +251,15 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
         model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true } field
             && field.Name == memberName
             && IsNamedSystemType(field.ContainingType, typeName);
+
+    /// <summary>Gets the types that expose an epoch field on first demand.</summary>
+    /// <param name="compilation">The compilation the value is resolved from.</param>
+    /// <returns>The date and offset date types, with null entries for unavailable fields.</returns>
+    private static INamedTypeSymbol?[] ResolveEpochTypes(Compilation compilation) =>
+    [
+        GetTypeWithUnixEpoch(compilation, DateTimeMetadataName),
+        GetTypeWithUnixEpoch(compilation, DateTimeOffsetMetadataName)
+    ];
 
     /// <summary>Resolves a type only when the compilation's version of it holds the epoch field.</summary>
     /// <param name="compilation">The compilation being analyzed.</param>

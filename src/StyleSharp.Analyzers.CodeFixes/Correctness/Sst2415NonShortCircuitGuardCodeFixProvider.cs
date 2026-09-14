@@ -11,48 +11,20 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2415NonShortCircuitGuardCodeFixProvider))]
 [Shared]
-public sealed class Sst2415NonShortCircuitGuardCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2415NonShortCircuitGuardCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.NonShortCircuitGuard.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => ShortCircuitOperatorRewrite.FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not BinaryExpressionSyntax binary || !ShortCircuitOperatorRewrite.IsFixableKind(binary))
-            {
-                continue;
-            }
-
-            var replacement = binary.IsKind(SyntaxKind.BitwiseAndExpression) ? "&&" : "||";
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Short-circuit with '{replacement}' — the right operand will no longer run when the left decides",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(binary, ShortCircuitOperatorRewrite.Rewrite(binary)))),
-                    equivalenceKey: nameof(Sst2415NonShortCircuitGuardCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not BinaryExpressionSyntax binary || !ShortCircuitOperatorRewrite.IsFixableKind(binary))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(binary, static (current, _) => ShortCircuitOperatorRewrite.Rewrite((BinaryExpressionSyntax)current));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static binary => $"Short-circuit with '{(binary.IsKind(SyntaxKind.BitwiseAndExpression) ? "&&" : "||")}' — the right operand will no longer run when the left decides",
+            nameof(Sst2415NonShortCircuitGuardCodeFixProvider),
+            ShortCircuitOperatorRewrite.Find,
+            ShortCircuitOperatorRewrite.Apply);
 }

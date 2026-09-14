@@ -33,6 +33,14 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.RunContinuationsAsynchronously);
 
+    /// <summary>The metadata names CompletionSourceTypes resolves, in slot order.</summary>
+    private static readonly string[] CompletionSourceTypesMetadataNames =
+    [
+        GenericMetadataName,
+        NonGenericMetadataName,
+        OptionsMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -42,21 +50,47 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, CompletionSourceTypesMetadataNames),
+            AnalyzeCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
+    }
+
+    /// <summary>Returns the argument bound to a parameter ordinal, honoring named arguments.</summary>
+    /// <param name="creation">The creation expression.</param>
+    /// <param name="parameterName">The parameter's name, for named-argument matching.</param>
+    /// <param name="ordinal">The parameter ordinal to resolve.</param>
+    /// <returns>The matching argument, or <see langword="null"/> when it is not supplied.</returns>
+    internal static ArgumentSyntax? FindArgumentForOrdinal(BaseObjectCreationExpressionSyntax creation, string parameterName, int ordinal)
+    {
+        if (creation.ArgumentList is not { } argumentList)
         {
-            var genericType = start.Compilation.GetTypeByMetadataName(GenericMetadataName);
-            var optionsType = start.Compilation.GetTypeByMetadataName(OptionsMetadataName);
-            if (genericType is null || optionsType is null)
+            return null;
+        }
+
+        var arguments = argumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var argument = arguments[i];
+            if (argument.NameColon is { } nameColon)
             {
-                return;
+                if (nameColon.Name.Identifier.ValueText == parameterName)
+                {
+                    return argument;
+                }
+
+                continue;
             }
 
-            var nonGenericType = start.Compilation.GetTypeByMetadataName(NonGenericMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, genericType, nonGenericType, optionsType),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+            if (i == ordinal)
+            {
+                return argument;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Returns whether an explicit creation names the completion-source type, before any binding.</summary>
@@ -98,19 +132,23 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
 
     /// <summary>Reports PSH1302 for a completion-source creation with provably missing continuation options.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="genericType">The generic completion-source type.</param>
-    /// <param name="nonGenericType">The non-generic completion-source type, when it exists.</param>
-    /// <param name="optionsType">The task creation options enum type.</param>
+    /// <param name="types">The compilation's lazily resolved completion-source and options types.</param>
     private static void AnalyzeCreation(
         in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol genericType,
-        INamedTypeSymbol? nonGenericType,
-        INamedTypeSymbol optionsType)
+        LazyMetadataTypes types)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!MatchesTypeNameGate(creation)
             || context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor
-            || !IsCompletionSourceType(constructor.ContainingType, genericType, nonGenericType))
+            || constructor.ContainingType.Name != TypeName)
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } genericType
+            || resolved[2] is not { } optionsType
+            || !IsCompletionSourceType(constructor.ContainingType, genericType, resolved[1]))
         {
             return;
         }
@@ -167,7 +205,7 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
             return true;
         }
 
-        if (FindArgumentForOrdinal(creation, parameters, optionsOrdinal) is not { } optionsArgument)
+        if (FindArgumentForOrdinal(creation, parameters[optionsOrdinal].Name, optionsOrdinal) is not { } optionsArgument)
         {
             return false;
         }
@@ -175,43 +213,5 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
         var constant = context.SemanticModel.GetConstantValue(optionsArgument.Expression, context.CancellationToken);
         return constant is { HasValue: true, Value: int value }
             && (value & RunContinuationsAsynchronouslyValue) == 0;
-    }
-
-    /// <summary>Returns the argument bound to a parameter ordinal, honoring named arguments.</summary>
-    /// <param name="creation">The creation expression.</param>
-    /// <param name="parameters">The bound constructor's parameters.</param>
-    /// <param name="ordinal">The parameter ordinal to resolve.</param>
-    /// <returns>The matching argument, or <see langword="null"/> when it is not supplied.</returns>
-    private static ArgumentSyntax? FindArgumentForOrdinal(
-        BaseObjectCreationExpressionSyntax creation,
-        ImmutableArray<IParameterSymbol> parameters,
-        int ordinal)
-    {
-        if (creation.ArgumentList is not { } argumentList)
-        {
-            return null;
-        }
-
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            var argument = arguments[i];
-            if (argument.NameColon is { } nameColon)
-            {
-                if (nameColon.Name.Identifier.ValueText == parameters[ordinal].Name)
-                {
-                    return argument;
-                }
-
-                continue;
-            }
-
-            if (i == ordinal)
-            {
-                return argument;
-            }
-        }
-
-        return null;
     }
 }

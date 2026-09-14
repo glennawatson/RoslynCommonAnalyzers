@@ -24,12 +24,6 @@ public sealed class Psh1208Utf8LiteralAnalyzer : DiagnosticAnalyzer
     /// <summary>The ASCII encoding property name.</summary>
     internal const string AsciiPropertyName = "ASCII";
 
-    /// <summary>The metadata name of the encoding type.</summary>
-    private const string EncodingMetadataName = "System.Text.Encoding";
-
-    /// <summary>The metadata name of the span type a u8 literal produces.</summary>
-    private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
-
     /// <summary>The highest ASCII code point.</summary>
     private const char AsciiMax = (char)0x7F;
 
@@ -48,16 +42,11 @@ public sealed class Psh1208Utf8LiteralAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var encodingType = start.Compilation.GetTypeByMetadataName(EncodingMetadataName);
-            if (encodingType is null || start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, encodingType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveEncodingType),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns the encoding property name when an invocation has the <c>Encoding.UTF8.GetBytes(x)</c> shape, before any binding.</summary>
@@ -107,12 +96,13 @@ public sealed class Psh1208Utf8LiteralAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1208 for a constant-string GetBytes call on the runtime's UTF-8 or ASCII encoding.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="encodingType">The encoding type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encodingType)
+    /// <param name="encodingTypes">The lazily resolved encoding and span types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> encodingTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetEncodingPropertyName(invocation) is not { } encodingName
-            || invocation.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp11 })
+            || invocation.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp11 }
+            || encodingTypes.Get() is not { } encodingType)
         {
             return;
         }
@@ -131,4 +121,12 @@ public sealed class Psh1208Utf8LiteralAnalyzer : DiagnosticAnalyzer
             invocation.SyntaxTree,
             invocation.Span));
     }
+
+    /// <summary>Resolves UTF-8 literal support after a call passes the syntax and language filters.</summary>
+    /// <param name="compilation">The compilation whose encoding and span types are probed.</param>
+    /// <returns>The encoding type when the span type a u8 literal produces also exists; otherwise <see langword="null"/>.</returns>
+    private static INamedTypeSymbol? ResolveEncodingType(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.ReadOnlySpan`1") is null
+            ? null
+            : compilation.GetTypeByMetadataName("System.Text.Encoding");
 }

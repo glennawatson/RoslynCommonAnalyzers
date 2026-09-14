@@ -39,7 +39,7 @@ public class Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesCodeFix
     [Benchmark]
     public async Task<int> Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1165PrimaryConstructorBaseTypeArgumentMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

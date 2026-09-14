@@ -20,15 +20,13 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
-        {
-            var targets = CollectionExpressionHelper.ResolveTargets(start.Compilation);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, targets),
-                SyntaxKind.ArrayCreationExpression,
-                SyntaxKind.ImplicitArrayCreationExpression,
-                SyntaxKind.ObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol[]>(compilation, CollectionExpressionHelper.ResolveTargets),
+            Analyze,
+            SyntaxKind.ArrayCreationExpression,
+            SyntaxKind.ImplicitArrayCreationExpression,
+            SyntaxKind.ObjectCreationExpression);
     }
 
     /// <summary>Gets the initializer carried by a supported explicit collection creation.</summary>
@@ -49,21 +47,55 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
 
     /// <summary>Reports an accepted explicit collection creation.</summary>
     /// <param name="context">The syntax context.</param>
-    /// <param name="targets">The accepted target definitions.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
+    /// <param name="targets">The accepted target definitions resolved on demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol[]> targets)
     {
         if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)
             || !TryGetInitializer(expression, out var initializer)
             || initializer!.Expressions.Count == 0
             || HasComplexElement(initializer)
-            || !CollectionExpressionHelper.HasAcceptedTarget(context, expression, targets)
+            || !HasAcceptedTarget(context, expression, targets)
             || ChangesOverloadResolution(context, expression, initializer!))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(CollectionExpressionRules.UseExplicitCollectionExpression, expression.GetLocation()));
+    }
+
+    /// <summary>Checks the target context before resolving named collection definitions.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="expression">The collection creation.</param>
+    /// <param name="targets">The accepted target definitions resolved on demand.</param>
+    /// <returns>Whether the explicit target is a one-dimensional array or an accepted named collection.</returns>
+    private static bool HasAcceptedTarget(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, LazyCompilationValue<INamedTypeSymbol[]> targets)
+    {
+        if (!CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, expression, out var converted))
+        {
+            return false;
+        }
+
+        if (converted is IArrayTypeSymbol { Rank: 1 })
+        {
+            return true;
+        }
+
+        if (converted is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+
+        var resolvedTargets = targets.Get();
+        for (var i = 0; i < resolvedTargets.Length; i++)
+        {
+            if (SymbolEqualityComparer.Default.Equals(resolvedTargets[i], named.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether writing the creation as a collection expression would call something else.</summary>

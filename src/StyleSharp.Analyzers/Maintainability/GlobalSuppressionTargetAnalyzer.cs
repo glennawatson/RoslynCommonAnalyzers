@@ -31,31 +31,25 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var suppressMessageAttribute = start.Compilation.GetTypeByMetadataName(SuppressMessageAttributeMetadataName);
-            if (suppressMessageAttribute is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAttribute(nodeContext, suppressMessageAttribute),
-                SyntaxKind.Attribute);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, SuppressMessageAttributeMetadataName),
+            AnalyzeAttribute,
+            SyntaxKind.Attribute);
     }
 
     /// <summary>Reports invalid or legacy global suppression targets.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="suppressMessageAttribute">The suppression attribute symbol.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
+    /// <param name="suppressionTypes">The lazily resolved suppression attribute type.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, LazyMetadataType suppressionTypes)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.Parent is not AttributeListSyntax { Target.Identifier.RawKind: (int)SyntaxKind.AssemblyKeyword }
+            || TryGetNamedString(attribute.ArgumentList, "Target", context.SemanticModel, context.CancellationToken) is not { Length: > 0 } target
+            || (target[0] != '~' && !LooksLikeDeclarationId(target))
+            || suppressionTypes.Get() is not { } suppressMessageAttribute
             || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: var attributeType }
-            || !SymbolEqualityComparer.Default.Equals(attributeType, suppressMessageAttribute)
-            || TryGetNamedString(attribute.ArgumentList, "Target", context.SemanticModel, context.CancellationToken) is not { } target
-            || target.Length == 0)
+            || !SymbolEqualityComparer.Default.Equals(attributeType, suppressMessageAttribute))
         {
             return;
         }
@@ -65,11 +59,6 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 MaintainabilityRules.UseDeclarationIdSuppressionTarget,
                 attribute.GetLocation()));
-            return;
-        }
-
-        if (!LooksLikeDeclarationId(target))
-        {
             return;
         }
 

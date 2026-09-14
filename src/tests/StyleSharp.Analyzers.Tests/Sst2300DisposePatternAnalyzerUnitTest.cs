@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyDispose = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2300DisposePatternAnalyzer>;
@@ -12,6 +14,103 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2300 (implement the disposal pattern correctly).</summary>
 public class Sst2300DisposePatternAnalyzerUnitTest
 {
+    /// <summary>Verifies absent and abstract disposal bodies cannot be checked for required calls.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MissingOrAbstractDisposeBodyIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
+            """
+            using System;
+            abstract class AbstractResource : IDisposable
+            {
+                public abstract void Dispose();
+                protected virtual void Dispose(bool disposing) { }
+            }
+            class MissingResource : {|CS0535:IDisposable|}
+            {
+                protected virtual void Dispose(bool disposing) { }
+            }
+            """);
+
+    /// <summary>Verifies invocation lookalikes do not satisfy the two required disposal calls.</summary>
+    /// <param name="body">Calls that fail to suppress this instance's finalizer.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Log(); ((cleanup))(this); Dispose(true); GC.SuppressFinalize(new object());")]
+    [Arguments("Dispose(false); Dispose(true); Log(this); GC.SuppressFinalize(null);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedCallsDoNotSuppressFinalizationAsync(string body) =>
+        VerifyDispose.VerifyAnalyzerAsync(
+            $$"""
+            using System;
+            class C : IDisposable
+            {
+                Action<object> cleanup = value => { };
+                ~C() { }
+                public void {|SST2300:Dispose|}() { {{body}} }
+                protected virtual void Dispose(bool disposing) { }
+                static void Log() { }
+                static void Log(object value) { }
+            }
+            """);
+
+    /// <summary>Verifies overloads and non-method members cannot be mistaken for a hidden public disposal method.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonDisposalMembersAreCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
+            """
+            using System;
+            class Base : IDisposable
+            {
+                public void Dispose() => Dispose(true);
+                protected virtual void Dispose(bool disposing) { }
+                int Dispose(int value) => value;
+                void Dispose(string value) { }
+            }
+            class Property : Base { public new int Dispose => 0; }
+            class Static : Base { public new static void Dispose() { } }
+            class Returning : Base { public new int Dispose() => 0; }
+            class Private : Base { private new void Dispose() { } }
+            class Overload : Base { public void Dispose(string value) { } }
+            class Explicit : Base, IDisposable { void IDisposable.Dispose() { } }
+            static class Utility { }
+            """);
+
+    /// <summary>Verifies a framework must expose a static single-argument finalization API before it is suggested.</summary>
+    /// <param name="garbageCollector">The framework's optional garbage collector declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("public class GC { public void SuppressFinalize(Object value) { } }")]
+    [Arguments("public class GC { public static void SuppressFinalize() { } }")]
+    [Arguments("public class GC { public static Object SuppressFinalize; }")]
+    public async Task MissingFinalizationApiIsCleanAsync(string garbageCollector)
+    {
+        var source = $$"""
+            namespace System
+            {
+                public class Object { }
+                public class ValueType { }
+                public struct Void { }
+                public struct Boolean { }
+                public interface IDisposable { void Dispose(); }
+                {{garbageCollector}}
+            }
+            class C : System.IDisposable
+            {
+                ~C() { }
+                public void Dispose() { Dispose(true); }
+                protected virtual void Dispose(bool disposing) { }
+            }
+            """;
+        var compilation = CSharpCompilation.Create("MinimalDisposalFramework", [CSharpSyntaxTree.ParseText(source)]);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2300DisposePatternAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
     /// <summary>Verifies an unsealed disposable type with no <c>Dispose(bool)</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

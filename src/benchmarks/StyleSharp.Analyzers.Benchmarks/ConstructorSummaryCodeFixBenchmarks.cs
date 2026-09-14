@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
@@ -15,7 +16,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 public class ConstructorSummaryCodeFixBenchmarks
 {
     /// <summary>The prepared benchmark document and representative constructor-summary target.</summary>
-    private DirectCodeFixBenchmarkContext<(XmlElementSyntax Summary, string StandardSummary)> _context = null!;
+    private DirectCodeFixBenchmarkContext<Diagnostic> _context = null!;
 
     /// <summary>Gets or sets the synthetic type count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallTypeCount, BenchmarkParameterValues.LargeTypeCount)]
@@ -40,18 +41,18 @@ public class ConstructorSummaryCodeFixBenchmarks
     [Benchmark]
     public async Task<int> ConstructorSummary_ApplyFixAsync()
     {
-        var updated = await ConstructorSummaryCodeFixProvider.ApplyAsync(_context.Document, _context.Target.Summary, _context.Target.StandardSummary, CancellationToken.None).ConfigureAwait(false);
+        var updated = await TextChangeCodeFix.ApplyAsync(_context.Document, _context.Target, ConstructorSummaryCodeFixProvider.RegisterTextChanges, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 
     /// <summary>Finds the representative constructor-summary target in the benchmark root.</summary>
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based type index to select.</param>
-    /// <returns>The selected summary element and standard replacement text.</returns>
-    private static (XmlElementSyntax Summary, string StandardSummary) FindTarget(CompilationUnitSyntax root, int index)
+    /// <returns>The diagnostic reported on the selected constructor summary.</returns>
+    private static Diagnostic FindTarget(CompilationUnitSyntax root, int index)
     {
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(root, index);
         var constructor = (ConstructorDeclarationSyntax)type.Members[0];
-        return (DocumentationCodeFixBenchmarkHelper.GetSummary(constructor), DocumentationConventions.ConstructorStandardSummary(type));
+        return Diagnostic.Create(DocumentationRules.ConstructorStandardText, DocumentationCodeFixBenchmarkHelper.GetSummary(constructor).GetLocation());
     }
 }

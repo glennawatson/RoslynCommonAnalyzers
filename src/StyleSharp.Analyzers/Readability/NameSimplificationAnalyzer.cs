@@ -31,6 +31,18 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSemanticModelAction(AnalyzeBareMemberAccesses);
     }
 
+    /// <summary>Returns whether a declaration expression introduces the requested name.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <param name="name">The name to find.</param>
+    /// <returns><see langword="true"/> when the expression declares the name.</returns>
+    internal static bool PatternDeclaresName(ExpressionSyntax expression, string name) =>
+        expression switch
+        {
+            DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax designation } => designation.Identifier.ValueText == name,
+            DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax designation } => DesignationDeclaresName(designation, name),
+            _ => false
+        };
+
     /// <summary>Reports qualified type or namespace names that can be shortened.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeQualifiedName(SyntaxNodeAnalysisContext context)
@@ -42,9 +54,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var replacement = CloneSimpleName(qualifiedName.Right);
         if (qualifiedName.Right.Span.Length >= qualifiedName.Span.Length
-            || !BindsToSameTypeOrNamespace(context.SemanticModel, qualifiedName, replacement, context.CancellationToken))
+            || !BindsToSameTypeOrNamespace(context.SemanticModel, qualifiedName, qualifiedName.Right, context.CancellationToken))
         {
             return;
         }
@@ -64,9 +75,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var replacement = CloneSimpleName(aliasQualifiedName.Name);
         if (aliasQualifiedName.Name.Span.Length >= aliasQualifiedName.Span.Length
-            || !BindsToSameTypeOrNamespace(context.SemanticModel, aliasQualifiedName, replacement, context.CancellationToken))
+            || !BindsToSameTypeOrNamespace(context.SemanticModel, aliasQualifiedName, aliasQualifiedName.Name, context.CancellationToken))
         {
             return;
         }
@@ -90,8 +100,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var replacement = CloneSimpleName(memberAccess.Name);
-        if (!BindsToSameExpression(context.SemanticModel, memberAccess, replacement, context.CancellationToken))
+        if (!BindsToSameExpression(context.SemanticModel, memberAccess, memberAccess.Name, context.CancellationToken))
         {
             return;
         }
@@ -111,14 +120,19 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         var root = tree.GetRoot(context.CancellationToken);
-        foreach (var node in root.DescendantNodes())
-        {
-            context.CancellationToken.ThrowIfCancellationRequested();
-            if (node is IdentifierNameSyntax identifier)
+        _ = DescendantTraversalHelper.VisitDescendants(
+            root,
+            ref context,
+            static (SyntaxNode node, ref SemanticModelAnalysisContext state) =>
             {
-                AnalyzeBareMemberAccess(context, identifier);
-            }
-        }
+                state.CancellationToken.ThrowIfCancellationRequested();
+                if (node is IdentifierNameSyntax identifier)
+                {
+                    AnalyzeBareMemberAccess(state, identifier);
+                }
+
+                return true;
+            });
     }
 
     /// <summary>Reports one bare instance-member access that should be qualified.</summary>
@@ -222,7 +236,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     private static bool BindsToSameTypeOrNamespace(
         SemanticModel model,
         NameSyntax original,
-        NameSyntax replacement,
+        SimpleNameSyntax replacement,
         CancellationToken cancellationToken)
     {
         var originalSymbol = SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(original, cancellationToken));
@@ -238,7 +252,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         var replacementSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             original.SpanStart,
-            replacement,
+            CloneSimpleName(replacement),
             SpeculativeBindingOption.BindAsTypeOrNamespace));
 
         return SymbolEqualityComparer.Default.Equals(originalSymbol, replacementSymbol);
@@ -295,7 +309,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         var replacementSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             original.SpanStart,
-            replacement,
+            replacement is SimpleNameSyntax speculativeName ? CloneSimpleName(speculativeName) : replacement,
             SpeculativeBindingOption.BindAsExpression));
 
         return SymbolEqualityComparer.Default.Equals(originalSymbol, replacementSymbol);
@@ -321,8 +335,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
                     && ParameterListHasName(anonymousMethod.ParameterList, name):
                 case ForEachStatementSyntax forEachStatement when forEachStatement.Identifier.ValueText == name
                     && forEachStatement.SpanStart < position:
-                case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Identifier.ValueText == name
-                    && catchDeclaration.SpanStart < position:
+                case CatchClauseSyntax { Declaration: { } catchDeclaration } when catchDeclaration.Identifier.ValueText == name:
                     return true;
                 case TypeDeclarationSyntax:
                     return false;
@@ -414,18 +427,6 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns whether a declaration expression introduces the requested name.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <param name="name">The name to find.</param>
-    /// <returns><see langword="true"/> when the expression declares the name.</returns>
-    private static bool PatternDeclaresName(ExpressionSyntax expression, string name) =>
-        expression switch
-        {
-            DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax designation } => designation.Identifier.ValueText == name,
-            DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax designation } => DesignationDeclaresName(designation, name),
-            _ => false
-        };
 
     /// <summary>Returns whether a variable designation contains the requested name.</summary>
     /// <param name="designation">The designation to inspect.</param>

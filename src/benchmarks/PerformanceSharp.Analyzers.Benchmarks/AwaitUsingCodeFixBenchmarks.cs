@@ -7,6 +7,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -69,7 +70,7 @@ public class AwaitUsingCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> AwaitUsing_ApplyFixAsync()
     {
-        var updated = Psh1310UseAwaitUsingCodeFixProvider.Apply(_document, _root, _statement);
+        var updated = TargetCodeFix.Apply(_document, _root, _statement, Psh1310UseAwaitUsingCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

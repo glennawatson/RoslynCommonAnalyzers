@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,22 +12,25 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2246ChainedConditionalToSwitchCodeFixProvider))]
 [Shared]
-public sealed class Sst2246ChainedConditionalToSwitchCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2246ChainedConditionalToSwitchCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.ConvertChainedConditionalToSwitch.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Rewrite the conditional chain as a switch expression", nameof(Sst2246ChainedConditionalToSwitchCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Rewrite the conditional chain as a switch expression",
+            nameof(Sst2246ChainedConditionalToSwitchCodeFixProvider),
+            static (root, _, diagnostic) => CanRewrite(root, diagnostic),
+            TryRewrite);
 
     /// <summary>Resolves the reported chain head and builds its switch-expression replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -44,10 +45,22 @@ public sealed class Sst2246ChainedConditionalToSwitchCodeFixProvider : CodeFixPr
             return null;
         }
 
-        var replacement = switchExpression
-            .NormalizeWhitespace(elasticTrivia: true)
-            .WithTriviaFrom(conditional)
+        var normalized = switchExpression.NormalizeWhitespace(elasticTrivia: true);
+        var replacement = normalized.Update(
+                normalized.GoverningExpression.WithLeadingTrivia(conditional.GetLeadingTrivia()),
+                normalized.SwitchKeyword,
+                normalized.OpenBraceToken,
+                normalized.Arms,
+                normalized.CloseBraceToken.WithTrailingTrivia(conditional.GetTrailingTrivia()))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
         return new NodeReplacement(conditional, replacement);
     }
+
+    /// <summary>Checks the reported chain's shape; the analyzer already proved the switch keeps its type.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported conditional still heads a same-subject chain.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is ConditionalExpressionSyntax conditional
+            && Sst2246ChainedConditionalToSwitchAnalyzer.IsChainHead(conditional);
 }

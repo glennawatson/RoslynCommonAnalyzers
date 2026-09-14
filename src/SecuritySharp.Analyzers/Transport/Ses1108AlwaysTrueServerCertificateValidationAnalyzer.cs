@@ -13,34 +13,20 @@ namespace SecuritySharp.Analyzers;
 /// opens the connection to man-in-the-middle attacks. The callback body is inspected only locally, so a real
 /// validation callback is never reported, and the built-in
 /// <c>DangerousAcceptAnyServerCertificateValidator</c> sentinel is left to the rule that owns it. The rule is
-/// resolved once per compilation by probing <c>System.Net.Http.HttpClientHandler</c> and confirming the property
-/// exists; on a target framework without it (netstandard2.0, .NET Framework) nothing is registered, so a project
-/// that cannot reference the property pays nothing.
+/// resolved on the first syntactic candidate by probing <c>System.Net.Http.HttpClientHandler</c> and confirming
+/// the property exists; the result, including an unavailable property, is cached for the compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the handler type that owns the validation callback.</summary>
-    private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
-
     /// <summary>The name of the custom server-certificate validation callback property.</summary>
     private const string CallbackPropertyName = "ServerCertificateCustomValidationCallback";
 
+    /// <summary>The metadata name of the handler type that owns the validation callback.</summary>
+    private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AlwaysTrueServerCertificateValidation);
-
-    /// <summary>The shapes a callback value can take that let it be reported.</summary>
-    private enum CallbackShape
-    {
-        /// <summary>Not a reportable callback shape.</summary>
-        None = 0,
-
-        /// <summary>A lambda or anonymous method already known to always return true.</summary>
-        AlwaysTrueLambda = 1,
-
-        /// <summary>A method group whose referenced method still needs to be inspected.</summary>
-        MethodGroup = 2,
-    }
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
@@ -51,28 +37,23 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var handlerType = start.Compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName);
-            if (handlerType is null || handlerType.GetMembers(CallbackPropertyName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, handlerType), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveHandlerTypes),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1108 for an always-true assignment to the server-certificate validation callback.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="handlerType">The gated <c>HttpClientHandler</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
+    /// <param name="types">The callback owner type resolved on first candidate.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: only 'x.ServerCertificateCustomValidationCallback = ...' (or the same member in an
         // object initializer) can match, before anything binds.
-        if (GetAssignedMemberName(assignment.Left) != CallbackPropertyName)
+        if (MemberReferenceName.Of(assignment.Left) != CallbackPropertyName)
         {
             return;
         }
@@ -80,8 +61,13 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
         // A lambda's always-true shape is decided syntactically here, so a real validation callback is rejected
         // before the semantic model is touched. A method group needs binding to find its declaration.
         var value = assignment.Right;
-        var shape = ClassifyCallback(value);
-        if (shape == CallbackShape.None)
+        var shape = AlwaysTrueCallback.Classify(value);
+        if (shape == AlwaysTrueCallbackShape.None)
+        {
+            return;
+        }
+
+        if (types.Get() is not { } handlerType)
         {
             return;
         }
@@ -96,7 +82,7 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
 
         // A method group is always-true only when its referenced source method is; the built-in
         // 'DangerousAcceptAnyServerCertificateValidator' is a property, not a method, so it is never matched here.
-        if (shape == CallbackShape.MethodGroup && !AlwaysTrueCallback.IsAlwaysTrueMethodGroup(context.SemanticModel, value, context.CancellationToken))
+        if (shape == AlwaysTrueCallbackShape.MethodGroup && !AlwaysTrueCallback.IsAlwaysTrueMethodGroup(context.SemanticModel, value, context.CancellationToken))
         {
             return;
         }
@@ -107,26 +93,10 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
             value.Span));
     }
 
-    /// <summary>Returns the simple name an assignment target names, without binding it.</summary>
-    /// <param name="left">The left-hand side of the assignment.</param>
-    /// <returns>The member's simple name for a member access or an object-initializer target, or <see langword="null"/>.</returns>
-    private static string? GetAssignedMemberName(ExpressionSyntax left) => left switch
-    {
-        MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        _ => null,
-    };
-
-    /// <summary>Classifies an assigned callback value into the shape that lets it be reported.</summary>
-    /// <param name="value">The right-hand side of the callback assignment.</param>
-    /// <returns>The callback shape: an always-true lambda, a bindable method group, or neither.</returns>
-    private static CallbackShape ClassifyCallback(ExpressionSyntax value)
-    {
-        if (value is AnonymousFunctionExpressionSyntax function)
-        {
-            return AlwaysTrueCallback.IsAlwaysTrueLambda(function) ? CallbackShape.AlwaysTrueLambda : CallbackShape.None;
-        }
-
-        return value is IdentifierNameSyntax or MemberAccessExpressionSyntax ? CallbackShape.MethodGroup : CallbackShape.None;
-    }
+    /// <summary>Resolves the handler type and confirms the callback API on demand.</summary>
+    /// <param name="compilation">The compilation the value is resolved from.</param>
+    /// <returns>The handler type, or null when the callback API is unavailable.</returns>
+    private static INamedTypeSymbol? ResolveHandlerTypes(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName) is { } handlerType
+            && !handlerType.GetMembers(CallbackPropertyName).IsEmpty ? handlerType : null;
 }

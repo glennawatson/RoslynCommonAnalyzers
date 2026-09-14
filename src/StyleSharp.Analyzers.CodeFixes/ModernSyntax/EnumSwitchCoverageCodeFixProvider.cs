@@ -108,7 +108,7 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     {
         // The section is appended after the last one and before the closing brace, which is where the
         // directive closing a region over the tail sits — so the new section would land inside it.
-        var switchStatement = FindAncestor<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
+        var switchStatement = DiagnosticAncestor.Find<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
         if (switchStatement is null || DirectiveBoundaries.Cross(switchStatement, switchStatement.Span))
         {
             return document;
@@ -129,7 +129,7 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     /// <returns>The updated document.</returns>
     private static Document ApplySwitchStatement(Document document, SyntaxNode root, Diagnostic diagnostic, string missingMembers)
     {
-        var switchStatement = FindAncestor<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
+        var switchStatement = DiagnosticAncestor.Find<SwitchStatementSyntax>(root, diagnostic.Location.SourceSpan);
         if (switchStatement is null || DirectiveBoundaries.Cross(switchStatement, switchStatement.Span))
         {
             return document;
@@ -137,11 +137,27 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
 
         // The values stack onto one section: a section each would give the switch several bodies that do
         // the same nothing, which reads as a mistake in the mapping rather than a stub.
-        var members = missingMembers.Split(EnumSwitchCoverageAnalyzer.MissingMembersSeparator);
-        var labels = new SwitchLabelSyntax[members.Length];
-        for (var i = 0; i < members.Length; i++)
+        var memberCount = 1;
+        foreach (var character in missingMembers)
         {
-            labels[i] = SyntaxFactory.CaseSwitchLabel(SyntaxFactory.ParseExpression(members[i]));
+            if (character == EnumSwitchCoverageAnalyzer.MissingMembersSeparator)
+            {
+                memberCount++;
+            }
+        }
+
+        var labels = new SwitchLabelSyntax[memberCount];
+        var start = 0;
+        for (var i = 0; i < labels.Length; i++)
+        {
+            var end = missingMembers.IndexOf(EnumSwitchCoverageAnalyzer.MissingMembersSeparator, start);
+            if (end < 0)
+            {
+                end = missingMembers.Length;
+            }
+
+            labels[i] = SyntaxFactory.CaseSwitchLabel(SyntaxFactory.ParseExpression(missingMembers.AsSpan(start, end - start).ToString()));
+            start = end + 1;
         }
 
         var updated = switchStatement.AddSections(SyntaxFactory.SwitchSection(
@@ -159,45 +175,30 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     /// <returns>The updated document.</returns>
     private static Document ApplySwitchExpression(Document document, SyntaxNode root, Diagnostic diagnostic, string missingMembers)
     {
-        var switchExpression = FindAncestor<SwitchExpressionSyntax>(root, diagnostic.Location.SourceSpan);
+        var switchExpression = DiagnosticAncestor.Find<SwitchExpressionSyntax>(root, diagnostic.Location.SourceSpan);
         if (switchExpression is null)
         {
             return document;
         }
 
         var updated = switchExpression;
-        var members = missingMembers.Split(EnumSwitchCoverageAnalyzer.MissingMembersSeparator);
-        for (var i = 0; i < members.Length; i++)
+        var start = 0;
+        while (start <= missingMembers.Length)
         {
+            var end = missingMembers.IndexOf(EnumSwitchCoverageAnalyzer.MissingMembersSeparator, start);
+            if (end < 0)
+            {
+                end = missingMembers.Length;
+            }
+
             var arm = SyntaxFactory.SwitchExpressionArm(
-                SyntaxFactory.ConstantPattern(SyntaxFactory.ParseExpression(members[i])),
+                SyntaxFactory.ConstantPattern(SyntaxFactory.ParseExpression(missingMembers.AsSpan(start, end - start).ToString())),
                 SyntaxFactory.ParseExpression("throw new global::System.NotImplementedException()"));
             updated = updated.AddArms(arm);
+            start = end + 1;
         }
 
         updated = updated.WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
         return document.WithSyntaxRoot(root.ReplaceNode(switchExpression, updated));
-    }
-
-    /// <summary>Finds the node at a span or one of its ancestors.</summary>
-    /// <typeparam name="T">The ancestor node type to find.</typeparam>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="span">The diagnostic span.</param>
-    /// <returns>The matching node, or <see langword="null"/>.</returns>
-    private static T? FindAncestor<T>(SyntaxNode root, TextSpan span)
-        where T : SyntaxNode
-    {
-        var node = root.FindToken(span.Start).Parent;
-        while (node is not null)
-        {
-            if (node is T matched)
-            {
-                return matched;
-            }
-
-            node = node.Parent;
-        }
-
-        return null;
     }
 }

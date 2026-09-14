@@ -3,6 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Testing;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionBodyAnalyzer,
     StyleSharp.Analyzers.ExpressionBodyCodeFixProvider>;
@@ -670,6 +673,122 @@ public class ExpressionBodyAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies each member kind stays unchanged below its required language version.</summary>
+    /// <param name="members">The declarations being analyzed.</param>
+    /// <param name="version">The language version before expression bodies are supported.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int M() { return 1; }", LanguageVersion.CSharp5)]
+    [Arguments("C() { M(); } void M() { }", LanguageVersion.CSharp6)]
+    [Arguments("public static C operator +(C a, C b) { return a; }", LanguageVersion.CSharp5)]
+    [Arguments("public static implicit operator int(C value) { return 1; }", LanguageVersion.CSharp5)]
+    [Arguments("int P { get { return 1; } }", LanguageVersion.CSharp5)]
+    [Arguments("int this[int i] { get { return i; } }", LanguageVersion.CSharp5)]
+    [Arguments("int M() { int Local() { return 1; } return Local(); }", LanguageVersion.CSharp6)]
+    public async Task EarlierLanguageVersionDoesNotReportAsync(string members, LanguageVersion version)
+    {
+        var test = CreateEnabledTest($"class C {{ {members} }}", ["SST2276", "SST2277", "SST2278"]);
+        test.CompilerDiagnostics = CompilerDiagnostics.None;
+        test.SolutionTransforms.Add((solution, projectId) =>
+            solution.WithProjectParseOptions(projectId, new CSharpParseOptions(version)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies comments outside the kept expression prevent collapsing any member kind.</summary>
+    /// <param name="members">The declarations with comments that would otherwise be lost.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("int M() { return 1; /* keep */ }")]
+    [Arguments("int M() { /* keep */ return 1; }")]
+    [Arguments("int M() { /** keep */ return 1; }")]
+    [Arguments("public static C operator +(C a, C b) { return a; /* keep */ }")]
+    [Arguments("public static implicit operator int(C value) { return 1; /* keep */ }")]
+    [Arguments("int P { get { return 1; } /* keep */ }")]
+    [Arguments("int this[int i] { get { return i; } /* keep */ }")]
+    [Arguments("int M() { int Local() { return 1; /* keep */ } return Local(); }")]
+    public Task CommentsPreventMemberCollapseAsync(string members) =>
+        RunAnalyzerWithEnabledAsync($"class C {{ {members} }}", "SST2276", "SST2277", "SST2278");
+
+    /// <summary>Verifies inactive code keeps a single visible return statement in its block.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SingleVisibleStatementWithInactiveAlternativeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            class C
+            {
+                int M()
+                {
+            #if true
+                    return 1;
+            #else
+                    int result = 2;
+                    return result;
+            #endif
+                }
+            }
+            """);
+
+    /// <summary>Verifies directives without inactive text do not prevent the single-expression diagnostic.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ActiveDirectiveRegionCanStillCollapseAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            class C
+            {
+                int {|SST2275:M|}()
+                {
+            #region Result
+                    return 1;
+            #endregion
+                }
+            }
+            """);
+
+    /// <summary>Verifies expression bodies and unsupported accessor shapes are rejected by the member helpers.</summary>
+    /// <param name="declaration">The member declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    /// <exception cref="InvalidOperationException">The test input is not one of the supported member kinds.</exception>
+    [Test]
+    [Arguments("C() => M();")]
+    [Arguments("C() { }")]
+    [Arguments("public static C operator +(C a, C b) => a;")]
+    [Arguments("public static C operator +(C a, C b) { throw null; }")]
+    [Arguments("public static implicit operator int(C value) => 1;")]
+    [Arguments("public static implicit operator int(C value) { throw null; }")]
+    [Arguments("int P => 1;")]
+    [Arguments("int P { set { } }")]
+    [Arguments("int P { private get { return 1; } }")]
+    [Arguments("int P { get; }")]
+    [Arguments("int this[int i] => i;")]
+    [Arguments("int this[int i] { set { } }")]
+    public async Task UnsupportedMemberShapeHasNoExpressionAsync(string declaration)
+    {
+        var member = ((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($"class C {{ {declaration} }}").Members[0]).Members[0];
+        var result = member switch
+        {
+            ConstructorDeclarationSyntax constructor => ExpressionBodyAnalyzer.TryGetConstructorExpression(constructor, out _),
+            OperatorDeclarationSyntax operation => ExpressionBodyAnalyzer.TryGetOperatorExpression(operation, out _),
+            ConversionOperatorDeclarationSyntax conversion => ExpressionBodyAnalyzer.TryGetConversionOperatorExpression(conversion, out _),
+            PropertyDeclarationSyntax property => ExpressionBodyAnalyzer.TryGetPropertyExpression(property, out _),
+            IndexerDeclarationSyntax indexer => ExpressionBodyAnalyzer.TryGetIndexerExpression(indexer, out _),
+            _ => throw new InvalidOperationException(),
+        };
+        await Assert.That(result).IsFalse();
+        await Assert.That(ExpressionBodyAnalyzer.AccessorListCollapsesToExpressionBody(null)).IsFalse();
+    }
+
+    /// <summary>Verifies expression-bodied local functions and abstract methods are already ineligible.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MembersWithoutBlockBodiesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync("abstract class C { protected abstract int N(); int M() { int Local() => 1; return Local(); } }");
 
     /// <summary>Runs a code-fix verification with the given disabled-by-default ids enabled.</summary>
     /// <param name="source">The markup source.</param>

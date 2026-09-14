@@ -37,25 +37,12 @@ public sealed class Sst2008IsNotPatternAnalyzer : DiagnosticAnalyzer
         }
 
         var notExpression = (PrefixUnaryExpressionSyntax)context.Node;
-        if (Unwrap(notExpression.Operand) is not IsPatternExpressionSyntax isPattern || MatchesEverything(isPattern.Pattern))
+        if (ExpressionShapes.WalkDownParentheses(notExpression.Operand) is not IsPatternExpressionSyntax isPattern || MatchesEverything(isPattern.Pattern))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(ModernizationRules.UseIsNotPattern, notExpression.GetLocation()));
-    }
-
-    /// <summary>Removes enclosing parentheses around an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The unwrapped expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
     }
 
     /// <summary>Returns whether a pattern accepts every value.</summary>

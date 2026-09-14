@@ -436,35 +436,13 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     private static void CheckParameterDoc(in SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<ParameterSyntax> parameters)
     {
         var name = XmlDocumentationHelper.NameAttribute(node);
-        if (name is null)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustDeclareName, node.GetLocation()));
-            return;
-        }
-
-        if (ContainsName(parameters, name))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.ParameterDocumentationMustMatch, node.GetLocation(), name));
-    }
-
-    /// <summary>Returns whether <paramref name="parameters"/> contains a parameter named <paramref name="name"/>.</summary>
-    /// <param name="parameters">The parameters.</param>
-    /// <param name="name">The name to find.</param>
-    /// <returns><see langword="true"/> when present.</returns>
-    private static bool ContainsName(in SeparatedSyntaxList<ParameterSyntax> parameters, string name)
-    {
-        foreach (var parameter in parameters)
-        {
-            if (parameter.Identifier.ValueText == name)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        ReportNameReference(
+            context,
+            node,
+            name,
+            name is not null && ParameterNames.Contains(parameters, name),
+            DocumentationRules.ParameterDocumentationMustDeclareName,
+            DocumentationRules.ParameterDocumentationMustMatch);
     }
 
     /// <summary>Reports type parameters that lack a matching <c>&lt;typeparam&gt;</c> element.</summary>
@@ -495,7 +473,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
             var element = XmlDocumentationHelper.FindTypeParameterElement(documentation, name);
             if (element is null)
             {
-                if (!isPartial || !IsTypeParameterDocumentedOnAnotherPart(context, name))
+                if (!isPartial || !XmlDocumentationHelper.IsTypeParameterDocumentedOnAnotherPart(context.SemanticModel, context.Node, name, context.CancellationToken))
                 {
                     context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParametersMustBeDocumented, typeParameter.Identifier.GetLocation(), name));
                 }
@@ -510,36 +488,6 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Returns whether another part of a partial type already documents a type parameter.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="name">The type parameter's name.</param>
-    /// <returns><see langword="true"/> when a sibling declaration carries the <c>&lt;typeparam&gt;</c>.</returns>
-    private static bool IsTypeParameterDocumentedOnAnotherPart(in SyntaxNodeAnalysisContext context, string name)
-    {
-        if (context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken) is not { } symbol)
-        {
-            return false;
-        }
-
-        var declarations = symbol.DeclaringSyntaxReferences;
-        for (var i = 0; i < declarations.Length; i++)
-        {
-            var declaration = declarations[i].GetSyntax(context.CancellationToken);
-            if (declaration == context.Node)
-            {
-                continue;
-            }
-
-            if (XmlDocumentationHelper.GetDocumentationComment(declaration) is { } sibling
-                && XmlDocumentationHelper.FindTypeParameterElement(sibling, name) is not null)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Reports a single <c>&lt;typeparam&gt;</c> element that lacks a name (SST1621) or names a non-existent type parameter (SST1620).</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The <c>&lt;typeparam&gt;</c> element node.</param>
@@ -547,35 +495,40 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     private static void CheckTypeParameterDoc(in SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
     {
         var name = XmlDocumentationHelper.NameAttribute(node);
-        if (name is null)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustDeclareName, node.GetLocation()));
-            return;
-        }
-
-        if (ContainsTypeName(typeParameters, name))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(Diagnostic.Create(DocumentationRules.TypeParameterDocumentationMustMatch, node.GetLocation(), name));
+        ReportNameReference(
+            context,
+            node,
+            name,
+            name is not null && ParameterNames.Contains(typeParameters, name),
+            DocumentationRules.TypeParameterDocumentationMustDeclareName,
+            DocumentationRules.TypeParameterDocumentationMustMatch);
     }
 
-    /// <summary>Returns whether <paramref name="typeParameters"/> contains a type parameter named <paramref name="name"/>.</summary>
-    /// <param name="typeParameters">The type parameters.</param>
-    /// <param name="name">The name to find.</param>
-    /// <returns><see langword="true"/> when present.</returns>
-    private static bool ContainsTypeName(in SeparatedSyntaxList<TypeParameterSyntax> typeParameters, string name)
+    /// <summary>Reports a <c>&lt;param&gt;</c> or <c>&lt;typeparam&gt;</c> element that names nothing, or names an entry the member does not declare.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="node">The element node.</param>
+    /// <param name="name">The element's <c>name</c> attribute value, or <see langword="null"/> when it has none.</param>
+    /// <param name="declared">Whether the member declares an entry with that name.</param>
+    /// <param name="missingName">The rule for an element without a name.</param>
+    /// <param name="unmatched">The rule for an element whose name matches nothing the member declares.</param>
+    private static void ReportNameReference(
+        in SyntaxNodeAnalysisContext context,
+        XmlNodeSyntax node,
+        string? name,
+        bool declared,
+        DiagnosticDescriptor missingName,
+        DiagnosticDescriptor unmatched)
     {
-        foreach (var typeParameter in typeParameters)
+        if (name is null)
         {
-            if (typeParameter.Identifier.ValueText == name)
-            {
-                return true;
-            }
+            context.ReportDiagnostic(Diagnostic.Create(missingName, node.GetLocation()));
+            return;
         }
 
-        return false;
+        if (!declared)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(unmatched, node.GetLocation(), name));
+        }
     }
 
     /// <summary>Reports a missing <c>&lt;returns&gt;</c> for a non-void member, or a present one for a void member.</summary>

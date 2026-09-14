@@ -34,4 +34,13 @@ internal readonly record struct NodeReplacement
 
     /// <summary>Gets the optional batch rewrite that receives the current node after nested edits are composed.</summary>
     public Func<SyntaxNode, SyntaxNode>? RewriteCurrent { get; }
+
+    /// <summary>Deconstructs the edit into the node being replaced and its replacement.</summary>
+    /// <param name="original">The node being replaced.</param>
+    /// <param name="replacement">The replacement node.</param>
+    internal void Deconstruct(out SyntaxNode original, out SyntaxNode replacement)
+    {
+        original = Original;
+        replacement = Replacement;
+    }
 }

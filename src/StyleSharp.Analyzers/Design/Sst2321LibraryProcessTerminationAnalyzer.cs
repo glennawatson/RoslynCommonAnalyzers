@@ -10,11 +10,10 @@ namespace StyleSharp.Analyzers;
 /// behalf can tear down an unrelated web request, a test run, or a tool that only wanted to call one method.
 /// </summary>
 /// <remarks>
-/// The rule is gated on the compilation being a library: in an executable — which does own its process —
-/// nothing is registered, so the analyzer costs an application build nothing. It resolves
-/// <c>System.Environment</c> once at compilation start and registers no callback when the type is absent,
-/// and the per-invocation path is a member-name comparison that binds only the handful of calls that could
-/// be one of the two members before confirming the containing type really is <c>System.Environment</c>.
+/// The per-invocation path first checks the member name and that the compilation is a library, then
+/// resolves <c>System.Environment</c> and binds only calls that could be one of the two members.
+/// Executables own their process and are never reported. The containing type must resolve and match
+/// <c>System.Environment</c> before the rule reports a diagnostic.
 /// <para>
 /// When <c>Microsoft.Extensions.Hosting.IHostApplicationLifetime</c> resolves in the compilation, the
 /// message points at it as the hosted-application way to request an orderly shutdown; otherwise the message
@@ -24,12 +23,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2321LibraryProcessTerminationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type that owns both terminating members.</summary>
-    private const string EnvironmentMetadataName = "System.Environment";
-
-    /// <summary>The metadata name of the hosted-application lifetime the message can point at.</summary>
-    private const string HostApplicationLifetimeMetadataName = "Microsoft.Extensions.Hosting.IHostApplicationLifetime";
-
     /// <summary>The suffix appended to the message when the hosted-application lifetime is available.</summary>
     private const string HostLifetimeHint = " (in a hosted application, request an orderly shutdown through IHostApplicationLifetime instead)";
 
@@ -38,6 +31,15 @@ public sealed class Sst2321LibraryProcessTerminationAnalyzer : DiagnosticAnalyze
 
     /// <summary>The name of the member that fails the process fast.</summary>
     private const string FailFastMemberName = "FailFast";
+
+    /// <summary>The metadata name of the type that owns both terminating members.</summary>
+    private const string EnvironmentMetadataName = "System.Environment";
+
+    /// <summary>The metadata name of the hosted-application lifetime the message can point at.</summary>
+    private const string HostApplicationLifetimeMetadataName = "Microsoft.Extensions.Hosting.IHostApplicationLifetime";
+
+    /// <summary>The environment and host-lifetime metadata names, in slot order.</summary>
+    private static readonly string[] ProcessMetadataNames = [EnvironmentMetadataName, HostApplicationLifetimeMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.LibraryProcessTermination);
@@ -50,35 +52,17 @@ public sealed class Sst2321LibraryProcessTerminationAnalyzer : DiagnosticAnalyze
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Registers the rule only for a library whose compilation can bind the terminating type.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (context.Compilation.Options.OutputKind != OutputKind.DynamicallyLinkedLibrary)
-        {
-            return;
-        }
-
-        var environmentType = context.Compilation.GetTypeByMetadataName(EnvironmentMetadataName);
-        if (environmentType is null)
-        {
-            return;
-        }
-
-        var hostLifetimeAvailable = context.Compilation.GetTypeByMetadataName(HostApplicationLifetimeMetadataName) is not null;
-        context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, environmentType, hostLifetimeAvailable),
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, ProcessMetadataNames),
+            Analyze,
             SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports a process-terminating call made from library code.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="environmentType">The resolved <c>System.Environment</c> symbol.</param>
-    /// <param name="hostLifetimeAvailable">Whether the hosted-application lifetime resolves in the compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol environmentType, bool hostLifetimeAvailable)
+    /// <param name="types">The compilation-scoped process type cache.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ExitMemberName or FailFastMemberName })
@@ -86,12 +70,15 @@ public sealed class Sst2321LibraryProcessTerminationAnalyzer : DiagnosticAnalyze
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (context.Compilation.Options.OutputKind != OutputKind.DynamicallyLinkedLibrary
+            || types.Get() is not [{ } environmentType, var hostLifetimeType]
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, environmentType))
         {
             return;
         }
 
+        var hostLifetimeAvailable = hostLifetimeType is not null;
         context.ReportDiagnostic(Diagnostic.Create(
             DesignRules.LibraryProcessTermination,
             invocation.GetLocation(),

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -100,7 +98,7 @@ public sealed class Sst2018RedundantNullCheckBesidePatternAnalyzer : DiagnosticA
     private static ExpressionSyntax? GetNullReceiver(ExpressionSyntax expression) => expression switch
     {
         BinaryExpressionSyntax { RawKind: (int)SyntaxKind.EqualsExpression } binary => NonNullOperand(binary),
-        IsPatternExpressionSyntax { Pattern: ConstantPatternSyntax constant } isPattern when IsNullLiteral(constant.Expression) => isPattern.Expression,
+        IsPatternExpressionSyntax { Pattern: ConstantPatternSyntax constant } isPattern when ExpressionShapes.IsNullLiteral(constant.Expression) => isPattern.Expression,
         _ => null,
     };
 
@@ -109,12 +107,12 @@ public sealed class Sst2018RedundantNullCheckBesidePatternAnalyzer : DiagnosticA
     /// <returns>The other operand, or <see langword="null"/> when neither side is <c>null</c>.</returns>
     private static ExpressionSyntax? NonNullOperand(BinaryExpressionSyntax binary)
     {
-        if (IsNullLiteral(binary.Right))
+        if (ExpressionShapes.IsNullLiteral(binary.Right))
         {
             return binary.Left;
         }
 
-        return IsNullLiteral(binary.Left) ? binary.Right : null;
+        return ExpressionShapes.IsNullLiteral(binary.Left) ? binary.Right : null;
     }
 
     /// <summary>Reads a type test, distinguishing <c>x is T</c> from <c>x is not T</c>.</summary>
@@ -160,20 +158,13 @@ public sealed class Sst2018RedundantNullCheckBesidePatternAnalyzer : DiagnosticA
     /// <returns><see langword="true"/> for <c>not null</c>.</returns>
     private static bool IsNotNullPattern(PatternSyntax pattern) =>
         pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern, Pattern: ConstantPatternSyntax constant }
-            && IsNullLiteral(constant.Expression);
+            && ExpressionShapes.IsNullLiteral(constant.Expression);
 
     /// <summary>Returns whether a pattern is a type pattern (<c>T</c> or <c>T x</c>).</summary>
     /// <param name="pattern">The pattern.</param>
     /// <returns><see langword="true"/> for a type or declaration pattern.</returns>
     private static bool IsTypePattern(PatternSyntax pattern) =>
         pattern is TypePatternSyntax or DeclarationPatternSyntax;
-
-    /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
-    /// <param name="expression">The expression.</param>
-    /// <returns><see langword="true"/> for <c>null</c>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsNullLiteral(ExpressionSyntax expression) =>
-        expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether two receivers are the same side-effect-free expression.</summary>
     /// <param name="first">The first receiver.</param>

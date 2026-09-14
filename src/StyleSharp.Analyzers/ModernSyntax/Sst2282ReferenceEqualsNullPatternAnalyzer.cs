@@ -57,8 +57,8 @@ public sealed class Sst2282ReferenceEqualsNullPatternAnalyzer : DiagnosticAnalyz
 
         var first = invocation.ArgumentList.Arguments[0].Expression;
         var second = invocation.ArgumentList.Arguments[1].Expression;
-        var firstNull = ExpressionSimplificationAnalyzer.Unwrap(first).IsKind(SyntaxKind.NullLiteralExpression);
-        var secondNull = ExpressionSimplificationAnalyzer.Unwrap(second).IsKind(SyntaxKind.NullLiteralExpression);
+        var firstNull = ExpressionShapes.WalkDownParentheses(first).IsKind(SyntaxKind.NullLiteralExpression);
+        var secondNull = ExpressionShapes.WalkDownParentheses(second).IsKind(SyntaxKind.NullLiteralExpression);
 
         // Exactly one operand must be null: 'ReferenceEquals(null, null)' has no value to test and a call
         // with neither operand null is not a null check.

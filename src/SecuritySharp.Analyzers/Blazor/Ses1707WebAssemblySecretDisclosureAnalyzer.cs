@@ -13,9 +13,9 @@ namespace SecuritySharp.Analyzers;
 /// project), whose whole assembly is downloaded, or the literal's enclosing component type carries an Interactive
 /// WebAssembly or Interactive Auto render-mode attribute. The WebAssembly render-mode marker
 /// (<c>Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode</c>) and the host builder
-/// (<c>Microsoft.AspNetCore.Components.WebAssembly.Hosting.WebAssemblyHostBuilder</c>) are probed once per
-/// compilation and gate the rule, so a project with neither pays nothing. The classifier keeps the no-diagnostic
-/// path allocation-free, and the reachability check runs only after a secret shape is found.
+/// (<c>Microsoft.AspNetCore.Components.WebAssembly.Hosting.WebAssemblyHostBuilder</c>) are probed only after
+/// a secret shape is found. The classifier keeps the no-diagnostic path allocation-free, and the framework
+/// markers gate the subsequent reachability check.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnalyzer
@@ -50,43 +50,32 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var compilation = start.Compilation;
-            var hostBuilder = compilation.GetTypeByMetadataName(WebAssemblyHostBuilderMetadataName);
-            var webAssemblyRenderMode = compilation.GetTypeByMetadataName(WebAssemblyRenderModeMetadataName);
-
-            // Gate on the WebAssembly render-mode marker (or a standalone WebAssembly host): a project that
-            // references neither ships nothing to the browser and pays no analysis cost.
-            if (webAssemblyRenderMode is null && hostBuilder is null)
-            {
-                return;
-            }
-
-            var wholeAssemblyDownloads = hostBuilder is not null;
-            var renderModeAttribute = compilation.GetTypeByMetadataName(RenderModeAttributeMetadataName);
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeStringLiteral(nodeContext, wholeAssemblyDownloads, renderModeAttribute),
-                SyntaxKind.StringLiteralExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?[]>(compilation, ResolveMarkers),
+            AnalyzeStringLiteral,
+            SyntaxKind.StringLiteralExpression);
     }
 
     /// <summary>Reports SES1707 for a secret-shaped literal that is reachable from the browser.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="wholeAssemblyDownloads">Whether the compilation is a WebAssembly host whose whole assembly downloads to the browser.</param>
-    /// <param name="renderModeAttribute">The base render-mode attribute type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeStringLiteral(in SyntaxNodeAnalysisContext context, bool wholeAssemblyDownloads, INamedTypeSymbol? renderModeAttribute)
+    /// <param name="markers">The compilation's deferred WebAssembly markers.</param>
+    private static void AnalyzeStringLiteral(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?[]> markers)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
 
-        var settings = SecretScanningOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(literal.SyntaxTree));
-
         // Cheap, allocation-free screen first: only a recognised secret shape is worth the reachability check.
-        if (HardcodedSecretClassifier.Classify(literal.Token.ValueText, settings) is not { } kind)
+        if (HardcodedSecretClassifier.ClassifyLiteral(literal, context.Options) is not { } kind)
         {
             return;
         }
+
+        if (markers.Get() is not [var hostBuilder, var renderModeAttribute])
+        {
+            return;
+        }
+
+        var wholeAssemblyDownloads = hostBuilder is not null;
 
         if (!IsWebAssemblyReachable(literal, context, wholeAssemblyDownloads, renderModeAttribute))
         {
@@ -145,25 +134,8 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         {
             var attributeClass = attributes[i].AttributeClass;
             if (attributeClass is not null
-                && DerivesFrom(attributeClass, renderModeAttribute)
+                && TypeRelations.IsOrDerivesFrom(attributeClass, renderModeAttribute)
                 && RenderModeSelectsWebAssembly(attributeClass, cancellationToken))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type derives from (or is) a given base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to look for.</param>
-    /// <returns><see langword="true"/> when <paramref name="baseType"/> is in the type's base chain.</returns>
-    private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
-    {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
             {
                 return true;
             }
@@ -188,31 +160,39 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         var references = attributeClass.DeclaringSyntaxReferences;
         for (var i = 0; i < references.Length; i++)
         {
-            foreach (var token in references[i].GetSyntax(cancellationToken).DescendantTokens())
-            {
-                if (token.IsKind(SyntaxKind.IdentifierToken) && IsWebAssemblyRenderModeMarker(token.ValueText))
+            var found = false;
+            _ = DescendantTraversalHelper.VisitDescendantTokens(
+                references[i].GetSyntax(cancellationToken),
+                ref found,
+                static (in SyntaxToken token, ref bool matched) =>
                 {
-                    return true;
-                }
-            }
-        }
+                    if (!token.IsKind(SyntaxKind.IdentifierToken) || !StringArrays.ContainsOrdinal(WebAssemblyRenderModeMarkers, token.ValueText))
+                    {
+                        return true;
+                    }
 
-        return false;
-    }
+                    matched = true;
+                    return false;
+                });
 
-    /// <summary>Returns whether an identifier is one of the WebAssembly/Auto render-mode marker names.</summary>
-    /// <param name="identifier">The identifier text to test.</param>
-    /// <returns><see langword="true"/> for a WebAssembly or Auto render-mode marker.</returns>
-    private static bool IsWebAssemblyRenderModeMarker(string identifier)
-    {
-        for (var i = 0; i < WebAssemblyRenderModeMarkers.Length; i++)
-        {
-            if (string.Equals(identifier, WebAssemblyRenderModeMarkers[i], StringComparison.Ordinal))
+            if (found)
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the reachability markers only when WebAssembly support exists.</summary>
+    /// <param name="compilation">The compilation to probe.</param>
+    /// <returns>The optional host builder and render-mode attribute, or an empty array when unavailable.</returns>
+    private static INamedTypeSymbol?[] ResolveMarkers(Compilation compilation)
+    {
+        var hostBuilder = compilation.GetTypeByMetadataName(WebAssemblyHostBuilderMetadataName);
+        var webAssemblyRenderMode = compilation.GetTypeByMetadataName(WebAssemblyRenderModeMetadataName);
+        return webAssemblyRenderMode is null && hostBuilder is null
+            ? []
+            : [hostBuilder, compilation.GetTypeByMetadataName(RenderModeAttributeMetadataName)];
     }
 }

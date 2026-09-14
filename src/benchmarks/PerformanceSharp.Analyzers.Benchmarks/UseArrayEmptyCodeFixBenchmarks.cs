@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class UseArrayEmptyCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative array creation passed to the code fix.</summary>
-    private ArrayCreationExpressionSyntax _creation = null!;
+    /// <summary>The diagnostic reported on the representative array creation.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -47,7 +48,7 @@ public class UseArrayEmptyCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
         var method = (MethodDeclarationSyntax)type.Members[0];
-        _creation = (ArrayCreationExpressionSyntax)method.ExpressionBody!.Expression;
+        _diagnostic = Diagnostic.Create(AllocationRules.UseArrayEmpty, method.ExpressionBody!.Expression.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -67,7 +68,7 @@ public class UseArrayEmptyCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseArrayEmpty_ApplyFixAsync()
     {
-        var updated = Psh1001UseArrayEmptyCodeFixProvider.Apply(_document, _root, _creation, useCollectionExpression: false);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Psh1001UseArrayEmptyCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

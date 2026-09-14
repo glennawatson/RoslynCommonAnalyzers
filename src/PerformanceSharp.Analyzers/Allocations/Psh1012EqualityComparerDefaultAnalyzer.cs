@@ -19,11 +19,11 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
     /// <summary>The invoked member name the syntax gate requires.</summary>
     internal const string EqualsMethodName = "Equals";
 
-    /// <summary>The metadata name of the comparer type the fix moves to.</summary>
-    private const string EqualityComparerMetadataName = "System.Collections.Generic.EqualityComparer`1";
-
     /// <summary>The argument count of the static object.Equals overload.</summary>
     private const int StaticEqualsArgumentCount = 2;
+
+    /// <summary>The metadata name of the comparer type the fix moves to.</summary>
+    private const string EqualityComparerMetadataName = "System.Collections.Generic.EqualityComparer`1";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.UseEqualityComparerDefault);
@@ -37,15 +37,11 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EqualityComparerMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, HasEqualityComparer),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns the operands and type parameter of a boxing equality call, or <see langword="null"/>.</summary>
@@ -53,7 +49,7 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The invocation to classify.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The two compared expressions and their boxing-prone type parameter.</returns>
-    internal static (ExpressionSyntax Left, ExpressionSyntax Right, ITypeParameterSymbol TypeParameter)? TryGetBoxingComparison(
+    internal static BoxingComparison? TryGetBoxingComparison(
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         CancellationToken cancellationToken)
@@ -75,7 +71,7 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The whole invocation, for symbol binding.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The comparison parts, or <see langword="null"/> when the call does not box.</returns>
-    private static (ExpressionSyntax Left, ExpressionSyntax Right, ITypeParameterSymbol TypeParameter)? TryGetInstanceComparison(
+    private static BoxingComparison? TryGetInstanceComparison(
         SemanticModel model,
         ExpressionSyntax receiver,
         ExpressionSyntax argument,
@@ -86,19 +82,19 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
             || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol { Parameters.Length: 1 } method
             || method.ContainingType.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType)
             ? null
-            : (receiver, argument, typeParameter);
+            : new BoxingComparison(receiver, argument, typeParameter);
 
     /// <summary>Classifies a static <c>object.Equals(x, y)</c> call over type parameter operands.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The invocation to classify.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The comparison parts, or <see langword="null"/> when the call does not box.</returns>
-    private static (ExpressionSyntax Left, ExpressionSyntax Right, ITypeParameterSymbol TypeParameter)? TryGetStaticComparison(
+    private static BoxingComparison? TryGetStaticComparison(
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         CancellationToken cancellationToken)
     {
-        if (GetInvokedName(invocation.Expression) != EqualsMethodName)
+        if (MemberReferenceName.Of(invocation.Expression) != EqualsMethodName)
         {
             return null;
         }
@@ -111,27 +107,19 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
             || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
             || method.ContainingType.SpecialType != SpecialType.System_Object
             ? null
-            : (left, right, typeParameter);
+            : new BoxingComparison(left, right, typeParameter);
     }
-
-    /// <summary>Returns the rightmost invoked simple name of an invocation target.</summary>
-    /// <param name="expression">The invocation's expression.</param>
-    /// <returns>The invoked name text, or <see langword="null"/>.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression) =>
-        expression switch
-        {
-            MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Reports PSH1012 for an equality call that boxes its type parameter operands.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="comparerType">The compilation's deferred comparer availability check.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationProbe comparerType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count is not (1 or StaticEqualsArgumentCount)
-            || GetInvokedName(invocation.Expression) != EqualsMethodName
+            || MemberReferenceName.Of(invocation.Expression) != EqualsMethodName
+            || (invocation.ArgumentList.Arguments.Count == 1 && invocation.Expression is not MemberAccessExpressionSyntax)
+            || !comparerType.Get()
             || TryGetBoxingComparison(context.SemanticModel, invocation, context.CancellationToken) is not { } comparison)
         {
             return;
@@ -143,4 +131,10 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
             invocation.Span,
             comparison.TypeParameter.Name));
     }
+
+    /// <summary>Returns whether the compilation exposes the comparer type the fix moves to.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns><see langword="true"/> when the comparer type resolves.</returns>
+    private static bool HasEqualityComparer(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(EqualityComparerMetadataName) is not null;
 }

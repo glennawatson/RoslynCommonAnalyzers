@@ -32,15 +32,11 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeField, SyntaxKind.FieldDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.CreateSynchronized(compilation, HasReadOnlySpan),
+            AnalyzeField,
+            SyntaxKind.FieldDeclaration);
     }
 
     /// <summary>Returns the u8 literal a byte-array field initializer is built from, before any binding.</summary>
@@ -66,10 +62,9 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
     /// <param name="field">The field declaration.</param>
     /// <returns><see langword="true"/> when the candidate shape matches.</returns>
     internal static bool HasCandidateShape(FieldDeclarationSyntax field) =>
-        field.Declaration.Variables.Count == 1
-            && field.Declaration.Variables[0].Initializer is not null
+        PrivateStaticReadonlyField.IsSingleInitializedVariable(field)
             && IsByteArrayType(field.Declaration.Type)
-            && HasPrivateStaticReadonlyShape(field);
+            && PrivateStaticReadonlyField.HasPrivateStaticReadonlyModifiers(field);
 
     /// <summary>Returns whether a type syntax is a single-dimensional byte array.</summary>
     /// <param name="type">The declared field type.</param>
@@ -79,38 +74,15 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
             && array.ElementType is PredefinedTypeSyntax predefined
             && predefined.Keyword.IsKind(SyntaxKind.ByteKeyword);
 
-    /// <summary>Returns whether a field is private (explicitly or by default), static, and readonly.</summary>
-    /// <param name="field">The field declaration.</param>
-    /// <returns><see langword="true"/> when the modifier shape matches.</returns>
-    private static bool HasPrivateStaticReadonlyShape(FieldDeclarationSyntax field)
-    {
-        var modifiers = field.Modifiers;
-        if (!modifiers.Any(SyntaxKind.StaticKeyword) || !modifiers.Any(SyntaxKind.ReadOnlyKeyword))
-        {
-            return false;
-        }
-
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            var kind = modifiers[i].Kind();
-            if (kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>Reports PSH1013 for a u8-built array field whose uses all read like a span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeField(SyntaxNodeAnalysisContext context)
+    /// <param name="spanType">The compilation's deferred span availability check.</param>
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, LazyCompilationProbe spanType)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         if (!HasCandidateShape(field)
             || TryGetUtf8Source(field.Declaration.Variables[0].Initializer!.Value) is null
-            || field.Parent is not TypeDeclarationSyntax containingType
-            || containingType.Modifiers.Any(SyntaxKind.PartialKeyword))
+            || !PrivateStaticReadonlyField.TryGetNonPartialContainingType(field, out var containingType))
         {
             return;
         }
@@ -118,7 +90,7 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         var variable = field.Declaration.Variables[0];
         var scan = new UsageScan(variable.Identifier.ValueText, variable.Identifier.SpanStart);
         _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
-        if (!scan.OnlySpanReads || !ArgumentsBindToSpans(context, scan.ArgumentUsages))
+        if (!scan.OnlySpanReads || !spanType.Get() || !ArgumentsBindToSpans(context, scan.ArgumentUsages))
         {
             return;
         }
@@ -140,16 +112,28 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        InvocationExpressionSyntax? previousInvocation = null;
+        IMethodSymbol? method = null;
         foreach (var argument in argumentUsages)
         {
-            if (argument.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } argumentList
-                || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
+            if (argument.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } argumentList)
+            {
+                return false;
+            }
+
+            if (invocation != previousInvocation)
+            {
+                method = context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol as IMethodSymbol;
+                previousInvocation = invocation;
+            }
+
+            if (method is null)
             {
                 return false;
             }
 
             var index = argumentList.Arguments.IndexOf(argument);
-            if (index >= method.Parameters.Length || !IsReadOnlyByteSpan(method.Parameters[index].Type))
+            if (index >= method.Parameters.Length || !ReadOnlySpanType.IsSpanOf(method.Parameters[index].Type, SpecialType.System_Byte))
             {
                 return false;
             }
@@ -158,17 +142,11 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Returns whether a type is <c>ReadOnlySpan&lt;byte&gt;</c>.</summary>
-    /// <param name="type">The parameter type.</param>
-    /// <returns><see langword="true"/> for the read-only byte span.</returns>
-    private static bool IsReadOnlyByteSpan(ITypeSymbol type) =>
-        type is INamedTypeSymbol
-        {
-            Name: "ReadOnlySpan",
-            IsGenericType: true,
-            TypeArguments: [{ SpecialType: SpecialType.System_Byte }],
-            ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
-        };
+    /// <summary>Returns whether the compilation exposes the span type the property returns.</summary>
+    /// <param name="compilation">The analyzed compilation.</param>
+    /// <returns><see langword="true"/> when the span type resolves.</returns>
+    private static bool HasReadOnlySpan(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null;
 
     /// <summary>Token-visitor state that whitelists span-compatible reads of one field name.</summary>
     private sealed class UsageScan
@@ -200,18 +178,12 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> to keep walking.</returns>
         public bool Visit(in SyntaxToken token)
         {
-            if (!token.IsKind(SyntaxKind.IdentifierToken)
-                || token.SpanStart == _declaratorStart
-                || token.ValueText != _name
-                || token.Parent is not IdentifierNameSyntax identifier)
+            if (!PrivateStaticReadonlyField.TryGetReference(in token, _name, _declaratorStart, out var identifier))
             {
                 return true;
             }
 
-            var usage = identifier.Parent is MemberAccessExpressionSyntax qualification && qualification.Name == identifier
-                ? (SyntaxNode)qualification
-                : identifier;
-            if (IsWhitelistedRead(usage, out var argument))
+            if (IsWhitelistedRead(PrivateStaticReadonlyField.GetUsage(identifier), out var argument))
             {
                 if (argument is not null)
                 {

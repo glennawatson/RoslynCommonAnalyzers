@@ -2,8 +2,10 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyPrimaryConstructorStorage = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2241PrimaryConstructorStorageAnalyzer,
@@ -14,6 +16,46 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2241PrimaryConstructorStorageAnalyzer"/>.</summary>
 public class PrimaryConstructorStorageAnalyzerUnitTest
 {
+    /// <summary>Verifies constructor syntax, accessibility and assignment binding determine the diagnostic.</summary>
+    /// <param name="source">The constructor shape with any expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public record C { int field; public C(int value) { field = value; } }")]
+    [Arguments("public class C(int value) { int field; public C(string text) : this(0) { field = text.Length; } }")]
+    [Arguments("public class C { int field; public C(int value) => field = value; }")]
+    [Arguments("public class C { int field; public C(int value) { field += value; } }")]
+    [Arguments("public class C { int field; public C(int value) { field = value + 1; } }")]
+    [Arguments("public class C { int field, other; public C(int value) { field = other; } }")]
+    [Arguments("public class C { int field; public C(int first, int second) { field = first; field = first; } }")]
+    [Arguments("public class C { static int field; public C(int value) { field = value; } }")]
+    [Arguments("public class C { static int Value { get; set; } public C(int value) { Value = value; } }")]
+    [Arguments("public class C { int Value { get; } public C(int value) { Value = value; } }")]
+    [Arguments("public class C { public C(int value) { value = value; } }")]
+    [Arguments("public class C { public C(int value) { return; } }")]
+    [Arguments("public class C { int field; public C(int value) : this(value, 0) { field = value; } public C(int first, int second) { } }")]
+    [Arguments("public abstract class C { int field; protected {|SST2241:C|}(int value) { this.field = value; } }")]
+    [Arguments("public struct C { int field; public {|SST2241:C|}(int value) { field = value; } }")]
+    [Arguments("public class C { public int Value { get; set; } public {|SST2241:C|}(int value) : base() { this.Value = value; } }")]
+    [Arguments("public class C { int first, second; public {|SST2241:C|}(int x, int y) { second = y; first = x; } }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task StorageShapeDeterminesDiagnosticAsync(string source) => VerifyAnalyzerSourceAsync(source);
+
+    /// <summary>Records the current bitmask boundary, including the silent sixty-four-parameter case.</summary>
+    /// <param name="count">The constructor arity.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(63)]
+    [Arguments(64)]
+    [Arguments(65)]
+    public async Task ParameterTrackingBoundaryAsync(int count)
+    {
+        const int LargestReportedArity = 63;
+        var parameters = string.Join(", ", Enumerable.Range(0, count).Select(static i => $"int p{i}"));
+        var fields = string.Join(" ", Enumerable.Range(0, count).Select(static i => $"int f{i};"));
+        var assignments = string.Join(" ", Enumerable.Range(0, count).Select(static i => $"f{i} = p{i};"));
+        await VerifyAnalyzerSourceAsync($"public class C {{ {fields} public {(count == LargestReportedArity ? "{|SST2241:C|}" : "C")}({parameters}) {{ {assignments} }} }}");
+    }
+
     /// <summary>Verifies a constructor that only stores its parameters is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -412,6 +454,13 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
                               """;
         await VerifyCodeFixAsync(Source, Source);
     }
+
+    /// <summary>Runs only storage analysis so code-fix constraints cannot mask the analyzer result.</summary>
+    /// <param name="source">The source with any expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyAnalyzerSourceAsync(string source) =>
+        new CSharpAnalyzerVerifier<Sst2241PrimaryConstructorStorageAnalyzer>.Test { ReferenceAssemblies = AnalyzerFrameworks.Net80, TestCode = source }.RunAsync(CancellationToken.None);
 
     /// <summary>Runs the code-fix verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze and fix.</param>

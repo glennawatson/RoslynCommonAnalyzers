@@ -34,15 +34,12 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         }
 
         var arguments = invocation.ArgumentList.Arguments;
-        if (arguments.Count != 1
-            || !IsPlainIdentifierArgument(arguments[0], lambda.Parameter.Identifier.ValueText)
-            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken)
-            || !TheRewriteStillBindsTheSameWay(lambda, invocation, context))
+        if (arguments.Count != 1 || !IsPlainIdentifierArgument(arguments[0], lambda.Parameter.Identifier.ValueText))
         {
             return;
         }
 
-        context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseMethodGroup, lambda.GetLocation()));
+        ReportWhenMethodGroupFits(context, lambda, invocation, arguments);
     }
 
     /// <summary>Reports parenthesized lambdas that forward every parameter in order.</summary>
@@ -57,8 +54,26 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         }
 
         var arguments = invocation.ArgumentList.Arguments;
-        if (!ArgumentsMatchParameters(arguments, parameters)
-            || !IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken)
+        if (!ArgumentsMatchParameters(arguments, parameters))
+        {
+            return;
+        }
+
+        ReportWhenMethodGroupFits(context, lambda, invocation, arguments);
+    }
+
+    /// <summary>Reports a forwarding lambda once its method group converts to the target and the enclosing call still binds the same way.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="lambda">The lambda being replaced.</param>
+    /// <param name="invocation">The forwarding invocation in the lambda body.</param>
+    /// <param name="arguments">The invocation arguments.</param>
+    private static void ReportWhenMethodGroupFits(
+        in SyntaxNodeAnalysisContext context,
+        ExpressionSyntax lambda,
+        InvocationExpressionSyntax invocation,
+        in SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if (!IsMethodGroupConvertible(invocation, lambda, arguments, context.SemanticModel, context.CancellationToken)
             || !TheRewriteStillBindsTheSameWay(lambda, invocation, context))
         {
             return;

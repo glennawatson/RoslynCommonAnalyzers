@@ -14,6 +14,15 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1311RemovePassThroughStateMachineAnalyzer"/> (PSH1311 pass-through async state machine).</summary>
 public class RemovePassThroughStateMachineAnalyzerUnitTest
 {
+    /// <summary>Verifies block-bodied local functions return the forwarded task directly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task LocalFunctionBlockIsRewrittenAsync() =>
+        VerifyAsync(
+            "using System.Threading.Tasks; class C { Task M() { {|PSH1311:async|} Task Local() { await Task.CompletedTask; } return Local(); } }",
+            "using System.Threading.Tasks; class C { Task M() { Task Local() { return Task.CompletedTask; } return Local(); } }");
+
     /// <summary>Verifies an expression-bodied pass-through await is flagged and unwrapped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

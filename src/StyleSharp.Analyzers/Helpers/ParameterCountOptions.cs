@@ -42,43 +42,7 @@ internal readonly record struct ParameterCountOptions(
     /// typo neither disables the rule nor turns every three-parameter method into a diagnostic.
     /// </remarks>
     internal static ParameterCountOptions Read(AnalyzerConfigOptions options) => new(
-        ReadPositiveInt(options, MaximumRuleKey, MaximumGeneralKey, DefaultMaximum),
-        ReadBool(options, CheckRecordsRuleKey, CheckRecordsGeneralKey, fallback: false),
-        ReadBool(options, CountOptionalRuleKey, CountOptionalGeneralKey, fallback: true));
-
-    /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-    private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-            ? parsed
-            : fallback;
-    }
-
-    /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured value, or <paramref name="fallback"/>.</returns>
-    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey, bool fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed)
-            ? parsed
-            : fallback;
-    }
+        AnalyzerOptionReader.ReadPositiveInt(options, MaximumRuleKey, MaximumGeneralKey, DefaultMaximum),
+        AnalyzerOptionReader.ReadBool(options, CheckRecordsRuleKey, CheckRecordsGeneralKey, fallback: false),
+        AnalyzerOptionReader.ReadBool(options, CountOptionalRuleKey, CountOptionalGeneralKey, fallback: true));
 }

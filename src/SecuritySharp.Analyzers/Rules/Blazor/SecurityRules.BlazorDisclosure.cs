@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1707 — a secret-shaped string literal sits in an assembly that downloads to the browser as WebAssembly.</summary>
-    public static readonly DiagnosticDescriptor WebAssemblyHardcodedSecret = Create(
+    public static readonly DiagnosticDescriptor WebAssemblyHardcodedSecret = DescriptorFactory.Create(
         "SES1707",
         "Do not hard-code secrets in code that runs in the browser as WebAssembly",
         WebAssemblyHardcodedSecretMessage,
@@ -16,7 +16,7 @@ internal static partial class SecurityRules
         WebAssemblyHardcodedSecretDescription);
 
     /// <summary>SES1708 — server circuit exception detail is shipped to every connected client.</summary>
-    public static readonly DiagnosticDescriptor CircuitDetailedErrorsEnabled = Create(
+    public static readonly DiagnosticDescriptor CircuitDetailedErrorsEnabled = DescriptorFactory.Create(
         "SES1708",
         "Circuit detailed errors must not be enabled outside development",
         "'CircuitOptions.DetailedErrors' is set to true, which sends full server exception detail and stack traces to every connected browser; enable it only in the Development environment",
@@ -24,7 +24,7 @@ internal static partial class SecurityRules
         CircuitDetailedErrorsEnabledDescription);
 
     /// <summary>SES1709 — every claim is serialized into the client-readable WebAssembly authentication state.</summary>
-    public static readonly DiagnosticDescriptor SerializeAllClaimsEnabled = Create(
+    public static readonly DiagnosticDescriptor SerializeAllClaimsEnabled = DescriptorFactory.Create(
         "SES1709",
         "Do not serialize every claim into the client-readable authentication state",
         SerializeAllClaimsEnabledMessage,
@@ -32,7 +32,7 @@ internal static partial class SecurityRules
         SerializeAllClaimsEnabledDescription);
 
     /// <summary>SES1710 — antiforgery validation is turned off for a form or component.</summary>
-    public static readonly DiagnosticDescriptor AntiforgeryValidationDisabled = Create(
+    public static readonly DiagnosticDescriptor AntiforgeryValidationDisabled = DescriptorFactory.Create(
         "SES1710",
         "Do not disable antiforgery validation on a form",
         AntiforgeryValidationDisabledMessage,

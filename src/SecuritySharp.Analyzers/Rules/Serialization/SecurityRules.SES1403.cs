@@ -8,15 +8,12 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1403 — a JSON deserialization depth limit is raised beyond a safe ceiling.</summary>
-    public static readonly DiagnosticDescriptor JsonMaxDepth = new(
+    public static readonly DiagnosticDescriptor JsonMaxDepth = DescriptorFactory.CreateInfo(
         "SES1403",
         "JSON deserialization depth limit must stay within a safe ceiling",
         "This sets a System.Text.Json MaxDepth of {0}; a limit above {1} lets deeply nested JSON exhaust the thread stack and crash the process, so keep MaxDepth at or below {1}",
         Serialization,
-        DiagnosticSeverity.Info,
-        isEnabledByDefault: true,
-        description: JsonMaxDepthDescription,
-        helpLinkUri: "https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/SES1403.md");
+        JsonMaxDepthDescription);
 
     /// <summary>The SES1403 rule description.</summary>
     private const string JsonMaxDepthDescription =

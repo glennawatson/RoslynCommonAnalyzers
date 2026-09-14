@@ -14,18 +14,14 @@ namespace SecuritySharp.Analyzers;
 /// inline byte array of constant elements, a reference to a <c>static readonly</c> field (allocated once
 /// and shared across every call), or <c>Encoding.GetBytes</c> over a constant string. A predictable salt
 /// defeats the per-secret uniqueness that a salt exists to provide, so an attacker can precompute a
-/// rainbow table once and crack every password hashed with it. The rule is resolved once per compilation
-/// by probing <c>Rfc2898DeriveBytes</c>; on a target framework without that type nothing is registered,
-/// so a project that cannot call these APIs pays nothing and never receives a diagnostic it cannot act
-/// on. The random-salt <c>Rfc2898DeriveBytes(string, int, …)</c> overloads (whose parameter is
+/// rainbow table once and crack every password hashed with it. The rule resolves <c>Rfc2898DeriveBytes</c>
+/// only after a call passes the syntax prefilter and reports nothing on a target framework without that
+/// type. The random-salt <c>Rfc2898DeriveBytes(string, int, …)</c> overloads (whose parameter is
 /// <c>saltSize</c>, not <c>salt</c>) generate the salt internally and are never reported.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the password-based key-derivation type whose salt is guarded.</summary>
-    private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
-
     /// <summary>The simple name of the key-derivation type, used by the allocation-free syntactic prefilter.</summary>
     private const string Rfc2898TypeSimpleName = "Rfc2898DeriveBytes";
 
@@ -35,14 +31,20 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the salt parameter on every guarded overload.</summary>
     private const string SaltParameterName = "salt";
 
-    /// <summary>The metadata name of the text-encoding type used to detect a salt derived from a constant string.</summary>
-    private const string EncodingMetadataName = "System.Text.Encoding";
-
     /// <summary>The name of the <c>Encoding.GetBytes</c> method that turns a constant string into a fixed salt.</summary>
     private const string GetBytesMethodName = "GetBytes";
 
     /// <summary>The fewest arguments a guarded overload takes (a password and a salt), used by the prefilters.</summary>
     private const int MinimumGuardedArgumentCount = 2;
+
+    /// <summary>The metadata name of the password-based key-derivation type whose salt is guarded.</summary>
+    private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
+
+    /// <summary>The metadata name of the text-encoding type used to detect a salt derived from a constant string.</summary>
+    private const string EncodingMetadataName = "System.Text.Encoding";
+
+    /// <summary>The key-derivation and encoding metadata names, in slot order.</summary>
+    private static readonly string[] KdfMetadataNames = [Rfc2898MetadataName, EncodingMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ConstantKdfSalt);
@@ -56,28 +58,17 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var kdfType = start.Compilation.GetTypeByMetadataName(Rfc2898MetadataName);
-            if (kdfType is null)
-            {
-                return;
-            }
-
-            // Encoding is present on every framework that has Rfc2898DeriveBytes, but resolve it here so
-            // the 'Encoding.GetBytes' salt check never touches metadata on the hot path.
-            var encodingType = start.Compilation.GetTypeByMetadataName(EncodingMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, kdfType, encodingType), SyntaxKind.ObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, kdfType, encodingType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, KdfMetadataNames),
+            new(AnalyzeObjectCreation, [SyntaxKind.ObjectCreationExpression]),
+            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]));
     }
 
     /// <summary>Reports SES1002 for a <c>new Rfc2898DeriveBytes(…)</c> call whose salt argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="kdfType">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
+    /// <param name="markers">The compilation's deferred cryptography and encoding types.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markers)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -88,7 +79,8 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetOperation(creation, context.CancellationToken) is not IObjectCreationOperation operation
+        if (markers.Get() is not [{ } kdfType, var encodingType]
+            || context.SemanticModel.GetOperation(creation, context.CancellationToken) is not IObjectCreationOperation operation
             || !SymbolEqualityComparer.Default.Equals(operation.Type, kdfType))
         {
             return;
@@ -99,9 +91,8 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1002 for a <c>Rfc2898DeriveBytes.Pbkdf2(…)</c> call whose salt argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="kdfType">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
+    /// <param name="markers">The compilation's deferred cryptography and encoding types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -112,7 +103,8 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
+        if (markers.Get() is not [{ } kdfType, var encodingType]
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
             || !SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, kdfType))
         {
             return;
@@ -177,7 +169,7 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             // An inline 'new byte[N]' has no writes before the call: no initializer means an all-zero
             // buffer, and an initializer is fixed only when every element is a compile-time constant.
             ArrayCreationExpressionSyntax arrayCreation =>
-                arrayCreation.Initializer is null || IsConstantInitializer(model, arrayCreation.Initializer, cancellationToken),
+                arrayCreation.Initializer is null || InitializerConstants.AreAllConstant(model, arrayCreation.Initializer, cancellationToken),
 
             // 'Encoding.X.GetBytes("literal")' bakes a constant string into the salt.
             InvocationExpressionSyntax invocation =>
@@ -189,25 +181,6 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
 
             _ => false,
         };
-
-    /// <summary>Returns whether every element of an array initializer is a compile-time constant.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="initializer">The array initializer.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when all elements are constants.</returns>
-    private static bool IsConstantInitializer(SemanticModel model, InitializerExpressionSyntax initializer, CancellationToken cancellationToken)
-    {
-        var expressions = initializer.Expressions;
-        for (var i = 0; i < expressions.Count; i++)
-        {
-            if (!model.GetConstantValue(expressions[i], cancellationToken).HasValue)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     /// <summary>Returns whether an invocation is <c>Encoding.GetBytes</c> over a constant string.</summary>
     /// <param name="model">The semantic model.</param>

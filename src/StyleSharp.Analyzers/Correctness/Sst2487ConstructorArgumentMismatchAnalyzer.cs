@@ -14,8 +14,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The attribute type is resolved once at compilation start, so a project that does not reference the markup
-/// namespace registers nothing and pays nothing. The clean path is a comparison of the attribute's written
+/// The attribute type is resolved once per compilation after a syntactic candidate is found.
+/// The clean path is a comparison of the attribute's written
 /// name against a constant and a check that its single argument is a string literal; only an attribute that
 /// passes both is bound, which confirms it is the markup attribute rather than a same-named one and reads the
 /// declaring type's constructors.
@@ -50,25 +50,17 @@ public sealed class Sst2487ConstructorArgumentMismatchAnalyzer : DiagnosticAnaly
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Registers the rule only when the markup attribute is present in the compilation.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (context.Compilation.GetTypeByMetadataName(AttributeMetadataName) is not { } attributeType)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, attributeType), SyntaxKind.Attribute);
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, AttributeMetadataName),
+            Analyze,
+            SyntaxKind.Attribute);
     }
 
     /// <summary>Analyzes one attribute for a constructor-argument name that binds to nothing.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="attributeType">The resolved markup attribute type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="attributeType">The lazily resolved markup attribute type.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType attributeType)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (!IsConstructorArgumentName(attribute.Name)
@@ -78,7 +70,7 @@ public sealed class Sst2487ConstructorArgumentMismatchAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (!IsMarkupAttribute(context, attribute, attributeType))
+        if (attributeType.Get() is not { } resolvedType || !IsMarkupAttribute(context, attribute, resolvedType))
         {
             return;
         }

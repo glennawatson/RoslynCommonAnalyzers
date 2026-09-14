@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -120,14 +121,18 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         var root = context.Tree.GetRoot(context.CancellationToken);
         var collectionPadded = ReadCollectionExpressionPadded(context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Tree));
 
-        var previous = default(SyntaxToken);
-        foreach (var token in root.DescendantTokens())
-        {
-            ProcessTrivia(context, text, token.LeadingTrivia, isTrailing: false);
-            ProcessTrivia(context, text, token.TrailingTrivia, isTrailing: true);
-            CheckPair(context, previous, token, collectionPadded);
-            previous = token;
-        }
+        var state = new SpacingTraversalState(context, text, collectionPadded);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            root,
+            ref state,
+            static (in SyntaxToken token, ref SpacingTraversalState state) =>
+            {
+                ProcessTrivia(state.Context, state.Text, token.LeadingTrivia, isTrailing: false);
+                ProcessTrivia(state.Context, state.Text, token.TrailingTrivia, isTrailing: true);
+                CheckPair(state.Context, state.Previous, token, state.CollectionPadded);
+                state.Previous = token;
+                return true;
+            });
     }
 
     /// <summary>Dispatches every token-pair spacing rule for an adjacent token pair (single separation read).</summary>
@@ -283,17 +288,15 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckParentheses(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
-    {
-        if (previous.IsKind(SyntaxKind.OpenParenToken))
-        {
-            Report(context, SpacingRules.OpeningParenthesis, current, RemoveBefore);
-        }
-        else if (current.IsKind(SyntaxKind.CloseParenToken))
-        {
-            Report(context, SpacingRules.ClosingParenthesis, current, RemoveBefore);
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CheckParentheses(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current) =>
+        ReportSpaceBefore(
+            context,
+            current,
+            previous.IsKind(SyntaxKind.OpenParenToken),
+            SpacingRules.OpeningParenthesis,
+            current.IsKind(SyntaxKind.CloseParenToken),
+            SpacingRules.ClosingParenthesis);
 
     /// <summary>Reports an operator keyword not followed by a space (SST1007).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
@@ -760,15 +763,38 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a comma or semicolon preceded by whitespace.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="current">The candidate punctuation token.</param>
-    private static void ReportPrecedingSpace(in SyntaxTreeAnalysisContext context, SyntaxToken current)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ReportPrecedingSpace(in SyntaxTreeAnalysisContext context, SyntaxToken current) =>
+        ReportSpaceBefore(
+            context,
+            current,
+            current.IsKind(SyntaxKind.CommaToken),
+            SpacingRules.CommaSpacing,
+            current.IsKind(SyntaxKind.SemicolonToken),
+            SpacingRules.SemicolonSpacing);
+
+    /// <summary>Reports whitespace before a token under the first of two rules whose condition holds.</summary>
+    /// <param name="context">The syntax tree analysis context.</param>
+    /// <param name="current">The token preceded by whitespace.</param>
+    /// <param name="first">Whether the first rule applies.</param>
+    /// <param name="firstRule">The first rule.</param>
+    /// <param name="second">Whether the second rule applies.</param>
+    /// <param name="secondRule">The second rule.</param>
+    private static void ReportSpaceBefore(
+        in SyntaxTreeAnalysisContext context,
+        SyntaxToken current,
+        bool first,
+        DiagnosticDescriptor firstRule,
+        bool second,
+        DiagnosticDescriptor secondRule)
     {
-        if (current.IsKind(SyntaxKind.CommaToken))
+        if (first)
         {
-            Report(context, SpacingRules.CommaSpacing, current, RemoveBefore);
+            Report(context, firstRule, current, RemoveBefore);
         }
-        else if (current.IsKind(SyntaxKind.SemicolonToken))
+        else if (second)
         {
-            Report(context, SpacingRules.SemicolonSpacing, current, RemoveBefore);
+            Report(context, secondRule, current, RemoveBefore);
         }
     }
 
@@ -1054,5 +1080,33 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Holds the inputs and previous token for one spacing traversal.</summary>
+    private struct SpacingTraversalState
+    {
+        /// <summary>Initializes a new instance of the <see cref="SpacingTraversalState"/> struct.</summary>
+        /// <param name="context">The syntax tree analysis context.</param>
+        /// <param name="text">The source text.</param>
+        /// <param name="collectionPadded">Whether collection-expression brackets are padded.</param>
+        public SpacingTraversalState(in SyntaxTreeAnalysisContext context, SourceText text, bool collectionPadded)
+        {
+            Context = context;
+            Text = text;
+            Previous = default;
+            CollectionPadded = collectionPadded;
+        }
+
+        /// <summary>Gets the syntax tree analysis context.</summary>
+        public readonly SyntaxTreeAnalysisContext Context { get; }
+
+        /// <summary>Gets the source text.</summary>
+        public readonly SourceText Text { get; }
+
+        /// <summary>Gets or sets the previous token in document order.</summary>
+        public SyntaxToken Previous { get; set; }
+
+        /// <summary>Gets a value indicating whether collection-expression brackets are padded.</summary>
+        public readonly bool CollectionPadded { get; }
     }
 }

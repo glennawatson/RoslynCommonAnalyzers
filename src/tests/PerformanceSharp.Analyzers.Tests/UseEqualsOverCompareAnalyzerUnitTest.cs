@@ -3,7 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyEqualsOverCompare = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1216UseEqualsOverCompareAnalyzer,
@@ -256,6 +261,118 @@ public class UseEqualsOverCompareAnalyzerUnitTest
                               }
                               """;
         await VerifyNet90CleanAsync(Source);
+    }
+
+    /// <summary>Verifies only bare integer zero and recognized member call shapes are candidates.</summary>
+    /// <param name="expression">The equality expression to classify.</param>
+    /// <param name="expectedName">The recognized method name, or null.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("string.Compare(a, b) == 0", "Compare")]
+    [Arguments("0 != string.CompareOrdinal(a, b)", "CompareOrdinal")]
+    [Arguments("a.CompareTo(b) == 0", "CompareTo")]
+    [Arguments("string.Compare(a, b, option) == 0", "Compare")]
+    [Arguments("string.Compare(a, b) == 1", null)]
+    [Arguments("string.Compare(a, b) == 0L", null)]
+    [Arguments("string.Compare(a, b) == (0)", null)]
+    [Arguments("string.Compare(a, b) == false", null)]
+    [Arguments("value == 0", null)]
+    [Arguments("Compare(a, b) == 0", null)]
+    [Arguments("(string.Compare(a, b)) == 0", null)]
+    [Arguments("value?.CompareTo(a) == 0", null)]
+    [Arguments("value->Compare(a, b) == 0", null)]
+    [Arguments("value.Compare<int>(a, b) == 0", null)]
+    [Arguments("value.Other(a, b) == 0", null)]
+    [Arguments("value.Compare(a) == 0", null)]
+    [Arguments("value.Compare(a, b, c, d) == 0", null)]
+    [Arguments("value.CompareOrdinal(a) == 0", null)]
+    [Arguments("value.CompareTo() == 0", null)]
+    [Arguments("0 == value", null)]
+    public async Task OrderingSyntaxRequiresExactShapeAsync(string expression, string? expectedName)
+    {
+        var binary = (BinaryExpressionSyntax)SyntaxFactory.ParseExpression(expression);
+        var matches = Psh1216UseEqualsOverCompareAnalyzer.TryGetOrderingCall(binary, out var invocation, out var methodName);
+        await Assert.That(matches).IsEqualTo(expectedName is not null);
+        await Assert.That(methodName).IsEqualTo(expectedName);
+        await Assert.That(invocation is not null).IsEqualTo(matches);
+    }
+
+    /// <summary>Verifies unresolved calls and non-string comparison overloads stay silent.</summary>
+    /// <param name="expression">The comparison in a runtime-backed compilation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Missing.Compare(left, right) == 0")]
+    [Arguments("left.CompareTo((object)right) == 0")]
+    [Arguments("string.Compare(left, right, (true)) == 0")]
+    [Arguments("string.Compare(left, right) == 1")]
+    [Arguments("left.Length == 0")]
+    public async Task UnrewritableRuntimeComparisonIsCleanAsync(string expression)
+    {
+        var source = $"class C {{ bool M(string left, string right) => {expression}; }}";
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1216UseEqualsOverCompareAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies the cached comparison enum is reused for subsequent matching calls.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MultipleComparisonsInOneCompilationReportAsync()
+    {
+        const int ExpectedCount = 2;
+        const string Source = "class C { bool M(string a, string b) => string.Compare(a, b) == 0 || 0 != string.CompareOrdinal(a, b); }";
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(Source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1216UseEqualsOverCompareAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(ExpectedCount);
+    }
+
+    /// <summary>Verifies alternate framework overloads must preserve the supported string parameter contract.</summary>
+    /// <param name="member">The framework ordering declaration.</param>
+    /// <param name="expression">The call against that declaration.</param>
+    /// <param name="hasComparisonType">Whether the replacement comparison enum exists.</param>
+    /// <param name="expectedCount">The expected diagnostic count.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public static int Compare(string a, string b) => 0;", "string.Compare(a, b) == 0", false, 0)]
+    [Arguments("public static int Compare(string a, string b) => 0;", "string.Compare(a, b) == 0", true, 1)]
+    [Arguments("public int Compare(string a, string b) => 0;", "a.Compare(a, b) == 0", true, 0)]
+    [Arguments("public static int Compare(object a, string b) => 0;", "string.Compare(a, b) == 0", true, 0)]
+    [Arguments("public static int Compare(string a, object b) => 0;", "string.Compare(a, b) == 0", true, 0)]
+    [Arguments("public static int Compare(params string[] values) => 0;", "string.Compare(a, b) == 0", true, 0)]
+    [Arguments("public static int Compare(string a, string b, int x = 0, int y = 0) => 0;", "string.Compare(a, b) == 0", true, 0)]
+    [Arguments("public static int Compare(string a, string b, int x) => 0;", "string.Compare(a, b, 1) == 0", true, 0)]
+    [Arguments("public int CompareOrdinal(string a, string b) => 0;", "a.CompareOrdinal(a, b) == 0", true, 0)]
+    [Arguments("public static int CompareOrdinal(string a, object b) => 0;", "string.CompareOrdinal(a, b) == 0", true, 0)]
+    [Arguments("public static int CompareTo(string b) => 0;", "string.CompareTo(b) == 0", true, 0)]
+    [Arguments("public int CompareTo(string b, int x = 0) => 0;", "a.CompareTo(b) == 0", true, 0)]
+    public async Task FrameworkOrderingOverloadRequiresSupportedContractAsync(string member, string expression, bool hasComparisonType, int expectedCount)
+    {
+        var comparison = hasComparisonType ? "public enum StringComparison { CurrentCulture }" : string.Empty;
+        var source = $$"""
+                       namespace System
+                       {
+                           public class Object { }
+                           public class ValueType { }
+                           public struct Void { }
+                           public struct Int32 { }
+                           public struct Boolean { }
+                           public class Enum : ValueType { }
+                           public class Attribute { }
+                           public class ParamArrayAttribute : Attribute { }
+                           public sealed class String { {{member}} }
+                           {{comparison}}
+                       }
+                       class C { bool M(string a, string b) => {{expression}}; }
+                       """;
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(source)]);
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        await Assert.That(stringType.SpecialType).IsEqualTo(SpecialType.System_String);
+        var tree = compilation.SyntaxTrees[0];
+        var root = await tree.GetRootAsync();
+        var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        await Assert.That(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol is IMethodSymbol).IsTrue();
+        var diagnostics = await compilation.WithAnalyzers([new Psh1216UseEqualsOverCompareAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expectedCount);
     }
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>

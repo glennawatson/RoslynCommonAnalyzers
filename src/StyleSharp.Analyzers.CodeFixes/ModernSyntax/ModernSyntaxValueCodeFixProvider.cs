@@ -9,7 +9,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>Applies mechanical fixes for value, cast, and LINQ modern syntax rules (SST2220-SST2232).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ModernSyntaxValueCodeFixProvider))]
 [Shared]
-public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix, IBatchEditKeyProvider
+public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -32,12 +32,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
         {
             return;
         }
 
+        SemanticModel? model = null;
         foreach (var diagnostic in context.Diagnostics)
         {
             var title = GetTitle(diagnostic.Id);
@@ -46,23 +46,30 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 continue;
             }
 
-            _ = CreateEdit(root, model, diagnostic, out var editTarget, out _, context.CancellationToken);
-            if (editTarget is null)
+            if (diagnostic.Id == ModernSyntaxRules.MakeIgnoredExpressionValueExplicit.Id)
+            {
+                model ??= await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+            }
+
+            if (!CanCreateEdit(root, model, diagnostic, context.CancellationToken))
             {
                 continue;
             }
 
+            var editModel = model;
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title,
-                    _ => Task.FromResult(Apply(context.Document, root, model, diagnostic)),
+                    _ => Task.FromResult(Apply(context.Document, root, editModel, diagnostic)),
                     equivalenceKey: diagnostic.Id),
                 diagnostic);
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         var replacement = CreateEdit(editor.OriginalRoot, diagnostic, out var oldNode, out var removeNode);
         if (oldNode is null)
@@ -87,8 +94,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         editor.RemoveNode(removeNode, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
-    /// <inheritdoc/>
-    bool IBatchEditKeyProvider.TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
+    /// <summary>Resolves the span one diagnostic's edit replaces.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to inspect.</param>
+    /// <param name="span">The span that identifies the edit target.</param>
+    /// <returns><see langword="true"/> when an edit target resolves.</returns>
+    internal static bool TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
     {
         if (diagnostic.Id == ModernSyntaxRules.MakeIgnoredExpressionValueExplicit.Id
             && TryGetIgnoredValueEditSpan(root, diagnostic.Location.SourceSpan, out span))
@@ -150,6 +161,195 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         return updated is null ? document : document.WithSyntaxRoot(updated);
+    }
+
+    /// <summary>Checks the edit's source shape without building its replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model, needed only for discard assignments.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="cancellationToken">A token that cancels semantic checks.</param>
+    /// <returns>Whether the edit has a target.</returns>
+    private static bool CanCreateEdit(SyntaxNode root, SemanticModel? model, Diagnostic diagnostic, CancellationToken cancellationToken)
+    {
+        var span = diagnostic.Location.SourceSpan;
+        return diagnostic.Id switch
+        {
+            "SST2220" => CanSimplifyInterpolation(FindAncestor<InterpolationSyntax>(root, span)),
+            "SST2221" => FindAncestor<ExpressionStatementSyntax>(root, span) is { } statement
+                && CanAssignIgnoredValueToDiscard(statement, model, cancellationToken),
+            "SST2222" => CanRemoveOverwrittenValue(root, span),
+            "SST2223" => CanUseCoalesceAssignment(root, span),
+            "SST2224" => CanCreateTuple(FindAncestor<AnonymousObjectCreationExpressionSyntax>(root, span)),
+            "SST2225" => FindAncestor<ForEachStatementSyntax>(root, span) is not null
+                && HasTypeProperty(diagnostic, ModernSyntaxValueAnalyzer.ElementTypeProperty),
+            "SST2226" => FindAncestor<CastExpressionSyntax>(root, span) is not null
+                && HasTypeProperty(diagnostic, ModernSyntaxValueAnalyzer.TypeProperty),
+            "SST2227" => CanFoldNullCheck(root, diagnostic),
+            "SST2228" => CanCreateLocalFunction(FindAncestor<LocalDeclarationStatementSyntax>(root, span)),
+            "SST2231" => CanUseNullPattern(root, span),
+            "SST2232" => CanOmitGenericArguments(FindAncestor<InvocationExpressionSyntax>(root, span)),
+            _ => false,
+        };
+    }
+
+    /// <summary>Matches the ToString shape and literal format accepted by the interpolation rewriter.</summary>
+    /// <param name="interpolation">The interpolation to inspect.</param>
+    /// <returns>Whether a replacement can be created.</returns>
+    private static bool CanSimplifyInterpolation(InterpolationSyntax? interpolation)
+    {
+        if (interpolation?.Expression is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ToString" },
+                ArgumentList.Arguments: { Count: <= 1 } arguments
+            })
+        {
+            return false;
+        }
+
+        return arguments.Count == 0
+            || (arguments[0].Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+                && !string.IsNullOrEmpty(literal.Token.ValueText));
+    }
+
+    /// <summary>Finds an overwritten value's edit target without rebuilding its declaration.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>Whether the value can be removed.</returns>
+    private static bool CanRemoveOverwrittenValue(SyntaxNode root, TextSpan span) =>
+        root.FindNode(span) is PostfixUnaryExpressionSyntax postfix
+            ? IsReturnedExpression(postfix)
+            : (FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { Declaration.Variables.Count: 1 } local
+                && local.Declaration.Variables[0].Initializer is not null)
+                || FindRemovableAssignmentStatement(root, span) is not null;
+
+    /// <summary>Matches either source form accepted by the coalescing-assignment rewriter.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>Whether a source assignment was found.</returns>
+    private static bool CanUseCoalesceAssignment(SyntaxNode root, TextSpan span) =>
+        (FindAncestor<IfStatementSyntax>(root, span) is { } ifStatement
+            && ModernSyntaxValueAnalyzer.TryGetEmbeddedAssignment(ifStatement.Statement, out _, out _))
+        || (FindAncestor<BinaryExpressionSyntax>(root, span) is { RawKind: (int)SyntaxKind.CoalesceExpression } coalesce
+            && ExpressionShapes.WalkDownParentheses(coalesce.Right) is AssignmentExpressionSyntax);
+
+    /// <summary>Checks that each anonymous-object member has a tuple element name.</summary>
+    /// <param name="anonymous">The anonymous object to inspect.</param>
+    /// <returns>Whether every initializer can become a tuple element.</returns>
+    private static bool CanCreateTuple(AnonymousObjectCreationExpressionSyntax? anonymous)
+    {
+        if (anonymous is null || anonymous.Initializers.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var initializer in anonymous.Initializers)
+        {
+            if (!ModernSyntaxValueAnalyzer.TryGetTupleElement(initializer, out _, out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Checks for the type text required by a cast fix.</summary>
+    /// <param name="diagnostic">The diagnostic carrying the type.</param>
+    /// <param name="key">The type property key.</param>
+    /// <returns>Whether nonblank type text is present.</returns>
+    private static bool HasTypeProperty(Diagnostic diagnostic, string key) =>
+        diagnostic.Properties.TryGetValue(key, out var type) && !string.IsNullOrWhiteSpace(type);
+
+    /// <summary>Checks both statements of a null-check fold without building a coalesce expression.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic carrying the fold kind.</param>
+    /// <returns>Whether the fold has an assignment or declaration target.</returns>
+    private static bool CanFoldNullCheck(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (FindAncestor<IfStatementSyntax>(root, diagnostic.Location.SourceSpan) is not { } ifStatement
+            || !diagnostic.Properties.TryGetValue(ModernSyntaxValueAnalyzer.FoldKindProperty, out var foldKind)
+            || !ModernSyntaxValueAnalyzer.TryGetPreviousStatement(ifStatement, out var previous)
+            || !CanFoldBody(ifStatement.Statement, foldKind))
+        {
+            return false;
+        }
+
+        return (previous is LocalDeclarationStatementSyntax { Declaration.Variables.Count: 1 } local
+                && local.Declaration.Variables[0].Initializer?.Value is not null)
+            || ModernSyntaxValueAnalyzer.TryGetEmbeddedAssignment(previous, out _, out _);
+    }
+
+    /// <summary>Checks the delegate name and lambda arity without allocating types or parameters.</summary>
+    /// <param name="local">The delegate local to inspect.</param>
+    /// <returns>Whether the local-function rewriter supports the declaration.</returns>
+    private static bool CanCreateLocalFunction(LocalDeclarationStatementSyntax? local)
+    {
+        if (local is not { Declaration.Variables.Count: 1 }
+            || local.Declaration.Variables[0].Initializer?.Value is not LambdaExpressionSyntax lambda
+            || GetGenericName(local.Declaration.Type) is not { } genericName)
+        {
+            return false;
+        }
+
+        var count = genericName.TypeArgumentList.Arguments.Count;
+        if (genericName.Identifier.ValueText == "Func" && count > 0)
+        {
+            count--;
+        }
+        else if (genericName.Identifier.ValueText != "Action")
+        {
+            return false;
+        }
+
+        return lambda is SimpleLambdaExpressionSyntax
+            ? count == 1
+            : lambda is ParenthesizedLambdaExpressionSyntax parenthesized && parenthesized.ParameterList.Parameters.Count == count;
+    }
+
+    /// <summary>Matches the broad object patterns accepted by the null-pattern rewriter.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>Whether a supported pattern or is expression was found.</returns>
+    private static bool CanUseNullPattern(SyntaxNode root, TextSpan span) =>
+        (FindAncestor<IsPatternExpressionSyntax>(root, span) is { } patternExpression
+            && ModernSyntaxValueAnalyzer.TryGetBroadObjectNullPattern(patternExpression.Pattern, out _, out _))
+        || FindAncestor<BinaryExpressionSyntax>(root, span)?.IsKind(SyntaxKind.IsExpression) == true;
+
+    /// <summary>Finds the first concrete generic argument without collecting or rewriting names.</summary>
+    /// <param name="invocation">The nameof invocation to inspect.</param>
+    /// <returns>Whether a generic argument can be omitted.</returns>
+    private static bool CanOmitGenericArguments(InvocationExpressionSyntax? invocation)
+    {
+        if (invocation is null || invocation.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            invocation.ArgumentList.Arguments[0],
+            ref found,
+            static (GenericNameSyntax genericName, ref bool state) =>
+            {
+                state = HasConcreteTypeArgument(genericName);
+                return !state;
+            });
+        return found;
+    }
+
+    /// <summary>Checks the fold body without constructing a throw expression or stripping trivia.</summary>
+    /// <param name="statement">The if body.</param>
+    /// <param name="foldKind">The fold kind carried by the diagnostic.</param>
+    /// <returns>Whether the body supplies a coalesce operand.</returns>
+    private static bool CanFoldBody(StatementSyntax statement, string? foldKind)
+    {
+        var body = statement is BlockSyntax { Statements.Count: 1 } block ? block.Statements[0] : statement;
+        return foldKind switch
+        {
+            ModernSyntaxValueAnalyzer.ThrowFold => body is ThrowStatementSyntax { Expression: not null },
+            ModernSyntaxValueAnalyzer.AssignmentFold => ModernSyntaxValueAnalyzer.TryGetEmbeddedAssignment(body, out _, out _),
+            _ => false,
+        };
     }
 
     /// <summary>Gets the edited statement span for an ignored-value diagnostic without requiring semantic proof.</summary>
@@ -319,11 +519,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         oldNode = statement;
-        return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+        return SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
-                SyntaxFactory.IdentifierName("_"),
-                statement.Expression.WithoutTrivia()))
-            .WithTriviaFrom(statement);
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(statement.GetLeadingTrivia(), "_", SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+                statement.Expression.WithoutTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, statement.GetTrailingTrivia()));
     }
 
     /// <summary>Returns whether a discard assignment can be emitted without binding to an existing underscore symbol.</summary>
@@ -397,9 +598,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         {
             oldNode = local;
             var variable = local.Declaration.Variables[0];
-            variable = variable
-                .WithIdentifier(variable.Identifier.WithTrailingTrivia())
-                .WithInitializer(null);
+            variable = variable.Update(
+                variable.Identifier.WithTrailingTrivia(),
+                variable.ArgumentList,
+                null);
             return local.WithDeclaration(local.Declaration.WithVariables(SyntaxFactory.SingletonSeparatedList(variable)));
         }
 
@@ -441,28 +643,28 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     private static SyntaxNode? CreateCoalesceAssignmentFix(SyntaxNode root, TextSpan span, out SyntaxNode? oldNode)
     {
         if (FindAncestor<IfStatementSyntax>(root, span) is { } ifStatement
-            && TryGetEmbeddedAssignment(ifStatement.Statement, out var target, out var value))
+            && ModernSyntaxValueAnalyzer.TryGetEmbeddedAssignment(ifStatement.Statement, out var target, out var value))
         {
             oldNode = ifStatement;
-            return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+            return SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
                     SyntaxKind.CoalesceAssignmentExpression,
-                    target.WithoutTrivia(),
+                    target.WithoutTrailingTrivia().WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
                     SyntaxFactory.Token(SyntaxKind.QuestionQuestionEqualsToken),
-                    value.WithoutTrivia()))
-                .WithTriviaFrom(ifStatement);
+                    value.WithoutTrivia()),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
         }
 
         if (FindAncestor<BinaryExpressionSyntax>(root, span) is { } coalesce
             && coalesce.IsKind(SyntaxKind.CoalesceExpression)
-            && ExpressionSimplificationAnalyzer.Unwrap(coalesce.Right) is AssignmentExpressionSyntax assignment)
+            && ExpressionShapes.WalkDownParentheses(coalesce.Right) is AssignmentExpressionSyntax assignment)
         {
             oldNode = coalesce;
             return SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.CoalesceAssignmentExpression,
-                    coalesce.Left.WithoutTrivia(),
-                    SyntaxFactory.Token(SyntaxKind.QuestionQuestionEqualsToken),
-                    assignment.Right.WithoutTrivia())
-                .WithTriviaFrom(coalesce);
+                SyntaxKind.CoalesceAssignmentExpression,
+                coalesce.Left.WithoutTrailingTrivia(),
+                SyntaxFactory.Token(SyntaxKind.QuestionQuestionEqualsToken),
+                assignment.Right.WithoutLeadingTrivia().WithTrailingTrivia(coalesce.GetTrailingTrivia()));
         }
 
         oldNode = null;
@@ -503,7 +705,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         oldNode = anonymous;
-        return SyntaxFactory.TupleExpression(SyntaxFactory.SeparatedList(arguments)).WithTriviaFrom(anonymous);
+        return SyntaxFactory.TupleExpression(
+            SyntaxFactory.Token(anonymous.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.SeparatedList(arguments),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, anonymous.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a foreach source cast with <c>System.Linq.Enumerable.Cast&lt;T&gt;</c>.</summary>
@@ -560,7 +765,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         var ifStatement = FindAncestor<IfStatementSyntax>(root, diagnostic.Location.SourceSpan);
         if (ifStatement is null
             || !diagnostic.Properties.TryGetValue(ModernSyntaxValueAnalyzer.FoldKindProperty, out var foldKind)
-            || !TryGetPreviousStatement(ifStatement, out var previous)
+            || !ModernSyntaxValueAnalyzer.TryGetPreviousStatement(ifStatement, out var previous)
             || !TryGetFoldRight(ifStatement.Statement, foldKind, out var right))
         {
             return null;
@@ -576,15 +781,16 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             return local.WithDeclaration(local.Declaration.WithVariables(SyntaxFactory.SingletonSeparatedList(variable.WithInitializer(SyntaxFactory.EqualsValueClause(folded)))));
         }
 
-        if (TryGetEmbeddedAssignment(previous, out var target, out var value))
+        if (ModernSyntaxValueAnalyzer.TryGetEmbeddedAssignment(previous, out var target, out var value))
         {
             oldNode = previous;
             var folded = SyntaxFactory.BinaryExpression(SyntaxKind.CoalesceExpression, value.WithoutTrivia(), right);
-            return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+            return SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
-                    target.WithoutTrivia(),
-                    folded))
-                .WithTriviaFrom(previous);
+                    target.WithoutTrailingTrivia().WithLeadingTrivia(previous.GetLeadingTrivia()),
+                    folded),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, previous.GetTrailingTrivia()));
         }
 
         return null;
@@ -610,17 +816,19 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
         oldNode = local;
         return SyntaxFactory.LocalFunctionStatement(
-                attributeLists: default,
-                modifiers: default,
-                returnType: returnType.WithoutTrivia(),
-                identifier: SyntaxFactory.Identifier(variable.Identifier.ValueText),
-                typeParameterList: null,
-                parameterList: SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)),
-                constraintClauses: default,
-                body: lambda.Block,
-                expressionBody: lambda.ExpressionBody is null ? null : SyntaxFactory.ArrowExpressionClause(lambda.ExpressionBody.WithoutTrivia()),
-                semicolonToken: lambda.ExpressionBody is null ? default : SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-            .WithTriviaFrom(local);
+            attributeLists: default,
+            modifiers: default,
+            returnType: returnType.WithoutTrailingTrivia().WithLeadingTrivia(local.GetLeadingTrivia()),
+            identifier: SyntaxFactory.Identifier(variable.Identifier.ValueText),
+            typeParameterList: null,
+            parameterList: SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)),
+            constraintClauses: default,
+            body: lambda.Block?.WithTrailingTrivia(local.GetTrailingTrivia()),
+            expressionBody: lambda.ExpressionBody is null ? null : SyntaxFactory.ArrowExpressionClause(lambda.ExpressionBody.WithoutTrivia()),
+            semicolonToken: lambda.ExpressionBody is null ? default : SyntaxFactory.Token(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                SyntaxKind.SemicolonToken,
+                local.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a direct null-pattern replacement for a broad object pattern.</summary>
@@ -646,7 +854,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         oldNode = binary;
-        return SyntaxFactory.IsPatternExpression(binary.Left.WithoutTrivia(), CreateNullPattern(negated: false)).WithTriviaFrom(binary);
+        return SyntaxFactory.IsPatternExpression(
+            binary.Left.WithoutTrailingTrivia(),
+            SyntaxFactory.Token(SyntaxKind.IsKeyword),
+            CreateNullPattern(negated: false).WithTrailingTrivia(binary.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a null pattern, negated when required.</summary>
@@ -674,14 +885,20 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             return null;
         }
 
-        var names = new List<GenericNameSyntax>();
-        foreach (var node in invocation.ArgumentList.Arguments[0].DescendantNodesAndSelf())
-        {
-            if (node is GenericNameSyntax genericName && HasConcreteTypeArgument(genericName))
+        const int InitialGenericNameCapacity = 2;
+        var names = new List<GenericNameSyntax>(InitialGenericNameCapacity);
+        _ = DescendantTraversalHelper.VisitDescendants(
+            invocation.ArgumentList.Arguments[0],
+            ref names,
+            static (GenericNameSyntax genericName, ref List<GenericNameSyntax> state) =>
             {
-                names.Add(genericName);
-            }
-        }
+                if (HasConcreteTypeArgument(genericName))
+                {
+                    state.Add(genericName);
+                }
+
+                return true;
+            });
 
         if (names.Count == 0)
         {
@@ -760,7 +977,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 return false;
             }
 
-            parameters.Add(SyntaxFactory.Parameter(simple.Parameter.Identifier).WithType(parameterTypes[0].WithoutTrivia()));
+            parameters.Add(SyntaxFactory.Parameter(
+                attributeLists: default,
+                modifiers: default,
+                type: parameterTypes[0].WithoutTrivia(),
+                identifier: simple.Parameter.Identifier,
+                @default: null));
             return true;
         }
 
@@ -772,7 +994,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
         for (var i = 0; i < parameterTypes.Count; i++)
         {
-            parameters.Add(SyntaxFactory.Parameter(parenthesized.ParameterList.Parameters[i].Identifier).WithType(parameterTypes[i].WithoutTrivia()));
+            parameters.Add(SyntaxFactory.Parameter(
+                attributeLists: default,
+                modifiers: default,
+                type: parameterTypes[i].WithoutTrivia(),
+                identifier: parenthesized.ParameterList.Parameters[i].Identifier,
+                @default: null));
         }
 
         return true;
@@ -820,61 +1047,6 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         where T : SyntaxNode =>
         root.FindNode(span).FirstAncestorOrSelf<T>();
 
-    /// <summary>Gets the previous statement in a block.</summary>
-    /// <param name="ifStatement">The if statement.</param>
-    /// <param name="previous">The previous statement.</param>
-    /// <returns><see langword="true"/> when there is a previous statement.</returns>
-    private static bool TryGetPreviousStatement(IfStatementSyntax ifStatement, out StatementSyntax previous)
-    {
-        previous = null!;
-        if (ifStatement.Parent is not BlockSyntax block)
-        {
-            return false;
-        }
-
-        var statements = block.Statements;
-        for (var i = 1; i < statements.Count; i++)
-        {
-            if (statements[i] != ifStatement)
-            {
-                continue;
-            }
-
-            previous = statements[i - 1];
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>Gets a simple assignment from a statement or single-statement block.</summary>
-    /// <param name="statement">The statement.</param>
-    /// <param name="target">The target.</param>
-    /// <param name="value">The value.</param>
-    /// <returns><see langword="true"/> when a simple assignment was found.</returns>
-    private static bool TryGetEmbeddedAssignment(StatementSyntax statement, out ExpressionSyntax target, out ExpressionSyntax value)
-    {
-        target = null!;
-        value = null!;
-        var candidate = statement is BlockSyntax { Statements.Count: 1 } block ? block.Statements[0] : statement;
-        if (candidate is not ExpressionStatementSyntax
-            {
-                Expression: AssignmentExpressionSyntax
-                {
-                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                    Left: { } left,
-                    Right: { } right
-                }
-            })
-        {
-            return false;
-        }
-
-        target = left;
-        value = right;
-        return true;
-    }
-
     /// <summary>Gets the right operand for a folded null check.</summary>
     /// <param name="statement">The if body.</param>
     /// <param name="foldKind">The fold kind.</param>
@@ -891,7 +1063,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         if (foldKind != ModernSyntaxValueAnalyzer.AssignmentFold
-            || !TryGetEmbeddedAssignment(candidate, out _, out var value))
+            || !ModernSyntaxValueAnalyzer.TryGetEmbeddedAssignment(candidate, out _, out var value))
         {
             return false;
         }
@@ -906,10 +1078,13 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         /// <summary>The shared provider instance.</summary>
         public static readonly ModernSyntaxValueFixAllProvider Instance = new();
 
+        /// <summary>Batches the value-syntax edits across a document, keyed by the node each edit replaces.</summary>
+        private static readonly BatchEditFixAllProvider BatchEdits = new(RegisterBatchEdits, TryGetBatchEditSpan);
+
         /// <inheritdoc/>
         protected override async Task<Document?> FixAllAsync(FixAllContext fixAllContext, Document document, ImmutableArray<Diagnostic> diagnostics)
         {
-            if (diagnostics.IsEmpty || fixAllContext.CodeFixProvider is not IBatchFixableCodeFix fix)
+            if (diagnostics.IsEmpty)
             {
                 return document;
             }
@@ -927,10 +1102,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             }
 
             var editor = await DocumentEditor.CreateAsync(document, fixAllContext.CancellationToken).ConfigureAwait(false);
-            var unique = BatchEditFixAllProvider.CollectUniqueDiagnostics(editor.OriginalRoot, fix, diagnostics);
+            var unique = BatchEdits.CollectUniqueDiagnostics(editor.OriginalRoot, diagnostics);
             for (var i = 0; i < unique.Count; i++)
             {
-                BatchEditFixAllProvider.RegisterBatchEdit(editor, fix, unique[i]);
+                BatchEdits.RegisterBatchEdit(editor, unique[i]);
             }
 
             return editor.GetChangedDocument();
@@ -966,13 +1141,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             ImmutableArray<Diagnostic> diagnostics,
             CancellationToken cancellationToken)
         {
-            var seen = new HashSet<TextSpan>();
-            var targets = new List<SyntaxNode>();
-            var replacements = new Dictionary<TextSpan, SyntaxNode>();
+            var targets = new List<SyntaxNode>(diagnostics.Length);
+            var replacements = new Dictionary<TextSpan, SyntaxNode>(diagnostics.Length);
             foreach (var diagnostic in diagnostics)
             {
                 var replacement = CreateIgnoredValueFix(root, model, diagnostic.Location.SourceSpan, out var oldNode, cancellationToken);
-                if (replacement is null || oldNode is null || !seen.Add(oldNode.Span))
+                if (replacement is null || oldNode is null || replacements.ContainsKey(oldNode.Span))
                 {
                     continue;
                 }

@@ -33,20 +33,9 @@ public sealed class Sst1131UseReadableConditionsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterSyntaxNodeAction(Analyze, ComparisonKinds);
-    }
-
-    /// <summary>Reports a comparison whose constant operand is on the left.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
-    {
-        var comparison = (BinaryExpressionSyntax)context.Node;
-        if (!IsConstantOperand(comparison.Left) || IsConstantOperand(comparison.Right))
-        {
-            return;
-        }
-
-        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseReadableConditions, comparison.GetLocation()));
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => ComparisonOperandOrder.ReportWhenOnlyLeftMatches(nodeContext, IsConstantOperand, ReadabilityRules.UseReadableConditions),
+            ComparisonKinds);
     }
 
     /// <summary>Returns whether the expression is a literal constant (optionally signed).</summary>

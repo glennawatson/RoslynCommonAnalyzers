@@ -14,44 +14,35 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1504AccessorConsistencyCodeFixProvider))]
 [Shared]
-public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider
 {
     /// <summary>The fixed brace/open-close edits added when expanding one single-line block accessor.</summary>
     private const int BlockExpansionBaseChanges = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.AccessorLineConsistency.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Expand accessors onto multiple lines",
+            nameof(Sst1504AccessorConsistencyCodeFixProvider),
+            static (root, diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent as AccessorListSyntax,
+            ExpandAsync);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not AccessorListSyntax list)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Expand accessors onto multiple lines",
-                    cancellationToken => ExpandAsync(context.Document, list, cancellationToken),
-                    equivalenceKey: nameof(Sst1504AccessorConsistencyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not AccessorListSyntax list)
         {

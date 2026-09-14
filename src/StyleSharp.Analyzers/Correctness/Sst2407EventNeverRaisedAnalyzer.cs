@@ -50,11 +50,11 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var index = new RaisedNameIndex(start.Compilation);
-            start.RegisterSymbolAction(symbolContext => AnalyzeEvent(symbolContext, index), SymbolKind.Event);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new RaisedNameIndex(compilation),
+            AnalyzeEvent,
+            SymbolKind.Event);
     }
 
     /// <summary>Analyzes one event declaration.</summary>
@@ -98,30 +98,8 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return !ImplementsInterfaceEvent(containingType, symbol);
-    }
-
-    /// <summary>Returns whether an event implements one an interface declares.</summary>
-    /// <param name="containingType">The declaring type.</param>
-    /// <param name="symbol">The event.</param>
-    /// <returns><see langword="true"/> when an interface, not this type, decides the event exists.</returns>
-    private static bool ImplementsInterfaceEvent(INamedTypeSymbol containingType, IEventSymbol symbol)
-    {
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(symbol.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                if (candidates[j] is IEventSymbol
-                    && SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidates[j]), symbol))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        // An interface, not this type, decides that an implementing event exists.
+        return InterfaceImplementationLookup.FindImplementedInterfaceMember(containingType, symbol) is null;
     }
 
     /// <summary>Returns whether an event is declared as a field, with no accessors and no field attributes.</summary>
@@ -165,14 +143,14 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private sealed class RaisedNameIndex
     {
-        /// <summary>Synchronizes the one-off build.</summary>
+        /// <summary>Guards the one-time build.</summary>
         private readonly object _gate = new();
 
         /// <summary>The compilation whose trees are indexed.</summary>
         private readonly Compilation _compilation;
 
         /// <summary>The names used as values, once built.</summary>
-        private volatile HashSet<string>? _names;
+        private HashSet<string>? _names;
 
         /// <summary>Initializes a new instance of the <see cref="RaisedNameIndex"/> class.</summary>
         /// <param name="compilation">The compilation to index.</param>
@@ -182,8 +160,14 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
         /// <param name="name">The event's name.</param>
         /// <param name="cancellationToken">A token that cancels analysis.</param>
         /// <returns><see langword="true"/> when something might raise it.</returns>
+        /// <remarks>
+        /// Every call after the first is a volatile read, so events never contend on each other. The
+        /// gate is only reached while the index is missing, and it is what stops concurrent first
+        /// queries from each walking every tree in the compilation.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Contains(string name, CancellationToken cancellationToken) => Build(cancellationToken).Contains(name);
+        public bool Contains(string name, CancellationToken cancellationToken) =>
+            (Volatile.Read(ref _names) ?? Build(cancellationToken)).Contains(name);
 
         /// <summary>Records one name that is used as a value.</summary>
         /// <param name="identifier">The identifier being visited.</param>
@@ -215,21 +199,17 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
                 && (assignment.IsKind(SyntaxKind.AddAssignmentExpression) || assignment.IsKind(SyntaxKind.SubtractAssignmentExpression));
         }
 
-        /// <summary>Builds the index, at most once.</summary>
+        /// <summary>Builds the index once and publishes it, off the inlined fast path.</summary>
         /// <param name="cancellationToken">A token that cancels analysis.</param>
         /// <returns>The names used as values.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private HashSet<string> Build(CancellationToken cancellationToken)
         {
-            if (_names is { } built)
-            {
-                return built;
-            }
-
             lock (_gate)
             {
-                if (_names is { } raced)
+                if (_names is { } built)
                 {
-                    return raced;
+                    return built;
                 }
 
                 var names = new HashSet<string>(StringComparer.Ordinal);
@@ -242,7 +222,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
                         VisitIdentifier);
                 }
 
-                _names = names;
+                Volatile.Write(ref _names, names);
                 return names;
             }
         }

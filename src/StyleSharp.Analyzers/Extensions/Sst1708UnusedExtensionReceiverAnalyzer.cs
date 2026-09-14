@@ -52,9 +52,7 @@ public sealed class Sst1708UnusedExtensionReceiverAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var scan = new ReceiverUsageScan(receiverName);
-        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, static (in SyntaxToken token, ref ReceiverUsageScan state) => state.Observe(token));
-        if (scan.Used)
+        if (ExtensionBlockHelper.ReadsIdentifier(body, receiverName))
         {
             return;
         }
@@ -64,44 +62,5 @@ public sealed class Sst1708UnusedExtensionReceiverAnalyzer : DiagnosticAnalyzer
             receiver.GetLocation(),
             method.Identifier.ValueText,
             receiverName));
-    }
-
-    /// <summary>Tracks whether an identifier token naming the receiver has been seen in the body.</summary>
-    /// <remarks>
-    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
-    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
-    /// </remarks>
-    private struct ReceiverUsageScan
-    {
-        /// <summary>The receiver parameter name to look for.</summary>
-        private readonly string _receiverName;
-
-        /// <summary>Whether the receiver name has been read.</summary>
-        private bool _used;
-
-        /// <summary>Initializes a new instance of the <see cref="ReceiverUsageScan"/> struct.</summary>
-        /// <param name="receiverName">The receiver parameter name.</param>
-        public ReceiverUsageScan(string receiverName)
-        {
-            _receiverName = receiverName;
-            _used = false;
-        }
-
-        /// <summary>Gets a value indicating whether the receiver name was read.</summary>
-        public readonly bool Used => _used;
-
-        /// <summary>Observes one token and returns whether scanning should continue.</summary>
-        /// <param name="token">The token.</param>
-        /// <returns><see langword="false"/> once the receiver name has been read.</returns>
-        public bool Observe(in SyntaxToken token)
-        {
-            if (!token.IsKind(SyntaxKind.IdentifierToken) || !string.Equals(token.ValueText, _receiverName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            _used = true;
-            return false;
-        }
     }
 }

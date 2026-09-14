@@ -7,63 +7,39 @@ namespace StyleSharp.Analyzers;
 /// <summary>Swaps a comparison so the literal sits on the right (SST1186).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(LiteralOnRightOfComparisonCodeFixProvider))]
 [Shared]
-public sealed class LiteralOnRightOfComparisonCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class LiteralOnRightOfComparisonCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.LiteralOnRightOfComparison.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Place the literal on the right",
+            nameof(LiteralOnRightOfComparisonCodeFixProvider),
+            ReportedNode.Is<BinaryExpressionSyntax>,
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Place the literal on the right",
-                    _ => Task.FromResult(Apply(context.Document, root, comparison)),
-                    equivalenceKey: nameof(LiteralOnRightOfComparisonCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison)
-        {
-            return;
-        }
-
-        var newLeft = comparison.Right.WithTriviaFrom(comparison.Left);
-        var newRight = comparison.Left.WithTriviaFrom(comparison.Right);
-        editor.ReplaceNode(comparison, comparison.WithLeft(newLeft).WithRight(newRight));
-    }
-
-    /// <summary>Swaps the operands, keeping the surrounding spacing in place.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported comparison and swaps its operands, keeping the surrounding spacing in place.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="comparison">The comparison whose literal is on the left.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison)
+        {
+            return null;
+        }
+
         var newLeft = comparison.Right.WithTriviaFrom(comparison.Left);
         var newRight = comparison.Left.WithTriviaFrom(comparison.Right);
-        var replacement = comparison.WithLeft(newLeft).WithRight(newRight);
-
-        return document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement));
+        return new NodeReplacement(comparison, comparison.Update(newLeft, comparison.OperatorToken, newRight));
     }
 }

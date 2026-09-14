@@ -11,50 +11,34 @@ namespace StyleSharp.Analyzers;
 /// <summary>Inserts a blank line after a closing brace that is not followed by one (SST1513).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1513ClosingBraceSpacingCodeFixProvider))]
 [Shared]
-public sealed class Sst1513ClosingBraceSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1513ClosingBraceSpacingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.CloseBraceFollowedByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<SyntaxToken>(
+            context,
+            "Insert blank line after closing brace",
+            nameof(Sst1513ClosingBraceSpacingCodeFixProvider),
+            TryFindClosingBrace,
+            InsertBlankLineAsync);
+
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var brace = root.FindToken(diagnostic.Location.SourceSpan.Start);
-            if (!brace.IsKind(SyntaxKind.CloseBraceToken))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Insert blank line after closing brace",
-                    cancellationToken => InsertBlankLineAsync(context.Document, brace, cancellationToken),
-                    equivalenceKey: nameof(Sst1513ClosingBraceSpacingCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        var brace = root.FindToken(diagnostic.Location.SourceSpan.Start);
-        if (!brace.IsKind(SyntaxKind.CloseBraceToken))
-        {
-            return;
-        }
-
-        if (!TryBuildChange(text, brace, out var change))
+        if (!TryFindClosingBrace(root, diagnostic, out var brace) || !TryBuildChange(text, brace, out var change))
         {
             return;
         }
@@ -91,5 +75,16 @@ public sealed class Sst1513ClosingBraceSpacingCodeFixProvider : CodeFixProvider,
         var position = text.Lines[nextLine].Start;
         change = new(new(position, 0), LayoutFixHelpers.DetectNewLine(text));
         return true;
+    }
+
+    /// <summary>Finds the closing brace a diagnostic reports.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="brace">The token at the diagnostic's start.</param>
+    /// <returns><see langword="true"/> when that token is a closing brace.</returns>
+    private static bool TryFindClosingBrace(SyntaxNode root, Diagnostic diagnostic, out SyntaxToken brace)
+    {
+        brace = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        return brace.IsKind(SyntaxKind.CloseBraceToken);
     }
 }

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1001 — an AEAD encryption call is given a constant or reused nonce.</summary>
-    public static readonly DiagnosticDescriptor ConstantAeadNonce = Create(
+    public static readonly DiagnosticDescriptor ConstantAeadNonce = DescriptorFactory.Create(
         "SES1001",
         "AEAD encryption must not use a constant or reused nonce",
         "The nonce passed to '{0}.Encrypt' is a fixed value; a nonce reused with the same key breaks AEAD confidentiality and integrity",

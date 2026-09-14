@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1606 — a model-weights file is fetched from a cleartext <c>http://</c> URL.</summary>
-    public static readonly DiagnosticDescriptor CleartextModelWeightsUrl = Create(
+    public static readonly DiagnosticDescriptor CleartextModelWeightsUrl = DescriptorFactory.Create(
         "SES1606",
         "Do not fetch model weights over cleartext HTTP",
         "The model-weights URL targets cleartext HTTP host '{0}'; http lets a tampered or backdoored model be swapped in transit -- use https and verify a published hash or signature",

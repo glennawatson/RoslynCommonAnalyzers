@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -69,7 +70,7 @@ public class TakeExtremeWithoutSortingCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> TakeExtremeWithoutSorting_ApplyFixAsync()
     {
-        var updated = Psh1118TakeExtremeWithoutSortingCodeFixProvider.Apply(_document, _root, _invocation);
+        var updated = TargetCodeFix.Apply(_document, _root, _invocation, Psh1118TakeExtremeWithoutSortingCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

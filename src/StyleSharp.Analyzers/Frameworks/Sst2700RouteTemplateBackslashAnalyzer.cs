@@ -12,20 +12,27 @@ namespace StyleSharp.Analyzers;
 /// character and never matches the intended request, leaving the action unreachable. The attribute is bound and
 /// only the argument that maps to the route-template parameter is inspected — its decoded value is checked, so a
 /// verbatim, escaped, or raw string literal are all caught. The whole rule is gated on the ASP.NET Core routing
-/// types resolving in the referenced framework, so a non-web project registers nothing and pays nothing. A code
-/// fix replaces each backslash with a forward slash.
+/// types resolving in the referenced framework, checked only after a backslash-bearing literal is found. A
+/// code fix replaces each backslash with a forward slash.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the attribute that carries an explicit route template.</summary>
-    private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Mvc.RouteAttribute";
-
-    /// <summary>The metadata name of the base attribute the HTTP-verb attributes derive from.</summary>
-    private const string HttpMethodAttributeMetadataName = "Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute";
-
     /// <summary>The constructor parameter name that carries the route template on the routing attributes.</summary>
     private const string TemplateParameterName = "template";
+
+    /// <summary>The slot holding <c>RouteAttribute</c> in <see cref="RoutingMetadataNames"/>.</summary>
+    private const int RouteAttributeSlot = 0;
+
+    /// <summary>The slot holding <c>HttpMethodAttribute</c> in <see cref="RoutingMetadataNames"/>.</summary>
+    private const int HttpMethodAttributeSlot = 1;
+
+    /// <summary>The routing attribute metadata names, each resolved once on first demand.</summary>
+    private static readonly string[] RoutingMetadataNames =
+    [
+        "Microsoft.AspNetCore.Mvc.RouteAttribute",
+        "Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute",
+    ];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.RouteTemplateBackslash);
@@ -39,26 +46,17 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var routeAttribute = start.Compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
-            if (routeAttribute is null)
-            {
-                return;
-            }
-
-            var httpMethodAttribute = start.Compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAttribute(nodeContext, routeAttribute, httpMethodAttribute),
-                SyntaxKind.Attribute);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypeSlots(compilation, RoutingMetadataNames),
+            AnalyzeAttribute,
+            SyntaxKind.Attribute);
     }
 
     /// <summary>Reports SST2700 for a routing attribute whose route-template argument contains a backslash.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="routeAttribute">The resolved <c>RouteAttribute</c> type.</param>
-    /// <param name="httpMethodAttribute">The resolved <c>HttpMethodAttribute</c> base type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol routeAttribute, INamedTypeSymbol? httpMethodAttribute)
+    /// <param name="routingTypes">The routing types, each resolved once on first demand.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSlots routingTypes)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
@@ -67,8 +65,9 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
-            || !IsRoutingAttribute(constructor.ContainingType, routeAttribute, httpMethodAttribute))
+        if (routingTypes.Get(RouteAttributeSlot) is not { } resolvedRoute
+            || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
+            || !IsRoutingAttribute(constructor.ContainingType, resolvedRoute, routingTypes.Get(HttpMethodAttributeSlot)))
         {
             return;
         }
@@ -85,14 +84,17 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
             literal.Token.ValueText));
     }
 
-    /// <summary>Returns whether any constructor string-literal argument's decoded value contains a backslash.</summary>
+    /// <summary>Returns whether a possible template argument's decoded string literal contains a backslash.</summary>
     /// <param name="argumentList">The attribute's argument list.</param>
-    /// <returns><see langword="true"/> when a backslash-bearing string literal is present, so binding is worthwhile.</returns>
+    /// <returns>True when a positional or explicitly named template argument needs binding.</returns>
     private static bool HasBackslashStringArgument(AttributeArgumentListSyntax argumentList)
     {
         foreach (var argument in argumentList.Arguments)
         {
-            if (argument.NameEquals is null && IsBackslashStringLiteral(argument.Expression))
+            if (argument.NameEquals is null
+                && (argument.NameColon is null
+                    || string.Equals(argument.NameColon.Name.Identifier.ValueText, TemplateParameterName, StringComparison.Ordinal))
+                && IsBackslashStringLiteral(argument.Expression))
             {
                 return true;
             }
@@ -110,24 +112,8 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
         var positional = 0;
         foreach (var argument in argumentList.Arguments)
         {
-            if (argument.NameEquals is not null)
-            {
-                // A 'Name = "..."' style property initializer is not a constructor argument, so it is never the template.
-                continue;
-            }
-
-            string? parameterName;
-            if (argument.NameColon is { } nameColon)
-            {
-                parameterName = nameColon.Name.Identifier.ValueText;
-            }
-            else
-            {
-                parameterName = positional < constructor.Parameters.Length ? constructor.Parameters[positional].Name : null;
-                positional++;
-            }
-
-            if (string.Equals(parameterName, TemplateParameterName, StringComparison.Ordinal)
+            // A 'Name = "..."' style property initializer maps to no constructor parameter, so it is never the template.
+            if (string.Equals(AttributeArgumentParameter.NameOf(argument, constructor, ref positional), TemplateParameterName, StringComparison.Ordinal)
                 && argument.Expression is LiteralExpressionSyntax literal
                 && IsBackslashStringLiteral(literal))
             {

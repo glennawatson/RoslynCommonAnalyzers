@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1604 — a prompt template disables the default encoding of substituted variables.</summary>
-    public static readonly DiagnosticDescriptor PromptTemplateContentEncodingDisabled = Create(
+    public static readonly DiagnosticDescriptor PromptTemplateContentEncodingDisabled = DescriptorFactory.Create(
         "SES1604",
         "Prompt-template input encoding must not be disabled",
         "'{0}.AllowDangerouslySetContent' is set to true, so substituted variables are no longer encoded and injected content can break out of its template slot",

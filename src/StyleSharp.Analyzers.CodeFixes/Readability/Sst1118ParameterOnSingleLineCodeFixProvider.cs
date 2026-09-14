@@ -23,14 +23,17 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1118ParameterOnSingleLineCodeFixProvider))]
 [Shared]
-public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(ReadabilityRules.ParameterMustNotSpanMultipleLines.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -59,9 +62,13 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
         changes.AddRange(BuildCollapse(text, root, diagnostic, ReadMaximumLineLength(document: null, root.SyntaxTree)));
 
     /// <summary>Collapses the reported item onto one line.</summary>
@@ -99,8 +106,8 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
     /// <returns>The changes, or an empty list when the item cannot be collapsed.</returns>
     private static List<TextChange> BuildCollapse(SourceText text, SyntaxNode root, Diagnostic diagnostic, int maximum)
     {
-        var changes = new List<TextChange>();
         var span = diagnostic.Location.SourceSpan;
+        var changes = new List<TextChange>(text.Lines.GetLinePosition(span.End).Line - text.Lines.GetLinePosition(span.Start).Line);
         var item = root.FindNode(span);
         if (item.Span != span)
         {

@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -86,7 +87,7 @@ public class SwappedArgumentsCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> SwappedArguments_ApplyFixAsync()
     {
-        var updated = Sst2400SwappedArgumentsCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2400SwappedArgumentsCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

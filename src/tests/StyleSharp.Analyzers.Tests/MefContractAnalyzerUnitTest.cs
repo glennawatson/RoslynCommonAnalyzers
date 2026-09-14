@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyMef = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.MefContractAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -14,6 +16,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class MefContractAnalyzerUnitTest
 {
+    /// <summary>The document containing the cached MEF attribute declarations.</summary>
+    private const string MefStubsFileName = "MefStubs.cs";
+
     /// <summary>
     /// In-source stubs of both MEF flavors' marker attributes, added as a second document so the
     /// analyzer's marker types resolve without a package restore. Omitting this document is what the
@@ -417,13 +422,105 @@ public class MefContractAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies contract matching accepts self, base, and open generic contracts and skips name-only exports.</summary>
+    /// <param name="source">The source with its export attributes.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("[System.Composition.Export(typeof(C))] class C { }")]
+    [Arguments("class B { } [System.Composition.Export(typeof(B))] class C : B { }")]
+    [Arguments("interface I<T> { } interface J { } [System.Composition.Export(typeof(I<>))] class C : J, I<int> { }")]
+    [Arguments("[System.Composition.Export(\"contract\")] class C { }")]
+    [Arguments("[System.Composition.Export(\"contract\", typeof(object))] class C { }")]
+    [Arguments("[System.Composition.Export] class C { } class Consumer { C M() => new(); }")]
+    [Arguments("[System.Composition.Export, System.Composition.Shared] class C { } class Consumer { C M() => {|SST2473:new()|}; }")]
+    [Arguments("class ExportAttribute : System.Attribute { public ExportAttribute(System.Type type) { } } [global::Export(typeof(int))] class C { }")]
+    [Arguments("class SharedAttribute : System.Attribute { } [global::Shared] class C { }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ContractAndMarkerIdentityAreRespectedAsync(string source) => VerifyAsync(source);
+
+    /// <summary>Verifies incomplete attributes and non-type targets cannot establish an invalid export contract.</summary>
+    /// <param name="source">The incomplete source.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { [System.Composition.Export] void M() { } }")]
+    [Arguments("[method: System.Composition.Export] class C { }")]
+    [Arguments("[return: System.Composition.Shared] class C { }")]
+    [Arguments("static class CExtensions { [System.Composition.Export] extension(int value) { public int M() => 1; } }")]
+    [Arguments("static class CExtensions { [System.Composition.Shared] extension(int value) { public int M() => 1; } }")]
+    [Arguments("[System.Composition.Export(typeof(Missing))] class C { }")]
+    [Arguments("[System.Composition.Export((System.Type)null)] class C { }")]
+    [Arguments("[System.Composition.Export] class C { } class D { object M() => new Missing(); }")]
+    [Arguments("[Missing, System.Composition.Export] class C { } class D { C M() => new C(); }")]
+    public async Task IncompleteMefSourceIsSilentAsync(string source)
+    {
+        var test = new VerifyMef.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None };
+        test.TestState.Sources.Add((MefStubsFileName, MefStubs));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies attributes at identical offsets in different partial declarations retain their own identity.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PartialAttributesAreMatchedToTheirSyntaxTreeAsync()
+    {
+        const string Source = "[System.Composition.Export] partial class C { }";
+        var test = new VerifyMef.Test { TestCode = Source };
+        test.TestState.Sources.Add(("Other.cs", Source));
+        test.TestState.Sources.Add((MefStubsFileName, MefStubs));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies absent sharing metadata does not classify an exported type as shared.</summary>
+    /// <param name="policyType">The incomplete creation-policy definition.</param>
+    /// <param name="argument">The policy argument.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("", "0")]
+    [Arguments("public enum CreationPolicy { Any }", "0")]
+    [Arguments("public class CreationPolicy { public static int Shared => 1; }", "0")]
+    [Arguments("public enum CreationPolicy { Shared }", "")]
+    public async Task IncompleteSharingMetadataIsSilentAsync(string policyType, string argument)
+    {
+        var source = $$"""
+            namespace System.ComponentModel.Composition
+            {
+                public class ExportAttribute : System.Attribute { }
+                public class PartCreationPolicyAttribute : System.Attribute
+                {
+                    public PartCreationPolicyAttribute() { }
+                    public PartCreationPolicyAttribute(int value) { }
+                }
+                {{policyType}}
+            }
+            [System.ComponentModel.Composition.Export, System.ComponentModel.Composition.PartCreationPolicy({{argument}})]
+            class C { }
+            class D { C M() => new C(); }
+            """;
+        var test = new VerifyMef.Test { TestCode = source };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies sharing requires both export and policy marker types.</summary>
+    /// <param name="declaration">The available attribute definition.</param>
+    /// <param name="attribute">The attribute on the constructed type.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class ExportAttribute : System.Attribute { }", "Export")]
+    [Arguments("class SharedAttribute : System.Attribute { }", "Shared")]
+    public async Task SingleMarkerFamilyDoesNotEstablishSharedExportAsync(string declaration, string attribute)
+    {
+        var source = $"namespace System.Composition {{ {declaration} }} [System.Composition.{attribute}] class C {{ }} class D {{ C M() => new C(); }}";
+        var test = new VerifyMef.Test { TestCode = source };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs the analyzer against the source plus the MEF marker stubs.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
         var test = new VerifyMef.Test { TestCode = source };
-        test.TestState.Sources.Add(("MefStubs.cs", MefStubs));
+        test.TestState.Sources.Add((MefStubsFileName, MefStubs));
         await test.RunAsync(CancellationToken.None);
     }
 }

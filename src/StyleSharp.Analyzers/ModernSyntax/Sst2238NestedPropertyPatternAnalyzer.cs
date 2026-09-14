@@ -30,7 +30,7 @@ public sealed class Sst2238NestedPropertyPatternAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeSubpattern(SyntaxNodeAnalysisContext context)
     {
         var subpattern = (SubpatternSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(subpattern, CSharp10)
+        if (!LanguageVersions.IsAtLeast(subpattern, CSharp10)
             || subpattern.NameColon is null
             || subpattern.Pattern is not RecursivePatternSyntax nested
             || !IsPropertyOnlyPattern(nested))
@@ -55,11 +55,4 @@ public sealed class Sst2238NestedPropertyPatternAnalyzer : DiagnosticAnalyzer
             && pattern.PropertyPatternClause is { Subpatterns.Count: 1 }
             && pattern.PropertyPatternClause.Subpatterns[0].NameColon is not null
             && pattern.Designation is null;
-
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

@@ -67,7 +67,7 @@ public class ExtensionContainerNamingCodeFixBenchmarks : IDisposable
     {
         var root = await _document.GetSyntaxRootAsync().ConfigureAwait(false);
         var declaration = (ClassDeclarationSyntax)root!.FindNode(_identifierSpan, getInnermostNodeForTie: true);
-        var updated = await ExtensionContainerNamingCodeFixProvider.RenameAsync(
+        var updated = await NamingRenameCodeFixProvider.RenameAsync(
             _document,
             declaration,
             ExtensionContainerNaming.BuildPreferredName(declaration.Identifier.ValueText, ExtensionContainerNaming.ExtensionsSuffix),

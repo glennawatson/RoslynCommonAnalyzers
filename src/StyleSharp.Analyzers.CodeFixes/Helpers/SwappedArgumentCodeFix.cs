@@ -18,7 +18,7 @@ internal static class SwappedArgumentCodeFix
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
     internal static NodeReplacement? TryBuildSwap(SyntaxNode root, Diagnostic diagnostic, string swapWithKey)
     {
-        if (!TryGetPartner(diagnostic, swapWithKey, out var partner)
+        if (!DiagnosticPropertyReader.TryGetInt32(diagnostic, swapWithKey, out var partner)
             || root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is not { } argument
             || argument.Parent is not ArgumentListSyntax list)
         {
@@ -28,6 +28,16 @@ internal static class SwappedArgumentCodeFix
         var index = list.Arguments.IndexOf(argument);
         return !IsSwappablePair(list, index, partner) ? null : new NodeReplacement(list, Swap(list, index, partner), current => Reapply(current, index, partner));
     }
+
+    /// <summary>Checks whether both arguments can be swapped without building the replacement list.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="swapWithKey">The property containing the partner's index.</param>
+    /// <returns>Whether the reported pair can be swapped.</returns>
+    internal static bool CanSwap(SyntaxNode root, Diagnostic diagnostic, string swapWithKey) =>
+        DiagnosticPropertyReader.TryGetInt32(diagnostic, swapWithKey, out var partner)
+            && root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is { Parent: ArgumentListSyntax list } argument
+            && IsSwappablePair(list, list.Arguments.IndexOf(argument), partner);
 
     /// <summary>Returns whether both positions still exist in the list and are distinct.</summary>
     /// <param name="list">The argument list.</param>
@@ -70,17 +80,4 @@ internal static class SwappedArgumentCodeFix
         current is ArgumentListSyntax list && IsSwappablePair(list, index, partner)
             ? Swap(list, index, partner)
             : current;
-
-    /// <summary>Reads the partner position carried by the diagnostic.</summary>
-    /// <param name="diagnostic">The diagnostic to read.</param>
-    /// <param name="swapWithKey">The property key carrying the partner position.</param>
-    /// <param name="partner">The transposed partner's position.</param>
-    /// <returns><see langword="true"/> when the diagnostic carries a usable position.</returns>
-    private static bool TryGetPartner(Diagnostic diagnostic, string swapWithKey, out int partner)
-    {
-        partner = -1;
-        return diagnostic.Properties.TryGetValue(swapWithKey, out var value)
-            && value is not null
-            && int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out partner);
-    }
 }

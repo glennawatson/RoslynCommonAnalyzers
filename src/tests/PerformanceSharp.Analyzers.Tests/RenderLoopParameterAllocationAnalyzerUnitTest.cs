@@ -2,7 +2,12 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Testing;
+using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 
 using Analyze = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1603RenderLoopParameterAllocationAnalyzer>;
@@ -33,6 +38,193 @@ public class RenderLoopParameterAllocationAnalyzerUnitTest
                                      }
                                  }
                                  """;
+
+    /// <summary>Cached references for a framework without LINQ.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
+
+    /// <summary>Verifies both kinds of nested function stop the enclosing-loop search.</summary>
+    /// <param name="statement">The nested function containing the allocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("System.Action later = () => builder.AddComponentParameter(0, \"Data\", new object());")]
+    [Arguments("void Later() { builder.AddComponentParameter(0, \"Data\", new object()); }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NestedFunctionAllocationIsCleanAsync(string statement) =>
+        VerifyAsync(
+            $$"""
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                void BuildRenderTree(RenderTreeBuilder builder)
+                {
+                    for (int i = 0; i < 2; i++) { {{statement}} }
+                }
+            }
+            """);
+
+    /// <summary>Verifies parentheses retain allocation recognition for each materializer.</summary>
+    /// <param name="value">The allocated parameter value.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("((new object()))")]
+    [Arguments("items.ToArray()")]
+    [Arguments("items.ToHashSet()")]
+    [Arguments("items.ToDictionary(item => item)")]
+    [Arguments("items.ToLookup(item => item)")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task WrappedAllocationAndMaterializersAreReportedAsync(string value) =>
+        VerifyAsync(
+            $$"""
+            using System.Linq;
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                void BuildRenderTree(RenderTreeBuilder builder)
+                {
+                    int[] items = { 1, 2 };
+                    foreach (var item in items)
+                    {
+                        builder.AddComponentParameter(0, "Data", {|PSH1603:{{value}}|});
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies loops in constructors and methods with extra parameters are not render loops.</summary>
+    /// <param name="signature">The containing member's signature.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public C(RenderTreeBuilder builder)")]
+    [Arguments("void BuildRenderTree(RenderTreeBuilder builder, int count)")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonRenderMemberIsCleanAsync(string signature) =>
+        VerifyAsync(
+            $$"""
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                {{signature}}
+                {
+                    for (int i = 0; i < 2; i++) { builder.AddComponentParameter(0, "Data", new object()); }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a varargs marker does not satisfy the semantic render-parameter requirement.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task VarargsRenderMethodIsCleanAsync() =>
+        VerifyAsync(
+            """
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                void BuildRenderTree(__arglist)
+                {
+                    var builder = new RenderTreeBuilder();
+                    for (int i = 0; i < 2; i++) { builder.AddComponentParameter(0, "Data", new object()); }
+                }
+            }
+            """);
+
+    /// <summary>Verifies same-named receivers and calls with fewer than three arguments are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonBuilderReceiverAndShortCallAreCleanAsync() =>
+        VerifyAsync(
+            """
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                void BuildRenderTree(RenderTreeBuilder builder)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        this.AddComponentParameter(0, "Data", new object());
+                        this.AddComponentParameter(0, "Data");
+                    }
+                }
+                void AddComponentParameter(int sequence, string name, object value = null) { }
+            }
+            """);
+
+    /// <summary>Verifies top-level code has neither a containing type nor a render method.</summary>
+    /// <param name="statement">The top-level allocation statement.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("builder.AddComponentParameter(0, \"Data\", new object());")]
+    [Arguments("for (int i = 0; i < 2; i++) { builder.AddComponentParameter(0, \"Data\", new object()); }")]
+    public async Task TopLevelAllocationIsCleanAsync(string statement)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"var builder = new Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder(); {statement}{Stubs}");
+        var compilation = CSharpCompilation.Create("TopLevelRender", [tree], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1603RenderLoopParameterAllocationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies an incomplete assembly attribute reaches the compilation root without finding a render loop.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task AssemblyAttributeAllocationIsCleanAsync()
+    {
+        const string Source = """
+            using System;
+            using Microsoft.AspNetCore.Components.Rendering;
+            [assembly: Flag(new RenderTreeBuilder().AddComponentParameter(0, "Data", new object()))]
+            class FlagAttribute : Attribute { public FlagAttribute(object value) { } }
+            """ + Stubs;
+        var compilation = CSharpCompilation.Create("AttributeRender", [CSharpSyntaxTree.ParseText(Source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1603RenderLoopParameterAllocationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies missing query metadata does not turn a custom materializer into a LINQ allocation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingEnumerableMetadataIsCleanAsync()
+    {
+        const string Source = """
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                void BuildRenderTree(RenderTreeBuilder builder)
+                {
+                    for (int i = 0; i < 2; i++) { builder.AddComponentParameter(0, "Data", this.ToList()); }
+                }
+                object ToList() => null;
+            }
+            """ + Stubs;
+        var compilation = CSharpCompilation.Create("MissingEnumerable", [CSharpSyntaxTree.ParseText(Source)], CoreReferences);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1603RenderLoopParameterAllocationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies incomplete receivers and unresolved materializers do not produce a render recommendation.</summary>
+    /// <param name="statement">The incomplete call under analysis.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("missing.AddComponentParameter(0, \"Data\", new object());")]
+    [Arguments("builder.AddComponentParameter(0, \"Data\", items.ToList(1));")]
+    public async Task UnresolvedRenderCallIsCleanAsync(string statement)
+    {
+        var source = $$"""
+            using System.Linq;
+            using Microsoft.AspNetCore.Components.Rendering;
+            class C
+            {
+                void BuildRenderTree(RenderTreeBuilder builder)
+                {
+                    int[] items = { 1 };
+                    foreach (var item in items) { {{statement}} }
+                }
+            }
+            """ + Stubs;
+        var compilation = CSharpCompilation.Create("UnresolvedRender", [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1603RenderLoopParameterAllocationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
 
     /// <summary>Verifies a new collection passed as a component parameter in a foreach is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -383,7 +575,7 @@ public class RenderLoopParameterAllocationAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new Analyze.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
+        var test = new Analyze.Test { ReferenceAssemblies = AnalyzerFrameworks.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -393,7 +585,7 @@ public class RenderLoopParameterAllocationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Analyze.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = $"{source}\n{Stubs}", };
+        var test = new Analyze.Test { ReferenceAssemblies = AnalyzerFrameworks.Net90, TestCode = $"{source}\n{Stubs}", };
 
         await test.RunAsync(CancellationToken.None);
     }

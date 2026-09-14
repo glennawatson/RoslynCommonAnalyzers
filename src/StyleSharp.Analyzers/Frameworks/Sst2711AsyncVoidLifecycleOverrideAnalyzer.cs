@@ -12,19 +12,13 @@ namespace StyleSharp.Analyzers;
 /// down.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on the <c>Microsoft.AspNetCore.Components.ComponentBase</c>
-/// marker resolving; a project that references no component assembly registers nothing and pays nothing. The
-/// clean path is symbol-only and short-circuits on cheap flags first — an ordinary method that is an
-/// <c>override</c>, is <c>async</c>, and returns <c>void</c> — before the name is compared and the overridden
-/// chain is walked to confirm the method it overrides is defined on <c>ComponentBase</c> itself, so a
-/// same-named method that does not actually override the framework hook is never reported.
+/// The component marker is resolved once on first demand, after the cheap method flags and lifecycle name
+/// match. A project without the marker stays silent. The override chain must reach a method declared on
+/// <c>ComponentBase</c> itself, so a same-named method outside the framework contract is never reported.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the component base type the lifecycle hooks are declared on.</summary>
-    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
-
     /// <summary>The suffix that names each synchronous hook's Task-returning twin.</summary>
     private const string AsyncSuffix = "Async";
 
@@ -36,6 +30,9 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
 
     /// <summary>The synchronous lifecycle hook run after the component renders.</summary>
     private const string OnAfterRenderName = "OnAfterRender";
+
+    /// <summary>The metadata name of the component base type the lifecycle hooks are declared on.</summary>
+    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.AsyncVoidLifecycleOverride);
@@ -49,22 +46,20 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            if (componentBase is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeMethod(symbolContext, componentBase), SymbolKind.Method);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(
+                compilation,
+                static target => target.GetTypeByMetadataName(ComponentBaseMetadataName),
+                runOnce: true),
+            AnalyzeMethod,
+            SymbolKind.Method);
     }
 
     /// <summary>Reports a synchronous lifecycle override declared <c>async void</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="componentBase">The resolved <c>ComponentBase</c> type.</param>
-    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol componentBase)
+    /// <param name="componentBase">The component base type resolved on first demand.</param>
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> componentBase)
     {
         var method = (IMethodSymbol)context.Symbol;
         if (method.MethodKind != MethodKind.Ordinary
@@ -72,7 +67,8 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
             || !method.IsAsync
             || !method.ReturnsVoid
             || !IsSynchronousLifecycleName(method.Name)
-            || !OverridesComponentBaseMethod(method, componentBase))
+            || componentBase.Get() is not { } resolved
+            || !OverridesComponentBaseMethod(method, resolved))
         {
             return;
         }

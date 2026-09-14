@@ -9,65 +9,48 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites a long-form <c>Nullable&lt;T&gt;</c> type as the <c>T?</c> shorthand (SST1125).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1125UseNullableShorthandCodeFixProvider))]
 [Shared]
-public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseNullableShorthand.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Use 'T?' shorthand",
+            nameof(Sst1125UseNullableShorthandCodeFixProvider),
+            static (root, diagnostic) => FindGeneric(root.FindNode(diagnostic.Location.SourceSpan)) is not null,
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var outer = root.FindNode(diagnostic.Location.SourceSpan);
-            if (FindGeneric(outer) is not { } generic)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use 'T?' shorthand",
-                    _ => Task.FromResult(Replace(context.Document, root, outer, generic)),
-                    equivalenceKey: nameof(Sst1125UseNullableShorthandCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        var outer = editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan);
-        if (FindGeneric(outer) is not { } generic)
-        {
-            return;
-        }
-
-        var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
-        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
-        editor.ReplaceNode(outer, shorthand);
-    }
-
-    /// <summary>Replaces the nullable type node with its <c>T?</c> shorthand.</summary>
-    /// <param name="document">The document to fix.</param>
+    /// <summary>Resolves the reported nullable type and builds its <c>T?</c> shorthand.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="outer">The full type node to replace.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var outer = root.FindNode(diagnostic.Location.SourceSpan);
+        return FindGeneric(outer) is { } generic
+            ? new NodeReplacement(outer, CreateShorthand(outer, generic))
+            : null;
+    }
+
+    /// <summary>Builds the <c>T?</c> shorthand that takes the reported type's place and trivia.</summary>
+    /// <param name="outer">The full type node being replaced.</param>
     /// <param name="generic">The <c>Nullable&lt;T&gt;</c> generic name.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Replace(Document document, SyntaxNode root, SyntaxNode outer, GenericNameSyntax generic)
+    /// <returns>The shorthand type.</returns>
+    private static NullableTypeSyntax CreateShorthand(SyntaxNode outer, GenericNameSyntax generic)
     {
         var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
-        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
-        return document.WithSyntaxRoot(root.ReplaceNode(outer, shorthand));
+        return SyntaxFactory.NullableType(
+            elementType.WithLeadingTrivia(outer.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.QuestionToken, outer.GetTrailingTrivia()));
     }
 
     /// <summary>Finds the <c>Nullable&lt;T&gt;</c> generic name inside the reported type node.</summary>

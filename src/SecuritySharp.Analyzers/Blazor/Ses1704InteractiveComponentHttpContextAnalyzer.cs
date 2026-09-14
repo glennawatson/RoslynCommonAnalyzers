@@ -41,6 +41,17 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <summary>The metadata name of the cascading-parameter marker on component members.</summary>
     private const string CascadingParameterAttributeMetadataName = "Microsoft.AspNetCore.Components.CascadingParameterAttribute";
 
+    /// <summary>The marker metadata names, in the slot order of <see cref="BlazorHttpContextMarkers"/>.</summary>
+    private static readonly string[] MarkerMetadataNames =
+    [
+        HttpContextAccessorMetadataName,
+        HttpContextMetadataName,
+        RenderModeAttributeMetadataName,
+        ComponentBaseMetadataName,
+        InjectAttributeMetadataName,
+        CascadingParameterAttributeMetadataName,
+    ];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.InteractiveComponentHttpContext);
 
@@ -66,42 +77,35 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var accessor = start.Compilation.GetTypeByMetadataName(HttpContextAccessorMetadataName);
-            var renderMode = start.Compilation.GetTypeByMetadataName(RenderModeAttributeMetadataName);
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            var httpContext = start.Compilation.GetTypeByMetadataName(HttpContextMetadataName);
-            var inject = start.Compilation.GetTypeByMetadataName(InjectAttributeMetadataName);
-            var cascading = start.Compilation.GetTypeByMetadataName(CascadingParameterAttributeMetadataName);
-            if (accessor is null || renderMode is null || componentBase is null || httpContext is null || inject is null || cascading is null)
-            {
-                return;
-            }
-
-            var markers = new BlazorHttpContextMarkers(accessor, httpContext, renderMode, componentBase, inject, cascading);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeType(nodeContext, markers),
-                SyntaxKind.ClassDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, MarkerMetadataNames),
+            AnalyzeType,
+            SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Reports SES1704 for each <c>HttpContext</c> capture on an interactive component.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="markers">The resolved marker types for the compilation.</param>
-    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, in BlazorHttpContextMarkers markers)
+    /// <param name="types">The compilation-scoped marker type cache.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var declaration = (TypeDeclarationSyntax)context.Node;
 
-        // Selective prefilter: an interactive render mode is fixed with a class-level attribute, so a
-        // component without attributes -- or without a render-mode attribute -- can never match.
-        if (declaration.AttributeLists.Count == 0 || !HasRenderModeAttribute(context, declaration.AttributeLists, markers.RenderMode))
+        // A capture needs both a class-level render-mode attribute and a candidate member. Attribute
+        // names remain unrestricted because custom attributes may derive from the Blazor markers.
+        if (declaration.AttributeLists.Count == 0 || !HasCaptureCandidate(declaration))
+        {
+            return;
+        }
+
+        if (GetMarkers(types) is not { } markers
+            || !HasRenderModeAttribute(context, declaration.AttributeLists, markers.RenderMode))
         {
             return;
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } typeSymbol
-            || !BlazorComponentHelper.IsOrDerivesFrom(typeSymbol, markers.ComponentBase))
+            || !TypeRelations.IsOrDerivesFrom(typeSymbol, markers.ComponentBase))
         {
             return;
         }
@@ -109,28 +113,40 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
         AnalyzeMembers(context, declaration, markers);
     }
 
-    /// <summary>Returns whether the declaration carries an attribute deriving from <c>RenderModeAttribute</c>.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="attributeLists">The declaration's attribute lists.</param>
-    /// <param name="renderMode">The resolved base <c>RenderModeAttribute</c> type.</param>
-    /// <returns><see langword="true"/> when a fixed render mode is declared on the component.</returns>
-    private static bool HasRenderModeAttribute(in SyntaxNodeAnalysisContext context, SyntaxList<AttributeListSyntax> attributeLists, INamedTypeSymbol renderMode)
+    /// <summary>Returns whether the declaration has a member shape that can capture a request context.</summary>
+    /// <param name="declaration">The component declaration.</param>
+    /// <returns><see langword="true"/> for an attributed property or field, or a constructor with parameters.</returns>
+    private static bool HasCaptureCandidate(TypeDeclarationSyntax declaration)
     {
-        for (var i = 0; i < attributeLists.Count; i++)
+        var members = declaration.Members;
+        for (var i = 0; i < members.Count; i++)
         {
-            var attributes = attributeLists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
+            if (members[i] is PropertyDeclarationSyntax { AttributeLists.Count: > 0 }
+                or FieldDeclarationSyntax { AttributeLists.Count: > 0, Declaration.Variables.Count: > 0 }
+                or ConstructorDeclarationSyntax { ParameterList.Parameters.Count: > 0 })
             {
-                var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
-                if (attributeType is not null && BlazorComponentHelper.IsOrDerivesFrom(attributeType, renderMode))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
         return false;
     }
+
+    /// <summary>Returns the Blazor marker types after a declaration passes the syntax checks.</summary>
+    /// <param name="types">The compilation-scoped marker type cache.</param>
+    /// <returns>The marker types, or <see langword="null"/> when any required type is absent.</returns>
+    private static BlazorHttpContextMarkers? GetMarkers(LazyMetadataTypes types) =>
+        types.Get() is [{ } accessor, { } httpContext, { } renderMode, { } componentBase, { } inject, { } cascading]
+            ? new BlazorHttpContextMarkers(accessor, httpContext, renderMode, componentBase, inject, cascading)
+            : null;
+
+    /// <summary>Returns whether the declaration carries an attribute deriving from <c>RenderModeAttribute</c>.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="attributeLists">The declaration's attribute lists.</param>
+    /// <param name="renderMode">The resolved base <c>RenderModeAttribute</c> type.</param>
+    /// <returns><see langword="true"/> when a fixed render mode is declared on the component.</returns>
+    private static bool HasRenderModeAttribute(in SyntaxNodeAnalysisContext context, SyntaxList<AttributeListSyntax> attributeLists, INamedTypeSymbol renderMode) =>
+        ComponentAttributeScan.FindFirst(context.SemanticModel, attributeLists, renderMode, null, context.CancellationToken, out _) is not null;
 
     /// <summary>Scans a component's members for an <c>HttpContext</c> capture and reports each one.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -217,31 +233,13 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
         INamedTypeSymbol inject,
         INamedTypeSymbol cascading)
     {
-        var injected = false;
-        var cascaded = false;
-        for (var i = 0; i < attributeLists.Count; i++)
-        {
-            var attributes = attributeLists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
-            {
-                var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
-                if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, inject))
-                {
-                    injected = true;
-                }
-                else if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, cascading))
-                {
-                    cascaded = true;
-                }
-            }
-        }
-
-        if (injected)
+        // An '[Inject]' marker decides the capture wherever it sits, so the scan stops at the first one.
+        if (ComponentAttributeScan.FindFirst(context.SemanticModel, attributeLists, inject, cascading, context.CancellationToken, out var cascaded) is not null)
         {
             return HttpContextCapture.Injected;
         }
 
-        return cascaded ? HttpContextCapture.Cascaded : HttpContextCapture.None;
+        return cascaded is not null ? HttpContextCapture.Cascaded : HttpContextCapture.None;
     }
 
     /// <summary>Reports a constructor parameter typed <c>IHttpContextAccessor</c>.</summary>
@@ -272,7 +270,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
             identifier.GetLocation(),
             capturedTypeName));
 
-    /// <summary>The resolved marker types SES1704 matches against, resolved once per compilation.</summary>
+    /// <summary>The resolved marker types SES1704 matches against for a syntax candidate.</summary>
     /// <param name="Accessor">The <c>IHttpContextAccessor</c> type.</param>
     /// <param name="HttpContext">The <c>HttpContext</c> type.</param>
     /// <param name="RenderMode">The base <c>RenderModeAttribute</c> type.</param>

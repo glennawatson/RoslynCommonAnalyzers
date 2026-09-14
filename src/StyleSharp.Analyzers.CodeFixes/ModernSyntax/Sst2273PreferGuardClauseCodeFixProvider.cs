@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -19,13 +18,16 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2273PreferGuardClauseCodeFixProvider))]
 [Shared]
-public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new((Func<SyntaxNode, SemanticModel, Diagnostic, NodeReplacement?>)TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.PreferGuardClause.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -33,12 +35,8 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
             context,
             "Convert to an early-exit guard clause",
             nameof(Sst2273PreferGuardClauseCodeFixProvider),
-            (ReplaceNodeCodeFix.SemanticRewriter)TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, (ReplaceNodeCodeFix.SemanticRewriter)TryRewrite);
+            static (root, _, diagnostic) => CanRewrite(root, diagnostic),
+            TryRewrite);
 
     /// <summary>Resolves the reported <c>if</c> and rewrites its block with the guard and the lifted work.</summary>
     /// <param name="root">The syntax root.</param>
@@ -61,7 +59,7 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
         // Negate produces that by construction, so a guard that came back equivalent to the original condition
         // means the negation did not happen — and an inverted guard compiles clean and silently reverses which
         // work runs. Decline rather than emit one.
-        if (SyntaxFactory.AreEquivalent(guard.Condition, Unwrap(ifStatement.Condition), topLevel: false))
+        if (SyntaxFactory.AreEquivalent(guard.Condition, ExpressionShapes.WalkDownParentheses(ifStatement.Condition), topLevel: false))
         {
             return null;
         }
@@ -75,7 +73,7 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
             .RemoveAt(index)
             .Insert(index, guard)
             .InsertRange(index + 1, work);
-        var newBlock = block.WithStatements(statements).WithAdditionalAnnotations(Formatter.Annotation);
+        var newBlock = block.Update(block.AttributeLists, block.OpenBraceToken, statements, block.CloseBraceToken).WithAdditionalAnnotations(Formatter.Annotation);
         return new NodeReplacement(block, newBlock);
     }
 
@@ -93,9 +91,18 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
         StatementSyntax jump = jumpKind == SyntaxKind.ContinueStatement
             ? SyntaxFactory.ContinueStatement()
             : SyntaxFactory.ReturnStatement();
-        return SyntaxFactory.IfStatement(Negate(ifStatement.Condition, model), SyntaxFactory.Block(jump))
-            .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
+        return SyntaxFactory.IfStatement(
+            attributeLists: default,
+            SyntaxFactory.Token(ifStatement.GetLeadingTrivia(), SyntaxKind.IfKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            Negate(ifStatement.Condition, model),
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken),
+            SyntaxFactory.Block(
+                attributeLists: default,
+                SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
+                SyntaxFactory.SingletonList(jump),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticCarriageReturnLineFeed))),
+            @else: null);
     }
 
     /// <summary>Negates a condition, pushing the negation inward rather than wrapping the whole thing.</summary>
@@ -116,11 +123,11 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     /// </remarks>
     private static ExpressionSyntax Negate(ExpressionSyntax condition, SemanticModel model)
     {
-        var inner = Unwrap(condition);
+        var inner = ExpressionShapes.WalkDownParentheses(condition);
 
         if (inner is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation)
         {
-            return Unwrap(negation.Operand).WithoutTrivia();
+            return ExpressionShapes.WalkDownParentheses(negation.Operand).WithoutTrivia();
         }
 
         if (inner is IsPatternExpressionSyntax pattern && TryNegatePattern(pattern) is { } negatedPattern)
@@ -163,11 +170,11 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     /// </remarks>
     private static BinaryExpressionSyntax? TryApplyDeMorgan(BinaryExpressionSyntax binary, SemanticModel model)
     {
-        var (resultKind, tokenKind) = binary.Kind() switch
+        var (resultKind, tokenKind, _) = binary.Kind() switch
         {
-            SyntaxKind.LogicalAndExpression => (SyntaxKind.LogicalOrExpression, SyntaxKind.BarBarToken),
-            SyntaxKind.LogicalOrExpression => (SyntaxKind.LogicalAndExpression, SyntaxKind.AmpersandAmpersandToken),
-            _ => (SyntaxKind.None, SyntaxKind.None),
+            SyntaxKind.LogicalAndExpression => new OperatorForm(SyntaxKind.LogicalOrExpression, SyntaxKind.BarBarToken, "||"),
+            SyntaxKind.LogicalOrExpression => new OperatorForm(SyntaxKind.LogicalAndExpression, SyntaxKind.AmpersandAmpersandToken, "&&"),
+            _ => new OperatorForm(SyntaxKind.None, SyntaxKind.None, string.Empty),
         };
 
         return resultKind == SyntaxKind.None
@@ -223,9 +230,15 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     private static IsPatternExpressionSyntax? TryNegatePattern(IsPatternExpressionSyntax expression) => expression.Pattern switch
     {
         UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern } negated
-            => expression.WithPattern(negated.Pattern.WithoutTrivia()).WithoutTrivia(),
+            => expression.Update(
+                expression.Expression.WithLeadingTrivia(default(SyntaxTriviaList)),
+                expression.IsKeyword,
+                negated.Pattern.WithoutTrivia()),
         ConstantPatternSyntax or TypePatternSyntax
-            => expression.WithPattern(SyntaxFactory.UnaryPattern(expression.Pattern.WithoutTrivia())).WithoutTrivia(),
+            => expression.Update(
+                expression.Expression.WithLeadingTrivia(default(SyntaxTriviaList)),
+                expression.IsKeyword,
+                SyntaxFactory.UnaryPattern(expression.Pattern.WithoutTrivia())),
         _ => null,
     };
 
@@ -239,10 +252,12 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
             typeCheck.Left.WithoutTrivia(),
             SyntaxFactory.UnaryPattern(SyntaxFactory.TypePattern(type.WithoutTrivia())));
 
-    /// <summary>Strips enclosing parentheses to reach the inner expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression) =>
-        ExpressionSimplificationAnalyzer.Unwrap(expression);
+    /// <summary>Checks the trailing guard and directive boundary before constructing its negation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the wrapped work can be lifted into the enclosing block.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is { } ifStatement
+            && Sst2273PreferGuardClauseAnalyzer.TryGetGuard(ifStatement, out _)
+            && !DirectiveBoundaries.Cross(ifStatement, ifStatement.Statement.FullSpan);
 }

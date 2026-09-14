@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,13 +11,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1712UnusableReceiverNameCodeFixProvider))]
 [Shared]
-public sealed class Sst1712UnusableReceiverNameCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1712UnusableReceiverNameCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ExtensionRules.UnusableReceiverName.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -27,12 +28,18 @@ public sealed class Sst1712UnusableReceiverNameCodeFixProvider : CodeFixProvider
             context,
             "Drop the receiver name",
             nameof(Sst1712UnusableReceiverNameCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ParameterSyntax>()is { Type: { } } parameter
+            && parameter.Parent?.Parent is TypeDeclarationSyntax block
+            && ExtensionBlockHelper.IsExtensionBlock(block)
+            && Sst1712UnusableReceiverNameAnalyzer.DeclaresOnlyStaticMembers(block);
 
     /// <summary>Rewrites the receiver parameter without its name.</summary>
     /// <param name="root">The syntax root.</param>
@@ -54,9 +61,12 @@ public sealed class Sst1712UnusableReceiverNameCodeFixProvider : CodeFixProvider
             return null;
         }
 
-        var updated = parameter
-            .WithType(receiverType.WithoutTrailingTrivia())
-            .WithIdentifier(default);
+        var updated = parameter.Update(
+            parameter.AttributeLists,
+            parameter.Modifiers,
+            receiverType.WithoutTrailingTrivia(),
+            identifier: default,
+            parameter.Default);
         return new NodeReplacement(parameter, updated);
     }
 }

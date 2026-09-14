@@ -26,13 +26,10 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var provider = start.Options.AnalyzerConfigOptionsProvider;
-            var thresholdByTree = new ConditionalWeakTable<SyntaxTree, ComplexityThresholds>();
-            ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback factory =
-                tree => ComplexityThresholds.Read(provider.GetOptions(tree));
+            var thresholds = new ThresholdCache(start.Options.AnalyzerConfigOptionsProvider);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeDeclaration(nodeContext, thresholdByTree, factory),
+                nodeContext => AnalyzeDeclaration(nodeContext, thresholds),
                 SyntaxKind.MethodDeclaration,
                 SyntaxKind.ConstructorDeclaration,
                 SyntaxKind.DestructorDeclaration,
@@ -50,12 +47,10 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes a function-like declaration for complexity.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="thresholdByTree">The per-tree threshold cache.</param>
-    /// <param name="factory">The threshold cache-miss factory.</param>
+    /// <param name="thresholdCache">The lazily created per-tree threshold cache.</param>
     private static void AnalyzeDeclaration(
         in SyntaxNodeAnalysisContext context,
-        ConditionalWeakTable<SyntaxTree, ComplexityThresholds> thresholdByTree,
-        ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback factory)
+        ThresholdCache thresholdCache)
     {
         if (!TryGetDeclarationInfo(context.Node, out var nodeToAnalyze, out var declarationType, out var isPropertyLike))
         {
@@ -65,7 +60,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         ComplexityCounter.Count(nodeToAnalyze, context.Node, out var branching, out var nestedFlow);
 
         var location = context.Node.GetLocation();
-        var thresholds = thresholdByTree.GetValue(context.Node.SyntaxTree, factory);
+        var thresholds = thresholdCache.Get(context.Node.SyntaxTree);
         ReportCyclomatic(context, location, declarationType, thresholds.CyclomaticMaximum, branching);
         var cognitiveMaximum = isPropertyLike ? thresholds.PropertyCognitiveMaximum : thresholds.CognitiveMaximum;
         ReportCognitive(context, location, declarationType, cognitiveMaximum, nestedFlow);
@@ -190,6 +185,33 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>Creates the threshold cache only after a declaration has an executable body.</summary>
+    /// <param name="provider">The options provider for this compilation.</param>
+    private sealed class ThresholdCache(AnalyzerConfigOptionsProvider provider)
+    {
+        /// <summary>The factory shared by cache misses in this compilation.</summary>
+        private readonly ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback _factory =
+            tree => ComplexityThresholds.Read(provider.GetOptions(tree));
+
+        /// <summary>The per-tree cache, allocated on first demand.</summary>
+        private ConditionalWeakTable<SyntaxTree, ComplexityThresholds>? _thresholdByTree;
+
+        /// <summary>Reads and caches thresholds for a tree with a candidate declaration.</summary>
+        /// <param name="tree">The candidate's syntax tree.</param>
+        /// <returns>The configured thresholds for the tree.</returns>
+        public ComplexityThresholds Get(SyntaxTree tree)
+        {
+            var cache = Volatile.Read(ref _thresholdByTree);
+            if (cache is null)
+            {
+                cache = new();
+                cache = Interlocked.CompareExchange(ref _thresholdByTree, cache, null) ?? cache;
+            }
+
+            return cache.GetValue(tree, _factory);
+        }
+    }
+
     /// <summary>Per-tree complexity thresholds.</summary>
     private sealed class ComplexityThresholds
     {
@@ -227,27 +249,9 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <returns>The resolved thresholds.</returns>
         public static ComplexityThresholds Read(AnalyzerConfigOptions options) =>
             new(
-                ReadPositiveInt(options, "stylesharp.SST1442.max_cyclomatic_complexity", "stylesharp.max_cyclomatic_complexity", DefaultCyclomaticMaximum),
-                ReadPositiveInt(options, "stylesharp.SST1443.max_cognitive_complexity", "stylesharp.max_cognitive_complexity", DefaultCognitiveMaximum),
-                ReadPositiveInt(options, "stylesharp.SST1443.max_property_cognitive_complexity", "stylesharp.max_property_cognitive_complexity", DefaultPropertyCognitiveMaximum));
-
-        /// <summary>Reads a positive integer setting.</summary>
-        /// <param name="options">The analyzer config options.</param>
-        /// <param name="ruleKey">The rule-specific key.</param>
-        /// <param name="generalKey">The general key.</param>
-        /// <param name="fallback">The fallback value.</param>
-        /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-        private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-        {
-            if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-            {
-                return parsed;
-            }
-
-            return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-                ? parsed
-                : fallback;
-        }
+                AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1442.max_cyclomatic_complexity", "stylesharp.max_cyclomatic_complexity", DefaultCyclomaticMaximum),
+                AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1443.max_cognitive_complexity", "stylesharp.max_cognitive_complexity", DefaultCognitiveMaximum),
+                AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1443.max_property_cognitive_complexity", "stylesharp.max_property_cognitive_complexity", DefaultPropertyCognitiveMaximum));
     }
 
     /// <summary>Counts branching and nested-flow complexity in one syntax pass.</summary>
@@ -477,7 +481,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> when the expression is the same logical operation.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsSameLogicalBinary(ExpressionSyntax expression, SyntaxKind kind) =>
-            Unwrap(expression).IsKind(kind);
+            ExpressionShapes.WalkDownParentheses(expression).IsKind(kind);
 
         /// <summary>Returns whether a pattern is the same binary-pattern kind after parentheses.</summary>
         /// <param name="pattern">The pattern to inspect.</param>
@@ -485,7 +489,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> when the pattern is the same binary operation.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool IsSameBinaryPattern(PatternSyntax pattern, SyntaxKind kind) =>
-            Unwrap(pattern).IsKind(kind);
+            ExpressionShapes.WalkDownParentheses(pattern).IsKind(kind);
 
         /// <summary>Returns whether the binary expression increments cognitive complexity.</summary>
         /// <param name="kind">The binary kind.</param>
@@ -498,32 +502,6 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> for supported branching operators.</returns>
         private static bool IsBranchingBinary(SyntaxKind kind) =>
             kind is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression;
-
-        /// <summary>Removes parentheses around an expression.</summary>
-        /// <param name="expression">The expression.</param>
-        /// <returns>The unwrapped expression.</returns>
-        private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-        {
-            while (expression is ParenthesizedExpressionSyntax parenthesized)
-            {
-                expression = parenthesized.Expression;
-            }
-
-            return expression;
-        }
-
-        /// <summary>Removes parentheses around a pattern.</summary>
-        /// <param name="pattern">The pattern.</param>
-        /// <returns>The unwrapped pattern.</returns>
-        private static PatternSyntax Unwrap(PatternSyntax pattern)
-        {
-            while (pattern is ParenthesizedPatternSyntax parenthesized)
-            {
-                pattern = parenthesized.Pattern;
-            }
-
-            return pattern;
-        }
 
         /// <summary>Visits a node after adding nested complexity.</summary>
         /// <typeparam name="TNode">The node type.</typeparam>

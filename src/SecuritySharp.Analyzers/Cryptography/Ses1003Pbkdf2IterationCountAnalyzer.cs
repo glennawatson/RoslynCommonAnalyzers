@@ -32,17 +32,14 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
     /// <summary>The zero-based position of the <c>iterations</c> parameter on every <c>Pbkdf2</c> overload.</summary>
     private const int IterationsPosition = 2;
 
-    /// <summary>The metadata name of the type that declares the <c>Pbkdf2</c> one-shot.</summary>
-    private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
-
     /// <summary>The rule-specific floor key.</summary>
     private const string IterationsRuleKey = "securitysharp.SES1003.iterations";
 
     /// <summary>The project-wide floor key.</summary>
     private const string IterationsGeneralKey = "securitysharp.iterations";
 
-    /// <summary>The smallest floor that means anything: a floor below 1 would pass every count.</summary>
-    private const int SmallestFloor = 1;
+    /// <summary>The metadata name of the type that declares the <c>Pbkdf2</c> one-shot.</summary>
+    private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.Pbkdf2IterationCount);
@@ -56,22 +53,17 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var rfc2898Type = start.Compilation.GetTypeByMetadataName(Rfc2898MetadataName);
-            if (rfc2898Type is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, rfc2898Type), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, Rfc2898MetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1003 for a <c>Pbkdf2</c> call whose constant iteration count is below the floor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="rfc2898Type">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol rfc2898Type)
+    /// <param name="types">The compilation's lazily resolved key-derivation type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -83,7 +75,8 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: Pbkdf2MethodName, IsStatic: true } method
+        if (types.Get() is not { } rfc2898Type
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: Pbkdf2MethodName, IsStatic: true } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, rfc2898Type))
         {
             return;
@@ -96,7 +89,11 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var floor = ReadIterationFloor(context.Options.AnalyzerConfigOptionsProvider.GetOptions(iterationsArgument.SyntaxTree));
+        var floor = AnalyzerOptionReader.ReadPositiveInt(
+            context.Options.AnalyzerConfigOptionsProvider.GetOptions(iterationsArgument.SyntaxTree),
+            IterationsRuleKey,
+            IterationsGeneralKey,
+            DefaultIterationFloor);
         if (iterations >= floor)
         {
             return;
@@ -132,24 +129,5 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
             || arguments[IterationsPosition].NameColon is not null
             ? null
             : arguments[IterationsPosition].Expression;
-    }
-
-    /// <summary>Reads the iteration floor, preferring the rule-specific key over the project-wide key.</summary>
-    /// <param name="options">The analyzer config options for the argument's tree.</param>
-    /// <returns>The configured floor, or <see cref="DefaultIterationFloor"/> when neither key parses to a sensible value.</returns>
-    private static int ReadIterationFloor(AnalyzerConfigOptions options)
-    {
-        if (options.TryGetValue(IterationsRuleKey, out var value)
-            && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
-            && parsed >= SmallestFloor)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(IterationsGeneralKey, out value)
-            && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
-            && parsed >= SmallestFloor
-            ? parsed
-            : DefaultIterationFloor;
     }
 }

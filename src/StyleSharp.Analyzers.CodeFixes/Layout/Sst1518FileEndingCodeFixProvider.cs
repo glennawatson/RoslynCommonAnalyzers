@@ -12,33 +12,32 @@ namespace StyleSharp.Analyzers;
 /// <summary>Normalises the end of the file to a single trailing newline (SST1518).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1518FileEndingCodeFixProvider))]
 [Shared]
-public sealed class Sst1518FileEndingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1518FileEndingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.LineEndingsAtEndOfFile.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "End the file with a single newline",
-                    cancellationToken => NormaliseAsync(context.Document, diagnostic.Location.SourceSpan, cancellationToken),
-                    equivalenceKey: nameof(Sst1518FileEndingCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "End the file with a single newline",
+            nameof(Sst1518FileEndingCodeFixProvider),
+            static (document, diagnostic, cancellationToken) => NormaliseAsync(document, diagnostic.Location.SourceSpan, cancellationToken));
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
         changes.Add(new(diagnostic.Location.SourceSpan, LayoutFixHelpers.DetectNewLine(text)));
 
     /// <summary>Replaces the trailing whitespace span with a single newline.</summary>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -83,31 +85,9 @@ internal static class DocumentationVisibility
     /// <param name="field">The field (or event-field) declaration.</param>
     /// <param name="coverage">The configured documentation-coverage scope.</param>
     /// <returns><see langword="true"/> when the field must be documented.</returns>
-    internal static bool FieldNeedsDocumentation(BaseFieldDeclarationSyntax field, in DocumentationCoverage coverage)
-    {
-        var bucket = FieldBucket(DeclaredAccessibilityOf(field));
-        for (var parent = field.Parent; parent is not null; parent = parent.Parent)
-        {
-            switch (parent)
-            {
-                case BaseTypeDeclarationSyntax type:
-                {
-                    var container = Bucket(DeclaredAccessibilityOf(type));
-                    if (container < bucket)
-                    {
-                        bucket = container;
-                    }
-
-                    break;
-                }
-
-                case BaseNamespaceDeclarationSyntax or CompilationUnitSyntax:
-                    return FieldBucketInScope(bucket, coverage);
-            }
-        }
-
-        return FieldBucketInScope(bucket, coverage);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool FieldNeedsDocumentation(BaseFieldDeclarationSyntax field, in DocumentationCoverage coverage) =>
+        FieldBucketInScope(NarrowByContainingTypes(field, FieldBucket(DeclaredAccessibilityOf(field))), coverage);
 
     /// <summary>Maps a field's coverage bucket onto the exposed / internal / private-fields toggles.</summary>
     /// <param name="bucket">The coverage bucket.</param>
@@ -143,9 +123,17 @@ internal static class DocumentationVisibility
     /// <param name="own">The declaration's own declared accessibility.</param>
     /// <param name="coverage">The configured documentation-coverage scope.</param>
     /// <returns><see langword="true"/> when the effective visibility is in scope.</returns>
-    private static bool NeedsByEffective(SyntaxNode start, Accessibility own, in DocumentationCoverage coverage)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool NeedsByEffective(SyntaxNode start, Accessibility own, in DocumentationCoverage coverage) =>
+        BucketInScope(NarrowByContainingTypes(start, Bucket(own)), coverage);
+
+    /// <summary>Narrows a coverage bucket by the accessibility of every type that contains a declaration.</summary>
+    /// <param name="start">The declaration node.</param>
+    /// <param name="bucket">The bucket the declaration's own accessibility maps to.</param>
+    /// <returns>The most restrictive bucket along the chain of containing types.</returns>
+    /// <remarks>The walk stops at the enclosing namespace or compilation unit, above which no type can sit.</remarks>
+    private static int NarrowByContainingTypes(SyntaxNode start, int bucket)
     {
-        var bucket = Bucket(own);
         for (var parent = start.Parent; parent is not null; parent = parent.Parent)
         {
             switch (parent)
@@ -162,11 +150,11 @@ internal static class DocumentationVisibility
                 }
 
                 case BaseNamespaceDeclarationSyntax or CompilationUnitSyntax:
-                    return BucketInScope(bucket, coverage);
+                    return bucket;
             }
         }
 
-        return BucketInScope(bucket, coverage);
+        return bucket;
     }
 
     /// <summary>Maps a coverage bucket onto the exposed / internal toggles (hidden and unset are never in scope).</summary>

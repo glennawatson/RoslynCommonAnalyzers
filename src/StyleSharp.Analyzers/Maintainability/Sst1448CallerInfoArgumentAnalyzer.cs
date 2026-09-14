@@ -10,23 +10,14 @@ namespace StyleSharp.Analyzers;
 /// compiler injects the real call site, and supplying a value defeats that and usually reports
 /// the wrong caller. Forwarding your own caller-info parameter onward is the intended pattern and
 /// is never reported. The rule binds only invocations and creations that pass at least one
-/// argument to a method with optional parameters, and the whole analyzer is gated on the
-/// attributes existing in the compilation.
+/// argument to a method with optional parameters, and resolves the attribute symbols only
+/// when an explicit argument targets an optional parameter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The message description for a caller-member-name parameter.</summary>
     private const string MemberNameDescription = "member name";
-
-    /// <summary>The metadata name of the caller-member-name attribute.</summary>
-    private const string CallerMemberNameMetadataName = "System.Runtime.CompilerServices.CallerMemberNameAttribute";
-
-    /// <summary>The metadata name of the caller-file-path attribute.</summary>
-    private const string CallerFilePathMetadataName = "System.Runtime.CompilerServices.CallerFilePathAttribute";
-
-    /// <summary>The metadata name of the caller-line-number attribute.</summary>
-    private const string CallerLineNumberMetadataName = "System.Runtime.CompilerServices.CallerLineNumberAttribute";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.CallerInfoArgument);
@@ -40,31 +31,19 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var memberName = start.Compilation.GetTypeByMetadataName(CallerMemberNameMetadataName);
-            if (memberName is null)
-            {
-                return;
-            }
-
-            var attributes = new CallerInfoAttributes(
-                memberName,
-                start.Compilation.GetTypeByMetadataName(CallerFilePathMetadataName),
-                start.Compilation.GetTypeByMetadataName(CallerLineNumberMetadataName));
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeArguments(nodeContext, attributes),
-                SyntaxKind.InvocationExpression,
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<CallerInfoAttributes?>(compilation, ResolveCallerInfoAttributes, runOnce: true),
+            AnalyzeArguments,
+            SyntaxKind.InvocationExpression,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Reports explicit arguments bound to caller-info parameters.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
-    private static void AnalyzeArguments(in SyntaxNodeAnalysisContext context, CallerInfoAttributes attributes)
+    /// <param name="attributeTypes">The caller-info attribute type cache for this compilation.</param>
+    private static void AnalyzeArguments(in SyntaxNodeAnalysisContext context, LazyCompilationValue<CallerInfoAttributes?> attributeTypes)
     {
         var argumentList = ArgumentBinding.GetArgumentList(context.Node);
         if (argumentList is null || argumentList.Arguments.Count == 0)
@@ -91,12 +70,12 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (attributes.Classify(parameter) is not { } description)
+            if (Classify(parameter, attributeTypes) is not { } description)
             {
                 continue;
             }
 
-            if (!IsRedundant(argument.Expression, description, attributes, context))
+            if (!IsRedundant(argument.Expression, description, attributeTypes, context))
             {
                 continue;
             }
@@ -118,7 +97,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     private static bool IsRedundant(
         ExpressionSyntax expression,
         string description,
-        CallerInfoAttributes attributes,
+        LazyCompilationValue<CallerInfoAttributes?> attributes,
         in SyntaxNodeAnalysisContext context) =>
         !IsCallerInfoForwarding(expression, attributes, context)
         && (description != MemberNameDescription || SuppliesTheSameMemberName(expression, context));
@@ -190,52 +169,59 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> when the argument forwards a caller-info parameter.</returns>
-    private static bool IsCallerInfoForwarding(ExpressionSyntax expression, CallerInfoAttributes attributes, in SyntaxNodeAnalysisContext context) =>
+    private static bool IsCallerInfoForwarding(ExpressionSyntax expression, LazyCompilationValue<CallerInfoAttributes?> attributes, in SyntaxNodeAnalysisContext context) =>
         expression is IdentifierNameSyntax
             && context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IParameterSymbol forwarded
-            && attributes.Classify(forwarded) is not null;
+            && Classify(forwarded, attributes) is not null;
 
-    /// <summary>The compilation's caller-info attribute symbols.</summary>
-    /// <param name="memberName">The caller-member-name attribute symbol.</param>
-    /// <param name="filePath">The caller-file-path attribute symbol.</param>
-    /// <param name="lineNumber">The caller-line-number attribute symbol.</param>
-    private sealed class CallerInfoAttributes(INamedTypeSymbol memberName, INamedTypeSymbol? filePath, INamedTypeSymbol? lineNumber)
+    /// <summary>Describes the caller-info attribute a parameter carries, if any.</summary>
+    /// <param name="parameter">The parameter to classify.</param>
+    /// <param name="attributeTypes">The caller-info attribute symbols, resolved on first demand within one compilation.</param>
+    /// <returns>The message description, or <see langword="null"/> when not caller-info.</returns>
+    private static string? Classify(IParameterSymbol parameter, LazyCompilationValue<CallerInfoAttributes?> attributeTypes)
     {
-        /// <summary>The caller-member-name attribute symbol.</summary>
-        private readonly INamedTypeSymbol _memberName = memberName;
-
-        /// <summary>The caller-file-path attribute symbol.</summary>
-        private readonly INamedTypeSymbol? _filePath = filePath;
-
-        /// <summary>The caller-line-number attribute symbol.</summary>
-        private readonly INamedTypeSymbol? _lineNumber = lineNumber;
-
-        /// <summary>Describes the caller-info attribute a parameter carries, if any.</summary>
-        /// <param name="parameter">The parameter to classify.</param>
-        /// <returns>The message description, or <see langword="null"/> when not caller-info.</returns>
-        public string? Classify(IParameterSymbol parameter)
+        var parameterAttributes = parameter.GetAttributes();
+        if (parameterAttributes.IsEmpty || attributeTypes.Get() is not { } types)
         {
-            var parameterAttributes = parameter.GetAttributes();
-            for (var i = 0; i < parameterAttributes.Length; i++)
-            {
-                var attributeClass = parameterAttributes[i].AttributeClass;
-                if (SymbolEqualityComparer.Default.Equals(attributeClass, _memberName))
-                {
-                    return MemberNameDescription;
-                }
-
-                if (SymbolEqualityComparer.Default.Equals(attributeClass, _filePath))
-                {
-                    return "file path";
-                }
-
-                if (SymbolEqualityComparer.Default.Equals(attributeClass, _lineNumber))
-                {
-                    return "line number";
-                }
-            }
-
             return null;
         }
+
+        for (var i = 0; i < parameterAttributes.Length; i++)
+        {
+            var attributeClass = parameterAttributes[i].AttributeClass;
+            if (SymbolEqualityComparer.Default.Equals(attributeClass, types.MemberName))
+            {
+                return MemberNameDescription;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(attributeClass, types.FilePath))
+            {
+                return "file path";
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(attributeClass, types.LineNumber))
+            {
+                return "line number";
+            }
+        }
+
+        return null;
     }
+
+    /// <summary>Resolves the caller-info attribute symbols once, when the required caller-member-name attribute exists.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    /// <returns>The attribute symbols, or <see langword="null"/> when caller-member-name is absent.</returns>
+    private static CallerInfoAttributes? ResolveCallerInfoAttributes(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.CallerMemberNameAttribute") is { } memberName
+            ? new CallerInfoAttributes(
+                memberName,
+                compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.CallerFilePathAttribute"),
+                compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.CallerLineNumberAttribute"))
+            : null;
+
+    /// <summary>The caller-info attribute symbols resolved once per compilation.</summary>
+    /// <param name="MemberName">The caller-member-name attribute.</param>
+    /// <param name="FilePath">The caller-file-path attribute, or null when absent.</param>
+    /// <param name="LineNumber">The caller-line-number attribute, or null when absent.</param>
+    private sealed record CallerInfoAttributes(INamedTypeSymbol MemberName, INamedTypeSymbol? FilePath, INamedTypeSymbol? LineNumber);
 }

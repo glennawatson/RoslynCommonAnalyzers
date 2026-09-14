@@ -21,8 +21,8 @@ namespace StyleSharp.Analyzers;
 /// and never binds.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>System.Runtime.InteropServices.SafeHandle</c> resolving,
-/// so a compilation that has no safe handle type pays nothing. There is no code fix: the correct remedy is a
+/// The <c>System.Runtime.InteropServices.SafeHandle</c> type is resolved once per compilation, only after a
+/// call passes the syntactic filter. There is no code fix: the correct remedy is a
 /// reference-counting protocol around the raw handle, not a mechanical rewrite of the call.
 /// </para>
 /// </remarks>
@@ -47,30 +47,30 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(SafeHandleMetadataName) is not { } safeHandleType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, safeHandleType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(
+                compilation,
+                static target => target.GetTypeByMetadataName(SafeHandleMetadataName),
+                runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports one raw handle read through a safe handle's dangerous accessor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="safeHandleType">The compilation's safe-handle type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol safeHandleType)
+    /// <param name="safeHandleType">The compilation's lazily resolved safe-handle type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> safeHandleType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.ArgumentList.Arguments.Count != 0 || GetInvokedName(invocation) != DangerousGetHandleName)
+        if (invocation.ArgumentList.Arguments.Count != 0 || InvokedSimpleName.Of(invocation) != DangerousGetHandleName)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: DangerousGetHandleName } method
-            || !IsSafeHandleOrDerived(method.ContainingType, safeHandleType))
+        if (safeHandleType.Get() is not { } resolvedSafeHandleType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: DangerousGetHandleName } method
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, resolvedSafeHandleType))
         {
             return;
         }
@@ -78,33 +78,5 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(DiagnosticHelper.Create(
             CorrectnessRules.DangerousGetHandle,
             invocation.GetLocation()));
-    }
-
-    /// <summary>Returns the invoked member's simple name text for the supported call shapes.</summary>
-    /// <param name="invocation">The invocation to inspect.</param>
-    /// <returns>The invoked name, or <see langword="null"/> for unsupported expression shapes.</returns>
-    private static string? GetInvokedName(InvocationExpressionSyntax invocation) => invocation.Expression switch
-    {
-        MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
-        MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        _ => null,
-    };
-
-    /// <summary>Returns whether a type is the safe-handle type or derives from it.</summary>
-    /// <param name="type">The method's containing type.</param>
-    /// <param name="safeHandleType">The compilation's safe-handle type.</param>
-    /// <returns><see langword="true"/> when the call belongs to a safe handle.</returns>
-    private static bool IsSafeHandleOrDerived(INamedTypeSymbol? type, INamedTypeSymbol safeHandleType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, safeHandleType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

@@ -119,19 +119,7 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
 
         foreach (var parameter in parameterList.Parameters)
         {
-            var name = parameter.Identifier.ValueText;
-            if (name.Length == 0)
-            {
-                continue;
-            }
-
-            if (XmlDocumentationHelper.FindParameterElement(documentation, name) is null)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DocumentationRules.ExtensionBlockParametersMustBeDocumented,
-                    parameter.Identifier.GetLocation(),
-                    name));
-            }
+            ReportIfUndocumented(context, parameter.Identifier, documentation, isTypeParameter: false);
         }
     }
 
@@ -148,19 +136,32 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
 
         foreach (var typeParameter in typeParameterList.Parameters)
         {
-            var name = typeParameter.Identifier.ValueText;
-            if (name.Length == 0)
-            {
-                continue;
-            }
+            ReportIfUndocumented(context, typeParameter.Identifier, documentation, isTypeParameter: true);
+        }
+    }
 
-            if (XmlDocumentationHelper.FindTypeParameterElement(documentation, name) is null)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DocumentationRules.ExtensionBlockTypeParametersMustBeDocumented,
-                    typeParameter.Identifier.GetLocation(),
-                    name));
-            }
+    /// <summary>Reports a receiver or type parameter that has no matching documentation element.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="identifier">The parameter's identifier.</param>
+    /// <param name="documentation">The block's documentation comment.</param>
+    /// <param name="isTypeParameter">Whether the identifier names a type parameter rather than a receiver parameter.</param>
+    private static void ReportIfUndocumented(in SyntaxNodeAnalysisContext context, SyntaxToken identifier, DocumentationCommentTriviaSyntax documentation, bool isTypeParameter)
+    {
+        var name = identifier.ValueText;
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        var undocumented = isTypeParameter
+            ? XmlDocumentationHelper.FindTypeParameterElement(documentation, name) is null
+            : XmlDocumentationHelper.FindParameterElement(documentation, name) is null;
+        if (undocumented)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                isTypeParameter ? DocumentationRules.ExtensionBlockTypeParametersMustBeDocumented : DocumentationRules.ExtensionBlockParametersMustBeDocumented,
+                identifier.GetLocation(),
+                name));
         }
     }
 
@@ -200,45 +201,17 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="block">The extension block.</param>
     /// <param name="name">The parameter name to look for.</param>
     /// <returns><see langword="true"/> when the parameter is declared.</returns>
-    private static bool DeclaresParameter(TypeDeclarationSyntax block, string name)
-    {
-        if (block.ParameterList is not { } parameterList)
-        {
-            return false;
-        }
-
-        foreach (var parameter in parameterList.Parameters)
-        {
-            if (parameter.Identifier.ValueText == name)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool DeclaresParameter(TypeDeclarationSyntax block, string name) =>
+        block.ParameterList is { } parameterList && ParameterNames.Contains(parameterList.Parameters, name);
 
     /// <summary>Returns whether the block declares a type parameter named <paramref name="name"/>.</summary>
     /// <param name="block">The extension block.</param>
     /// <param name="name">The type parameter name to look for.</param>
     /// <returns><see langword="true"/> when the type parameter is declared.</returns>
-    private static bool DeclaresTypeParameter(TypeDeclarationSyntax block, string name)
-    {
-        if (block.TypeParameterList is not { } typeParameterList)
-        {
-            return false;
-        }
-
-        foreach (var typeParameter in typeParameterList.Parameters)
-        {
-            if (typeParameter.Identifier.ValueText == name)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool DeclaresTypeParameter(TypeDeclarationSyntax block, string name) =>
+        block.TypeParameterList is { } typeParameterList && ParameterNames.Contains(typeParameterList.Parameters, name);
 
     /// <summary>Returns a node's <c>name</c> attribute syntax, or <see langword="null"/> when absent.</summary>
     /// <param name="node">The element node.</param>

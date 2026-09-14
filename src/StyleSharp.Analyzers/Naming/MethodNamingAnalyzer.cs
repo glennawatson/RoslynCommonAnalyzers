@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -116,7 +118,8 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword) || LooksTaskLike(method.ReturnType);
+        return method.ReturnType is not PredefinedTypeSyntax
+            && (ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword) || LooksTaskLike(method.ReturnType));
     }
 
     /// <summary>Returns whether the async-suffix-mismatch rule could fire, based on name and return type alone.</summary>
@@ -259,30 +262,9 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the interface method this method implicitly implements, or <see langword="null"/>.</summary>
     /// <param name="method">The method symbol.</param>
     /// <returns>The implemented interface method, or <see langword="null"/>.</returns>
-    private static IMethodSymbol? FindImplementedInterfaceMethod(IMethodSymbol method)
-    {
-        var containingType = method.ContainingType;
-        if (containingType is null)
-        {
-            return null;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var members = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < members.Length; j++)
-            {
-                if (members[j] is IMethodSymbol candidate
-                    && SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidate), method))
-                {
-                    return candidate;
-                }
-            }
-        }
-
-        return null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IMethodSymbol? FindImplementedInterfaceMethod(IMethodSymbol method) =>
+        InterfaceImplementationLookup.FindImplementedInterfaceMember(method) as IMethodSymbol;
 
     /// <summary>Returns the identifier text of a simple name, or <see langword="null"/> for other forms.</summary>
     /// <param name="name">The simple name syntax.</param>

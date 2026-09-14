@@ -16,13 +16,16 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider))]
 [Shared]
-public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFixProvider
 {
     /// <summary>The argument count of the <c>Substring(startIndex)</c> shape.</summary>
     private const int SubstringStartOnlyArgumentCount = 1;
 
     /// <summary>The argument count of the <c>Substring(startIndex, length)</c> shape.</summary>
     private const int SubstringStartAndLengthArgumentCount = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <summary>The syntactic shape of the call nested inside the Append argument.</summary>
     private enum InnerCallShape
@@ -44,25 +47,31 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.StringBuilderInnerAllocation.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported Append invocation with its direct-formatting form.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Builds the direct-formatting invocation that replaces the reported one.</summary>
     /// <param name="invocation">The reported Append invocation.</param>
-    /// <returns>The updated document.</returns>
+    /// <returns>The replacement invocation.</returns>
+    internal static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
+        Classify(invocation, out var inner, out var innerAccess) switch
+        {
+            InnerCallShape.Format => RewriteFormat(invocation, inner!),
+            InnerCallShape.ToString => RewriteToString(invocation, inner!, innerAccess!),
+            InnerCallShape.Substring => RewriteSubstring(invocation, inner!, innerAccess!),
+            _ => invocation,
+        };
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
-        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic, out var _);
 
     /// <summary>Resolves the reported Append invocation and builds its direct-formatting replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -134,18 +143,6 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
             _ => InnerCallShape.None,
         };
 
-    /// <summary>Builds the direct-formatting invocation that replaces the reported one.</summary>
-    /// <param name="invocation">The reported Append invocation.</param>
-    /// <returns>The replacement invocation.</returns>
-    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
-        Classify(invocation, out var inner, out var innerAccess) switch
-        {
-            InnerCallShape.Format => RewriteFormat(invocation, inner!),
-            InnerCallShape.ToString => RewriteToString(invocation, inner!, innerAccess!),
-            InnerCallShape.Substring => RewriteSubstring(invocation, inner!, innerAccess!),
-            _ => invocation,
-        };
-
     /// <summary>Rewrites <c>Append(string.Format(args...))</c> to <c>AppendFormat(args...)</c>.</summary>
     /// <param name="invocation">The reported Append invocation.</param>
     /// <param name="inner">The <c>string.Format</c> call.</param>
@@ -153,9 +150,12 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     private static InvocationExpressionSyntax RewriteFormat(InvocationExpressionSyntax invocation, InvocationExpressionSyntax inner)
     {
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
-        return invocation
-            .WithExpression(access.WithName(SyntaxFactory.IdentifierName("AppendFormat").WithTriviaFrom(access.Name)))
-            .WithArgumentList(inner.ArgumentList.WithTriviaFrom(invocation.ArgumentList));
+        return invocation.Update(
+            access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                access.Name.GetLeadingTrivia(),
+                "AppendFormat",
+                access.Name.GetTrailingTrivia()))),
+            inner.ArgumentList.WithTriviaFrom(invocation.ArgumentList));
     }
 
     /// <summary>Rewrites <c>Append(x.ToString())</c> to <c>Append(x)</c>.</summary>
@@ -195,7 +195,10 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
             SyntaxFactory.Argument(count),
         });
 
-        return invocation.WithArgumentList(SyntaxFactory.ArgumentList(arguments).WithTriviaFrom(invocation.ArgumentList));
+        return invocation.WithArgumentList(SyntaxFactory.ArgumentList(
+            SyntaxFactory.Token(invocation.ArgumentList.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            arguments,
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.ArgumentList.GetTrailingTrivia())));
     }
 
     /// <summary>Builds the <c>receiver.Length - start</c> count expression for the single-argument Substring form.</summary>

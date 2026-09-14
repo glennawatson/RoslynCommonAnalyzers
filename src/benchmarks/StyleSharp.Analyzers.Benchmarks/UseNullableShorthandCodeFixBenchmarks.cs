@@ -7,6 +7,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the nullable-shorthand code-fix path.</summary>
@@ -27,11 +29,8 @@ public class UseNullableShorthandCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The representative qualified name passed to the code fix.</summary>
-    private QualifiedNameSyntax _outer = null!;
-
-    /// <summary>The representative nullable generic name passed to the code fix.</summary>
-    private GenericNameSyntax _generic = null!;
+    /// <summary>The representative diagnostic on a nullable qualified name passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -48,11 +47,11 @@ public class UseNullableShorthandCodeFixBenchmarks : IDisposable
         _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, SemanticTypeBenchmarkSource.GenerateUseNullableShorthand(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _outer = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<QualifiedNameSyntax>(
+        var outer = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<QualifiedNameSyntax>(
             _root,
             Nodes / MiddleNodeDivisor,
             static candidate => candidate.Right is GenericNameSyntax { Identifier.ValueText: "Nullable" });
-        _generic = (GenericNameSyntax)_outer.Right;
+        _diagnostic = Diagnostic.Create(ReadabilityRules.UseNullableShorthand, outer.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -72,7 +71,7 @@ public class UseNullableShorthandCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseNullableShorthand_ApplyFixAsync()
     {
-        var updated = Sst1125UseNullableShorthandCodeFixProvider.Replace(_document, _root, _outer, _generic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst1125UseNullableShorthandCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

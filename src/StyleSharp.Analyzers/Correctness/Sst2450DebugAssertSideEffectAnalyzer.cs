@@ -51,26 +51,17 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Resolves the Debug type once, then analyzes each invocation.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        var debugType = context.Compilation.GetTypeByMetadataName(DebugTypeMetadataName);
-        if (debugType is null)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, debugType), SyntaxKind.InvocationExpression);
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, DebugTypeMetadataName),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports one Debug.Assert whose condition has a side effect.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="debugType">The resolved <c>System.Diagnostics.Debug</c> type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debugType)
+    /// <param name="debugType">The lazily resolved <c>System.Diagnostics.Debug</c> type.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType debugType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsAssertNamed(invocation.Expression))
@@ -90,9 +81,10 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (debugType.Get() is not { } resolvedType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.Name != AssertMethodName
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, debugType))
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedType))
         {
             return;
         }

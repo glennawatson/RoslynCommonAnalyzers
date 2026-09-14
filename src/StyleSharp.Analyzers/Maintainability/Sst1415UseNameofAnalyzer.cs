@@ -34,18 +34,15 @@ public sealed class Sst1415UseNameofAnalyzer : DiagnosticAnalyzer
     /// <returns>The number of matching parameter-name literals.</returns>
     internal static int CountParameterNameLiteralMatches(ObjectCreationExpressionSyntax creation)
     {
-        if (!IsArgumentExceptionType(creation.Type)
-            || creation.ArgumentList is not { Arguments.Count: > 0 } arguments)
+        if (!TryGetExceptionArguments(creation, out var arguments))
         {
             return 0;
         }
 
         var matches = 0;
-        for (var i = 0; i < arguments.Arguments.Count; i++)
+        for (var i = 0; i < arguments.Count; i++)
         {
-            if (arguments.Arguments[i].Expression is LiteralExpressionSyntax literal
-                && literal.IsKind(SyntaxKind.StringLiteralExpression)
-                && IsVisibleParameterName(creation, literal.Token.ValueText))
+            if (ParameterNameLiteral(creation, arguments[i]) is not null)
             {
                 matches++;
             }
@@ -64,22 +61,46 @@ public sealed class Sst1415UseNameofAnalyzer : DiagnosticAnalyzer
         }
 
         var creation = (ObjectCreationExpressionSyntax)context.Node;
-        if (!IsArgumentExceptionType(creation.Type)
-            || creation.ArgumentList is not { Arguments.Count: > 0 } arguments)
+        if (!TryGetExceptionArguments(creation, out var arguments))
         {
             return;
         }
 
-        for (var i = 0; i < arguments.Arguments.Count; i++)
+        for (var i = 0; i < arguments.Count; i++)
         {
-            if (arguments.Arguments[i].Expression is LiteralExpressionSyntax literal
-                && literal.IsKind(SyntaxKind.StringLiteralExpression)
-                && IsVisibleParameterName(creation, literal.Token.ValueText))
+            if (ParameterNameLiteral(creation, arguments[i]) is { } literal)
             {
                 context.ReportDiagnostic(DiagnosticHelper.Create(MaintainabilityRules.UseNameofForParameter, literal.SyntaxTree, literal.Span, literal.Token.ValueText));
             }
         }
     }
+
+    /// <summary>Gets the arguments of an <c>Argument…Exception</c> construction that passes any.</summary>
+    /// <param name="creation">The candidate object creation.</param>
+    /// <param name="arguments">The constructor arguments when the creation qualifies.</param>
+    /// <returns><see langword="true"/> for an argument-exception construction with at least one argument.</returns>
+    private static bool TryGetExceptionArguments(ObjectCreationExpressionSyntax creation, out SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if (IsArgumentExceptionType(creation.Type) && creation.ArgumentList is { Arguments.Count: > 0 } argumentList)
+        {
+            arguments = argumentList.Arguments;
+            return true;
+        }
+
+        arguments = default;
+        return false;
+    }
+
+    /// <summary>Gets the string literal an argument passes when the literal names a parameter visible at the construction.</summary>
+    /// <param name="creation">The argument-exception construction.</param>
+    /// <param name="argument">The constructor argument.</param>
+    /// <returns>The parameter-naming literal, or <see langword="null"/>.</returns>
+    private static LiteralExpressionSyntax? ParameterNameLiteral(ObjectCreationExpressionSyntax creation, ArgumentSyntax argument) =>
+        argument.Expression is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.StringLiteralExpression)
+            && IsVisibleParameterName(creation, literal.Token.ValueText)
+            ? literal
+            : null;
 
     /// <summary>Returns whether a type is an <c>Argument…Exception</c>.</summary>
     /// <param name="type">The created type.</param>
@@ -127,28 +148,11 @@ public sealed class Sst1415UseNameofAnalyzer : DiagnosticAnalyzer
     private static bool DeclaresParameterName(SyntaxNode node, string candidateName) =>
         node switch
         {
-            BaseMethodDeclarationSyntax method => ContainsParameterName(method.ParameterList.Parameters, candidateName),
-            LocalFunctionStatementSyntax localFunction => ContainsParameterName(localFunction.ParameterList.Parameters, candidateName),
-            ParenthesizedLambdaExpressionSyntax lambda => ContainsParameterName(lambda.ParameterList.Parameters, candidateName),
-            IndexerDeclarationSyntax indexer => ContainsParameterName(indexer.ParameterList.Parameters, candidateName),
+            BaseMethodDeclarationSyntax method => ParameterNames.Contains(method.ParameterList.Parameters, candidateName),
+            LocalFunctionStatementSyntax localFunction => ParameterNames.Contains(localFunction.ParameterList.Parameters, candidateName),
+            ParenthesizedLambdaExpressionSyntax lambda => ParameterNames.Contains(lambda.ParameterList.Parameters, candidateName),
+            IndexerDeclarationSyntax indexer => ParameterNames.Contains(indexer.ParameterList.Parameters, candidateName),
             SimpleLambdaExpressionSyntax simpleLambda => simpleLambda.Parameter.Identifier.ValueText == candidateName,
             _ => false
         };
-
-    /// <summary>Returns whether any parameter in the list matches the candidate name.</summary>
-    /// <param name="parameters">The parameter list to scan.</param>
-    /// <param name="candidateName">The candidate parameter name.</param>
-    /// <returns><see langword="true"/> when a matching parameter is present.</returns>
-    private static bool ContainsParameterName(SeparatedSyntaxList<ParameterSyntax> parameters, string candidateName)
-    {
-        for (var i = 0; i < parameters.Count; i++)
-        {
-            if (parameters[i].Identifier.ValueText == candidateName)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

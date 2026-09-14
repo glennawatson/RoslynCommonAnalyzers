@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -38,6 +40,92 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeConditionalExpression, SyntaxKind.ConditionalExpression);
         context.RegisterSyntaxNodeAction(AnalyzeIfStatement, SyntaxKind.IfStatement);
         context.RegisterSyntaxNodeAction(AnalyzeTypeofName, SyntaxKind.SimpleMemberAccessExpression);
+    }
+
+    /// <summary>Returns the statement immediately after the supplied statement in a block.</summary>
+    /// <param name="block">The containing block.</param>
+    /// <param name="statement">The current statement.</param>
+    /// <returns>The next statement, or <see langword="null"/>.</returns>
+    internal static StatementSyntax? NextStatement(BlockSyntax block, StatementSyntax statement)
+    {
+        var statements = block.Statements;
+        for (var i = 0; i < statements.Count - 1; i++)
+        {
+            if (statements[i].Span == statement.Span)
+            {
+                return statements[i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns the operand an <c>==</c> or <c>!=</c> comparison tests against the <see langword="null"/> literal.</summary>
+    /// <param name="binary">The binary expression to inspect.</param>
+    /// <param name="operand">The operand that is not the <see langword="null"/> literal.</param>
+    /// <returns><see langword="true"/> when exactly one side of an equality comparison is the <see langword="null"/> literal.</returns>
+    internal static bool TryGetNullComparedOperand(BinaryExpressionSyntax binary, out ExpressionSyntax operand)
+    {
+        operand = null!;
+        if (!binary.IsKind(SyntaxKind.EqualsExpression) && !binary.IsKind(SyntaxKind.NotEqualsExpression))
+        {
+            return false;
+        }
+
+        var leftNull = binary.Left.IsKind(SyntaxKind.NullLiteralExpression);
+        var rightNull = binary.Right.IsKind(SyntaxKind.NullLiteralExpression);
+        if (leftNull == rightNull)
+        {
+            return false;
+        }
+
+        operand = leftNull ? binary.Right : binary.Left;
+        return true;
+    }
+
+    /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
+    /// <param name="condition">The condition expression.</param>
+    /// <param name="whenTrue">The expression used for the true branch.</param>
+    /// <param name="whenFalse">The expression used for the false branch.</param>
+    /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
+    internal static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) =>
+        ContainsConditionalExpression(condition)
+            || ContainsConditionalExpression(whenTrue)
+            || ContainsConditionalExpression(whenFalse);
+
+    /// <summary>Returns a return expression from a statement or single-statement block.</summary>
+    /// <param name="statement">The statement to inspect.</param>
+    /// <returns>The returned expression, or <see langword="null"/>.</returns>
+    internal static ExpressionSyntax? GetEmbeddedReturn(StatementSyntax statement)
+    {
+        if (statement is ReturnStatementSyntax { Expression: { } expression })
+        {
+            return expression;
+        }
+
+        return statement is BlockSyntax { Statements.Count: 1 } block
+            && block.Statements[0] is ReturnStatementSyntax { Expression: { } blockExpression }
+            ? blockExpression
+            : null;
+    }
+
+    /// <summary>Returns the simple assignment a statement or single-statement block performs.</summary>
+    /// <param name="statement">The statement to inspect.</param>
+    /// <returns>The simple assignment, or <see langword="null"/> when the statement is not one.</returns>
+    internal static AssignmentExpressionSyntax? GetEmbeddedSimpleAssignment(StatementSyntax statement)
+    {
+        ExpressionSyntax? expression = null;
+        if (statement is ExpressionStatementSyntax expressionStatement)
+        {
+            expression = expressionStatement.Expression;
+        }
+        else if (statement is BlockSyntax { Statements.Count: 1 } block
+            && block.Statements[0] is ExpressionStatementSyntax blockStatement)
+        {
+            expression = blockStatement.Expression;
+        }
+
+        return expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment ? assignment : null;
     }
 
     /// <summary>Reports initializer opportunities after local object construction.</summary>
@@ -175,24 +263,6 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Returns the statement immediately after the supplied statement in a block.</summary>
-    /// <param name="block">The containing block.</param>
-    /// <param name="statement">The current statement.</param>
-    /// <returns>The next statement, or <see langword="null"/>.</returns>
-    private static StatementSyntax? NextStatement(BlockSyntax block, StatementSyntax statement)
-    {
-        var statements = block.Statements;
-        for (var i = 0; i < statements.Count - 1; i++)
-        {
-            if (statements[i].Span == statement.Span)
-            {
-                return statements[i + 1];
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Returns whether a statement assigns a member of the named local.</summary>
     /// <param name="statement">The statement to inspect.</param>
     /// <param name="variableName">The local variable name.</param>
@@ -214,8 +284,9 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
+        // An initializer runs before its own local exists, so a value that names the local cannot fold into one (CS0841).
         return IsIdentifier(memberAccess.Expression, variableName)
-            && !Mentions(assignedValue, variableName)
+            && !IdentifierReferences.MentionsName(assignedValue, variableName)
             && model.GetSymbolInfo(memberAccess.Name, cancellationToken).Symbol is IPropertySymbol or IFieldSymbol;
     }
 
@@ -238,42 +309,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         }
 
         return receiver.Identifier.ValueText == variableName
-            && !Mentions(invocation.ArgumentList, variableName)
+            && !IdentifierReferences.MentionsName(invocation.ArgumentList, variableName)
             && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Name: "Add" };
-    }
-
-    /// <summary>
-    /// Returns whether a subtree reads a name. An initializer runs before its own local exists, so a
-    /// value that names the local cannot be folded into one (CS0841) and the shape is left alone.
-    /// </summary>
-    /// <param name="node">The subtree to search.</param>
-    /// <param name="name">The name to look for.</param>
-    /// <returns><see langword="true"/> when the name appears.</returns>
-    private static bool Mentions(SyntaxNode node, string name)
-    {
-        if (node is IdentifierNameSyntax self && self.Identifier.ValueText == name)
-        {
-            return true;
-        }
-
-        var scan = new NameScan(name);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(node, ref scan, VisitName);
-        return scan.Found;
-    }
-
-    /// <summary>Records whether an identifier is the name being looked for.</summary>
-    /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once the name is found, which stops the walk.</returns>
-    private static bool VisitName(IdentifierNameSyntax identifier, ref NameScan scan)
-    {
-        if (identifier.Identifier.ValueText != scan.Name)
-        {
-            return true;
-        }
-
-        scan.Found = true;
-        return false;
     }
 
     /// <summary>Returns whether a type supports collection initializer syntax.</summary>
@@ -321,7 +358,7 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        if (ExpressionSimplificationAnalyzer.Unwrap(conditional.Condition) is not BinaryExpressionSyntax binary
+        if (ExpressionShapes.WalkDownParentheses(conditional.Condition) is not BinaryExpressionSyntax binary
             || !TryGetNullComparison(binary, model, cancellationToken, out var operand, out var operandSymbol))
         {
             return null;
@@ -346,22 +383,9 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         out ExpressionSyntax operand,
         out ISymbol operandSymbol)
     {
-        operand = null!;
         operandSymbol = null!;
-        if (!binary.IsKind(SyntaxKind.EqualsExpression) && !binary.IsKind(SyntaxKind.NotEqualsExpression))
-        {
-            return false;
-        }
-
-        var leftNull = binary.Left.IsKind(SyntaxKind.NullLiteralExpression);
-        var rightNull = binary.Right.IsKind(SyntaxKind.NullLiteralExpression);
-        if (leftNull == rightNull)
-        {
-            return false;
-        }
-
-        operand = leftNull ? binary.Right : binary.Left;
-        return TryGetStableReadableExpression(operand, model, cancellationToken, out operandSymbol);
+        return TryGetNullComparedOperand(binary, out operand)
+            && TryGetStableReadableExpression(operand, model, cancellationToken, out operandSymbol);
     }
 
     /// <summary>Returns whether the member access receiver matches the guarded expression.</summary>
@@ -388,8 +412,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when both expressions bind to the same stable symbol.</returns>
     private static bool IsSameStableSymbol(ExpressionSyntax left, ExpressionSyntax right, SemanticModel model, CancellationToken cancellationToken)
     {
-        var unwrappedLeft = ExpressionSimplificationAnalyzer.Unwrap(left);
-        var unwrappedRight = ExpressionSimplificationAnalyzer.Unwrap(right);
+        var unwrappedLeft = ExpressionShapes.WalkDownParentheses(left);
+        var unwrappedRight = ExpressionShapes.WalkDownParentheses(right);
         var leftSymbol = model.GetSymbolInfo(unwrappedLeft, cancellationToken).Symbol;
         return IsStableSymbol(leftSymbol)
             && (IsSameIdentifierRead(unwrappedLeft, unwrappedRight)
@@ -410,8 +434,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        var unwrappedKnown = ExpressionSimplificationAnalyzer.Unwrap(knownExpression);
-        var unwrappedCandidate = ExpressionSimplificationAnalyzer.Unwrap(candidate);
+        var unwrappedKnown = ExpressionShapes.WalkDownParentheses(knownExpression);
+        var unwrappedCandidate = ExpressionShapes.WalkDownParentheses(candidate);
         return IsSameIdentifierRead(unwrappedKnown, unwrappedCandidate)
             || SymbolEqualityComparer.Default.Equals(knownSymbol, model.GetSymbolInfo(unwrappedCandidate, cancellationToken).Symbol);
     }
@@ -424,7 +448,7 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression is a stable read.</returns>
     private static bool TryGetStableReadableExpression(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken, out ISymbol symbol)
     {
-        symbol = model.GetSymbolInfo(ExpressionSimplificationAnalyzer.Unwrap(expression), cancellationToken).Symbol!;
+        symbol = model.GetSymbolInfo(ExpressionShapes.WalkDownParentheses(expression), cancellationToken).Symbol!;
         return IsStableSymbol(symbol);
     }
 
@@ -478,16 +502,6 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     private static bool IsBooleanLiteral(ExpressionSyntax expression) =>
         expression.IsKind(SyntaxKind.TrueLiteralExpression) || expression.IsKind(SyntaxKind.FalseLiteralExpression);
 
-    /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
-    /// <param name="condition">The condition expression.</param>
-    /// <param name="whenTrue">The expression used for the true branch.</param>
-    /// <param name="whenFalse">The expression used for the false branch.</param>
-    /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
-    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) =>
-        ContainsConditionalExpression(condition)
-            || ContainsConditionalExpression(whenTrue)
-            || ContainsConditionalExpression(whenFalse);
-
     /// <summary>Returns whether an expression contains a conditional expression.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when a conditional expression is present.</returns>
@@ -498,15 +512,17 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        foreach (var node in expression.DescendantNodes(static node => node is not ConditionalExpressionSyntax))
-        {
-            if (node is ConditionalExpressionSyntax)
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            expression,
+            ref found,
+            static (ConditionalExpressionSyntax node, ref bool state) =>
             {
-                return true;
-            }
-        }
+                state = true;
+                return false;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Returns whether an if statement can become a conditional assignment.</summary>
@@ -528,40 +544,11 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             && IsSameStableSymbol(whenTrueTarget, whenFalseTarget, model, cancellationToken);
     }
 
-    /// <summary>Returns a return expression from a statement or single-statement block.</summary>
-    /// <param name="statement">The statement to inspect.</param>
-    /// <returns>The returned expression, or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? GetEmbeddedReturn(StatementSyntax statement)
-    {
-        if (statement is ReturnStatementSyntax { Expression: { } expression })
-        {
-            return expression;
-        }
-
-        return statement is BlockSyntax { Statements.Count: 1 } block
-            && block.Statements[0] is ReturnStatementSyntax { Expression: { } blockExpression }
-            ? blockExpression
-            : null;
-    }
-
     /// <summary>Returns whether a statement is a simple assignment expression statement.</summary>
     /// <param name="statement">The statement to inspect.</param>
     /// <returns>The assignment target, or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? GetEmbeddedAssignmentTarget(StatementSyntax statement)
-    {
-        ExpressionSyntax? expression = null;
-        if (statement is ExpressionStatementSyntax expressionStatement)
-        {
-            expression = expressionStatement.Expression;
-        }
-        else if (statement is BlockSyntax { Statements.Count: 1 } block
-            && block.Statements[0] is ExpressionStatementSyntax blockStatement)
-        {
-            expression = blockStatement.Expression;
-        }
-
-        return expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left } ? left : null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax? GetEmbeddedAssignmentTarget(StatementSyntax statement) => GetEmbeddedSimpleAssignment(statement)?.Left;
 
     /// <summary>Returns whether the expression is an identifier with the expected text.</summary>
     /// <param name="expression">The expression to inspect.</param>
@@ -595,14 +582,6 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             AliasQualifiedNameSyntax alias => CanBeNameofOperand(alias.Name),
             _ => false
         };
-
-    /// <summary>The state threaded through a name search.</summary>
-    /// <param name="Name">The name being looked for.</param>
-    private record struct NameScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the name was found.</summary>
-        public bool Found { get; set; }
-    }
 
     /// <summary>Parts of a null-conditional expression shape.</summary>
     /// <param name="Operand">The expression checked against <c>null</c>.</param>

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Grouped modernization analyzer that steers older <c>as</c>/<c>is</c> idioms toward C# type patterns.</summary>
@@ -43,25 +41,12 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <returns>The <c>as</c> expression compared to null, or <see langword="null"/> when the shape does not match.</returns>
     internal static BinaryExpressionSyntax? GetAsOperandComparedToNull(BinaryExpressionSyntax comparison)
     {
-        if (IsNullLiteral(comparison.Right))
+        if (ExpressionShapes.IsNullLiteral(comparison.Right))
         {
             return AsCastOperand(comparison.Left);
         }
 
-        return !IsNullLiteral(comparison.Left) ? null : AsCastOperand(comparison.Right);
-    }
-
-    /// <summary>Unwraps any enclosing parentheses to reach the inner expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    internal static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
+        return !ExpressionShapes.IsNullLiteral(comparison.Left) ? null : AsCastOperand(comparison.Right);
     }
 
     /// <summary>Builds the <c>operand is not type</c> pattern expression with single-space spacing.</summary>
@@ -73,8 +58,8 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
         var typePattern = SyntaxFactory.TypePattern(type.WithoutTrivia());
         var notPattern = SyntaxFactory.UnaryPattern(SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)), typePattern);
         return SyntaxFactory.IsPatternExpression(
-            operand.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.Token(default, SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            operand.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             notPattern);
     }
 
@@ -92,7 +77,7 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <param name="operand">The comparison operand.</param>
     /// <returns>The <c>as</c> expression, or <see langword="null"/> when it is not one.</returns>
     private static BinaryExpressionSyntax? AsCastOperand(ExpressionSyntax operand) =>
-        Unwrap(operand) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } asExpression ? asExpression : null;
+        ExpressionShapes.WalkDownParentheses(operand) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } asExpression ? asExpression : null;
 
     /// <summary>Reports SST2005 when an <c>as</c> cast is compared to <c>null</c> with a reference type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -104,16 +89,16 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // 'x is T' is only equivalent for reference types; 'x as int?' would need a different pattern.
-        var targetType = context.SemanticModel.GetTypeInfo(asExpression.Right, context.CancellationToken).Type;
-        if (targetType?.IsReferenceType != true)
+        // The '== null' branch is fixed to 'x is not T' (needs C# 9); the '!= null' branch becomes a plain 'x is T' (C# 1).
+        var isEqualNull = comparison.IsKind(SyntaxKind.EqualsExpression);
+        if (isEqualNull && context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
         {
             return;
         }
 
-        // The '== null' branch is fixed to 'x is not T' (needs C# 9); the '!= null' branch becomes a plain 'x is T' (C# 1).
-        var isEqualNull = comparison.IsKind(SyntaxKind.EqualsExpression);
-        if (isEqualNull && context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
+        // 'x is T' is only equivalent for reference types; 'x as int?' would need a different pattern.
+        var targetType = context.SemanticModel.GetTypeInfo(asExpression.Right, context.CancellationToken).Type;
+        if (targetType?.IsReferenceType != true)
         {
             return;
         }
@@ -135,7 +120,7 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
         var not = (PrefixUnaryExpressionSyntax)context.Node;
 
         // Only the type-test form ('x is T') negates cleanly; declaration patterns ('x is T t') bind a name.
-        if (Unwrap(not.Operand) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
+        if (ExpressionShapes.WalkDownParentheses(not.Operand) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
             || isExpression.Right is not TypeSyntax)
         {
             return;
@@ -183,7 +168,7 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     {
         candidate = default;
         if (ifStatement.Statement is not BlockSyntax { Statements.Count: > 0 } block
-            || Unwrap(ifStatement.Condition) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
+            || ExpressionShapes.WalkDownParentheses(ifStatement.Condition) is not BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression } isExpression
             || isExpression.Right is not TypeSyntax isType
             || block.Statements[0] is not LocalDeclarationStatementSyntax declaration
             || declaration.Declaration.Variables.Count != 1
@@ -227,12 +212,6 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for locals and parameters.</returns>
     private static bool IsStablePatternOperand(ISymbol? symbol) =>
         symbol is ILocalSymbol or IParameterSymbol;
-
-    /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
-    /// <param name="expression">The expression to test.</param>
-    /// <returns><see langword="true"/> for a <c>null</c> literal.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Matched parts for an <c>is</c> check followed by a cast local.</summary>
     /// <param name="IfStatement">The containing if statement.</param>

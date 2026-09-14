@@ -9,64 +9,70 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces a numeric literal cast with the equivalent literal suffix (SST1139).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1139UseLiteralSuffixCodeFixProvider))]
 [Shared]
-public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseLiteralSuffix.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => TryResolve(root, diagnostic, out _, out var suffix) ? $"Use '{suffix}' suffix" : null,
+            static _ => nameof(Sst1139UseLiteralSuffixCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not CastExpressionSyntax cast
-                || Sst1139UseLiteralSuffixAnalyzer.SuffixFor(cast) is not { } suffix)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use '{suffix}' suffix",
-                    _ => Task.FromResult(Replace(context.Document, root, cast, suffix)),
-                    equivalenceKey: nameof(Sst1139UseLiteralSuffixCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not CastExpressionSyntax cast
-            || Sst1139UseLiteralSuffixAnalyzer.SuffixFor(cast) is not { } suffix)
-        {
-            return;
-        }
-
-        var literal = (LiteralExpressionSyntax)Sst1139UseLiteralSuffixAnalyzer.Unwrap(cast.Expression);
-        var suffixed = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(cast);
-        editor.ReplaceNode(cast, suffixed);
-    }
-
-    /// <summary>Replaces the cast with the suffixed literal.</summary>
-    /// <param name="document">The document to fix.</param>
+    /// <summary>Resolves the reported cast and builds the suffixed literal that replaces it.</summary>
     /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryResolve(root, diagnostic, out var cast, out var suffix)
+            ? new NodeReplacement(cast, CreateSuffixed(cast, suffix))
+            : null;
+
+    /// <summary>Resolves the reported cast and the literal suffix that expresses its type.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="cast">The cast expression.</param>
     /// <param name="suffix">The literal suffix to apply.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Replace(Document document, SyntaxNode root, CastExpressionSyntax cast, string suffix)
+    /// <returns><see langword="true"/> when the cast still has a suffix form.</returns>
+    private static bool TryResolve(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        [NotNullWhen(true)] out CastExpressionSyntax? cast,
+        [NotNullWhen(true)] out string? suffix)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is CastExpressionSyntax reported
+            && Sst1139UseLiteralSuffixAnalyzer.SuffixFor(reported) is { } reportedSuffix)
+        {
+            cast = reported;
+            suffix = reportedSuffix;
+            return true;
+        }
+
+        cast = null;
+        suffix = null;
+        return false;
+    }
+
+    /// <summary>Builds the suffixed literal that takes the cast's place and trivia.</summary>
+    /// <param name="cast">The cast expression.</param>
+    /// <param name="suffix">The literal suffix to apply.</param>
+    /// <returns>The suffixed literal.</returns>
+    private static LiteralExpressionSyntax CreateSuffixed(CastExpressionSyntax cast, string suffix)
     {
         var literal = (LiteralExpressionSyntax)Sst1139UseLiteralSuffixAnalyzer.Unwrap(cast.Expression);
-        var suffixed = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(cast);
-        return document.WithSyntaxRoot(root.ReplaceNode(cast, suffixed));
+        var parsed = (LiteralExpressionSyntax)SyntaxFactory.ParseExpression(literal.Token.Text + suffix);
+        return parsed.Update(
+            parsed.Token
+                .WithLeadingTrivia(cast.GetLeadingTrivia())
+                .WithTrailingTrivia(cast.GetTrailingTrivia()));
     }
 }

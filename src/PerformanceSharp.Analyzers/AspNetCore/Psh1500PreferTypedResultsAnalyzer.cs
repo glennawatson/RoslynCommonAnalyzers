@@ -10,22 +10,24 @@ namespace PerformanceSharp.Analyzers;
 /// (PSH1500). <c>Results.X(...)</c> returns <c>IResult</c> and hides the concrete response shape, so
 /// the framework has to infer the endpoint metadata; the matching <c>TypedResults.X(...)</c> returns
 /// <c>Ok&lt;T&gt;</c>/<c>NotFound</c>/etc. and describes itself. Each candidate invocation is bound and
-/// reported only when the invoked method's containing type is exactly <c>Results</c>, and the rule is
-/// resolved once per compilation by probing for <c>TypedResults</c> — so a project without the ASP.NET
-/// Core minimal-API types pays nothing. No automatic code fix, because adopting the typed result can
-/// require declaring the handler's return type.
+/// reported only when the invoked method's containing type is exactly <c>Results</c>. The factory types
+/// are resolved only after the invocation passes the syntax check. No automatic code fix, because
+/// adopting the typed result can require declaring the handler's return type.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The simple name of the untyped factory, used as a bind-free prefilter.</summary>
+    private const string ResultsTypeName = "Results";
+
     /// <summary>The metadata name of the untyped minimal-API result factory.</summary>
     private const string ResultsMetadataName = "Microsoft.AspNetCore.Http.Results";
 
     /// <summary>The metadata name of the strongly typed minimal-API result factory.</summary>
     private const string TypedResultsMetadataName = "Microsoft.AspNetCore.Http.TypedResults";
 
-    /// <summary>The simple name of the untyped factory, used as a bind-free prefilter.</summary>
-    private const string ResultsTypeName = "Results";
+    /// <summary>The untyped and typed result factory metadata names, in slot order.</summary>
+    private static readonly string[] ResultFactoryMetadataNames = [ResultsMetadataName, TypedResultsMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.PreferTypedResults);
@@ -39,26 +41,17 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var resultsType = start.Compilation.GetTypeByMetadataName(ResultsMetadataName);
-            var typedResultsType = start.Compilation.GetTypeByMetadataName(TypedResultsMetadataName);
-            if (resultsType is null || typedResultsType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, resultsType, typedResultsType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, ResultFactoryMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1500 for a <c>Results.X(...)</c> call whose typed counterpart exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="resultsType">The resolved <c>Results</c> factory type.</param>
-    /// <param name="typedResultsType">The resolved <c>TypedResults</c> factory type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol resultsType, INamedTypeSymbol typedResultsType)
+    /// <param name="markers">The compilation's lazily resolved result factories.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
@@ -67,9 +60,10 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
+        if (markers.Get() is not [{ } resultsType, { } typedResultsType]
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resultsType)
-            || !HasMatchingTypedMember(typedResultsType, method.Name))
+            || !SymbolFacts.HasStaticMethod(typedResultsType, method.Name))
         {
             return;
         }
@@ -90,22 +84,4 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
         MemberAccessExpressionSyntax memberAccess => memberAccess.Name,
         _ => null
     };
-
-    /// <summary>Returns whether <c>TypedResults</c> exposes a static member with the given name.</summary>
-    /// <param name="typedResultsType">The resolved <c>TypedResults</c> factory type.</param>
-    /// <param name="memberName">The <c>Results</c> member name to match.</param>
-    /// <returns><see langword="true"/> when a matching static member exists, so the suggestion is actionable.</returns>
-    private static bool HasMatchingTypedMember(INamedTypeSymbol typedResultsType, string memberName)
-    {
-        var members = typedResultsType.GetMembers(memberName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

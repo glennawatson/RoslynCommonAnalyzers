@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
+    <Compile Include="..\Shared\Polyfills\*.cs" Link="Polyfills\%(Filename).cs" />
   </ItemGroup>
 
 </Project>

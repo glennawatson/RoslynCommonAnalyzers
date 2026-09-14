@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,22 +11,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2269ConditionalConditionParenthesesCodeFixProvider))]
 [Shared]
-public sealed class Sst2269ConditionalConditionParenthesesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2269ConditionalConditionParenthesesCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.NormalizeConditionalConditionParentheses.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the condition parentheses", nameof(Sst2269ConditionalConditionParenthesesCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the condition parentheses", nameof(Sst2269ConditionalConditionParenthesesCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan)is ExpressionSyntax found
+            && found.Parent is ConditionalExpressionSyntax conditional
+            && conditional.Condition == found)
+            && ((found is ParenthesizedExpressionSyntax parenthesized
+            && Sst2269ConditionalConditionParenthesesAnalyzer.IsSingleSimpleToken(parenthesized.Expression))
+            || found is not ParenthesizedExpressionSyntax);
 
     /// <summary>Resolves the reported condition and flips its parentheses.</summary>
     /// <param name="root">The syntax root.</param>
@@ -48,12 +56,6 @@ public sealed class Sst2269ConditionalConditionParenthesesCodeFixProvider : Code
             return new NodeReplacement(parenthesized, parenthesized.Expression.WithTriviaFrom(parenthesized));
         }
 
-        if (found is ParenthesizedExpressionSyntax)
-        {
-            return null;
-        }
-
-        var wrapped = SyntaxFactory.ParenthesizedExpression(found.WithoutTrivia()).WithTriviaFrom(found);
-        return new NodeReplacement(found, wrapped);
+        return found is ParenthesizedExpressionSyntax ? null : new NodeReplacement(found, ExpressionParentheses.Wrap(found));
     }
 }

@@ -76,14 +76,12 @@ internal static class UniqueLineRule
     /// <param name="messageResource">The resource key for the message format.</param>
     /// <param name="descriptionResource">The resource key for the description.</param>
     /// <returns>The constructed descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor Create(string id, string titleResource, string messageResource, string descriptionResource) =>
-        new(
+        DescriptorFactory.Create(
             id,
             new LocalizableResourceString(titleResource, Resources.ResourceManager, typeof(Resources)),
             new LocalizableResourceString(messageResource, Resources.ResourceManager, typeof(Resources)),
             Category,
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: true,
-            description: new LocalizableResourceString(descriptionResource, Resources.ResourceManager, typeof(Resources)),
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+            new LocalizableResourceString(descriptionResource, Resources.ResourceManager, typeof(Resources)));
 }

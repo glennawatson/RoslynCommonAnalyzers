@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -69,7 +70,7 @@ public class StringBuilderInnerAllocationCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> StringBuilderInnerAllocation_ApplyFixAsync()
     {
-        var updated = Psh1203StringBuilderInnerAllocationCodeFixProvider.Apply(_document, _root, _invocation);
+        var updated = TargetCodeFix.Apply(_document, _root, _invocation, Psh1203StringBuilderInnerAllocationCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

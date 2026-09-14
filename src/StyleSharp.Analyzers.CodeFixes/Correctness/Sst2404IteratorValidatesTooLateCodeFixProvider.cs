@@ -29,7 +29,7 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2404IteratorValidatesTooLateCodeFixProvider))]
 [Shared]
-public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProvider
 {
     /// <summary>The name given to the extracted iterator.</summary>
     private const string IteratorName = "Iterator";
@@ -37,11 +37,14 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
     /// <summary>The highest suffix tried when the preferred name is taken.</summary>
     private const int MaximumNameSuffix = 64;
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.IteratorValidatesTooLate.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -49,40 +52,58 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
             context,
             "Validate the arguments eagerly and return a private iterator",
             nameof(Sst2404IteratorValidatesTooLateCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Applies one SST2404 split for the reported iterator.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original when the reported shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        TryRewrite(root, diagnostic) is { } edit
-            ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
-            : document;
 
     /// <summary>Resolves the reported iterator and rewrites it as a validating wrapper plus an iterator.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape carries no safe fix.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryResolve(root, diagnostic, out var method, out var body, out var guards)
+            ? new NodeReplacement(method, Split(method, body, guards))
+            : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryResolve(root, diagnostic, out _, out _, out _);
+
+    /// <summary>Resolves the reported iterator, its body, and how many guard statements lead it.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="method">The reported method.</param>
+    /// <param name="body">The method's body.</param>
+    /// <param name="guards">The number of leading guard statements.</param>
+    /// <returns><see langword="true"/> when the iterator can be split after its guards.</returns>
+    private static bool TryResolve(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        [NotNullWhen(true)] out MethodDeclarationSyntax? method,
+        [NotNullWhen(true)] out BlockSyntax? body,
+        out int guards)
     {
         // The statements after the guards move into a new local function body. A directive among them marks
         // a position in the method, so half of a pair would travel with the moved statements.
-        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { Body: { } body } method
+        method = root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+        body = method?.Body;
+        if (method is null
+            || body is null
             || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword)
             || DirectiveBoundaries.Cross(method, body.FullSpan))
         {
-            return null;
+            guards = 0;
+            return false;
         }
 
-        var guards = IteratorGuardAnalysis.CountLeadingGuards(body, method.ParameterList);
-        return guards == 0 || body.Statements.Count <= guards || !IteratorGuardAnalysis.IsIterator(body) ? null : new NodeReplacement(method, Split(method, body, guards));
+        guards = IteratorGuardAnalysis.CountLeadingGuards(body, method.ParameterList);
+        return !(guards == 0
+            || body.Statements.Count <= guards
+            || !IteratorGuardAnalysis.IsIterator(body));
     }
 
     /// <summary>Rewrites the method as guards, a return, and the iterator they were guarding.</summary>
@@ -108,9 +129,10 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         // The blank lines have to be real line breaks, in the file's own form. An elastic one is the
         // formatter's to remove, and it removes it — gluing the return to the guards above it and the local
         // function to the return.
-        rewritten[guards] = SyntaxFactory.ReturnStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name)))
-            .WithLeadingTrivia(lineBreak)
-            .WithTrailingTrivia(lineBreak, lineBreak);
+        rewritten[guards] = SyntaxFactory.ReturnStatement(
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(lineBreak), SyntaxKind.ReturnKeyword, default),
+            SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name)),
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(lineBreak, lineBreak)));
         rewritten[guards + 1] = CreateIterator(method, statements, guards, name);
 
         return method
@@ -142,9 +164,17 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         // the formatter, which would close it.
         kept[0] = kept[0].WithLeadingTrivia(SyntaxFactory.ElasticMarker);
         var returnType = method.ReturnType.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.ElasticSpace);
-        return SyntaxFactory.LocalFunctionStatement(returnType, SyntaxFactory.Identifier(name))
-            .WithParameterList(SyntaxFactory.ParameterList())
-            .WithBody(SyntaxFactory.Block(SyntaxFactory.List(kept)));
+        return SyntaxFactory.LocalFunctionStatement(
+            attributeLists: default,
+            modifiers: default,
+            returnType,
+            SyntaxFactory.Identifier(name),
+            typeParameterList: null,
+            SyntaxFactory.ParameterList(),
+            constraintClauses: default,
+            SyntaxFactory.Block(SyntaxFactory.List(kept)),
+            expressionBody: null,
+            semicolonToken: default);
     }
 
     /// <summary>Picks a name for the iterator that nothing in the method already uses.</summary>
@@ -152,7 +182,7 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
     /// <returns>The iterator's name.</returns>
     private static string CreateIteratorName(MethodDeclarationSyntax method)
     {
-        if (!IsNameUsed(method, IteratorName))
+        if (!IdentifierReferences.ContainsIdentifierToken(method, IteratorName))
         {
             return IteratorName;
         }
@@ -160,46 +190,12 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         for (var suffix = 2; suffix <= MaximumNameSuffix; suffix++)
         {
             var candidate = IteratorName + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (!IsNameUsed(method, candidate))
+            if (!IdentifierReferences.ContainsIdentifierToken(method, candidate))
             {
                 return candidate;
             }
         }
 
         return IteratorName + method.Identifier.ValueText;
-    }
-
-    /// <summary>Returns whether any identifier in the method already spells a name.</summary>
-    /// <param name="method">The reported method.</param>
-    /// <param name="name">The candidate name.</param>
-    /// <returns><see langword="true"/> when the name is taken.</returns>
-    private static bool IsNameUsed(MethodDeclarationSyntax method, string name)
-    {
-        var scan = new NameScan(name);
-        _ = DescendantTraversalHelper.VisitDescendantTokens(method, ref scan, VisitToken);
-        return scan.Found;
-    }
-
-    /// <summary>Records whether a token spells the candidate name.</summary>
-    /// <param name="token">The token being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once the name is found, which stops the walk.</returns>
-    private static bool VisitToken(in SyntaxToken token, ref NameScan state)
-    {
-        if (!token.IsKind(SyntaxKind.IdentifierToken) || token.ValueText != state.Name)
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
-
-    /// <summary>The state threaded through the search for a name already in use.</summary>
-    /// <param name="Name">The candidate name.</param>
-    private record struct NameScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the name is taken.</summary>
-        public bool Found { get; set; }
     }
 }

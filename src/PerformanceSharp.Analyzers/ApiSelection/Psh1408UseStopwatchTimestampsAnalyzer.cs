@@ -22,11 +22,11 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
     /// <summary>The receiver type name the syntax gate requires.</summary>
     private const string StopwatchTypeName = "Stopwatch";
 
-    /// <summary>The metadata name of the stopwatch type.</summary>
-    private const string StopwatchMetadataName = "System.Diagnostics.Stopwatch";
-
     /// <summary>The member whose presence gates the rule to .NET 7+.</summary>
     private const string GetElapsedTimeMethodName = "GetElapsedTime";
+
+    /// <summary>The metadata name of the stopwatch type.</summary>
+    private const string StopwatchMetadataName = "System.Diagnostics.Stopwatch";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseStopwatchTimestamps);
@@ -40,28 +40,23 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(StopwatchMetadataName) is not { } stopwatchType
-                || stopwatchType.GetMembers(GetElapsedTimeMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeDeclaration(nodeContext, stopwatchType), SyntaxKind.LocalDeclarationStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, StopwatchMetadataName),
+            AnalyzeDeclaration,
+            SyntaxKind.LocalDeclarationStatement);
     }
 
     /// <summary>Reports PSH1408 for a StartNew local used only to read elapsed time.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="stopwatchType">The stopwatch type.</param>
-    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol stopwatchType)
+    /// <param name="types">The compilation's deferred stopwatch type.</param>
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (declaration.Declaration.Variables.Count != 1
             || declaration.Declaration.Variables[0].Initializer?.Value is not InvocationExpressionSyntax initializer
             || !IsStopwatchStartNewShape(initializer)
-            || FindEnclosingFunctionBody(declaration) is not { } body)
+            || EnclosingFunction.GetBody(declaration) is not { } body)
         {
             return;
         }
@@ -74,8 +69,7 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(initializer, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, stopwatchType))
+        if (!IsSupportedStopwatchCall(context, initializer, types))
         {
             return;
         }
@@ -87,57 +81,26 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
             elapsedMember));
     }
 
+    /// <summary>Checks that the candidate binds to Stopwatch on a framework with GetElapsedTime.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="initializer">The candidate StartNew call.</param>
+    /// <param name="types">The compilation's deferred stopwatch type.</param>
+    /// <returns>Whether the framework supports replacing this call with timestamps.</returns>
+    private static bool IsSupportedStopwatchCall(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax initializer, LazyMetadataType types) =>
+        types.Get() is { } stopwatchType
+        && !stopwatchType.GetMembers(GetElapsedTimeMethodName).IsEmpty
+        && context.SemanticModel.GetSymbolInfo(initializer, context.CancellationToken).Symbol is IMethodSymbol method
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, stopwatchType);
+
     /// <summary>Returns whether an invocation has the <c>Stopwatch.StartNew()</c> syntax shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches, before any binding.</returns>
-    private static bool IsStopwatchStartNewShape(InvocationExpressionSyntax invocation)
-    {
-        if (invocation.ArgumentList.Arguments.Count != 0
-            || invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText != StartNewMethodName)
-        {
-            return false;
-        }
-
-        var receiver = access.Expression;
-        while (receiver is MemberAccessExpressionSyntax nested)
-        {
-            receiver = nested.Name;
-        }
-
-        return receiver is IdentifierNameSyntax identifier
-            && identifier.Identifier.ValueText == StopwatchTypeName;
-    }
-
-    /// <summary>Returns the body of the function enclosing a statement.</summary>
-    /// <param name="node">The statement whose enclosing function body is sought.</param>
-    /// <returns>The body node, or <see langword="null"/> when none encloses the statement.</returns>
-    private static SyntaxNode? FindEnclosingFunctionBody(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            switch (current)
-            {
-                case AnonymousFunctionExpressionSyntax anonymousFunction:
-                    return anonymousFunction.Body;
-                case LocalFunctionStatementSyntax localFunction:
-                    return (SyntaxNode?)localFunction.Body ?? localFunction.ExpressionBody;
-                case BaseMethodDeclarationSyntax method:
-                    return (SyntaxNode?)method.Body ?? method.ExpressionBody;
-                case AccessorDeclarationSyntax accessor:
-                    return (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody;
-                case BaseTypeDeclarationSyntax or CompilationUnitSyntax:
-                    return null;
-                default:
-                    continue;
-            }
-        }
-
-        return null;
-    }
+    private static bool IsStopwatchStartNewShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
+            && TypeNameReceiver.IsCallOnTypeName(invocation, StartNewMethodName, StopwatchTypeName);
 
     /// <summary>Token-visitor state that whitelists elapsed reads and Stop calls on one local.</summary>
-    private sealed class UsageScan
+    private struct UsageScan
     {
         /// <summary>The local's name.</summary>
         private readonly string _name;
@@ -145,7 +108,7 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
         /// <summary>The declarator identifier's position, excluded from the scan.</summary>
         private readonly int _declaratorStart;
 
-        /// <summary>Initializes a new instance of the <see cref="UsageScan"/> class.</summary>
+        /// <summary>Initializes a new instance of the <see cref="UsageScan"/> struct.</summary>
         /// <param name="name">The local's name.</param>
         /// <param name="declaratorStart">The declarator identifier's position.</param>
         public UsageScan(string name, int declaratorStart)

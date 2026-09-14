@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -19,11 +21,11 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
     /// <summary>The attribute simple names that mark an explicit inlining decision.</summary>
     internal const string MethodImplAttributeShortName = "MethodImpl";
 
-    /// <summary>The metadata name of the options enum the attribute takes.</summary>
-    private const string MethodImplOptionsMetadataName = "System.Runtime.CompilerServices.MethodImplOptions";
-
     /// <summary>The flag member the rule suggests.</summary>
     private const string AggressiveInliningMemberName = "AggressiveInlining";
+
+    /// <summary>The metadata name of the options enum the attribute takes.</summary>
+    private const string MethodImplOptionsMetadataName = "System.Runtime.CompilerServices.MethodImplOptions";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.InlineTrivialForwarders);
@@ -37,16 +39,12 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(MethodImplOptionsMetadataName) is not { } options
-                || options.GetMembers(AggressiveInliningMemberName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration, SyntaxKind.OperatorDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, MethodImplOptionsMetadataName),
+            AnalyzeMethod,
+            SyntaxKind.MethodDeclaration,
+            SyntaxKind.OperatorDeclaration);
     }
 
     /// <summary>Returns whether a method declaration is a trivial forwarder eligible for the attribute.</summary>
@@ -85,26 +83,52 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var depth = 0;
-        var start = declaration.SpanStart;
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        var state = new ConditionalRegionScan(declaration.SpanStart);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(root, ref state, VisitConditionalToken);
+        return state.Depth > 0;
+    }
+
+    /// <summary>Scans one token's trivia until the member's start is reached.</summary>
+    /// <param name="token">The token visited in document order.</param>
+    /// <param name="state">The member's start and the current conditional nesting depth.</param>
+    /// <returns>True when the traversal should continue.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool VisitConditionalToken(in SyntaxToken token, ref ConditionalRegionScan state) =>
+        ScanConditionalTrivia(token.LeadingTrivia, ref state)
+            && token.SpanStart < state.Start
+            && ScanConditionalTrivia(token.TrailingTrivia, ref state);
+
+    /// <summary>Counts conditional directives before the member, including structured trivia.</summary>
+    /// <param name="triviaList">The leading or trailing trivia to inspect.</param>
+    /// <param name="state">The member's start and the current conditional nesting depth.</param>
+    /// <returns>True when the traversal has not reached the member.</returns>
+    private static bool ScanConditionalTrivia(in SyntaxTriviaList triviaList, ref ConditionalRegionScan state)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
         {
-            if (trivia.SpanStart >= start)
+            var trivia = triviaList[i];
+            if (trivia.SpanStart >= state.Start)
             {
-                break;
+                return false;
             }
 
             if (trivia.IsKind(SyntaxKind.IfDirectiveTrivia))
             {
-                depth++;
+                state.Depth++;
             }
             else if (trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia))
             {
-                depth--;
+                state.Depth--;
+            }
+
+            if (trivia.GetStructure() is { } structure
+                && !DescendantTraversalHelper.VisitDescendantTokens(structure, ref state, VisitConditionalToken))
+            {
+                return false;
             }
         }
 
-        return depth > 0;
+        return true;
     }
 
     /// <summary>Returns whether an expression is a plain forward: a call, member read, index, or constant.</summary>
@@ -161,10 +185,17 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1410 for an eligible forwarder.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkTypes)
     {
         var declaration = (BaseMethodDeclarationSyntax)context.Node;
         if (!IsEligibleForwarder(declaration))
+        {
+            return;
+        }
+
+        if (frameworkTypes.Get() is not { } options
+            || options.GetMembers(AggressiveInliningMemberName).IsEmpty)
         {
             return;
         }

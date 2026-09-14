@@ -11,43 +11,31 @@ namespace StyleSharp.Analyzers;
 /// <summary>Moves an SST1146 <c>if</c> statement to a new line.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1146ConditionalOnNewLineCodeFixProvider))]
 [Shared]
-public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.ConditionalOnNewLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (root, diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).IsKind(SyntaxKind.IfKeyword) ? "Move 'if' to a new line" : null,
+            nameof(Sst1146ConditionalOnNewLineCodeFixProvider),
+            RegisterTextChanges);
 
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
-            if (!token.IsKind(SyntaxKind.IfKeyword))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Move 'if' to a new line",
-                    cancellationToken => MoveAsync(context.Document, root, token, cancellationToken),
-                    equivalenceKey: nameof(Sst1146ConditionalOnNewLineCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
         if (!token.IsKind(SyntaxKind.IfKeyword))
@@ -56,18 +44,6 @@ public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
         }
 
         changes.Add(BuildChange(text, token));
-    }
-
-    /// <summary>Replaces the <c>if</c> keyword's separating whitespace with a newline.</summary>
-    /// <param name="document">The document to update.</param>
-    /// <param name="root">The current syntax root.</param>
-    /// <param name="token">The <c>if</c> keyword.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> MoveAsync(Document document, SyntaxNode root, SyntaxToken token, CancellationToken cancellationToken)
-    {
-        var text = await root.SyntaxTree.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return document.WithText(text.WithChanges(BuildChange(text, token)));
     }
 
     /// <summary>Builds the change that replaces the <c>if</c> keyword's separating whitespace with a newline plus indentation.</summary>

@@ -45,6 +45,14 @@ internal static class LanguageVersions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool SupportsCSharp15(SyntaxNode node) => IsAtLeast(node, CSharp15Version);
 
+    /// <summary>Gets whether a node's tree was parsed with at least a version the floor compiler already names.</summary>
+    /// <param name="node">The syntax node.</param>
+    /// <param name="version">The required version.</param>
+    /// <returns><see langword="true"/> when the tree was parsed as <paramref name="version"/> or later, including <c>preview</c>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+
     /// <summary>Resolves a version by the name the compiler and project files spell it with.</summary>
     /// <param name="text">The version text, such as <c>15.0</c>.</param>
     /// <returns>The version, or <see langword="null"/> when the host compiler has no such version.</returns>

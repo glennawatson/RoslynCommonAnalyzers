@@ -79,7 +79,7 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     private static bool IsSingleLiteralConstruction(ObjectCreationExpressionSyntax creation, out LiteralExpressionSyntax? patternLiteral)
     {
         patternLiteral = null;
-        if (GetSimpleName(creation.Type) != RegexTypeName
+        if (SyntaxNames.GetSimpleName(creation.Type) != RegexTypeName
             || creation.Initializer is not null
             || creation.ArgumentList is not { Arguments.Count: 1 } arguments
             || arguments.Arguments[0].Expression is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal)
@@ -171,8 +171,12 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     {
         var name = CreateMethodName(typeDeclaration);
         var callAnnotation = new SyntaxAnnotation();
-        var call = SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name))
-            .WithTriviaFrom(creation)
+        var call = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(creation.GetLeadingTrivia(), name, default)),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                    arguments: default,
+                    SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, creation.GetTrailingTrivia())))
             .WithAdditionalAnnotations(callAnnotation);
 
         var rootWithCall = root.ReplaceNode(creation, call);
@@ -212,14 +216,21 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
             SyntaxFactory.AttributeArgumentList(SyntaxFactory.SingletonSeparatedList(attributeArgument)));
         var attributeList = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(attribute));
 
-        return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(RegexTypeName), SyntaxFactory.Identifier(name))
-            .WithAttributeLists(SyntaxFactory.SingletonList(attributeList))
-            .WithModifiers(SyntaxFactory.TokenList(
-                SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
-                SyntaxFactory.Token(SyntaxKind.StaticKeyword),
-                SyntaxFactory.Token(SyntaxKind.PartialKeyword)))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-            .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed)
+        return SyntaxFactory.MethodDeclaration(
+                SyntaxFactory.SingletonList(attributeList.WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed)),
+                SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
+                    SyntaxFactory.Token(SyntaxKind.StaticKeyword),
+                    SyntaxFactory.Token(SyntaxKind.PartialKeyword)),
+                SyntaxFactory.IdentifierName(RegexTypeName),
+                explicitInterfaceSpecifier: null,
+                SyntaxFactory.Identifier(name),
+                typeParameterList: null,
+                SyntaxFactory.ParameterList(),
+                constraintClauses: default,
+                body: null,
+                expressionBody: null,
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithAdditionalAnnotations(Formatter.Annotation);
     }
 
@@ -235,11 +246,9 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
 
         if (type.Modifiers.Count == 0)
         {
-            var keyword = type.Keyword;
-            var partial = SyntaxFactory.Token(SyntaxKind.PartialKeyword)
-                .WithLeadingTrivia(keyword.LeadingTrivia)
-                .WithTrailingTrivia(SyntaxFactory.Space);
-            return type.WithKeyword(keyword.WithLeadingTrivia()).WithModifiers(SyntaxFactory.TokenList(partial));
+            // The declaration's leading trivia moves from the keyword onto the modifier that now leads it.
+            var partial = SyntaxFactory.Token(type.Keyword.LeadingTrivia, SyntaxKind.PartialKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+            return TypeDeclarationRewrite.WithHead(type, SyntaxFactory.TokenList(partial), type.Keyword.WithLeadingTrivia()) ?? type;
         }
 
         var partialToken = SyntaxFactory.Token(default, SyntaxKind.PartialKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
@@ -304,15 +313,4 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
             _ = names.Add(variable.Identifier.ValueText);
         }
     }
-
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
 }

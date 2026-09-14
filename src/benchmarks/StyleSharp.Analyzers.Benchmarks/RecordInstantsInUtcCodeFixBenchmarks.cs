@@ -34,7 +34,7 @@ public class RecordInstantsInUtcCodeFixBenchmarks : IDisposable
     private MemberAccessExpressionSyntax _access = null!;
 
     /// <summary>The UTC replacement built for the representative clock read.</summary>
-    private MemberAccessExpressionSyntax _replacement = null!;
+    private SyntaxNode _replacement = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -59,8 +59,7 @@ public class RecordInstantsInUtcCodeFixBenchmarks : IDisposable
 
         var model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var diagnostic = Diagnostic.Create(ModernizationRules.RecordInstantsInUtc, _access.GetLocation(), "DateTime.Now");
-        _ = Sst2011RecordInstantsInUtcCodeFixProvider.TryBuildReplacement(_root, model, diagnostic, out _, out var replacement);
-        _replacement = replacement!;
+        _replacement = Sst2011RecordInstantsInUtcCodeFixProvider.TryRewrite(_root, model, diagnostic)?.Replacement!;
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
@@ -80,7 +79,7 @@ public class RecordInstantsInUtcCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> RecordInstantsInUtc_ApplyFixAsync()
     {
-        var updated = Sst2011RecordInstantsInUtcCodeFixProvider.Apply(_document, _root, _access, _replacement);
+        var updated = _document.WithSyntaxRoot(_root.ReplaceNode(_access, _replacement));
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

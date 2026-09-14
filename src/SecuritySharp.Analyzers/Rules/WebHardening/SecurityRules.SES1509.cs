@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1509 — a backtracking-prone regular expression runs with no match-timeout bound.</summary>
-    public static readonly DiagnosticDescriptor BacktrackingRegexWithoutTimeout = Create(
+    public static readonly DiagnosticDescriptor BacktrackingRegexWithoutTimeout = DescriptorFactory.Create(
         "SES1509",
         "Backtracking-prone regular expression has no match timeout",
         "The regular expression passed to '{0}' has a nested or overlapping quantifier and no match timeout, so a crafted input can force catastrophic backtracking and hang the thread (ReDoS)",

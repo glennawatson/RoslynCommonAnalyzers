@@ -31,14 +31,14 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The name of the <c>BindingFlags</c> member whose bit selects non-public members.</summary>
+    private const string NonPublicFieldName = "NonPublic";
+
     /// <summary>The metadata name of the type that hosts the reflection member-lookup methods.</summary>
     private const string TypeMetadataName = "System.Type";
 
     /// <summary>The metadata name of the flags enum that selects which members a lookup reaches.</summary>
     private const string BindingFlagsMetadataName = "System.Reflection.BindingFlags";
-
-    /// <summary>The name of the <c>BindingFlags</c> member whose bit selects non-public members.</summary>
-    private const string NonPublicFieldName = "NonPublic";
 
     /// <summary>The <c>System.Type</c> member-lookup method names that accept a <c>BindingFlags</c> argument.</summary>
     private static readonly HashSet<string> MemberLookupNames = new(StringComparer.Ordinal)
@@ -61,6 +61,13 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonPublicReflection);
 
+    /// <summary>The metadata names ReflectionTypes resolves, in slot order.</summary>
+    private static readonly string[] ReflectionTypesMetadataNames =
+    [
+        TypeMetadataName,
+        BindingFlagsMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -70,23 +77,17 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // The keyed types anchor the match rather than a suggested API, and BindingFlags is present on
-            // every target framework, so they are resolved once and passed through: when a symbol is absent
-            // the comparisons below simply never match and the rule stays silent, avoiding a dead early-return.
-            var bindingFlagsType = start.Compilation.GetTypeByMetadataName(BindingFlagsMetadataName);
-            var typeType = start.Compilation.GetTypeByMetadataName(TypeMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, typeType, bindingFlagsType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, ReflectionTypesMetadataNames),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1406 when a <c>System.Type</c> member lookup passes a constant <c>BindingFlags</c> that includes <c>NonPublic</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="typeType">The resolved <c>System.Type</c> type, or <see langword="null"/> when absent.</param>
-    /// <param name="bindingFlagsType">The resolved <c>System.Reflection.BindingFlags</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeType, INamedTypeSymbol? bindingFlagsType)
+    /// <param name="reflectionTypes">The lazily resolved reflection types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataTypes reflectionTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -99,6 +100,9 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var types = reflectionTypes.Get();
+        var typeType = types[0];
+        var bindingFlagsType = types[1];
         if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation call
             || !SymbolEqualityComparer.Default.Equals(call.TargetMethod.ContainingType, typeType)
             || !HasNonPublicFlagsArgument(context.SemanticModel, call, bindingFlagsType, context.CancellationToken))

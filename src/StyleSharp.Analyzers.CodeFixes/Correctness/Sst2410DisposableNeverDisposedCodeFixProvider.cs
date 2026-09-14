@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,22 +12,29 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2410DisposableNeverDisposedCodeFixProvider))]
 [Shared]
-public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.DisposableNeverDisposed.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Dispose with a using declaration", nameof(Sst2410DisposableNeverDisposedCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Dispose with a using declaration", nameof(Sst2410DisposableNeverDisposedCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        TryGetStatement(root, diagnostic)is { } statement
+            && RequiresAwait(model, statement)is { };
 
     /// <summary>Resolves the reported local and builds its using-declaration replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -81,31 +86,13 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
         }
 
         var asyncDisposable = model.Compilation.GetTypeByMetadataName("System.IAsyncDisposable");
-        if (asyncDisposable is not null && Implements(created, asyncDisposable) && IsInAsyncBody(statement))
+        if (asyncDisposable is not null && TypeRelations.Implements(created, asyncDisposable) && IsInAsyncBody(statement))
         {
             return true;
         }
 
         var disposable = model.Compilation.GetTypeByMetadataName("System.IDisposable");
-        return disposable is not null && Implements(created, disposable) ? false : null;
-    }
-
-    /// <summary>Returns whether a type implements the given interface.</summary>
-    /// <param name="type">The created type.</param>
-    /// <param name="interfaceType">The disposal interface.</param>
-    /// <returns><see langword="true"/> when the type implements it.</returns>
-    private static bool Implements(ITypeSymbol type, INamedTypeSymbol interfaceType)
-    {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return disposable is not null && TypeRelations.Implements(created, disposable) ? false : null;
     }
 
     /// <summary>Returns whether the statement sits in a body where <c>await</c> compiles.</summary>
@@ -144,13 +131,20 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
         var declaration = statement.Declaration.WithoutLeadingTrivia();
 
         var updated = needsAwait
-            ? statement
-                .WithAwaitKeyword(SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithLeadingTrivia(leading).WithTrailingTrivia(SyntaxFactory.Space))
-                .WithUsingKeyword(usingKeyword)
-                .WithDeclaration(declaration)
-            : statement
-                .WithUsingKeyword(usingKeyword.WithLeadingTrivia(leading))
-                .WithDeclaration(declaration);
+            ? statement.Update(
+                statement.AttributeLists,
+                SyntaxFactory.Token(leading, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                usingKeyword,
+                statement.Modifiers,
+                declaration,
+                statement.SemicolonToken)
+            : statement.Update(
+                statement.AttributeLists,
+                statement.AwaitKeyword,
+                usingKeyword.WithLeadingTrivia(leading),
+                statement.Modifiers,
+                declaration,
+                statement.SemicolonToken);
 
         return updated.WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }

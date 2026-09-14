@@ -45,18 +45,13 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var loggerExtensions = start.Compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions");
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, loggerExtensions), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeConcatenation(nodeContext, loggerExtensions), SyntaxKind.AddExpression);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeInvocation(nodeContext), SyntaxKind.InvocationExpression);
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeConcatenation(nodeContext), SyntaxKind.AddExpression);
     }
 
     /// <summary>Reports a composite <c>string.Format</c> call that can be an interpolated string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="loggerExtensions">The resolved logging-extensions type, or <see langword="null"/> when it is not referenced.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!SupportsInterpolation(invocation.SyntaxTree))
@@ -75,7 +70,7 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
             : InterpolatedStringConversion.TryConvertConcat(context.SemanticModel, invocation, context.CancellationToken);
 
         if (converted is null
-            || IsLoggingTemplateArgument(context.SemanticModel, invocation, loggerExtensions, context.CancellationToken)
+            || IsLoggingTemplateArgument(context.SemanticModel, invocation, context.CancellationToken)
             || !RewrittenLineFits(context, invocation, converted))
         {
             return;
@@ -89,14 +84,13 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a literal-plus-value concatenation that can be an interpolated string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="loggerExtensions">The resolved logging-extensions type, or <see langword="null"/> when it is not referenced.</param>
-    private static void AnalyzeConcatenation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
+    private static void AnalyzeConcatenation(in SyntaxNodeAnalysisContext context)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!SupportsInterpolation(binary.SyntaxTree)
             || !InterpolatedStringConversion.IsConcatenationCandidate(binary)
             || InterpolatedStringConversion.TryConvertConcatenation(context.SemanticModel, binary, context.CancellationToken) is not { } converted
-            || IsLoggingTemplateArgument(context.SemanticModel, binary, loggerExtensions, context.CancellationToken)
+            || IsLoggingTemplateArgument(context.SemanticModel, binary, context.CancellationToken)
             || !RewrittenLineFits(context, binary, converted))
         {
             return;
@@ -137,20 +131,14 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the structured-logging message template of a logging call.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="candidate">The convertible expression being considered for a diagnostic.</param>
-    /// <param name="loggerExtensions">The resolved logging-extensions type, or <see langword="null"/> when it is not referenced.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>
     /// <see langword="true"/> when the expression is the <c>message</c> argument of a logging-extensions call.
     /// Rewriting such a template to an interpolated string discards the named placeholders the structured logger
     /// records, so the suggestion is withheld there; a value passed among the log's format arguments is not affected.
     /// </returns>
-    private static bool IsLoggingTemplateArgument(SemanticModel model, ExpressionSyntax candidate, INamedTypeSymbol? loggerExtensions, CancellationToken cancellationToken)
+    private static bool IsLoggingTemplateArgument(SemanticModel model, ExpressionSyntax candidate, CancellationToken cancellationToken)
     {
-        if (loggerExtensions is null)
-        {
-            return false;
-        }
-
         SyntaxNode node = candidate;
         while (node.Parent is ParenthesizedExpressionSyntax parenthesized)
         {
@@ -163,7 +151,8 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (model.GetSymbolInfo(outer, cancellationToken).Symbol is not IMethodSymbol method
+        if (model.Compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions") is not { } loggerExtensions
+            || model.GetSymbolInfo(outer, cancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, loggerExtensions)
             || model.GetOperation(outer, cancellationToken) is not IInvocationOperation invocationOperation)
         {

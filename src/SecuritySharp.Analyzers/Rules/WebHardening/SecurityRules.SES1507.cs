@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1507 — a declaration carries both <c>[AllowAnonymous]</c> and <c>[Authorize]</c>.</summary>
-    public static readonly DiagnosticDescriptor ConflictingAnonymousAuthorization = Create(
+    public static readonly DiagnosticDescriptor ConflictingAnonymousAuthorization = DescriptorFactory.Create(
         "SES1507",
         "AllowAnonymous and Authorize on the same declaration conflict",
         "The '[Authorize]' on this {0} has no effect: a co-located '[AllowAnonymous]' overrides it at runtime, so the {0} is not authorized",

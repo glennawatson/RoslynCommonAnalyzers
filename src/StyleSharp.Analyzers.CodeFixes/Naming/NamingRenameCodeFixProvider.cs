@@ -23,12 +23,11 @@ public sealed class NamingRenameCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
+        if (!context.Document.SupportsSyntaxTree)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         foreach (var diagnostic in context.Diagnostics)
@@ -38,15 +37,15 @@ public sealed class NamingRenameCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Rename to '{newName}'",
-                    cancellationToken => RenameAsync(context.Document, node, newName!, cancellationToken),
+                    cancellationToken => RenameAsync(context.Document, diagnostic, newName!, cancellationToken),
                     equivalenceKey: nameof(NamingRenameCodeFixProvider)),
                 diagnostic);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>Renames the declared symbol at <paramref name="node"/> to <paramref name="newName"/> across the solution.</summary>
@@ -65,5 +64,23 @@ public sealed class NamingRenameCodeFixProvider : CodeFixProvider
             : await Renamer
                 .RenameSymbolAsync(solution, symbol, default, newName, cancellationToken)
                 .ConfigureAwait(false);
+    }
+
+    /// <summary>Resolves the declaration only when the rename action is invoked.</summary>
+    /// <param name="document">The document containing the declaration.</param>
+    /// <param name="diagnostic">The diagnostic identifying the declaration.</param>
+    /// <param name="newName">The replacement name.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The updated solution.</returns>
+    private static async Task<Solution> RenameAsync(Document document, Diagnostic diagnostic, string newName, CancellationToken cancellationToken)
+    {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return document.Project.Solution;
+        }
+
+        var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+        return await RenameAsync(document, node, newName, cancellationToken).ConfigureAwait(false);
     }
 }

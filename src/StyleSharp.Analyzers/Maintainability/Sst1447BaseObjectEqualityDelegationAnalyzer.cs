@@ -68,7 +68,7 @@ public sealed class Sst1447BaseObjectEqualityDelegationAnalyzer : DiagnosticAnal
         // Only report when the base call is the whole result of the member. A guarded fast path
         // (the base call sits in an 'if' condition or an '&&'/'||' operand while the member does more)
         // is a valid reference-equality shortcut against an object base, so it is left alone.
-        if (!IsWholeResult(invocation))
+        if (!MemberResult.IsWholeResult(invocation))
         {
             return;
         }
@@ -78,25 +78,6 @@ public sealed class Sst1447BaseObjectEqualityDelegationAnalyzer : DiagnosticAnal
             invocation.GetLocation(),
             enclosingName,
             memberName));
-    }
-
-    /// <summary>Returns whether the base call is the entire value the member yields.</summary>
-    /// <param name="invocation">The base equality invocation.</param>
-    /// <returns><see langword="true"/> when the call is the member's expression body or a returned expression.</returns>
-    private static bool IsWholeResult(InvocationExpressionSyntax invocation)
-    {
-        SyntaxNode node = invocation;
-        while (node.Parent is ParenthesizedExpressionSyntax parenthesized)
-        {
-            node = parenthesized;
-        }
-
-        return node.Parent switch
-        {
-            ArrowExpressionClauseSyntax arrow => arrow.Expression == node,
-            ReturnStatementSyntax returnStatement => returnStatement.Expression == node,
-            _ => false,
-        };
     }
 
     /// <summary>Returns whether an invocation is <c>base.Equals(x)</c> or <c>base.GetHashCode()</c>.</summary>

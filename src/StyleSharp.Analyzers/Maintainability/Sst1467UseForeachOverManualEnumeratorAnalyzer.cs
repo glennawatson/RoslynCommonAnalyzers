@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,12 +16,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>Cached visitor that validates every enumerator use inside the loop body.</summary>
-    private static readonly DescendantTraversalHelper.DescendantVisitor<SyntaxNode, BodyScanState> BodyVisitor = VisitBodyNode;
-
-    /// <summary>Cached visitor that finds an enumerator use in a statement after the loop.</summary>
-    private static readonly DescendantTraversalHelper.DescendantVisitor<IdentifierNameSyntax, LaterUseState> LaterUseVisitor = VisitLaterUse;
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.UseForeachOverManualEnumerator);
 
@@ -91,12 +87,9 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <param name="whileStatement">The while statement.</param>
     /// <param name="name">The enumerator local's name.</param>
     /// <returns><see langword="true"/> when the body never uses the enumerator for anything a foreach cannot express.</returns>
-    internal static bool HasForeachCompatibleBody(WhileStatementSyntax whileStatement, string name)
-    {
-        var state = new BodyScanState(name, Valid: true);
-        _ = DescendantTraversalHelper.VisitDescendants(whileStatement.Statement, ref state, BodyVisitor);
-        return state.Valid;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasForeachCompatibleBody(WhileStatementSyntax whileStatement, string name) =>
+        DescendantTraversalHelper.VisitDescendants<SyntaxNode, string>(whileStatement.Statement, ref name, VisitBodyNode);
 
     /// <summary>Returns whether the enumerator name appears in any statement after the loop in the enclosing block.</summary>
     /// <param name="whileStatement">The while statement.</param>
@@ -112,9 +105,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
         var index = statements.IndexOf(whileStatement);
         for (var i = index + 1; i < statements.Count; i++)
         {
-            var state = new LaterUseState(name, Found: false);
-            _ = DescendantTraversalHelper.VisitDescendants(statements[i], ref state, LaterUseVisitor);
-            if (state.Found)
+            if (IdentifierReferences.MentionsName(statements[i], name))
             {
                 return true;
             }
@@ -206,31 +197,14 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
         return true;
     }
 
-    /// <summary>Validates one body node: enumerator mentions must be <c>Current</c> reads and the name must not be redeclared.</summary>
+    /// <summary>Continues the walk past a node that neither redeclares the enumerator nor uses it as anything but a <c>Current</c> read.</summary>
     /// <param name="node">The visited syntax node.</param>
-    /// <param name="state">The body scan state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once the body is known incompatible.</returns>
-    private static bool VisitBodyNode(SyntaxNode node, ref BodyScanState state)
-    {
-        if (node is IdentifierNameSyntax identifier)
-        {
-            if (string.Equals(identifier.Identifier.ValueText, state.Name, StringComparison.Ordinal) && !IsCurrentReadAccess(identifier))
-            {
-                state = state with { Valid = false };
-                return false;
-            }
-
-            return true;
-        }
-
-        if (!DeclaresName(node, state.Name))
-        {
-            return true;
-        }
-
-        state = state with { Valid = false };
-        return false;
-    }
+    /// <param name="name">The enumerator local's name.</param>
+    /// <returns><see langword="false"/> once the body is known incompatible, which stops the walk.</returns>
+    private static bool VisitBodyNode(SyntaxNode node, ref string name) =>
+        node is IdentifierNameSyntax identifier
+            ? !string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal) || IsCurrentReadAccess(identifier)
+            : !DeclaresName(node, name);
 
     /// <summary>Returns whether an identifier is the receiver of a read-only <c>Current</c> member access.</summary>
     /// <param name="identifier">The identifier to inspect.</param>
@@ -246,7 +220,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <returns><see langword="true"/> when the access can be replaced by a foreach iteration variable.</returns>
     private static bool IsReadOnlyUse(MemberAccessExpressionSyntax memberAccess)
     {
-        if (IsAssignmentTarget(memberAccess))
+        if (FieldReferenceAnalysis.IsDeconstructionTarget(memberAccess))
         {
             return false;
         }
@@ -281,35 +255,12 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     private static bool IsByValueArgument(ArgumentSyntax argument) =>
         !argument.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword) && !argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword);
 
-    /// <summary>Returns whether an expression is an assignment target, directly or through tuple deconstruction.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> when the expression is written to.</returns>
-    private static bool IsAssignmentTarget(ExpressionSyntax expression)
-    {
-        SyntaxNode node = expression;
-        while (node.Parent is ArgumentSyntax { Parent: TupleExpressionSyntax tuple })
-        {
-            node = tuple;
-        }
-
-        return node.Parent is AssignmentExpressionSyntax assignment && assignment.Left == node;
-    }
-
     /// <summary>Returns whether a node declares the enumerator name inside the loop body.</summary>
     /// <param name="node">The node to inspect.</param>
     /// <param name="name">The enumerator local's name.</param>
     /// <returns><see langword="true"/> when the node redeclares the name.</returns>
-    private static bool DeclaresName(SyntaxNode node, string name) =>
-        node switch
-        {
-            ParameterSyntax parameter => Matches(parameter.Identifier, name),
-            VariableDeclaratorSyntax variable => Matches(variable.Identifier, name),
-            ForEachStatementSyntax forEach => Matches(forEach.Identifier, name),
-            CatchDeclarationSyntax catchDeclaration => Matches(catchDeclaration.Identifier, name),
-            SingleVariableDesignationSyntax designation => Matches(designation.Identifier, name),
-            LocalFunctionStatementSyntax localFunction => Matches(localFunction.Identifier, name),
-            _ => false
-        };
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool DeclaresName(SyntaxNode node, string name) => Matches(DeclarationIdentifier.Of(node), name);
 
     /// <summary>Returns whether an identifier token carries the enumerator name.</summary>
     /// <param name="identifier">The identifier token.</param>
@@ -317,29 +268,4 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <returns><see langword="true"/> when the token matches.</returns>
     private static bool Matches(SyntaxToken identifier, string name) =>
         identifier.RawKind != 0 && string.Equals(identifier.ValueText, name, StringComparison.Ordinal);
-
-    /// <summary>Records an enumerator use after the loop.</summary>
-    /// <param name="identifier">The visited identifier.</param>
-    /// <param name="state">The later-use search state.</param>
-    /// <returns><see langword="true"/> to continue scanning, or <see langword="false"/> once a use is found.</returns>
-    private static bool VisitLaterUse(IdentifierNameSyntax identifier, ref LaterUseState state)
-    {
-        if (!string.Equals(identifier.Identifier.ValueText, state.Name, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        state = state with { Found = true };
-        return false;
-    }
-
-    /// <summary>Tracks whether the loop body has stayed foreach-compatible.</summary>
-    /// <param name="Name">The enumerator local's name.</param>
-    /// <param name="Valid">Whether every use seen so far is a <c>Current</c> read.</param>
-    private readonly record struct BodyScanState(string Name, bool Valid);
-
-    /// <summary>Tracks the search for an enumerator use after the loop.</summary>
-    /// <param name="Name">The enumerator local's name.</param>
-    /// <param name="Found">Whether a later use was found.</param>
-    private readonly record struct LaterUseState(string Name, bool Found);
 }

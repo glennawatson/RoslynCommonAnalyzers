@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1211RemoveIntermediateToStringAnalyzer,
@@ -158,6 +159,118 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
                                    }
                                    """;
         await VerifyAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies consumers without a compatible direct overload keep the string conversion.</summary>
+    /// <param name="members">The members defining the consumer and conversion.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("string M(int value) => value.ToString();")]
+    [Arguments("void M(string value) => Use(value.ToString()); void Use(string value) { } void Use(int value) { }")]
+    [Arguments("void M<T>(T value) => Use(value.ToString()); void Use(string value) { } void Use(int value) { }")]
+    [Arguments("void M(dynamic value) => Use(value.ToString()); void Use(string value) { } void Use(int value) { }")]
+    [Arguments("void M(int value) => Use(text: value.ToString()); void Use(string text) { } void Use(int text) { }")]
+    [Arguments("void M(int value) => Use(value.ToString()); void Use(object value) { } void Use(int value) { }")]
+    [Arguments("void M(int value) => Use(\"first\", value.ToString()); void Use(params string[] values) { }")]
+    [Arguments("void M(int value) => Use(value.ToString()); void Use(string value) { } void Use(object value) { }")]
+    [Arguments("void M(int value) => Use(value.ToString(), 1); void Use(string value, int other) { } void Use(int value, string other) { }")]
+    [Arguments("void M(int value) => Use(value.ToString()); void Use(string value) { } void Use(System.IFormattable value) { }")]
+    [Arguments("void M(int value) => Use(value.ToString()); void Use(string value) { } void Use<T>(int value) { }")]
+    [Arguments("void M(int value) => Use(value.ToString()); void Use(string value) { } static void Use(int value) { }")]
+    [Arguments("void M(int value) => Use(value.ToString()); void Use(string value) { } void Use(int value, int other) { }")]
+    [Arguments("void M(int value) => new System.Text.StringBuilder().Append(value.ToString());")]
+    [Arguments("System.FormattableString M(int value) => $\"Value: {value.ToString()}\";")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task IncompatibleConsumersAreSilentAsync(string members) => VerifyAsync($"class C {{ {members} }}");
+
+    /// <summary>Verifies extension calls and user-defined conversions are not substituted.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ExtensionAndUserDefinedConversionsAreSilentAsync() => VerifyAsync(
+        """
+        class C
+        {
+            void M(int value, Value custom)
+            {
+                this.Use(value.ToString());
+                Extensions.Use(this, value.ToString());
+                Consume(custom.ToString());
+            }
+            void Consume(string text) { }
+            void Consume(int value) { }
+        }
+        struct Value
+        {
+            public static implicit operator int(Value value) => 0;
+        }
+        static class Extensions
+        {
+            public static void Use(this C receiver, string value) { }
+            public static void Use(this C receiver, int value) { }
+        }
+        """);
+
+    /// <summary>Verifies unmatched symbols are ignored while binding incomplete code.</summary>
+    /// <param name="statement">The incomplete consumer invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Missing(value.ToString());")]
+    [Arguments("Use(unknown.ToString());")]
+    [Arguments("Use((null).ToString());")]
+    public async Task UnresolvedConsumersAreSilentAsync(string statement)
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            TestCode = $"class C {{ void M(int value) {{ {statement} }} void Use(string text) {{ }} void Use(int value) {{ }} }}",
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies matching surrounding parameters permit a numeric widening overload.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MatchingParametersAndNumericConversionAreFixedAsync() => VerifyAsync(
+        """
+        class C
+        {
+            void M(int value) => Use(1, {|PSH1211:value.ToString()|}, true);
+            void Use(int first, string value, bool last) { }
+            void Use(int first, long value, bool last) { }
+        }
+        """,
+        """
+        class C
+        {
+            void M(int value) => Use(1, value, true);
+            void Use(int first, string value, bool last) { }
+            void Use(int first, long value, bool last) { }
+        }
+        """);
+
+    /// <summary>Verifies a nullable value can use a matching nullable overload directly.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NullableReceiverWithDirectOverloadIsFixedAsync() => VerifyAsync(
+        "class C { void M(int? value) => Use({|PSH1211:value.ToString()|}); void Use(string value) { } void Use(int? value) { } }",
+        "class C { void M(int? value) => Use(value); void Use(string value) { } void Use(int? value) { } }");
+
+    /// <summary>Verifies ordinary values can be formatted without a handler on older frameworks.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ValueHoleWithoutHandlerIsFixedAsync()
+    {
+        var test = new Verify.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.NetStandard20,
+            TestCode = "class C { string M(int value) => $\"Value: {{|PSH1211:value.ToString()|}}\"; }",
+            FixedCode = "class C { string M(int value) => $\"Value: {value}\"; }",
+        };
+        await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>

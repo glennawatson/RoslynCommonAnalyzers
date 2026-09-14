@@ -33,38 +33,16 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<UsingDirectiveSyntax>()?.Parent is not { } container)
-            {
-                continue;
-            }
-
-            // The sort reassigns each slot's trivia by position, which would scramble any
-            // conditional compilation directives (#if/#elif/#else/#endif) living in the using
-            // block. Those usings cannot be reordered across branches anyway, so don't offer the
-            // fix when the block spans conditional directives — matching the member-ordering fix.
-            if (UsingsSpanDirectives(Usings(container)))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Sort using directives",
-                    cancellationToken => SortAsync(context.Document, container, cancellationToken),
-                    equivalenceKey: nameof(UsingSortCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Sort using directives",
+            nameof(UsingSortCodeFixProvider),
+            static (root, diagnostic) => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<UsingDirectiveSyntax>()?.Parent is { } container
+                && !UsingsSpanDirectives(Usings(container))
+                ? container
+                : null,
+            SortAsync);
 
     /// <summary>Sorts the container's using directives, keeping each slot's trivia.</summary>
     /// <param name="document">The document to fix.</param>
@@ -99,9 +77,25 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            ordered[index] = directive
-                .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia());
+            var globalKeyword = directive.GlobalKeyword;
+            var usingKeyword = directive.UsingKeyword;
+            if (globalKeyword.RawKind != 0)
+            {
+                globalKeyword = globalKeyword.WithLeadingTrivia(original[index].GetLeadingTrivia());
+            }
+            else
+            {
+                usingKeyword = usingKeyword.WithLeadingTrivia(original[index].GetLeadingTrivia());
+            }
+
+            ordered[index] = directive.Update(
+                globalKeyword,
+                usingKeyword,
+                directive.StaticKeyword,
+                directive.UnsafeKeyword,
+                directive.Alias,
+                directive.NamespaceOrType,
+                directive.SemicolonToken.WithTrailingTrivia(original[index].GetTrailingTrivia()));
         }
 
         var newContainer = WithUsings(container, SyntaxFactory.List(ordered));

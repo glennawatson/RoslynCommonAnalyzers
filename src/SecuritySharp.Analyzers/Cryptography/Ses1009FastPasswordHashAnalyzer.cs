@@ -14,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// to brute-force even when salted, so passwords need a deliberately slow KDF (<c>Rfc2898DeriveBytes</c>/
 /// <c>Pbkdf2</c>, Argon2, and the like); this is orthogonal to the iteration-count check, which only governs a
 /// KDF's work factor. Detection is a high-precision name-and-API heuristic: hashing arbitrary, non-password
-/// data is never reported. The rule resolves the fast-hash types once per compilation and registers nothing
-/// when none are present, so a target framework without them pays nothing.
+/// data is never reported. The rule resolves the fast-hash types only after a hashing call with a
+/// password-named input survives the syntactic prefilter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
@@ -61,24 +61,12 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // Gate the whole rule on the fast-hash types resolving: on a framework without them nothing is
-            // registered and the clean path costs nothing.
-            var fastHashTypes = ResolveFastHashTypes(start.Compilation);
-            if (fastHashTypes.Length == 0)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, fastHashTypes), SyntaxKind.InvocationExpression);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeInvocation(nodeContext), SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1009 for a fast-hash <c>HashData</c>/<c>ComputeHash</c> call over a password-named input.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="fastHashTypes">The gated fast-hash types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] fastHashTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -102,6 +90,12 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var fastHashTypes = MetadataTypeLookup.ResolveAll(context.Compilation, FastHashMetadataNames);
+        if (fastHashTypes.Length == 0)
+        {
+            return;
+        }
+
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
         {
             return;
@@ -114,7 +108,7 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
             ? method.ContainingType
             : context.SemanticModel.GetTypeInfo(member.Expression, context.CancellationToken).Type;
 
-        if (!IsFastHashType(hashType, fastHashTypes))
+        if (!TypeRelations.IsOneOf(hashType, fastHashTypes))
         {
             return;
         }
@@ -126,23 +120,6 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
             passwordName));
     }
 
-    /// <summary>Resolves the fast-hash types present in the compilation, in declared order.</summary>
-    /// <param name="compilation">The compilation being analyzed.</param>
-    /// <returns>The resolved fast-hash types; empty when none are present.</returns>
-    private static INamedTypeSymbol[] ResolveFastHashTypes(Compilation compilation)
-    {
-        var resolved = new List<INamedTypeSymbol>(FastHashMetadataNames.Length);
-        for (var i = 0; i < FastHashMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(FastHashMetadataNames[i]) is { } type)
-            {
-                resolved.Add(type);
-            }
-        }
-
-        return [.. resolved];
-    }
-
     /// <summary>Returns the password-signalling name of a hashed input, or <see langword="null"/>.</summary>
     /// <param name="input">The first argument passed to the hashing method.</param>
     /// <returns>The matching password name, or <see langword="null"/> when the input does not read as a password.</returns>
@@ -151,7 +128,7 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
         // 'Encoding.GetBytes(password)' carries the password name on the encoded value, not the GetBytes call.
         var candidate = UnwrapEncodingGetBytes(input);
         var name = GetSymbolName(candidate);
-        return name is not null && ContainsPasswordFragment(name) ? name : null;
+        return name is not null && TextFragments.ContainsAny(name, PasswordNameFragments, StringComparison.OrdinalIgnoreCase) ? name : null;
     }
 
     /// <summary>Unwraps a <c>*.GetBytes(x)</c> call to its first argument so the encoded value's name is inspected.</summary>
@@ -173,37 +150,4 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
         InvocationExpressionSyntax invocation => GetSymbolName(invocation.Expression),
         _ => null,
     };
-
-    /// <summary>Returns whether a name contains any password fragment, case-insensitively and without allocating.</summary>
-    /// <param name="name">The candidate name.</param>
-    /// <returns><see langword="true"/> when the name contains a password fragment.</returns>
-    private static bool ContainsPasswordFragment(string name)
-    {
-        for (var i = 0; i < PasswordNameFragments.Length; i++)
-        {
-            if (name.IndexOf(PasswordNameFragments[i], StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is exactly one of the gated fast-hash types.</summary>
-    /// <param name="type">The candidate algorithm type.</param>
-    /// <param name="fastHashTypes">The gated fast-hash types.</param>
-    /// <returns><see langword="true"/> when the type is a fast, general-purpose hash.</returns>
-    private static bool IsFastHashType(ITypeSymbol? type, INamedTypeSymbol[] fastHashTypes)
-    {
-        for (var i = 0; i < fastHashTypes.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(type, fastHashTypes[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

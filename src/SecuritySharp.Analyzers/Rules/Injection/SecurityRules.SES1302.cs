@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1302 — a shell-executed process is launched with a non-constant filename.</summary>
-    public static readonly DiagnosticDescriptor ShellExecuteFileName = Create(
+    public static readonly DiagnosticDescriptor ShellExecuteFileName = DescriptorFactory.Create(
         "SES1302",
         "A shell-executed process must not use a non-constant FileName",
         "'UseShellExecute' is true while 'FileName' is a non-constant value; the OS shell resolves and parses the filename, so a data-derived value is a command-injection and unexpected-program risk",

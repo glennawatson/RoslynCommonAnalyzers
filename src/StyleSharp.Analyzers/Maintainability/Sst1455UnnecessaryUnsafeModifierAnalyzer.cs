@@ -43,7 +43,7 @@ public sealed class Sst1455UnnecessaryUnsafeModifierAnalyzer : DiagnosticAnalyze
     {
         if (context.Node is not MemberDeclarationSyntax declaration
             || !TryGetUnsafeModifier(declaration.Modifiers, out var unsafeModifier)
-            || ContainsUnsafeSyntax(declaration))
+            || UnsafeContextSyntax.Contains(declaration))
         {
             return;
         }
@@ -71,33 +71,4 @@ public sealed class Sst1455UnnecessaryUnsafeModifierAnalyzer : DiagnosticAnalyze
         unsafeModifier = default;
         return false;
     }
-
-    /// <summary>Returns whether the declaration contains syntax that requires an unsafe context.</summary>
-    /// <param name="declaration">The declaration.</param>
-    /// <returns><see langword="true"/> when unsafe syntax is present.</returns>
-    private static bool ContainsUnsafeSyntax(MemberDeclarationSyntax declaration)
-    {
-        foreach (var node in declaration.DescendantNodes())
-        {
-            if (RequiresUnsafeContext(node))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a node is an unsafe-only syntax form.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <returns><see langword="true"/> for pointer and unsafe statement forms.</returns>
-    private static bool RequiresUnsafeContext(SyntaxNode node) =>
-        node.Kind() is SyntaxKind.PointerType
-            or SyntaxKind.FunctionPointerType
-            or SyntaxKind.FixedStatement
-            or SyntaxKind.SizeOfExpression
-            or SyntaxKind.PointerIndirectionExpression
-            or SyntaxKind.PointerMemberAccessExpression
-            or SyntaxKind.AddressOfExpression
-            or SyntaxKind.UnsafeStatement;
 }

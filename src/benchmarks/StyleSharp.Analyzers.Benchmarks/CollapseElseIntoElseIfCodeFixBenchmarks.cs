@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -66,7 +67,7 @@ public class CollapseElseIntoElseIfCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> CollapseElseIntoElseIf_ApplyFixAsync()
     {
-        var updated = Sst1465CollapseElseIntoElseIfCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst1465CollapseElseIntoElseIfCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -4,7 +4,6 @@
 
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -18,45 +17,31 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1120CommentContentCodeFixProvider))]
 [Shared]
-public sealed class Sst1120CommentContentCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1120CommentContentCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.CommentMustContainText.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var span = diagnostic.Location.SourceSpan;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove empty comment",
-                    cancellationToken => RemoveAsync(context.Document, span, cancellationToken),
-                    equivalenceKey: nameof(Sst1120CommentContentCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove empty comment",
+            nameof(Sst1120CommentContentCodeFixProvider),
+            static (document, diagnostic, cancellationToken) => CommentRemovalHelper.RemoveAsync(document, diagnostic.Location.SourceSpan, cancellationToken));
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
-        changes.Add(new(CommentRemovalHelper.ComputeRemoval(text, diagnostic.Location.SourceSpan), string.Empty));
-
-    /// <summary>Computes and applies the removal of the empty comment.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="span">The comment span.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> RemoveAsync(Document document, TextSpan span, CancellationToken cancellationToken)
-    {
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var removal = CommentRemovalHelper.ComputeRemoval(text, span);
-        return document.WithText(text.WithChanges(new TextChange(removal, string.Empty)));
-    }
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        changes.Add(CommentRemovalHelper.RemovalChange(text, diagnostic.Location.SourceSpan));
 }

@@ -33,33 +33,25 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Replace '#pragma warning disable' with [SuppressMessage]",
+            nameof(Sst1426PragmaWarningDisableCodeFixProvider),
+            CanReplace,
+            static (document, diagnostic, cancellationToken) => ReplaceAsync(document, diagnostic.Location.SourceSpan, cancellationToken));
+
+    /// <summary>Returns whether a reported disable directive names only analyzer codes and suppresses exactly one member.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns><see langword="true"/> when the directive can move onto its member as an attribute.</returns>
+    private static bool CanReplace(SyntaxNode root, Diagnostic diagnostic)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var trivia = root.FindTrivia(diagnostic.Location.SourceSpan.Start);
-            if (trivia.GetStructure() is not PragmaWarningDirectiveTriviaSyntax disable
-                || ContainsCompilerCode(disable)
-                || trivia.Token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member
-                || !SuppressesOneMember(disable, member))
-            {
-                continue;
-            }
-
-            var span = diagnostic.Location.SourceSpan;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Replace '#pragma warning disable' with [SuppressMessage]",
-                    cancellationToken => ReplaceAsync(context.Document, span, cancellationToken),
-                    equivalenceKey: nameof(Sst1426PragmaWarningDisableCodeFixProvider)),
-                diagnostic);
-        }
+        var trivia = root.FindTrivia(diagnostic.Location.SourceSpan.Start);
+        return trivia.GetStructure() is PragmaWarningDirectiveTriviaSyntax disable
+            && !ContainsCompilerCode(disable)
+            && trivia.Token.Parent?.FirstAncestorOrSelf<MemberDeclarationSyntax>() is { } member
+            && SuppressesOneMember(disable, member);
     }
 
     /// <summary>Moves the codes of an analyzer-only disable directive onto a member-level [SuppressMessage].</summary>
@@ -87,7 +79,9 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         var memberAnnotation = new SyntaxAnnotation();
         root = root.ReplaceNode(member, member.WithAdditionalAnnotations(memberAnnotation));
 
-        var removals = new HashSet<SyntaxTrivia>();
+        // Each directive contributes itself and at most one indentation trivia.
+        const int DirectivePairTriviaCapacity = 4;
+        var removals = new List<SyntaxTrivia>(DirectivePairTriviaCapacity);
         CollectDirectiveLine(root.FindTrivia(disableSpan.Start), removals);
         if (restoreStart is { } start)
         {
@@ -99,7 +93,7 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         using var annotated = root.GetAnnotatedNodes(memberAnnotation).GetEnumerator();
         return !annotated.MoveNext() || annotated.Current is not MemberDeclarationSyntax target
             ? document
-            : document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes, DetermineEndOfLine(root))));
+            : document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes, LineEndingHelper.GetLineBreak(root))));
     }
 
     /// <summary>Reads the warning codes a directive lists.</summary>
@@ -212,10 +206,13 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
 
     /// <summary>Collects a directive's trivia plus its line's leading indentation for removal.</summary>
     /// <param name="directiveTrivia">The directive's trivia (its text already includes the trailing newline).</param>
-    /// <param name="removals">The set of trivia to remove.</param>
-    private static void CollectDirectiveLine(in SyntaxTrivia directiveTrivia, HashSet<SyntaxTrivia> removals)
+    /// <param name="removals">The distinct trivia to remove.</param>
+    private static void CollectDirectiveLine(in SyntaxTrivia directiveTrivia, List<SyntaxTrivia> removals)
     {
-        _ = removals.Add(directiveTrivia);
+        if (!removals.Contains(directiveTrivia))
+        {
+            removals.Add(directiveTrivia);
+        }
 
         var leading = directiveTrivia.Token.LeadingTrivia;
         var index = leading.IndexOf(directiveTrivia);
@@ -224,7 +221,11 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             return;
         }
 
-        _ = removals.Add(leading[index - 1]);
+        var indentation = leading[index - 1];
+        if (!removals.Contains(indentation))
+        {
+            removals.Add(indentation);
+        }
     }
 
     /// <summary>Prepends a [SuppressMessage] attribute list for each moved code to the member.</summary>
@@ -235,16 +236,18 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     private static MemberDeclarationSyntax AddSuppressions(MemberDeclarationSyntax member, List<string> movedCodes, in SyntaxTrivia newLine)
     {
         var leading = member.GetLeadingTrivia();
-        var indent = IndentTrivia(leading);
+        var indent = CodeFixTriviaHelper.IndentTrivia(leading);
         var endOfLine = SyntaxFactory.TriviaList(newLine);
 
         var attributeLists = new AttributeListSyntax[movedCodes.Count];
         for (var i = 0; i < movedCodes.Count; i++)
         {
             var attribute = BuildAttribute(SuppressionCategoryResolver.Resolve(movedCodes[i]), movedCodes[i]);
-            attributeLists[i] = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(attribute))
-                .WithLeadingTrivia(i == 0 ? leading : indent)
-                .WithTrailingTrivia(endOfLine);
+            attributeLists[i] = SyntaxFactory.AttributeList(
+                SyntaxFactory.Token(i == 0 ? leading : indent, SyntaxKind.OpenBracketToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                target: null,
+                SyntaxFactory.SingletonSeparatedList(attribute),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, endOfLine));
         }
 
         var relocated = member.WithLeadingTrivia(indent);
@@ -260,10 +263,17 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         var arguments = new[]
         {
             SyntaxFactory.AttributeArgument(StringLiteral(category)),
-            SyntaxFactory.AttributeArgument(StringLiteral(code)).WithLeadingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.AttributeArgument(StringLiteral(PendingJustification))
-                .WithNameEquals(SyntaxFactory.NameEquals("Justification"))
-                .WithLeadingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.AttributeArgument(
+                nameEquals: null,
+                nameColon: null,
+                StringLiteral(code).WithLeadingTrivia(SyntaxFactory.Space)),
+            SyntaxFactory.AttributeArgument(
+                SyntaxFactory.NameEquals(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    SyntaxFactory.TriviaList(SyntaxFactory.Space),
+                    "Justification",
+                    SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)))),
+                nameColon: null,
+                StringLiteral(PendingJustification)),
         };
 
         var separators = new[]
@@ -277,34 +287,10 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             SyntaxFactory.AttributeArgumentList(SyntaxFactory.SeparatedList(arguments, separators)));
     }
 
-    /// <summary>Returns the document's prevailing end-of-line trivia so inserted lines match it.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <returns>The first end-of-line trivia found, or a line feed when the document has none.</returns>
-    private static SyntaxTrivia DetermineEndOfLine(SyntaxNode root)
-    {
-        foreach (var trivia in root.DescendantTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return trivia;
-            }
-        }
-
-        return SyntaxFactory.EndOfLine("\n");
-    }
-
     /// <summary>Creates a string literal expression.</summary>
     /// <param name="value">The literal value.</param>
     /// <returns>The literal expression.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static LiteralExpressionSyntax StringLiteral(string value) =>
         SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(value));
-
-    /// <summary>Returns the indentation trivia (the whitespace immediately before the member) of its leading trivia.</summary>
-    /// <param name="leading">The member's leading trivia.</param>
-    /// <returns>The indentation trivia list, or an empty list when the member starts at column zero.</returns>
-    private static SyntaxTriviaList IndentTrivia(in SyntaxTriviaList leading) =>
-        leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
-            ? SyntaxFactory.TriviaList(leading[leading.Count - 1])
-            : SyntaxTriviaList.Empty;
 }

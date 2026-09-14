@@ -96,7 +96,7 @@ internal static class BlockingWaitExemption
         if (notifyCompletion is null
             || method.Name != BlockingWait.GetResultMethodName
             || method.ContainingType is not { } type
-            || !Implements(type, notifyCompletion))
+            || !TypeRelations.Implements(type, notifyCompletion))
         {
             return false;
         }
@@ -113,47 +113,9 @@ internal static class BlockingWaitExemption
         return false;
     }
 
-    /// <summary>Returns whether a type implements an interface.</summary>
-    /// <param name="type">The type to inspect.</param>
-    /// <param name="interfaceType">The interface sought.</param>
-    /// <returns><see langword="true"/> when the type implements it.</returns>
-    private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol interfaceType)
-    {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a member implements an interface member, explicitly or implicitly.</summary>
     /// <param name="symbol">The member the blocking wait sits in.</param>
     /// <returns><see langword="true"/> when its signature belongs to an interface.</returns>
-    private static bool ImplementsInterfaceMember(ISymbol symbol)
-    {
-        if (symbol.ContainingType is not { } containingType)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var members = interfaces[i].GetMembers();
-            for (var j = 0; j < members.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(members[j]), symbol))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    private static bool ImplementsInterfaceMember(ISymbol symbol) =>
+        symbol.ContainingType is { } containingType && TypeRelations.ImplementsAnyInterfaceMember(containingType, symbol);
 }

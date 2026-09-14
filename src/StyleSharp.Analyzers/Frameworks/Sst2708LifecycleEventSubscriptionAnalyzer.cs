@@ -23,20 +23,14 @@ namespace StyleSharp.Analyzers;
 /// lifecycle subscription has been found.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>ComponentBase</c> resolving, so a non-component
-/// project registers nothing. Every class with a base list is bound to check it derives from
-/// <c>ComponentBase</c>; only a component then has its lifecycle-method bodies scanned.
+/// Only a class with a base list and an external event subscription in a lifecycle override needs
+/// <c>ComponentBase</c> to resolve. The result is cached for the compilation and used to confirm
+/// the subscribing class is a component before reporting.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The cached visitor that collects external event subscriptions in a lifecycle body.</summary>
-    private static readonly DescendantTraversalHelper.DescendantVisitor<AssignmentExpressionSyntax, SubscriptionScan> SubscriptionVisitor = VisitSubscription;
-
-    /// <summary>The cached visitor that records every event unsubscribed anywhere in the component.</summary>
-    private static readonly DescendantTraversalHelper.DescendantVisitor<AssignmentExpressionSyntax, UnsubscribeScan> UnsubscribeVisitor = VisitUnsubscribe;
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.LifecycleEventSubscriptionLeak);
 
@@ -49,31 +43,28 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (BlazorComponentModel.Create(start.Compilation) is not { } model)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, model), SyntaxKind.ClassDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<BlazorComponentModel?>(compilation, BlazorComponentModel.Create),
+            Analyze,
+            SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Analyzes one class for lifecycle event subscriptions that are never removed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The component model resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, BlazorComponentModel model)
+    /// <param name="model">The component model resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationValue<BlazorComponentModel?> model)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
         if (classDeclaration.BaseList is null
-            || context.SemanticModel.GetDeclaredSymbol(classDeclaration, context.CancellationToken) is not { } type
-            || !model.DerivesFromComponentBase(type))
+            || CollectLifecycleSubscriptions(context, classDeclaration) is not { } subscriptions)
         {
             return;
         }
 
-        if (CollectLifecycleSubscriptions(context, classDeclaration) is not { } subscriptions)
+        if (model.Get() is not { } resolved
+            || context.SemanticModel.GetDeclaredSymbol(classDeclaration, context.CancellationToken) is not { } type
+            || !resolved.DerivesFromComponentBase(type))
         {
             return;
         }
@@ -96,7 +87,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
                 && BlazorComponentModel.IsLifecycleMethodName(method.Identifier.ValueText)
                 && ((SyntaxNode?)method.Body ?? method.ExpressionBody) is { } body)
             {
-                _ = DescendantTraversalHelper.VisitDescendants(body, ref scan, SubscriptionVisitor);
+                _ = DescendantTraversalHelper.VisitDescendants<AssignmentExpressionSyntax, SubscriptionScan>(body, ref scan, VisitSubscription);
             }
         }
 
@@ -113,7 +104,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
         {
             var subscription = subscriptions[i];
             var scan = new UnsubscribeScan(context.SemanticModel, subscription.EventSymbol, context.CancellationToken);
-            _ = DescendantTraversalHelper.VisitDescendants(classDeclaration, ref scan, UnsubscribeVisitor);
+            _ = DescendantTraversalHelper.VisitDescendants<AssignmentExpressionSyntax, UnsubscribeScan>(classDeclaration, ref scan, VisitUnsubscribe);
             if (!scan.Found)
             {
                 context.ReportDiagnostic(DiagnosticHelper.Create(FrameworksRules.LifecycleEventSubscriptionLeak, subscription.Location, subscription.EventName));

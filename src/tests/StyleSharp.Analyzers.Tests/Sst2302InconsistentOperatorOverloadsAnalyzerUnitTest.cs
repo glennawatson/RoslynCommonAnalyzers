@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyOperators = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2302InconsistentOperatorOverloadsAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -10,6 +14,262 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2302 (overload operators in their complete set).</summary>
 public class Sst2302InconsistentOperatorOverloadsAnalyzerUnitTest
 {
+    /// <summary>The arithmetic type name used in diagnostic arguments.</summary>
+    private const string MoneyTypeName = "Money";
+
+    /// <summary>Verifies the missing equality override is named when a hash override already exists.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EqualityOperatorWithoutEqualsIsReportedAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        """
+        public class Money
+        {
+            public static bool operator {|#0:==|}(Money left, Money right) => true;
+            public static bool operator !=(Money left, Money right) => false;
+            public override int GetHashCode() => 0;
+        }
+        """,
+        VerifyOperators.Diagnostic().WithLocation(0).WithArguments(MoneyTypeName, "==", "Equals(object)"));
+
+    /// <summary>Verifies members with equality names must be overrides to satisfy equality operators.</summary>
+    /// <param name="members">The unrelated members sharing equality method names.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public new bool Equals(object other) => true; public new int GetHashCode() => 0;")]
+    [Arguments("public new int Equals; public new int GetHashCode;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EqualityNamesWithoutOverridesAreReportedAsync(string members) => VerifyOperators.VerifyAnalyzerAsync(
+        $$"""
+        public class Money
+        {
+            public static bool operator {|SST2302:==|}(Money left, Money right) => true;
+            public static bool operator !=(Money left, Money right) => false;
+            {{members}}
+        }
+        """);
+
+    /// <summary>Verifies overrides with different parameter counts do not satisfy equality operators.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EqualityOverridesWithDifferentParameterCountsAreReportedAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        """
+        public class Amount
+        {
+            public virtual bool Equals(object first, object second) => true;
+            public virtual int GetHashCode(int seed) => seed;
+        }
+        public class Money : Amount
+        {
+            public static bool operator {|SST2302:==|}(Money left, Money right) => true;
+            public static bool operator !=(Money left, Money right) => false;
+            public override bool Equals(object first, object second) => true;
+            public override int GetHashCode(int seed) => seed;
+        }
+        """);
+
+    /// <summary>Verifies a matching equality override remains discoverable after a different overload.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EqualityOverloadsBeforeObjectOverridesAreCleanAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        """
+        public class Money
+        {
+            public static bool operator ==(Money left, Money right) => true;
+            public static bool operator !=(Money left, Money right) => false;
+            public bool Equals(Money other) => true;
+            public override bool Equals(object other) => true;
+            public int GetHashCode(int seed) => seed;
+            public override int GetHashCode() => 0;
+        }
+        """);
+
+    /// <summary>Verifies arithmetic reporting follows operator precedence even when declarations are reversed.</summary>
+    /// <param name="primary">The first operator in the analyzer's precedence order.</param>
+    /// <param name="later">An operator later in that order.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("-", "*")]
+    [Arguments("-", "/")]
+    [Arguments("-", "%")]
+    [Arguments("*", "%")]
+    [Arguments("/", "%")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EarliestArithmeticOperatorOwnsTheDiagnosticAsync(string primary, string later) => VerifyOperators.VerifyAnalyzerAsync(
+        $$"""
+        public class Money
+        {
+            public static Money operator {{later}}(Money left, Money right) => left;
+            public static Money operator {|#0:{{primary}}|}(Money left, Money right) => left;
+        }
+        """,
+        VerifyOperators.Diagnostic().WithLocation(0).WithArguments(MoneyTypeName, primary, "==, Equals(object) or GetHashCode()"));
+
+    /// <summary>Verifies division and remainder each report when they are the only arithmetic operator.</summary>
+    /// <param name="operatorText">The binary operator to declare.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("/")]
+    [Arguments("%")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task LoneTrailingArithmeticOperatorIsReportedAsync(string operatorText) => VerifyOperators.VerifyAnalyzerAsync(
+        $$"""
+        public class Money
+        {
+            public static Money operator {|#0:{{operatorText}}|}(Money left, Money right) => left;
+        }
+        """,
+        VerifyOperators.Diagnostic().WithLocation(0).WithArguments(MoneyTypeName, operatorText, "==, Equals(object) or GetHashCode()"));
+
+    /// <summary>Verifies any declared equality override is enough to avoid the arithmetic diagnostic.</summary>
+    /// <param name="member">The value equality member declared by the arithmetic class.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public override bool Equals(object other) => true;")]
+    [Arguments("public override int GetHashCode() => 0;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ArithmeticWithOneEqualityOverrideIsCleanAsync(string member) => VerifyOperators.VerifyAnalyzerAsync(
+        $$"""
+        public class Money
+        {
+            public static Money operator +(Money left, Money right) => left;
+            {{member}}
+        }
+        """);
+
+    /// <summary>Verifies an equality operator owns missing overrides even when the type also declares arithmetic.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ArithmeticWithEqualityOperatorOnlyReportsEqualityGapAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        """
+        public class Money
+        {
+            public static Money operator +(Money left, Money right) => left;
+            public static bool operator {|SST2302:==|}(Money left, Money right) => true;
+            public static bool operator !=(Money left, Money right) => false;
+        }
+        """);
+
+    /// <summary>Verifies generated record equality satisfies an arithmetic class.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ArithmeticRecordHasValueEqualityAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        "public record Money { public static Money operator +(Money left, Money right) => left; }");
+
+    /// <summary>Verifies unrelated interfaces and lookalike ordering contracts do not satisfy the framework contract.</summary>
+    /// <param name="declaration">The interface declaration to implement.</param>
+    /// <param name="interfaceName">The fully qualified interface name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public interface IOther { }", "IOther")]
+    [Arguments("public interface IComparable { }", "IComparable")]
+    [Arguments("namespace Other { public interface IComparable { } }", "Other.IComparable")]
+    [Arguments("namespace Other.System { public interface IComparable { } }", "Other.System.IComparable")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task LookalikeComparableDoesNotSatisfyOrderingAsync(string declaration, string interfaceName) => VerifyOperators.VerifyAnalyzerAsync(
+        $$"""
+        {{declaration}}
+        public class Level : {{interfaceName}}
+        {
+            public static bool operator {|SST2302:<|}(Level left, Level right) => true;
+            public static bool operator >(Level left, Level right) => false;
+            public static bool operator <=(Level left, Level right) => true;
+            public static bool operator >=(Level left, Level right) => false;
+        }
+        """);
+
+    /// <summary>Verifies an unrelated interface does not prevent finding an inherited generic ordering contract.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task InheritedComparableAfterUnrelatedInterfaceIsCleanAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        """
+        public interface IOther { }
+        public class Ordered : System.IComparable<Level>
+        {
+            public int CompareTo(Level other) => 0;
+        }
+        public class Level : Ordered, IOther
+        {
+            public static bool operator <(Level left, Level right) => true;
+            public static bool operator >(Level left, Level right) => false;
+            public static bool operator <=(Level left, Level right) => true;
+            public static bool operator >=(Level left, Level right) => false;
+        }
+        """);
+
+    /// <summary>Verifies the non-strict relational pair names both missing ordering requirements.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task OrEqualPairWithoutComparableNamesBothGapsAsync() => VerifyOperators.VerifyAnalyzerAsync(
+        """
+        public class Level
+        {
+            public static bool operator {|#0:<=|}(Level left, Level right) => true;
+            public static bool operator >=(Level left, Level right) => false;
+        }
+        """,
+        VerifyOperators.Diagnostic().WithLocation(0).WithArguments("Level", "<=", "< and > and IComparable<Level>"));
+
+    /// <summary>Verifies an unavailable framework ordering contract is never suggested.</summary>
+    /// <param name="otherPair">The remaining pair, or empty text to leave an ordering gap.</param>
+    /// <param name="expectedCount">The number of diagnostics caused by an incomplete operator set.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("", 1)]
+    [Arguments("public static bool operator <=(Level left, Level right) => true; public static bool operator >=(Level left, Level right) => false;", 0)]
+    public async Task MissingFrameworkComparableIsNotSuggestedAsync(string otherPair, int expectedCount)
+    {
+        var compilation = CSharpCompilation.Create(
+            nameof(MissingFrameworkComparableIsNotSuggestedAsync),
+            [CSharpSyntaxTree.ParseText(
+                $$"""
+                namespace System
+                {
+                    public class Object { }
+                    public struct Boolean { }
+                }
+                public class Level
+                {
+                    public static bool operator <(Level left, Level right) => true;
+                    public static bool operator >(Level left, Level right) => false;
+                    {{otherPair}}
+                }
+                """)]);
+        await Assert.That(compilation.GetTypeByMetadataName("System.IComparable`1")).IsNull();
+        var diagnostics = await compilation.WithAnalyzers([new Sst2302InconsistentOperatorOverloadsAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expectedCount);
+        foreach (var diagnostic in diagnostics)
+        {
+            await Assert.That(diagnostic.Id).IsEqualTo("SST2302");
+            await Assert.That(diagnostic.GetMessage()).DoesNotContain("IComparable");
+        }
+    }
+
+    /// <summary>Verifies a malformed namespace-level operator is analyzed through its recovery type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task NamespaceLevelOperatorUsesItsRecoveryTypeAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("namespace N { public static bool operator ==(int left, int right) => true; }");
+        var compilation = CSharpCompilation.Create(
+            nameof(NamespaceLevelOperatorUsesItsRecoveryTypeAsync),
+            [tree],
+            RuntimeMetadataReferences.Platform);
+        var root = await tree.GetRootAsync();
+        var declaration = root.DescendantNodes().OfType<OperatorDeclarationSyntax>().Single();
+        await Assert.That(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)).IsNotNull();
+        var diagnostics = await compilation.WithAnalyzers([new Sst2302InconsistentOperatorOverloadsAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST2302");
+        await Assert.That(diagnostics[0].Location.SourceSpan).IsEqualTo(declaration.OperatorToken.Span);
+    }
+
     /// <summary>Verifies <c>==</c> without either equality override is reported once, on the operator.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

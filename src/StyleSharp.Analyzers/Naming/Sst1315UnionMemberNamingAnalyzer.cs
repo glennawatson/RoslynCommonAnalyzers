@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,9 +16,8 @@ namespace StyleSharp.Analyzers;
 /// marker interface, rather than through the C# 15 <c>UnionDeclarationSyntax</c> that only
 /// the roslyn5.9 slot can bind. Naming is a question about the symbol, not the syntax, so
 /// the marker answers it on every slot and catches a union declared in a referenced
-/// assembly as well as one declared here. The whole rule is gated on that marker being
-/// present in the compilation, so it costs nothing when no unions are in play and lights
-/// up automatically once they are.
+/// assembly as well as one declared here. The marker is resolved on first demand for a
+/// type with a possible union interface whose name needs changing, and cached for the compilation.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer
@@ -36,25 +37,20 @@ public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var unionMarker = start.Compilation.GetTypeByMetadataName(UnionMarkerMetadataName);
-            if (unionMarker is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, unionMarker), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, UnionMarkerMetadataName),
+            AnalyzeType,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Reports a union type or case whose name does not match the configured convention.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="unionMarker">The resolved <c>IUnion</c> marker symbol.</param>
-    private static void AnalyzeType(in SymbolAnalysisContext context, INamedTypeSymbol unionMarker)
+    /// <param name="unionTypes">The union marker type cache for this compilation.</param>
+    private static void AnalyzeType(in SymbolAnalysisContext context, LazyMetadataType unionTypes)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (!IsUnionRelated(type, unionMarker))
+        if (!MayBeUnionRelated(type))
         {
             return;
         }
@@ -82,8 +78,36 @@ public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (unionTypes.Get() is not { } unionMarker || !IsUnionRelated(type, unionMarker))
+        {
+            return;
+        }
+
         var properties = ImmutableDictionary<string, string?>.Empty.Add(NamingDiagnostic.NewNameKey, NamingConventions.Suggest(name, convention));
         context.ReportDiagnostic(Diagnostic.Create(NamingRules.UnionMember, location, properties, name));
+    }
+
+    /// <summary>Checks whether a type or its base could implement the union marker before resolving it.</summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>True when the type or its base has a possible union interface.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool MayBeUnionRelated(INamedTypeSymbol type) =>
+        HasUnionInterfaceName(type) || (type.BaseType is { } baseType && HasUnionInterfaceName(baseType));
+
+    /// <summary>Checks interface names before resolving the union marker from metadata.</summary>
+    /// <param name="type">The type whose interfaces are inspected.</param>
+    /// <returns>True when an implemented interface could be the union marker.</returns>
+    private static bool HasUnionInterfaceName(INamedTypeSymbol type)
+    {
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (iface.Name == "IUnion")
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether <paramref name="type"/> is a union (implements the marker) or a union case (its base does).</summary>

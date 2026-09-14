@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -47,6 +48,13 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
+    /// <summary>Returns whether an indexer declares an accessor with a body.</summary>
+    /// <param name="indexer">The indexer declaration.</param>
+    /// <returns><see langword="true"/> when the indexer implements rather than declares.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasAccessorBody(IndexerDeclarationSyntax indexer) =>
+        indexer.ExpressionBody is not null || AccessorBodies.AnyHasBody(indexer.AccessorList);
+
     /// <summary>Registers the per-compilation state, then analyzes every signature that declares parameters.</summary>
     /// <param name="context">The compilation start context.</param>
     /// <remarks>
@@ -55,7 +63,15 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, ParameterCountOptions>();
+        var treeCount = 0;
+        foreach (var tree in context.Compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, ParameterCountOptions>(
+            concurrencyLevel: 1,
+            capacity: treeCount);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree),
             SyntaxKind.MethodDeclaration,
@@ -86,7 +102,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = GetOptions(context, optionsByTree);
+        var options = TreeOptionsCache.GetOrRead(optionsByTree, context, ParameterCountOptions.Read);
         if (declared <= options.Maximum)
         {
             return;
@@ -112,25 +128,6 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             identifier.ValueText,
             counted,
             options.Maximum));
-    }
-
-    /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static ParameterCountOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, ParameterCountOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = ParameterCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Gets the parameter list a declaration measures, if it declares one.</summary>
@@ -184,7 +181,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (HasExplicitInterfaceSpecifier(node)
+        if (ExplicitInterfaceSpecifiers.IsPresent(node)
             || IsDeconstructor(node)
             || IsPartialImplementation(node, modifiers)
             || HasNativeImportAttribute(GetAttributeLists(node)))
@@ -213,16 +210,6 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
         MemberDeclarationSyntax member => member.AttributeLists,
         LocalFunctionStatementSyntax local => local.AttributeLists,
         _ => default,
-    };
-
-    /// <summary>Returns whether the declaration explicitly implements an interface member.</summary>
-    /// <param name="node">The declaration.</param>
-    /// <returns><see langword="true"/> when the interface dictates the signature.</returns>
-    private static bool HasExplicitInterfaceSpecifier(SyntaxNode node) => node switch
-    {
-        MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is not null,
-        IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
-        _ => false,
     };
 
     /// <summary>Returns whether the declaration is a deconstructor.</summary>
@@ -255,56 +242,13 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    /// <summary>Returns whether an indexer declares an accessor with a body.</summary>
-    /// <param name="indexer">The indexer declaration.</param>
-    /// <returns><see langword="true"/> when the indexer implements rather than declares.</returns>
-    private static bool HasAccessorBody(IndexerDeclarationSyntax indexer)
-    {
-        if (indexer.ExpressionBody is not null)
-        {
-            return true;
-        }
-
-        if (indexer.AccessorList is not { } accessors)
-        {
-            return false;
-        }
-
-        var list = accessors.Accessors;
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (list[i].Body is not null || list[i].ExpressionBody is not null)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether the declaration carries a P/Invoke attribute.</summary>
     /// <param name="lists">The declaration's attribute lists.</param>
     /// <returns><see langword="true"/> when a native API dictates the signature.</returns>
     /// <remarks>The attribute name is matched on its text; binding it would cost a lookup to learn nothing more.</remarks>
-    private static bool HasNativeImportAttribute(SyntaxList<AttributeListSyntax> lists)
-    {
-        for (var i = 0; i < lists.Count; i++)
-        {
-            var attributes = lists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
-            {
-                if (GetSimpleName(attributes[j].Name) is "DllImport"
-                    or "DllImportAttribute"
-                    or "LibraryImport"
-                    or "LibraryImportAttribute")
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasNativeImportAttribute(SyntaxList<AttributeListSyntax> lists) =>
+        SyntaxNames.AnyAttributeNamed(lists, static name => name is "DllImport" or "DllImportAttribute" or "LibraryImport" or "LibraryImportAttribute");
 
     /// <summary>Returns whether the declaration implicitly implements an interface member.</summary>
     /// <param name="node">The declaration.</param>
@@ -321,26 +265,8 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not { ContainingType: { } containingType } symbol)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(symbol.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                var implementation = containingType.FindImplementationForInterfaceMember(candidates[j]);
-                if (SymbolEqualityComparer.Default.Equals(implementation, symbol))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is { ContainingType: { } containingType } symbol
+            && InterfaceImplementationLookup.FindImplementedInterfaceMember(containingType, symbol) is not null;
     }
 
     /// <summary>Counts the parameters a caller actually writes at the call site.</summary>
@@ -382,22 +308,9 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a parameter is supplied by the compiler rather than by the caller.</summary>
     /// <param name="lists">The parameter's attribute lists.</param>
     /// <returns><see langword="true"/> for a caller-info parameter.</returns>
-    private static bool HasCallerInfoAttribute(SyntaxList<AttributeListSyntax> lists)
-    {
-        for (var i = 0; i < lists.Count; i++)
-        {
-            var attributes = lists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
-            {
-                if (IsCallerInfoName(GetSimpleName(attributes[j].Name)))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasCallerInfoAttribute(SyntaxList<AttributeListSyntax> lists) =>
+        SyntaxNames.AnyAttributeNamed(lists, IsCallerInfoName);
 
     /// <summary>Returns whether an attribute name is one of the caller-info attributes.</summary>
     /// <param name="name">The attribute's simple name.</param>
@@ -410,15 +323,4 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
         or "CallerLineNumberAttribute"
         or "CallerArgumentExpression"
         or "CallerArgumentExpressionAttribute";
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 }

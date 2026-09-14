@@ -34,63 +34,54 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider))]
 [Shared]
-public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : CodeFixProvider
 {
     /// <summary>The parameter count of the static <c>object.Equals(object, object)</c> the rewrite must reach.</summary>
     private const int StaticEqualsParameterCount = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(MaintainabilityRules.ReferenceEqualityOnValueEqualType.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<BinaryExpressionSyntax>(
+            context,
+            "Compare with object.Equals",
+            nameof(Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider),
+            TryGetComparison,
+            BuildEqualsCall);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetComparison(root, model, diagnostic, context.CancellationToken, out var comparison))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Compare with object.Equals",
-                    _ => Task.FromResult(Apply(context.Document, root, comparison!)),
-                    equivalenceKey: nameof(Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetComparison(editor.OriginalRoot, editor.SemanticModel, diagnostic, CancellationToken.None, out var comparison))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(comparison!, BuildEqualsCall(comparison!));
-    }
-
-    /// <summary>Replaces the reported comparison with an <c>object.Equals</c> call.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Builds the <c>object.Equals(a, b)</c> call that replaces the comparison.</summary>
     /// <param name="comparison">The reported comparison.</param>
-    /// <returns>The updated document.</returns>
+    /// <returns>The replacement expression, negated for a <c>!=</c> comparison.</returns>
+    internal static ExpressionSyntax BuildEqualsCall(BinaryExpressionSyntax comparison)
+    {
+        ExpressionSyntax call = BuildInvocation(comparison);
+        if (comparison.IsKind(SyntaxKind.NotEqualsExpression))
+        {
+            call = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, call);
+        }
+
+        return call.WithTriviaFrom(comparison);
+    }
+
+    /// <summary>Resolves the diagnostic to the comparison and its <c>object.Equals</c> replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the rewrite does not provably bind as intended.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
-        document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildEqualsCall(comparison)));
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        TryGetComparison(root, model, diagnostic, CancellationToken.None, out var comparison)
+            ? new NodeReplacement(comparison, BuildEqualsCall(comparison))
+            : null;
 
     /// <summary>Resolves the diagnostic to a comparison whose rewrite provably calls the framework's Equals.</summary>
     /// <param name="root">The syntax root.</param>
@@ -104,7 +95,7 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
         SemanticModel model,
         Diagnostic diagnostic,
         CancellationToken cancellationToken,
-        out BinaryExpressionSyntax? comparison)
+        [NotNullWhen(true)] out BinaryExpressionSyntax? comparison)
     {
         comparison = root.FindNode(diagnostic.Location.SourceSpan) as BinaryExpressionSyntax;
         if (comparison is not null
@@ -140,20 +131,6 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
         };
     }
 
-    /// <summary>Builds the <c>object.Equals(a, b)</c> call that replaces the comparison.</summary>
-    /// <param name="comparison">The reported comparison.</param>
-    /// <returns>The replacement expression, negated for a <c>!=</c> comparison.</returns>
-    private static ExpressionSyntax BuildEqualsCall(BinaryExpressionSyntax comparison)
-    {
-        ExpressionSyntax call = BuildInvocation(comparison);
-        if (comparison.IsKind(SyntaxKind.NotEqualsExpression))
-        {
-            call = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, call);
-        }
-
-        return call.WithTriviaFrom(comparison);
-    }
-
     /// <summary>Builds the bare <c>object.Equals(a, b)</c> invocation, without the negation or the trivia.</summary>
     /// <param name="comparison">The reported comparison.</param>
     /// <returns>The invocation, which is also what gets bound speculatively.</returns>
@@ -174,6 +151,29 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     /// <summary>Strips the trivia an operand carried around the operator it no longer sits beside.</summary>
     /// <param name="operand">The comparison operand.</param>
     /// <returns>The operand with no surrounding trivia.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ExpressionSyntax Bare(ExpressionSyntax operand) => operand.WithoutLeadingTrivia().WithoutTrailingTrivia();
+    private static ExpressionSyntax Bare(ExpressionSyntax operand)
+    {
+        var first = operand.GetFirstToken(includeZeroWidth: true);
+        var last = operand.GetLastToken(includeZeroWidth: true);
+        if (!first.HasLeadingTrivia)
+        {
+            return last.HasTrailingTrivia ? operand.WithoutTrailingTrivia() : operand;
+        }
+
+        if (!last.HasTrailingTrivia)
+        {
+            return operand.WithoutLeadingTrivia();
+        }
+
+        if (first == last)
+        {
+            return operand.ReplaceToken(first, first.WithoutTrivia());
+        }
+
+        return operand.ReplaceTokens(
+            [first, last],
+            (original, rewritten) => original == first
+                ? rewritten.WithLeadingTrivia(default(SyntaxTriviaList))
+                : rewritten.WithTrailingTrivia(default(SyntaxTriviaList)));
+    }
 }

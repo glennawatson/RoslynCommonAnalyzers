@@ -45,7 +45,7 @@ public sealed class QueryClauseAnalyzer : DiagnosticAnalyzer
     {
         var query = (QueryExpressionSyntax)context.Node;
         var text = context.Node.SyntaxTree.GetText(context.CancellationToken);
-        var allOnOneLine = LineOf(text, query.SpanStart) == LineOf(text, query.Span.End);
+        var allOnOneLine = LayoutHelpers.LineOf(text, query.SpanStart) == LayoutHelpers.LineOf(text, query.Span.End);
 
         // A query always runs from-clause → body clauses → select/group; track the previous clause
         // through the body's struct enumerator rather than collecting the clauses into a list. A
@@ -68,10 +68,10 @@ public sealed class QueryClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="allOnOneLine">Whether the whole query sits on a single line.</param>
     private static void Examine(in SyntaxNodeAnalysisContext context, SourceText text, SyntaxNode previous, SyntaxNode current, bool allOnOneLine)
     {
-        var previousStart = LineOf(text, previous.SpanStart);
-        var previousEnd = LineOf(text, previous.Span.End);
-        var currentStart = LineOf(text, current.SpanStart);
-        var currentEnd = LineOf(text, current.Span.End);
+        var previousStart = LayoutHelpers.LineOf(text, previous.SpanStart);
+        var previousEnd = LayoutHelpers.LineOf(text, previous.Span.End);
+        var currentStart = LayoutHelpers.LineOf(text, current.SpanStart);
+        var currentEnd = LayoutHelpers.LineOf(text, current.Span.End);
 
         if (currentStart > previousEnd + 1)
         {
@@ -106,11 +106,4 @@ public sealed class QueryClauseAnalyzer : DiagnosticAnalyzer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxNode clause) =>
         context.ReportDiagnostic(Diagnostic.Create(rule, clause.GetLocation()));
-
-    /// <summary>Returns the zero-based line number for a position.</summary>
-    /// <param name="text">The source text.</param>
-    /// <param name="position">The position to look up.</param>
-    /// <returns>The line number.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 }

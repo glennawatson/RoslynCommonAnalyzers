@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -30,8 +31,8 @@ public class UseConcreteTypeCodeFixBenchmarks : IDisposable
     /// <summary>The cached semantic model for the benchmark document.</summary>
     private SemanticModel _model = null!;
 
-    /// <summary>The representative declared interface type passed to the code fix.</summary>
-    private GenericNameSyntax _declaredType = null!;
+    /// <summary>The diagnostic reported on the representative declared interface type.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -50,7 +51,8 @@ public class UseConcreteTypeCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _declaredType = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<GenericNameSyntax>(type, 0, static name => name.Identifier.ValueText == "IList");
+        var declaredType = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<GenericNameSyntax>(type, 0, static name => name.Identifier.ValueText == "IList");
+        _diagnostic = Diagnostic.Create(ApiSelectionRules.UseConcreteType, declaredType.GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -70,7 +72,7 @@ public class UseConcreteTypeCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseConcreteType_ApplyFixAsync()
     {
-        var updated = Psh1415UseConcreteTypeCodeFixProvider.Apply(_document, _root, _model, _declaredType);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _model, _diagnostic, Psh1415UseConcreteTypeCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

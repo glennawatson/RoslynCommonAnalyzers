@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,22 +13,28 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1015BoxingRoundTripCastCodeFixProvider))]
 [Shared]
-public sealed class Psh1015BoxingRoundTripCastCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1015BoxingRoundTripCastCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.BoxingRoundTripCast.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Cast directly without boxing", nameof(Psh1015BoxingRoundTripCastCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Cast directly without boxing", nameof(Psh1015BoxingRoundTripCastCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is CastExpressionSyntax cast
+            && Psh1015BoxingRoundTripCastAnalyzer.TryGetObjectCast(cast)is not null;
 
     /// <summary>Resolves the reported outer cast and builds its direct-cast replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -48,6 +52,10 @@ public sealed class Psh1015BoxingRoundTripCastCodeFixProvider : CodeFixProvider,
     private static CastExpressionSyntax Rewrite(CastExpressionSyntax cast)
     {
         var objectCast = Psh1015BoxingRoundTripCastAnalyzer.TryGetObjectCast(cast)!;
-        return cast.WithExpression(objectCast.Expression.WithoutTrivia()).WithTriviaFrom(cast);
+        return cast.Update(
+            cast.OpenParenToken,
+            cast.Type,
+            cast.CloseParenToken,
+            objectCast.Expression.WithoutLeadingTrivia().WithTrailingTrivia(cast.GetTrailingTrivia()));
     }
 }

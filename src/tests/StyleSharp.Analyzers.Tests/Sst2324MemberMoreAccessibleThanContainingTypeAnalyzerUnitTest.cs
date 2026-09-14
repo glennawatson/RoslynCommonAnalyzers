@@ -3,6 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -10,6 +13,144 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2324 (a member declared more accessible than its containing type).</summary>
 public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 {
+    /// <summary>Verifies invalid top-level accessibility does not prevent a wider source member from being examined.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MisplacedPrivateTypeStillReportsWiderMemberAsync()
+    {
+        var test = new Verify.Test { CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None, TestCode = "private class C { {|SST2324:public|} void M() { } }" };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies enum, delegate, constructor, and operator symbols are not ordinary method candidates.</summary>
+    /// <param name="source">The declarations whose accessibility must remain unchanged.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("internal enum E { A, B }")]
+    [Arguments("internal delegate void D();")]
+    [Arguments("internal class C { public C() { } ~C() { } public static C operator +(C left, C right) => left; public static implicit operator int(C value) => 0; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonOrdinaryMembersAreCleanAsync(string source) => Verify.VerifyAnalyzerAsync(source);
+
+    /// <summary>Verifies self-references in another partial declaration do not count as outside uses.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PartialSelfReferenceDoesNotPreventNarrowingAsync() => Verify.VerifyAnalyzerAsync(
+        """
+        public partial class Outer
+        {
+            private partial class Inner
+            {
+                {|SST2324:public|} void M() { }
+            }
+        }
+        public partial class Outer
+        {
+            private partial class Inner
+            {
+                private void N() { M(); }
+            }
+        }
+        """);
+
+    /// <summary>Verifies each restricted container reach reports a wider method and preserves self-references.</summary>
+    /// <param name="containerAccess">The nested type's accessibility.</param>
+    /// <param name="memberAccess">The wider member accessibility.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("protected internal", "public")]
+    [Arguments("protected", "public")]
+    [Arguments("private protected", "protected")]
+    [Arguments("private", "private protected")]
+    [Arguments("private", "internal")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RestrictedContainerReportsWiderMethodAsync(string containerAccess, string memberAccess) => Verify.VerifyAnalyzerAsync(
+        $$"""
+        public class Outer
+        {
+            {{containerAccess}} class Inner
+            {
+                {|SST2324:{{memberAccess.Split(' ')[0]}}|}{{(memberAccess.Contains(' ') ? " protected" : string.Empty)}} void M() { M(); }
+            }
+        }
+        """);
+
+    /// <summary>Verifies field-like events resolve their modifier through the variable declaration.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task FieldLikeEventReportsAccessibilityAsync() => Verify.VerifyAnalyzerAsync(
+        "internal class C { static {|SST2324:public|} event System.Action Changed; }");
+
+    /// <summary>Verifies an unrelated attribute does not hide a later framework attribute.</summary>
+    /// <param name="attribute">The framework attribute that requires public accessibility.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("TUnit.Core.Before")]
+    [Arguments("TUnit.Core.After")]
+    [Arguments("TUnit.Core.BeforeEvery")]
+    [Arguments("TUnit.Core.AfterEvery")]
+    [Arguments("Microsoft.AspNetCore.Components.Parameter")]
+    [Arguments("Microsoft.AspNetCore.Components.CascadingParameter")]
+    [Arguments("Microsoft.AspNetCore.Components.SupplyParameterFromQuery")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EveryFrameworkAttributePreservesPublicMemberAsync(string attribute) => Verify.VerifyAnalyzerAsync(
+        $$"""
+        namespace TUnit.Core
+        {
+            public class BeforeAttribute : System.Attribute { }
+            public class AfterAttribute : System.Attribute { }
+            public class BeforeEveryAttribute : System.Attribute { }
+            public class AfterEveryAttribute : System.Attribute { }
+        }
+        namespace Microsoft.AspNetCore.Components
+        {
+            public class ParameterAttribute : System.Attribute { }
+            public class CascadingParameterAttribute : System.Attribute { }
+            public class SupplyParameterFromQueryAttribute : System.Attribute { }
+        }
+        internal class C
+        {
+            [System.Obsolete, {{attribute}}]
+            public void M() { }
+            [System.Obsolete]
+            {|SST2324:public|} void N() { }
+        }
+        """);
+
+    /// <summary>Verifies inherited generic implementations and interface events retain their contracts.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GenericInheritedAndEventImplementationsAreCleanAsync() => Verify.VerifyAnalyzerAsync(
+        """
+        namespace Contracts
+        {
+            internal interface I<T> { void M(T value); event System.Action Changed; }
+            internal class Base<T> { public void M(T value) { } }
+            internal class Derived : Base<int>, I<int>
+            {
+                public event System.Action Changed;
+                {|SST2324:public|} void Other() { }
+            }
+        }
+        """);
+
+    /// <summary>Verifies an incomplete interface implementation does not prevent unrelated diagnostics.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingInterfaceImplementationStillReportsUnrelatedMethodAsync()
+    {
+        var compilation = CSharpCompilation.Create(
+            nameof(MissingInterfaceImplementationStillReportsUnrelatedMethodAsync),
+            [CSharpSyntaxTree.ParseText("interface I { void Missing(); } internal class C : I { public void M() { } }")],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST2324");
+    }
+
     /// <summary>Verifies a <c>public</c> method inside an <c>internal</c> class is reported on its modifier.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

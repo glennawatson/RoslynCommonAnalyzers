@@ -24,25 +24,27 @@ namespace PerformanceSharp.Analyzers;
 /// same span. The known-client set and its lazy per-compilation resolver are shared with that rule.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on both <c>FunctionAttribute</c> and <c>HttpClient</c>
-/// resolving; a project that is not an isolated worker, or that references no HTTP stack, registers no syntax
-/// action at all. Per class the clean path is pure syntax: a single member scan that bails unless the class
+/// Both <c>FunctionAttribute</c> and <c>HttpClient</c> are resolved on first demand per compilation.
+/// Per class the clean path is pure syntax: a single member scan that bails unless the class
 /// has both a method whose attribute is spelled <c>Function</c> and an instance field or auto-property. Only
-/// then is the attribute bound to confirm it is the worker attribute, and each candidate member bound to
-/// confirm its type against a client resolved lazily and cached for the compilation.
+/// then is each candidate member bound to confirm its type against a client resolved lazily and cached
+/// for the compilation. The attribute is bound only after a known client member is found.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the isolated-worker function attribute.</summary>
-    private const string FunctionAttributeMetadataName = "Microsoft.Azure.Functions.Worker.FunctionAttribute";
-
     /// <summary>The simple name a <c>[Function]</c> attribute is written as.</summary>
     private const string FunctionAttributeShortName = "Function";
 
     /// <summary>The unabbreviated simple name of the function attribute.</summary>
     private const string FunctionAttributeTypeName = "FunctionAttribute";
+
+    /// <summary>The suggestion appended for the service clients, which are all safe to share across threads.</summary>
+    private const string SharedClientSuggestion = "cache one shared instance for the lifetime of the process, or inject a registered singleton, instead";
+
+    /// <summary>The metadata name of the isolated-worker function attribute.</summary>
+    private const string FunctionAttributeMetadataName = "Microsoft.Azure.Functions.Worker.FunctionAttribute";
 
     /// <summary>The metadata name of the HTTP client type the rule is gated on.</summary>
     private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
@@ -56,9 +58,6 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The suggestion appended for <c>HttpClient</c> when the client factory is not referenced.</summary>
     private const string StaticSuggestion = "hold one shared 'static readonly HttpClient' for the lifetime of the process instead";
 
-    /// <summary>The suggestion appended for the service clients, which are all safe to share across threads.</summary>
-    private const string SharedClientSuggestion = "cache one shared instance for the lifetime of the process, or inject a registered singleton, instead";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.ShareClientAcrossInvocations);
 
@@ -71,55 +70,36 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(FunctionAttributeMetadataName) is not { } functionAttributeType
-                || start.Compilation.GetTypeByMetadataName(HttpClientMetadataName) is not { } httpClientType)
-            {
-                return;
-            }
-
-            var httpClientSuggestion = start.Compilation.GetTypeByMetadataName(HttpClientFactoryMetadataName) is not null
-                ? FactorySuggestion
-                : StaticSuggestion;
-            var clientTypes = new Psh1418PerCallHttpClientAnalyzer.ClientTypeCache(start.Compilation, httpClientType);
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeType(nodeContext, functionAttributeType, httpClientType, clientTypes, httpClientSuggestion),
-                SyntaxKind.ClassDeclaration,
-                SyntaxKind.RecordDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<ResolvedTypes?>(compilation, ResolveTypes, runOnce: true),
+            AnalyzeType,
+            SyntaxKind.ClassDeclaration,
+            SyntaxKind.RecordDeclaration);
     }
 
     /// <summary>Reports each per-invocation client member of a confirmed function class.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="functionAttributeType">The resolved worker function attribute.</param>
-    /// <param name="httpClientType">The resolved HTTP client type.</param>
-    /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
-    /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
-    private static void AnalyzeType(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol functionAttributeType,
-        INamedTypeSymbol httpClientType,
-        Psh1418PerCallHttpClientAnalyzer.ClientTypeCache clientTypes,
-        string httpClientSuggestion)
+    /// <param name="markers">The function and client types resolved on first demand.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, LazyCompilationValue<ResolvedTypes?> markers)
     {
         var type = (TypeDeclarationSyntax)context.Node;
         if (!HasFunctionMethodAndInstanceMember(type)
-            || !DeclaresFunction(context.SemanticModel, type, functionAttributeType, context.CancellationToken))
+            || markers.Get() is not { } types)
         {
             return;
         }
 
+        bool? isFunction = null;
         foreach (var member in type.Members)
         {
             if (member is FieldDeclarationSyntax field && !IsStaticOrConst(field.Modifiers))
             {
-                ReportClientField(context, field, httpClientType, clientTypes, httpClientSuggestion);
+                ReportClientField(context, field, in types, ref isFunction);
             }
             else if (member is PropertyDeclarationSyntax property && IsInstanceAutoProperty(property))
             {
-                ReportClientProperty(context, property, httpClientType, clientTypes, httpClientSuggestion);
+                ReportClientProperty(context, property, in types, ref isFunction);
             }
         }
     }
@@ -156,8 +136,8 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the member has a per-instance backing store.</returns>
     private static bool IsInstanceFieldOrAutoProperty(MemberDeclarationSyntax member) => member switch
     {
-        FieldDeclarationSyntax field => !IsStaticOrConst(field.Modifiers),
-        PropertyDeclarationSyntax property => IsInstanceAutoProperty(property),
+        FieldDeclarationSyntax field => !IsStaticOrConst(field.Modifiers) && CouldBeClientType(field.Declaration.Type),
+        PropertyDeclarationSyntax property => IsInstanceAutoProperty(property) && CouldBeClientType(property.Type),
         _ => false,
     };
 
@@ -184,7 +164,7 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The attribute name syntax.</param>
     /// <returns><see langword="true"/> when the name is <c>Function</c> or <c>FunctionAttribute</c>.</returns>
     private static bool IsFunctionAttributeName(NameSyntax name) =>
-        GetSimpleName(name) is FunctionAttributeShortName or FunctionAttributeTypeName;
+        SyntaxNames.GetSimpleName(name) is FunctionAttributeShortName or FunctionAttributeTypeName;
 
     /// <summary>Confirms the class declares a method whose function-named attribute binds to the worker attribute.</summary>
     /// <param name="model">The semantic model.</param>
@@ -218,26 +198,39 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    /// <summary>Confirms the function attribute once, after a known client member has been found.</summary>
+    /// <param name="context">The containing type's analysis context.</param>
+    /// <param name="functionAttributeType">The worker function attribute.</param>
+    /// <param name="isFunction">The cached result for this type declaration.</param>
+    /// <returns>Whether this declaration contains a confirmed function method.</returns>
+    private static bool IsFunctionClass(
+        in SyntaxNodeAnalysisContext context,
+        INamedTypeSymbol functionAttributeType,
+        ref bool? isFunction)
+    {
+        isFunction ??= DeclaresFunction(context.SemanticModel, (TypeDeclarationSyntax)context.Node, functionAttributeType, context.CancellationToken);
+        return isFunction.Value;
+    }
+
     /// <summary>Reports each declarator of a field whose bound type is a known client.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="field">The candidate field declaration.</param>
-    /// <param name="httpClientType">The resolved HTTP client type.</param>
-    /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
-    /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
+    /// <param name="types">The compilation's function and client types and replacement advice.</param>
+    /// <param name="isFunction">The cached attribute confirmation for this type declaration.</param>
     private static void ReportClientField(
         in SyntaxNodeAnalysisContext context,
         FieldDeclarationSyntax field,
-        INamedTypeSymbol httpClientType,
-        Psh1418PerCallHttpClientAnalyzer.ClientTypeCache clientTypes,
-        string httpClientSuggestion)
+        in ResolvedTypes types,
+        ref bool? isFunction)
     {
         foreach (var variable in field.Declaration.Variables)
         {
             if (context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is IFieldSymbol { IsStatic: false, IsConst: false } symbol
-                && clientTypes.ResolveBySimpleName(symbol.Type.Name) is { } clientType
-                && SymbolEqualityComparer.Default.Equals(symbol.Type, clientType))
+                && types.ClientTypes.ResolveBySimpleName(symbol.Type.Name) is { } clientType
+                && SymbolEqualityComparer.Default.Equals(symbol.Type, clientType)
+                && IsFunctionClass(context, types.FunctionAttribute, ref isFunction))
             {
-                ReportClient(context, variable.Identifier, clientType, httpClientType, httpClientSuggestion);
+                ReportClient(context, variable.Identifier, clientType, types.HttpClient, types.HttpClientSuggestion);
             }
         }
     }
@@ -245,24 +238,23 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an auto-property whose bound type is a known client.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The candidate auto-property declaration.</param>
-    /// <param name="httpClientType">The resolved HTTP client type.</param>
-    /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
-    /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
+    /// <param name="types">The compilation's function and client types and replacement advice.</param>
+    /// <param name="isFunction">The cached attribute confirmation for this type declaration.</param>
     private static void ReportClientProperty(
         in SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,
-        INamedTypeSymbol httpClientType,
-        Psh1418PerCallHttpClientAnalyzer.ClientTypeCache clientTypes,
-        string httpClientSuggestion)
+        in ResolvedTypes types,
+        ref bool? isFunction)
     {
         if (context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not IPropertySymbol { IsStatic: false } symbol
-            || clientTypes.ResolveBySimpleName(symbol.Type.Name) is not { } clientType
-            || !SymbolEqualityComparer.Default.Equals(symbol.Type, clientType))
+            || types.ClientTypes.ResolveBySimpleName(symbol.Type.Name) is not { } clientType
+            || !SymbolEqualityComparer.Default.Equals(symbol.Type, clientType)
+            || !IsFunctionClass(context, types.FunctionAttribute, ref isFunction))
         {
             return;
         }
 
-        ReportClient(context, property.Identifier, clientType, httpClientType, httpClientSuggestion);
+        ReportClient(context, property.Identifier, clientType, types.HttpClient, types.HttpClientSuggestion);
     }
 
     /// <summary>Reports PSH1420 on a member identifier, steering the suggestion by client type.</summary>
@@ -321,14 +313,42 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     private static bool IsStaticOrConst(in SyntaxTokenList modifiers) =>
         modifiers.Any(SyntaxKind.StaticKeyword) || modifiers.Any(SyntaxKind.ConstKeyword);
 
-    /// <summary>Returns the rightmost identifier of a written name, without binding it.</summary>
-    /// <param name="name">The written name syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple identifier.</returns>
-    private static string? GetSimpleName(NameSyntax name) => name switch
+    /// <summary>Rejects types whose syntax cannot denote a shareable client, while retaining aliases.</summary>
+    /// <param name="type">The written field or property type.</param>
+    /// <returns>Whether the type could resolve to a known client.</returns>
+    private static bool CouldBeClientType(TypeSyntax type) => type switch
     {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
+        PredefinedTypeSyntax or ArrayTypeSyntax or PointerTypeSyntax or FunctionPointerTypeSyntax or TupleTypeSyntax => false,
+        NullableTypeSyntax nullable => CouldBeClientType(nullable.ElementType),
+        RefTypeSyntax reference => CouldBeClientType(reference.Type),
+        _ => true,
     };
+
+    /// <summary>Collects the function marker, HTTP client, and replacement advice.</summary>
+    /// <param name="compilation">The compilation to probe.</param>
+    /// <returns>The resolved types, or null when required types are absent.</returns>
+    private static ResolvedTypes? ResolveTypes(Compilation compilation)
+    {
+        if (compilation.GetTypeByMetadataName(FunctionAttributeMetadataName) is not { } functionAttribute
+            || compilation.GetTypeByMetadataName(HttpClientMetadataName) is not { } httpClient)
+        {
+            return null;
+        }
+
+        var suggestion = compilation.GetTypeByMetadataName(HttpClientFactoryMetadataName) is not null
+            ? FactorySuggestion
+            : StaticSuggestion;
+        return new ResolvedTypes(functionAttribute, httpClient, new Psh1418PerCallHttpClientAnalyzer.ClientTypeCache(compilation, httpClient), suggestion);
+    }
+
+    /// <summary>The function types and advice published together for one compilation.</summary>
+    /// <param name="FunctionAttribute">The worker function attribute.</param>
+    /// <param name="HttpClient">The HTTP client type.</param>
+    /// <param name="ClientTypes">The lazily resolved shareable client types.</param>
+    /// <param name="HttpClientSuggestion">The compilation-specific HTTP client replacement advice.</param>
+    private readonly record struct ResolvedTypes(
+        INamedTypeSymbol FunctionAttribute,
+        INamedTypeSymbol HttpClient,
+        Psh1418PerCallHttpClientAnalyzer.ClientTypeCache ClientTypes,
+        string HttpClientSuggestion);
 }

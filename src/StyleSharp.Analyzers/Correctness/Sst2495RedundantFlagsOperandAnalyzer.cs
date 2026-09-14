@@ -17,9 +17,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The attribute marking an enum as a flag set.</summary>
-    private const string FlagsAttributeName = "FlagsAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.RedundantFlagsOperand);
 
@@ -46,7 +43,7 @@ public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
-            || !HasFlagsAttribute(enumType))
+            || !EnumFlagValues.HasFlagsAttribute(enumType))
         {
             return;
         }
@@ -111,7 +108,7 @@ public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
     /// <returns>The number of leaf operands.</returns>
     private static int CountOperands(ExpressionSyntax expression)
     {
-        expression = Unwrap(expression);
+        expression = ExpressionShapes.WalkDownParentheses(expression);
         return expression is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.BitwiseOrExpression)
             ? CountOperands(binary.Left) + CountOperands(binary.Right)
             : 1;
@@ -123,7 +120,7 @@ public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
     /// <param name="index">The next free slot in the destination array.</param>
     private static void Flatten(ExpressionSyntax expression, ExpressionSyntax[] operands, ref int index)
     {
-        expression = Unwrap(expression);
+        expression = ExpressionShapes.WalkDownParentheses(expression);
         if (expression is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.BitwiseOrExpression))
         {
             Flatten(binary.Left, operands, ref index);
@@ -133,19 +130,6 @@ public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
 
         operands[index] = expression;
         index++;
-    }
-
-    /// <summary>Strips enclosing parentheses from an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
     }
 
     /// <summary>Returns whether a <c>|</c> operation is itself an operand of a larger <c>|</c> operation.</summary>
@@ -161,24 +145,6 @@ public sealed class Sst2495RedundantFlagsOperandAnalyzer : DiagnosticAnalyzer
             }
 
             return parent.RawKind == (int)SyntaxKind.BitwiseOrExpression;
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether an enum is declared as a flag set.</summary>
-    /// <param name="enumType">The enum type.</param>
-    /// <returns><see langword="true"/> when the enum carries <c>System.FlagsAttribute</c>.</returns>
-    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
-    {
-        var attributes = enumType.GetAttributes();
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (attributes[i].AttributeClass is { Name: FlagsAttributeName } attribute
-                && attribute.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true })
-            {
-                return true;
-            }
         }
 
         return false;

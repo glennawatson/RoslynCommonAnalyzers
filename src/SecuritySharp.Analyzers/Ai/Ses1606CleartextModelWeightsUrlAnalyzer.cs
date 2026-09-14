@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -27,11 +29,14 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the HTTP client whose request sinks are deferred to the transport rule.</summary>
-    private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
-
     /// <summary>The name of the <c>HttpClient.BaseAddress</c> property whose assignment is deferred to the transport rule.</summary>
     private const string BaseAddressPropertyName = "BaseAddress";
+
+    /// <summary>The name of the request URL parameter, the first parameter of every request method the transport rule owns.</summary>
+    private const string RequestUriParameterName = "requestUri";
+
+    /// <summary>The metadata name of the HTTP client whose request sinks belong to the transport rule.</summary>
+    private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
 
     /// <summary>The model-weights path extensions that mark a URL as a weights download (lower-case, dotted).</summary>
     private static readonly string[] WeightsExtensions =
@@ -70,19 +75,23 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // HttpClient is resolved only to suppress a duplicate at its request sink; the rule does NOT gate on it,
-            // so a cleartext weights literal in a constant or a non-HttpClient loader is still reported when it is absent.
-            var httpClientType = start.Compilation.GetTypeByMetadataName(HttpClientMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeLiteral(nodeContext, httpClientType), SyntaxKind.StringLiteralExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation =>
+            {
+                // HttpClient is resolved only to suppress a duplicate at its request sink; the rule does NOT gate on it,
+                // so a cleartext weights literal in a constant or a non-HttpClient loader is still reported when it is absent.
+                var httpClientType = new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveHttpClient, runOnce: true);
+                return httpClientType;
+            },
+            AnalyzeLiteral,
+            SyntaxKind.StringLiteralExpression);
     }
 
     /// <summary>Reports SES1606 for a cleartext-http model-weights string literal.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeLiteral(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? httpClientType)
+    /// <param name="httpClientType">The <c>HttpClient</c> type resolved on first demand, including an absent result.</param>
+    private static void AnalyzeLiteral(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> httpClientType)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
 
@@ -93,22 +102,21 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
         }
 
         // Defer to the transport rule when the literal is the URL of an HttpClient request or BaseAddress assignment.
-        if (httpClientType is not null
-            && ReachesHttpClientSink(literal, httpClientType, context.SemanticModel, context.CancellationToken))
+        if (ReachesHttpClientSink(literal, httpClientType, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextModelWeightsUrl, literal.SyntaxTree, literal.Span, host));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextModelWeightsUrl, literal.SyntaxTree, literal.Span, host.ToString()));
     }
 
     /// <summary>Returns whether a literal's text is a cleartext-http URL to a non-loopback model-weights file.</summary>
     /// <param name="text">The decoded literal text.</param>
     /// <param name="host">When matched, the parsed non-loopback host of the URL.</param>
     /// <returns><see langword="true"/> for a reportable cleartext weights URL.</returns>
-    private static bool IsCleartextWeightsUrl(string text, out string host)
+    private static bool IsCleartextWeightsUrl(string text, out ReadOnlySpan<char> host)
     {
-        host = string.Empty;
+        host = default;
         if (text.Length <= CleartextUrl.HttpSchemePrefix.Length
             || !text.StartsWith(CleartextUrl.HttpSchemePrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -123,7 +131,7 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
         }
 
         var parsedHost = CleartextUrl.ExtractHost(text);
-        if (parsedHost.Length == 0 || CleartextUrl.IsLoopbackHost(parsedHost))
+        if (parsedHost.IsEmpty || CleartextUrl.IsLoopbackHost(parsedHost))
         {
             return false;
         }
@@ -190,11 +198,11 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a matched literal is the URL of an <c>HttpClient</c> request or <c>BaseAddress</c> assignment.</summary>
     /// <param name="literal">The matched cleartext weights literal.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
+    /// <param name="httpClientType">The <c>HttpClient</c> type resolved on first demand.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the literal is already owned by the transport rule.</returns>
-    private static bool ReachesHttpClientSink(LiteralExpressionSyntax literal, INamedTypeSymbol httpClientType, SemanticModel model, CancellationToken cancellationToken)
+    private static bool ReachesHttpClientSink(LiteralExpressionSyntax literal, LazyCompilationValue<INamedTypeSymbol?> httpClientType, SemanticModel model, CancellationToken cancellationToken)
     {
         if (literal.Parent is not ArgumentSyntax { Parent: ArgumentListSyntax { Parent: { } argumentListParent } } literalArgument)
         {
@@ -217,11 +225,15 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a <c>new Uri(...)</c> holding the literal is an HttpClient request URL or BaseAddress value.</summary>
     /// <param name="uriCreation">The <c>new Uri(...)</c> wrapping the matched literal.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
+    /// <param name="httpClientType">The <c>HttpClient</c> type resolved on first demand.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the created URI is already owned by the transport rule.</returns>
-    private static bool UriCreationIsHttpClientSink(ObjectCreationExpressionSyntax uriCreation, INamedTypeSymbol httpClientType, SemanticModel model, CancellationToken cancellationToken) =>
+    private static bool UriCreationIsHttpClientSink(
+        ObjectCreationExpressionSyntax uriCreation,
+        LazyCompilationValue<INamedTypeSymbol?> httpClientType,
+        SemanticModel model,
+        CancellationToken cancellationToken) =>
         uriCreation.Parent switch
         {
             ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } } uriArgument =>
@@ -236,35 +248,35 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an argument is the URL slot of an <c>HttpClient</c> request-method invocation.</summary>
     /// <param name="invocation">The candidate invocation.</param>
     /// <param name="urlArgument">The argument that must be the invocation's URL slot.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
+    /// <param name="httpClientType">The <c>HttpClient</c> type resolved on first demand.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for an HttpClient request method whose URL argument is <paramref name="urlArgument"/>.</returns>
     private static bool IsHttpClientRequestUrl(
         InvocationExpressionSyntax invocation,
         ArgumentSyntax urlArgument,
-        INamedTypeSymbol httpClientType,
+        LazyCompilationValue<INamedTypeSymbol?> httpClientType,
         SemanticModel model,
         CancellationToken cancellationToken)
     {
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
             || !RequestMethodNames.Contains(memberAccess.Name.Identifier.ValueText)
-            || !ReferenceEquals(GetUrlArgument(invocation.ArgumentList), urlArgument))
+            || !ReferenceEquals(ArgumentLookup.Find(invocation.ArgumentList.Arguments, RequestUriParameterName, 0), urlArgument))
         {
             return false;
         }
 
         return model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
-            && SymbolEqualityComparer.Default.Equals(method.ContainingType, httpClientType);
+            && IsHttpClient(method.ContainingType, httpClientType);
     }
 
     /// <summary>Returns whether an assignment sets <c>HttpClient.BaseAddress</c>.</summary>
     /// <param name="assignment">The candidate assignment.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
+    /// <param name="httpClientType">The <c>HttpClient</c> type resolved on first demand.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for an <c>HttpClient.BaseAddress</c> assignment target.</returns>
-    private static bool IsBaseAddressAssignment(AssignmentExpressionSyntax assignment, INamedTypeSymbol httpClientType, SemanticModel model, CancellationToken cancellationToken)
+    private static bool IsBaseAddressAssignment(AssignmentExpressionSyntax assignment, LazyCompilationValue<INamedTypeSymbol?> httpClientType, SemanticModel model, CancellationToken cancellationToken)
     {
         if (!IsBaseAddressTarget(assignment.Left))
         {
@@ -272,30 +284,7 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
         }
 
         return model.GetSymbolInfo(assignment.Left, cancellationToken).Symbol is IPropertySymbol { Name: BaseAddressPropertyName } property
-            && SymbolEqualityComparer.Default.Equals(property.ContainingType, httpClientType);
-    }
-
-    /// <summary>Returns the request URL argument, honouring an explicit <c>requestUri:</c> name.</summary>
-    /// <param name="argumentList">The invocation's argument list.</param>
-    /// <returns>The URL argument, or <see langword="null"/> when it cannot be identified positionally.</returns>
-    private static ArgumentSyntax? GetUrlArgument(ArgumentListSyntax argumentList)
-    {
-        var arguments = argumentList.Arguments;
-        if (arguments.Count == 0)
-        {
-            return null;
-        }
-
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is { Name.Identifier.ValueText: "requestUri" })
-            {
-                return arguments[i];
-            }
-        }
-
-        // The request URL is the first parameter of every guarded overload, so a leading positional argument is it.
-        return arguments[0].NameColon is null ? arguments[0] : null;
+            && IsHttpClient(property.ContainingType, httpClientType);
     }
 
     /// <summary>Returns whether an assignment target names the <c>BaseAddress</c> member.</summary>
@@ -307,4 +296,33 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: BaseAddressPropertyName } or IdentifierNameSyntax { Identifier.ValueText: BaseAddressPropertyName } => true,
             _ => false,
         };
+
+    /// <summary>Checks the declaring type's name before resolving HttpClient's framework identity.</summary>
+    /// <param name="type">The bound sink's declaring type.</param>
+    /// <param name="httpClientType">The <c>HttpClient</c> type resolved on first demand.</param>
+    /// <returns>Whether the sink is declared by HttpClient.</returns>
+    private static bool IsHttpClient(INamedTypeSymbol type, LazyCompilationValue<INamedTypeSymbol?> httpClientType) =>
+        type is
+        {
+            Name: "HttpClient",
+            Arity: 0,
+            ContainingType: null,
+            ContainingNamespace:
+            {
+                Name: "Http",
+                ContainingNamespace:
+                {
+                    Name: "Net",
+                    ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
+                },
+            },
+        }
+        && SymbolEqualityComparer.Default.Equals(type, httpClientType.Get());
+
+    /// <summary>Resolves HttpClient for a compilation.</summary>
+    /// <param name="compilation">The compilation whose HttpClient identity is resolved.</param>
+    /// <returns>The HttpClient type, or <see langword="null"/> when it is absent.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static INamedTypeSymbol? ResolveHttpClient(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(HttpClientMetadataName);
 }

@@ -13,35 +13,34 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SingleLineCommentSpacingCodeFixProvider))]
 [Shared]
-public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class SingleLineCommentSpacingCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.SingleLineCommentPrecededByBlankLine.Id,
         LayoutRules.SingleLineCommentNotFollowedByBlankLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var insertBefore = diagnostic.Id == LayoutRules.SingleLineCommentPrecededByBlankLine.Id;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    insertBefore ? "Insert blank line before comment" : "Remove blank line after comment",
-                    cancellationToken => FixAsync(context.Document, diagnostic.Location.SourceSpan, insertBefore, cancellationToken),
-                    equivalenceKey: nameof(SingleLineCommentSpacingCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static diagnostic => diagnostic.Id == LayoutRules.SingleLineCommentPrecededByBlankLine.Id ? "Insert blank line before comment" : "Remove blank line after comment",
+            nameof(SingleLineCommentSpacingCodeFixProvider),
+            static (document, diagnostic, cancellationToken) =>
+                FixAsync(document, diagnostic.Location.SourceSpan, diagnostic.Id == LayoutRules.SingleLineCommentPrecededByBlankLine.Id, cancellationToken));
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         var insertBefore = diagnostic.Id == LayoutRules.SingleLineCommentPrecededByBlankLine.Id;
         if (TryBuildChange(text, diagnostic.Location.SourceSpan, insertBefore) is not { } change)

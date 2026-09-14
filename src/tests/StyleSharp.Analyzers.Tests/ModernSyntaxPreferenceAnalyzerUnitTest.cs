@@ -2,8 +2,15 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
+
+using AnalyzeModernSyntaxPreference = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.ModernSyntaxPreferenceAnalyzer>;
 
 using VerifyModernSyntaxPreference = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ModernSyntaxPreferenceAnalyzer,
@@ -14,6 +21,308 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for compact modern syntax preference rules (SST2218-SST2219).</summary>
 public class ModernSyntaxPreferenceAnalyzerUnitTest
 {
+    /// <summary>Records that overloads on sibling interfaces are missed when only the declaring interface is inspected.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SiblingInterfaceOverloadsAreReportedAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            interface IFirst { void Invoke(Action<int> action); }
+            interface ISecond { void Invoke(Action<string> action); }
+            interface ICombined : IFirst, ISecond { }
+            class C
+            {
+                void M(ICombined value) { value.Invoke({|SST2218:(int item)|} => { }); }
+            }
+            """);
+
+    /// <summary>Verifies an interface contract can be rebound without changing the selected implementation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ImplementedInterfaceMethodKeepsBindingAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            interface I { void Invoke(Action<int> action); }
+            class C : I
+            {
+                public void Invoke(Action<int> action) { }
+                void M() { Invoke({|SST2218:(int item)|} => { }); }
+            }
+            """);
+
+    /// <summary>Verifies unrelated interface members and hidden non-method members do not count as call overloads.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnrelatedInterfaceAndBasePropertyAllowSimplificationAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            interface I { void Other(); }
+            class B { protected int Invoke { get; } }
+            class C : B, I
+            {
+                public void Other() { }
+                public new void Invoke(Action<int> action) { }
+                void M() { Invoke({|SST2218:(int item)|} => { }); }
+            }
+            """);
+
+    /// <summary>Verifies explicit generic arguments and multiple parameters survive overload-safe rewriting.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ExplicitGenericArgumentsAndConstructorTargetsAreFixedAsync() =>
+        CreateNet80Test(
+            """
+            using System;
+            class C
+            {
+                C(Func<int, int, int> combine) { }
+                static void Invoke<T>(Action<T> action) { }
+                void M()
+                {
+                    Invoke<int>({|SST2218:(int value)|} => { });
+                    C.Invoke<int>({|SST2218:(int value)|} => { });
+                    var instance = new C({|SST2218:(int left, int right)|} => left + right);
+                }
+            }
+            """,
+            """
+            using System;
+            class C
+            {
+                C(Func<int, int, int> combine) { }
+                static void Invoke<T>(Action<T> action) { }
+                void M()
+                {
+                    Invoke<int>((value) => { });
+                    C.Invoke<int>((value) => { });
+                    var instance = new C((left, right) => left + right);
+                }
+            }
+            """).RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies constructor overload selection can depend on explicit parameter types.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OverloadedConstructorKeepsExplicitTypesAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            class C
+            {
+                C(Action<int> action) { }
+                C(Action<string> action) { }
+                void M() { var instance = new C((int value) => { }); }
+            }
+            """);
+
+    /// <summary>Verifies both reduced and static extension invocations keep their binding after simplification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ExtensionInvocationsPreserveBindingAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            static class Extensions
+            {
+                public static void Invoke(this string value, Action<int> action) { }
+            }
+            class C
+            {
+                void M()
+                {
+                    "".Invoke({|SST2218:(int value)|} => { });
+                    Extensions.Invoke("", {|SST2218:(int value)|} => { });
+                }
+            }
+            """);
+
+    /// <summary>Verifies a local function is rebound independently of a same-named ordinary member.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task LocalFunctionIgnoresOrdinaryMemberOverloadsAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            class C
+            {
+                void Invoke(Action<string> action) { }
+                void M()
+                {
+                    void Invoke(Action<int> action) { }
+                    Invoke({|SST2218:(int value)|} => { });
+                }
+            }
+            """);
+
+    /// <summary>Verifies function-pointer type symbols reach the non-method guard and leave lambda types explicit.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task FunctionPointerInvocationHasATypeSymbolAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            using System;
+            unsafe class C
+            {
+                void M(delegate*<Action<int>, void> invoke)
+                {
+                    invoke((int value) => { });
+                }
+            }
+            """);
+        var compilation = CSharpCompilation.Create(
+            "FunctionPointerTarget",
+            [tree],
+            RuntimeMetadataReferences.Platform,
+            new(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var invocation = (await tree.GetRootAsync()).DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol;
+
+        await Assert.That(compilation.GetDiagnostics()).IsEmpty();
+        await Assert.That(symbol is IFunctionPointerTypeSymbol).IsTrue();
+        await Assert.That(symbol is IMethodSymbol).IsFalse();
+
+        var diagnostics = await compilation.WithAnalyzers([new ModernSyntaxPreferenceAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies malformed getter returns and setter returns are not treated as expression bodies.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AccessorsWithoutSupportedStatementShapesAreCleanAsync() =>
+        new AnalyzeModernSyntaxPreference.Test
+        {
+            TestCode = "class C { int Value { get { return; } set { return 1; } } int Other { get { value = 1; } set { } } }",
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Records that a naturally inferred delegate currently receives the parameter-type suggestion.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NaturallyInferredDelegateIsReportedAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            class C
+            {
+                void M() { var identity = {|SST2218:(int value)|} => value; }
+            }
+            """);
+
+    /// <summary>Verifies a named delegate declaration supplies the removable lambda parameter type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NamedDelegateTargetSuppliesParameterTypesAsync() =>
+        new AnalyzeModernSyntaxPreference.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net80,
+            TestCode = """
+                class C
+                {
+                    delegate int Converter(int value);
+                    Converter convert = {|SST2218:(int value)|} => value;
+                    Converter Convert { get; } = {|SST2218:(int value)|} => value;
+                    (Converter Convert, int Version) pair = ({|SST2218:(int value)|} => value, 1);
+                    C() : this({|SST2218:(int value)|} => value) { }
+                    C(Converter converter) { }
+                }
+                """,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies an indexer argument can use the delegate type supplied by its parameter.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task IndexerArgumentHasAnImplicitLambdaTargetAsync() =>
+        AnalyzeModernSyntaxPreference.VerifyAnalyzerAsync(
+            """
+            using System;
+            class C
+            {
+                int this[Func<int, int> transform] => transform(1);
+                int M() => this[{|SST2218:(int value)|} => value];
+            }
+            """);
+
+    /// <summary>Verifies empty, implicit, attributed, defaulted and modified parameter lists stay explicit.</summary>
+    /// <param name="expression">The lambda source.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("() => 1")]
+    [Arguments("(value) => value")]
+    [Arguments("([System.Obsolete] int value) => value")]
+    [Arguments("(int value = 1) => value")]
+    [Arguments("(ref int value) => value")]
+    public Task NonRemovableLambdaParametersAreCleanAsync(string expression) =>
+        new AnalyzeModernSyntaxPreference.Test { TestCode = $$"""class C { void M() { var lambda = {{expression}}; } }""", CompilerDiagnostics = CompilerDiagnostics.None }
+            .RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies failed overload resolution and a lambda without any target stay silent.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnboundLambdaAndUnresolvedInvocationAreCleanAsync() =>
+        new AnalyzeModernSyntaxPreference.Test
+        {
+            TestCode = """
+                using System;
+                class C
+                {
+                    void Invoke(Action<int> action, int value) { }
+                    void Invoke(Action<int> action, string value) { }
+                    void M()
+                    {
+                        Missing((int value) => value);
+                        Invoke((int value) => { }, default);
+                        (int value) => value;
+                    }
+                }
+                """,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies assignments in init accessors are fixed and non-expression accessor bodies remain unchanged.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InitAssignmentIsFixedWhileOtherAccessorStatementsStayAsync() =>
+        CreateNet80Test(
+            """
+            namespace System.Runtime.CompilerServices { public class IsExternalInit { } }
+            class C
+            {
+                int field;
+                int Value { get => field; {|SST2219:init|} { field = value; } }
+                int Other { get { throw new System.Exception(); } set { Consume(value); } }
+                int Empty { get; set; }
+                void Consume(int value) { }
+            }
+            """,
+            """
+            namespace System.Runtime.CompilerServices { public class IsExternalInit { } }
+            class C
+            {
+                int field;
+                int Value { get => field; init => field = value; }
+                int Other { get { throw new System.Exception(); } set { Consume(value); } }
+                int Empty { get; set; }
+                void Consume(int value) { }
+            }
+            """).RunAsync(CancellationToken.None);
+
     /// <summary>Verifies explicit lambda parameter types are removed when the delegate target supplies them.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -112,6 +421,7 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
                                   public void M()
                                   {
                                       Create((string input) => input.ToUpperInvariant());
+                                      C.Create((string input) => input.ToUpperInvariant());
                                   }
 
                                   private static void Create<T>(Func<T, string> action)
@@ -287,6 +597,7 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The fixed source.</param>
     /// <returns>The configured test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static VerifyModernSyntaxPreference.Test CreateNet80Test(string source, string fixedSource) =>
-        new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource };
+        new() { ReferenceAssemblies = AnalyzerFrameworks.Net80, TestCode = source, FixedCode = fixedSource };
 }

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1510 — an MVC controller redirects to a non-constant URL (open redirect).</summary>
-    public static readonly DiagnosticDescriptor NonConstantControllerRedirect = Create(
+    public static readonly DiagnosticDescriptor NonConstantControllerRedirect = DescriptorFactory.Create(
         "SES1510",
         "An MVC controller must not redirect to a non-constant URL",
         NonConstantControllerRedirectMessage,

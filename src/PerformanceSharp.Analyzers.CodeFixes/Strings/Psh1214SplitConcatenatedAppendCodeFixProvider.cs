@@ -16,22 +16,20 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1214SplitConcatenatedAppendCodeFixProvider))]
 [Shared]
-public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.SplitConcatenatedAppend.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Split the concatenation into separate Append calls", nameof(Psh1214SplitConcatenatedAppendCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Split the concatenation into separate Append calls", nameof(Psh1214SplitConcatenatedAppendCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>
     /// Replaces the reported append invocation with its chained per-part form. Benchmark entry
@@ -48,6 +46,19 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
         var concatenation = (BinaryExpressionSyntax)invocation.ArgumentList.Arguments[0].Expression;
         return document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation, SyntacticSpineDepth(concatenation))));
     }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax concatenation
+            && concatenation.IsKind(SyntaxKind.AddExpression)
+            && concatenation.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Arguments.Count: 1, Parent: InvocationExpressionSyntax invocation } }
+            && invocation.Expression is MemberAccessExpressionSyntax access
+            && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
+            && access.Name is IdentifierNameSyntax { Identifier.ValueText: nameof(System.Text.StringBuilder.Append) or nameof(System.Text.StringBuilder.AppendLine) };
 
     /// <summary>Resolves the reported concatenation and builds the chained per-part replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -103,8 +114,9 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
         }
 
         return invocation
-            .WithExpression(access.WithExpression(chain))
-            .WithArgumentList(SingleArgumentList(operands[^1]).WithTriviaFrom(invocation.ArgumentList))
+            .Update(
+                access.WithExpression(chain),
+                SingleArgumentList(operands[^1]).WithTriviaFrom(invocation.ArgumentList))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 

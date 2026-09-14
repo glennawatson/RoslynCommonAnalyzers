@@ -19,12 +19,12 @@ internal readonly record struct ShadowedMember(
     public const string InheritedFieldDescription = "inherited field";
 
     /// <summary>Gets the wording the diagnostic message uses for the shadowed member.</summary>
-    public string Description => (IsInherited, IsProperty) switch
+    public string Description => IsInherited switch
     {
-        (true, true) => "inherited property",
-        (true, false) => InheritedFieldDescription,
-        (false, true) => "property",
-        _ => "field",
+        true when IsProperty => "inherited property",
+        true => InheritedFieldDescription,
+        false when IsProperty => "property",
+        false => "field",
     };
 
     /// <summary>Gets the wording the diagnostic message uses when a nested type's member shadows this member.</summary>

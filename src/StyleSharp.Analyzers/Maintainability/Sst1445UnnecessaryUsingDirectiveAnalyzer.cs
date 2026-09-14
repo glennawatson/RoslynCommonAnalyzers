@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
@@ -39,12 +40,12 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
     private static void AnalyzeSemanticModel(SemanticModelAnalysisContext context)
     {
         if (context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken) is not CompilationUnitSyntax root
-            || HasInactiveRegion(root))
+            || InactivePreprocessorRegions.Contains(root))
         {
             return;
         }
 
-        var tracker = UsageTracker.Create(root, context.SemanticModel, context.CancellationToken);
+        using var tracker = UsageTracker.Create(root, context.SemanticModel, context.CancellationToken);
         if (tracker is null)
         {
             return;
@@ -58,34 +59,6 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         }
 
         tracker.Report(context);
-    }
-
-    /// <summary>Returns whether the file holds source this compilation left out.</summary>
-    /// <param name="root">The compilation unit.</param>
-    /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the file.</returns>
-    /// <remarks>
-    /// The identifiers in such a region are trivia, not bound syntax, so nothing there can be counted as a
-    /// use. A directive whose only consumer sits in the branch this compilation did not take therefore looks
-    /// unused — and removing it breaks every framework that does take that branch, with the type it named no
-    /// longer in scope. Whether a using is needed is a question about the whole file, so a file that is only
-    /// partly visible is left alone.
-    /// </remarks>
-    private static bool HasInactiveRegion(CompilationUnitSyntax root)
-    {
-        if (!root.ContainsDirectives)
-        {
-            return false;
-        }
-
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
-        {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Marks directives used only from XML documentation crefs (rare-path pass).</summary>
@@ -129,29 +102,30 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
     /// through them. All marking is deliberately one-directional: over-marking only costs a missed
     /// report, never a false one.
     /// </summary>
-    private sealed class UsageTracker
+    private sealed class UsageTracker : IDisposable
     {
-        /// <summary>The tracked directives.</summary>
+        /// <summary>The rented buffer containing the tracked directives.</summary>
         private readonly Entry[] _entries;
 
-        /// <summary>The per-entry used flags, parallel to <see cref="_entries"/>.</summary>
-        private readonly bool[] _used;
+        /// <summary>The populated prefix of the rented entry buffer.</summary>
+        private readonly int _count;
 
         /// <summary>The number of tracked alias directives not yet marked used.</summary>
         private int _aliasRemaining;
 
         /// <summary>Initializes a new instance of the <see cref="UsageTracker"/> class.</summary>
         /// <param name="entries">The tracked directives.</param>
+        /// <param name="count">The populated entry count.</param>
         /// <param name="model">The file's semantic model.</param>
         /// <param name="cancellationToken">The analysis cancellation token.</param>
-        private UsageTracker(Entry[] entries, SemanticModel model, CancellationToken cancellationToken)
+        private UsageTracker(Entry[] entries, int count, SemanticModel model, CancellationToken cancellationToken)
         {
             _entries = entries;
-            _used = new bool[entries.Length];
+            _count = count;
             Model = model;
             CancellationToken = cancellationToken;
-            Remaining = entries.Length;
-            for (var i = 0; i < entries.Length; i++)
+            Remaining = count;
+            for (var i = 0; i < count; i++)
             {
                 if (entries[i].AliasName is not null)
                 {
@@ -162,6 +136,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
 
         /// <summary>Gets the number of directives not yet marked used.</summary>
         public int Remaining { get; private set; }
+
+        /// <summary>Gets whether namespace or static imports still need symbol binding.</summary>
+        public bool HasNonAliasRemaining => Remaining > _aliasRemaining;
 
         /// <summary>Gets the file's semantic model.</summary>
         public SemanticModel Model { get; }
@@ -176,21 +153,38 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <returns>The tracker, or <see langword="null"/> when the file has nothing to track.</returns>
         public static UsageTracker? Create(CompilationUnitSyntax root, SemanticModel model, CancellationToken cancellationToken)
         {
-            List<Entry>? entries = null;
-            CollectUsings(root.Usings, model, cancellationToken, ref entries);
-            CollectNamespaceUsings(root.Members, model, cancellationToken, ref entries);
-            return entries is { Count: > 0 }
-                ? new UsageTracker([.. entries], model, cancellationToken)
-                : null;
+            var capacity = root.Usings.Count + CountNamespaceUsings(root.Members);
+            Entry[]? entries = null;
+            var count = 0;
+            try
+            {
+                CollectUsings(root.Usings, model, capacity, cancellationToken, ref entries, ref count);
+                CollectNamespaceUsings(root.Members, model, capacity, cancellationToken, ref entries, ref count);
+                var tracker = entries is null ? null : new UsageTracker(entries, count, model, cancellationToken);
+                entries = null;
+                return tracker;
+            }
+            finally
+            {
+                // Binding can be canceled before ownership transfers to the tracker.
+                if (entries is not null)
+                {
+                    ArrayPool<Entry>.Shared.Return(entries, clearArray: true);
+                }
+            }
         }
+
+        /// <summary>Returns the entry buffer and releases all syntax and symbol references.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Dispose() => ArrayPool<Entry>.Shared.Return(_entries, clearArray: true);
 
         /// <summary>Marks the alias directive a resolved alias symbol declares.</summary>
         /// <param name="alias">The resolved alias symbol.</param>
         public void MarkAlias(IAliasSymbol alias)
         {
-            for (var i = 0; i < _entries.Length; i++)
+            for (var i = 0; i < _count; i++)
             {
-                if (_used[i] || _entries[i].AliasName is null)
+                if (_entries[i].Used || _entries[i].AliasName is null)
                 {
                     continue;
                 }
@@ -208,9 +202,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <summary>Marks every directive still unaccounted for as used (conservative bail-out).</summary>
         public void MarkAllRemaining()
         {
-            for (var i = 0; i < _entries.Length; i++)
+            for (var i = 0; i < _count; i++)
             {
-                if (!_used[i])
+                if (!_entries[i].Used)
                 {
                     MarkUsed(i);
                 }
@@ -227,9 +221,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return false;
             }
 
-            for (var i = 0; i < _entries.Length; i++)
+            for (var i = 0; i < _count; i++)
             {
-                if (!_used[i] && _entries[i].AliasName == name)
+                if (!_entries[i].Used && _entries[i].AliasName == name)
                 {
                     return true;
                 }
@@ -328,9 +322,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            for (var i = 0; i < _entries.Length; i++)
+            for (var i = 0; i < _count; i++)
             {
-                if (_used[i])
+                if (_entries[i].Used)
                 {
                     continue;
                 }
@@ -348,9 +342,11 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <summary>Collects the trackable directives from one using list.</summary>
         /// <param name="usings">The using directives of one scope.</param>
         /// <param name="model">The file's semantic model.</param>
+        /// <param name="capacity">The number of directives across all scopes in the file.</param>
         /// <param name="cancellationToken">The analysis cancellation token.</param>
-        /// <param name="entries">The entry list, created on first use.</param>
-        private static void CollectUsings(SyntaxList<UsingDirectiveSyntax> usings, SemanticModel model, CancellationToken cancellationToken, ref List<Entry>? entries)
+        /// <param name="entries">The entry buffer, rented on first use.</param>
+        /// <param name="count">The number of entries collected.</param>
+        private static void CollectUsings(SyntaxList<UsingDirectiveSyntax> usings, SemanticModel model, int capacity, CancellationToken cancellationToken, ref Entry[]? entries, ref int count)
         {
             for (var i = 0; i < usings.Count; i++)
             {
@@ -365,17 +361,43 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     continue;
                 }
 
-                entries ??= new List<Entry>(capacity: 8);
-                entries.Add(entry);
+                entries ??= ArrayPool<Entry>.Shared.Rent(capacity);
+                entries[count] = entry;
+                count++;
             }
+        }
+
+        /// <summary>Counts namespace-scoped directives before allocating the tracked-entry buffer.</summary>
+        /// <param name="members">The members of one scope.</param>
+        /// <returns>The number of directives across this scope's namespace declarations.</returns>
+        private static int CountNamespaceUsings(SyntaxList<MemberDeclarationSyntax> members)
+        {
+            var count = 0;
+            for (var i = 0; i < members.Count; i++)
+            {
+                if (members[i] is BaseNamespaceDeclarationSyntax ns)
+                {
+                    count += ns.Usings.Count + CountNamespaceUsings(ns.Members);
+                }
+            }
+
+            return count;
         }
 
         /// <summary>Collects trackable directives declared inside namespace declarations.</summary>
         /// <param name="members">The members of one scope.</param>
         /// <param name="model">The file's semantic model.</param>
+        /// <param name="capacity">The number of directives across all scopes in the file.</param>
         /// <param name="cancellationToken">The analysis cancellation token.</param>
-        /// <param name="entries">The entry list, created on first use.</param>
-        private static void CollectNamespaceUsings(SyntaxList<MemberDeclarationSyntax> members, SemanticModel model, CancellationToken cancellationToken, ref List<Entry>? entries)
+        /// <param name="entries">The entry buffer, rented on first use.</param>
+        /// <param name="count">The number of entries collected.</param>
+        private static void CollectNamespaceUsings(
+            SyntaxList<MemberDeclarationSyntax> members,
+            SemanticModel model,
+            int capacity,
+            CancellationToken cancellationToken,
+            ref Entry[]? entries,
+            ref int count)
         {
             for (var i = 0; i < members.Count; i++)
             {
@@ -384,8 +406,8 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     continue;
                 }
 
-                CollectUsings(ns.Usings, model, cancellationToken, ref entries);
-                CollectNamespaceUsings(ns.Members, model, cancellationToken, ref entries);
+                CollectUsings(ns.Usings, model, capacity, cancellationToken, ref entries, ref count);
+                CollectNamespaceUsings(ns.Members, model, capacity, cancellationToken, ref entries, ref count);
             }
         }
 
@@ -488,9 +510,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            for (var i = 0; i < _entries.Length; i++)
+            for (var i = 0; i < _count; i++)
             {
-                if (!_used[i] && _entries[i] is { AliasName: null, IsStatic: false, Target: INamespaceSymbol target } && NamespaceMatches(target, containingNamespace))
+                if (!_entries[i].Used && _entries[i] is { AliasName: null, IsStatic: false, Target: INamespaceSymbol target } && NamespaceMatches(target, containingNamespace))
                 {
                     MarkUsed(i);
                 }
@@ -506,9 +528,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            for (var i = 0; i < _entries.Length; i++)
+            for (var i = 0; i < _count; i++)
             {
-                if (!_used[i] && _entries[i].IsStatic && SymbolEqualityComparer.Default.Equals(_entries[i].Target, containingType))
+                if (!_entries[i].Used && _entries[i].IsStatic && SymbolEqualityComparer.Default.Equals(_entries[i].Target, containingType))
                 {
                     MarkUsed(i);
                 }
@@ -540,7 +562,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <param name="index">The entry index.</param>
         private void MarkUsed(int index)
         {
-            _used[index] = true;
+            _entries[index].Used = true;
             Remaining--;
             if (_entries[index].AliasName is null)
             {
@@ -555,11 +577,15 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <param name="Target">The bound namespace or type target; <see langword="null"/> for aliases.</param>
         /// <param name="AliasName">The alias identifier text; <see langword="null"/> for non-alias directives.</param>
         /// <param name="IsStatic">Whether the directive is a <c>using static</c>.</param>
-        private readonly record struct Entry(
+        private record struct Entry(
             UsingDirectiveSyntax Directive,
             ISymbol? Target,
             string? AliasName,
-            bool IsStatic);
+            bool IsStatic)
+        {
+            /// <summary>Gets or sets a value indicating whether this directive has been accounted for.</summary>
+            public bool Used { get; set; }
+        }
     }
 
     /// <summary>
@@ -642,7 +668,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            if (TryMarkAlias(node, text))
+            if (TryMarkAlias(node, text) || !_tracker.HasNonAliasRemaining)
             {
                 return;
             }
@@ -909,11 +935,16 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
             while (body is not null && _tracker.Remaining > 0)
             {
                 var clauses = body.Clauses;
-                for (var i = 0; i < clauses.Count; i++)
+                for (var i = 0; i < clauses.Count && _tracker.Remaining > 0; i++)
                 {
                     var info = _tracker.Model.GetQueryClauseInfo(clauses[i], _tracker.CancellationToken);
                     _tracker.MarkExtensionMethod(info.CastInfo.Symbol as IMethodSymbol);
                     _tracker.MarkExtensionMethod(info.OperationInfo.Symbol as IMethodSymbol);
+                }
+
+                if (_tracker.Remaining == 0)
+                {
+                    return;
                 }
 
                 _tracker.MarkExtensionMethod(_tracker.Model.GetSymbolInfo(body.SelectOrGroup, _tracker.CancellationToken).Symbol as IMethodSymbol);

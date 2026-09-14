@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports an event whose delegate is not one of the framework's handler delegates (SST2304).</summary>
@@ -45,14 +47,14 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     /// <summary>The unqualified name of the base every event payload derives from.</summary>
     private const string EventArgsName = "EventArgs";
 
-    /// <summary>The metadata name of the generic handler delegate the rule suggests.</summary>
-    private const string EventHandlerMetadataName = "System.EventHandler`1";
-
     /// <summary>The replacement named when the delegate's shape differs and the arguments type is still to be designed.</summary>
     private const string PlaceholderReplacement = "EventHandler<TEventArgs>";
 
     /// <summary>The number of parameters the standard handler shape declares.</summary>
     private const int HandlerParameterCount = 2;
+
+    /// <summary>The metadata name of the generic handler delegate the rule suggests.</summary>
+    private const string EventHandlerMetadataName = "System.EventHandler`1";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.EventHandlerSignature);
@@ -65,12 +67,17 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSymbolAction(AnalyzeEvent, SymbolKind.Event);
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EventHandlerMetadataName),
+            AnalyzeEvent,
+            SymbolKind.Event);
     }
 
     /// <summary>Reports an event whose delegate is bespoke where a framework handler would do.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    private static void AnalyzeEvent(SymbolAnalysisContext context)
+    /// <param name="types">The framework handler type resolved on demand for this compilation.</param>
+    private static void AnalyzeEvent(in SymbolAnalysisContext context, LazyMetadataType types)
     {
         var @event = (IEventSymbol)context.Symbol;
         if (@event.IsOverride || !@event.ExplicitInterfaceImplementations.IsEmpty || ImplementsInterfaceEvent(@event))
@@ -90,7 +97,7 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
 
         // The delegate the rule asks for is only asked for once the compilation is known to have it. The
         // lookup sits behind every other test, so it runs only for an event that would otherwise report.
-        if (context.Compilation.GetTypeByMetadataName(EventHandlerMetadataName) is null)
+        if (types.Get() is null)
         {
             return;
         }
@@ -122,28 +129,9 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     /// <param name="event">The event to test.</param>
     /// <returns><see langword="true"/> when an interface dictates the event's type.</returns>
     /// <remarks>The interface walk runs only for an event, which is rare, and stops at the first match.</remarks>
-    private static bool ImplementsInterfaceEvent(IEventSymbol @event)
-    {
-        if (@event.ContainingType is not { } containingType)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(@event.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidates[j]), @event))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ImplementsInterfaceEvent(IEventSymbol @event) =>
+        InterfaceImplementationLookup.FindImplementedInterfaceMember(@event) is not null;
 
     /// <summary>Returns whether a delegate is one of the framework's handler delegates.</summary>
     /// <param name="handler">The event's delegate type.</param>

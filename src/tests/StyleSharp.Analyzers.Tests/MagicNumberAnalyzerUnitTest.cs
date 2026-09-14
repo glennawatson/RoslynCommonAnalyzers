@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using VerifyMagicNumber = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1471MagicNumberAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -12,6 +13,217 @@ public class MagicNumberAnalyzerUnitTest
 {
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>Verifies numeric suffixes, separators, and wrappers retain the literal's reported value.</summary>
+    /// <param name="expression">The numeric expression that needs a name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("2_0")]
+    [Arguments("20L")]
+    [Arguments("20U")]
+    [Arguments("20UL")]
+    [Arguments("20M")]
+    [Arguments("20F")]
+    [Arguments("20D")]
+    [Arguments(".25")]
+    [Arguments("-20M")]
+    [Arguments("-20F")]
+    [Arguments("-20D")]
+    [Arguments("1000000000000000000")]
+    [Arguments("+(int)(-(-20))")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NumericRepresentationsAreReportedAsync(string expression) =>
+        VerifyMagicNumber.VerifyAnalyzerAsync($$"""
+            public class C { public object M() => {|SST1471:{{expression}}|}; }
+            """);
+
+    /// <summary>Verifies finite floating point literals outside the decimal range are ignored.</summary>
+    /// <param name="expression">The unrepresentable numeric expression.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("1e100")]
+    [Arguments("-1e100")]
+    [Arguments("1e30F")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ValuesOutsideDecimalRangeAreCleanAsync(string expression) =>
+        VerifyMagicNumber.VerifyAnalyzerAsync($$"""
+            public class C { public object M() => {{expression}}; }
+            """);
+
+    /// <summary>Verifies a bitwise complement does not become part of the numeric literal's diagnostic span.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task BitwiseComplementReportsOnlyItsLiteralAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync("class C { int M() => ~{|SST1471:24|}; }");
+
+    /// <summary>Verifies a top-level call does not acquire a named declaration exemption.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TopLevelArgumentIsReportedAsync()
+    {
+        var test = new VerifyMagicNumber.Test { TestCode = "System.Console.WriteLine({|SST1471:24|});" };
+        test.TestState.OutputKind = OutputKind.ConsoleApplication;
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies capacity exemptions depend on the option and the bound parameter's name.</summary>
+    /// <param name="enabled">Whether positional capacity arguments are permitted.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task CapacityOptionChecksTheBoundConstructorAsync(bool enabled)
+    {
+        var test = new VerifyMagicNumber.Test
+        {
+            TestCode = $$"""
+                public class Buffer
+                {
+                    public Buffer(int capacity) { }
+                    public Buffer(string text, int count) { }
+                    public Buffer(params int[] values) { }
+                    public static Buffer Make() => new({{(enabled ? "24" : "{|SST1471:24|}")}});
+                    public static Buffer Other() => new("text", {|SST1471:24|});
+                    public static Buffer Labelled() => new(capacity: 24);
+                    public static Buffer Expanded() => new({|SST1471:12|}, {|SST1471:24|});
+                    public static int Invoke() => Take({|SST1471:24|});
+                    private static int Take(int capacity) => capacity;
+                }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $$"""
+            root = true
+            [*.cs]
+            stylesharp.SST1471.allow_capacity_arguments = {{enabled}}
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a constructor that cannot bind receives no positional exemption.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnresolvedConstructorIsReportedAsync()
+    {
+        var test = new VerifyMagicNumber.Test { TestCode = "public class C { public object M() => new {|CS0246:Missing|}({|SST1471:24|}); }" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
+            root = true
+            [*.cs]
+            stylesharp.SST1471.allow_capacity_arguments = true
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies general options work and rule-specific options take precedence.</summary>
+    /// <param name="options">The general and rule-specific configuration.</param>
+    /// <param name="literal">The expected literal diagnostic markup.</param>
+    /// <param name="capacity">The expected capacity diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("stylesharp.magic_number_allowed_values = 2\nstylesharp.allow_capacity_arguments = true", "2", "24")]
+    [Arguments("stylesharp.magic_number_allowed_values = 2\nstylesharp.allow_capacity_arguments = false", "2", "{|SST1471:24|}")]
+    [Arguments(
+        """
+        stylesharp.magic_number_allowed_values = 2
+        stylesharp.SST1471.magic_number_allowed_values = 3
+        stylesharp.allow_capacity_arguments = true
+        stylesharp.SST1471.allow_capacity_arguments = false
+        """,
+        "{|SST1471:2|}",
+        "{|SST1471:24|}")]
+    [Arguments("stylesharp.SST1471.magic_number_allowed_values = \nstylesharp.SST1471.allow_capacity_arguments = invalid", "{|SST1471:2|}", "{|SST1471:24|}")]
+    public async Task OptionFallbackAndPrecedenceAreHonoredAsync(string options, string literal, string capacity)
+    {
+        var test = new VerifyMagicNumber.Test
+        {
+            TestCode = $$"""
+                class C
+                {
+                    int Value() => {{literal}};
+                    System.Collections.Generic.List<int> Values() => new({{capacity}});
+                }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $"root = true\n[*.cs]\n{options}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies cardinality names, comparison directions, and shift operators use their syntactic exemptions.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CardinalityAndShiftShapesAreClassifiedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync("""
+            using System.Linq;
+            public class C
+            {
+                public int Count => 0;
+                public bool Counts(int[] values) => Count <= 3 && values.Count() != 4 && values.LongLength > 5;
+                public bool NotCardinality(int value) => (value + 1) == {|SST1471:6|};
+                public int LeftOperand(int value) => {|SST1471:7|} << value;
+                public int Shifts(int value)
+                {
+                    value >>= 3;
+                    value >>>= 4;
+                    value += {|SST1471:5|};
+                    return value >>> 6;
+                }
+                public int Bits() => 0XFF + 0B11;
+            }
+            """);
+
+    /// <summary>Verifies collection values and nested declarations only inherit names in supported positions.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DeclarationBoundariesAndCollectionKindsAreClassifiedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync("""
+            using System.Collections.Generic;
+            public class C
+            {
+                public int[] Values { get; } = new int[] { 2, 3 };
+                public List<int> Items() => new List<int> { {|SST1471:4|}, {|SST1471:5|} };
+                public int Property => {|SST1471:6|};
+                public int Constant()
+                {
+                    const int Scale = 7 * 8;
+                    int Local() => {|SST1471:9|};
+                    return Scale + Local();
+                }
+            }
+            """);
+
+    /// <summary>Verifies settings initialized for one tree do not leak into another tree's slot.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SeparateTreesKeepTheirOwnAllowedValuesAsync()
+    {
+        var test = new VerifyMagicNumber.Test();
+        test.TestState.Sources.Add(("/Allowed.cs", """
+            public class Allowed
+            {
+                public int First(int value) => value + 2;
+                public int Second(int value) => value * 2;
+            }
+            """));
+        test.TestState.Sources.Add(("/Default.cs", """
+            public class Default
+            {
+                public int First(int value) => value + {|SST1471:2|};
+                public int Second(int value) => value * {|SST1471:2|};
+            }
+            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
+            root = true
+            [Allowed.cs]
+            stylesharp.SST1471.magic_number_allowed_values = -1, 0, 1, 2
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies a bare literal in an expression is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

@@ -37,25 +37,17 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var typeSymbol = start.Compilation.GetTypeByMetadataName("System.Type");
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeLock(nodeContext, typeSymbol), SyntaxKind.LockStatement);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, "System.Type"),
+            AnalyzeLock,
+            SyntaxKind.LockStatement);
     }
-
-    /// <summary>Returns whether the lock target is syntactically known to be a private object field declared in the same type.</summary>
-    /// <param name="type">The containing type declaration.</param>
-    /// <param name="expression">The lock target expression.</param>
-    /// <returns><see langword="true"/> when the target is a clean private object field use.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression) =>
-        FieldReferenceAnalysis.IsPrivateObjectFieldLockTarget(type, expression);
 
     /// <summary>Reports SST1901/SST1902/SST1903/SST1904 for a questionable lock target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
-    private static void AnalyzeLock(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeSymbol)
+    /// <param name="typeSymbol">The <c>System.Type</c> symbol, resolved on first demand.</param>
+    private static void AnalyzeLock(in SyntaxNodeAnalysisContext context, LazyMetadataType typeSymbol)
     {
         var expression = UnwrapLockTarget(((LockStatementSyntax)context.Node).Expression);
 
@@ -214,7 +206,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         // The lock target itself, and a plain member access on the local (reading or mutating the object
         // in place), keep the reference where it is. A reference captured by a lambda or a local function,
         // or handed anywhere else — an assignment, an argument, a return — publishes the instance.
-        if (reference == state.LockTarget || (!IsCapturedBeyond(reference, state.Scope) && IsMemberAccessOnLocal(reference)))
+        if (reference == state.LockTarget || (!NestedFunctionScope.IsInsideNestedFunction(reference, state.Scope) && IsMemberAccessOnLocal(reference)))
         {
             return true;
         }
@@ -231,23 +223,6 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Expression == reference;
 
-    /// <summary>Returns whether a reference sits inside a lambda, an anonymous method, or a local function within the scope.</summary>
-    /// <param name="reference">The reference.</param>
-    /// <param name="scope">The block that bounds the walk.</param>
-    /// <returns><see langword="true"/> when the value is captured and can outlive the method.</returns>
-    private static bool IsCapturedBeyond(SyntaxNode reference, SyntaxNode scope)
-    {
-        for (var node = reference.Parent; node is not null && node != scope; node = node.Parent)
-        {
-            if (node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Gets the block a local lives in, which is as far as any reference to it can reach.</summary>
     /// <param name="declarator">The local's declarator.</param>
     /// <returns>The enclosing block, or <see langword="null"/> when the local is declared somewhere unusual.</returns>
@@ -263,14 +238,14 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The lock target expression.</param>
     /// <param name="symbol">The bound symbol for the lock target, if any.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
+    /// <param name="typeSymbol">The <c>System.Type</c> symbol, resolved on first demand.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the target has weak identity.</returns>
     private static bool IsWeakIdentity(
         ExpressionSyntax expression,
         ISymbol? symbol,
         SemanticModel model,
-        INamedTypeSymbol? typeSymbol,
+        LazyMetadataType typeSymbol,
         CancellationToken cancellationToken)
     {
         if (expression is ThisExpressionSyntax or TypeOfExpressionSyntax)
@@ -287,24 +262,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
 
         return type is not null
                && (type.SpecialType == SpecialType.System_String
-                   || (typeSymbol is not null && IsOrDerivesFrom(type, typeSymbol)));
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the target type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The target base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
-    private static bool IsOrDerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
+                   || (typeSymbol.Get() is { } resolved && TypeRelations.IsOrDerivesFrom(type, resolved)));
     }
 
     /// <summary>Returns whether an accessibility is reachable from outside the declaring assembly.</summary>

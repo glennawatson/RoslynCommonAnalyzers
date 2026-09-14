@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes a bitwise operation that cannot change its operand's value (SST1481): <c>x | 0</c>, <c>x ^ 0</c> and <c>x &amp; ~0</c> all collapse to <c>x</c>.</summary>
@@ -25,14 +23,17 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1481RedundantBitwiseOperationCodeFixProvider))]
 [Shared]
-public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(MaintainabilityRules.RedundantBitwiseOperation.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -40,28 +41,14 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
             context,
             "Remove the redundant operation",
             nameof(Sst1481RedundantBitwiseOperationCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Applies one SST1481 removal for the reported operation.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        TryRewrite(root, diagnostic) is { } edit
-            ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
-            : document;
 
     /// <summary>Resolves the reported operation and lifts out the operand that survives it.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the diagnostic carries no fix.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         if (!diagnostic.Properties.TryGetValue(Sst1481RedundantBitwiseOperationAnalyzer.SurvivingOperandKey, out var side)
             || side is not (Sst1481RedundantBitwiseOperationAnalyzer.LeftOperandSurvives
@@ -87,6 +74,16 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
             Surviving(binary, keepLeft).WithTriviaFrom(binary),
             current => Lift(current, keepLeft));
     }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (diagnostic.Properties.TryGetValue(Sst1481RedundantBitwiseOperationAnalyzer.SurvivingOperandKey, out var side)
+            && side is (Sst1481RedundantBitwiseOperationAnalyzer.LeftOperandSurvives or Sst1481RedundantBitwiseOperationAnalyzer.RightOperandSurvives))
+            && (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax binary
+            && IsFixableKind(binary));
 
     /// <summary>Lifts the surviving operand out of the operation once nested edits have been composed.</summary>
     /// <param name="current">The operation, as it stands after any nested fix.</param>

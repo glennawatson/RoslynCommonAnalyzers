@@ -25,29 +25,13 @@ public sealed class Sst2706StaThreadEntryPointCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } method)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add [STAThread]",
-                    cancellationToken => AddStaThreadAsync(context.Document, method, cancellationToken),
-                    equivalenceKey: nameof(Sst2706StaThreadEntryPointCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Add [STAThread]",
+            nameof(Sst2706StaThreadEntryPointCodeFixProvider),
+            static (root, diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<MethodDeclarationSyntax>(),
+            AddStaThreadAsync);
 
     /// <summary>Prepends a <c>[System.STAThread]</c> attribute list to the entry-point method.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -63,26 +47,19 @@ public sealed class Sst2706StaThreadEntryPointCodeFixProvider : CodeFixProvider
         }
 
         var leading = method.GetLeadingTrivia();
-        var indent = IndentTrivia(leading);
+        var indent = CodeFixTriviaHelper.IndentTrivia(leading);
         var newLine = LineEndingHelper.GetLineBreak(method);
 
         var attributeList = SyntaxFactory.AttributeList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Attribute(SyntaxFactory.ParseName(StaThreadAttributeName))))
-            .WithLeadingTrivia(leading)
-            .WithTrailingTrivia(newLine);
+            SyntaxFactory.Token(leading, SyntaxKind.OpenBracketToken, default),
+            target: null,
+            SyntaxFactory.SingletonSeparatedList(
+                SyntaxFactory.Attribute(SyntaxFactory.ParseName(StaThreadAttributeName))),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBracketToken, SyntaxFactory.TriviaList(newLine)));
 
         var relocated = method.WithLeadingTrivia(indent);
         var updated = relocated.WithAttributeLists(relocated.AttributeLists.Insert(0, attributeList));
 
         return document.WithSyntaxRoot(root.ReplaceNode(method, updated));
     }
-
-    /// <summary>Returns the indentation trivia (the whitespace immediately before the method) of its leading trivia.</summary>
-    /// <param name="leading">The method's leading trivia.</param>
-    /// <returns>The indentation trivia list, or an empty list when the method starts at column zero.</returns>
-    private static SyntaxTriviaList IndentTrivia(in SyntaxTriviaList leading) =>
-        leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
-            ? SyntaxFactory.TriviaList(leading[leading.Count - 1])
-            : SyntaxTriviaList.Empty;
 }

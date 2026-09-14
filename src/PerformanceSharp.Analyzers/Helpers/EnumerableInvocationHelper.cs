@@ -14,6 +14,54 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 internal static class EnumerableInvocationHelper
 {
+    /// <summary>The unreduced parameter count of an extension that takes only its source.</summary>
+    private const int SourceOnlyParameterCount = 1;
+
+    /// <summary>Returns whether an invocation binds, in extension form, to a method declared on a resolved LINQ type.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="invocation">The invocation to bind.</param>
+    /// <param name="enumerableType">The LINQ extension class resolved for the compilation.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the call is a reduced extension declared on <paramref name="enumerableType"/>.</returns>
+    internal static bool IsReducedExtensionOn(
+        SemanticModel model,
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol enumerableType,
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
+            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
+
+    /// <summary>Returns whether an invocation binds, in extension form, to a resolved LINQ type's method with a given unreduced arity.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="invocation">The invocation to bind.</param>
+    /// <param name="enumerableType">The LINQ extension class resolved for the compilation.</param>
+    /// <param name="parameterCount">The expected parameter count of the unreduced method, source included.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the call is a reduced extension of that arity declared on <paramref name="enumerableType"/>.</returns>
+    internal static bool IsReducedExtensionOn(
+        SemanticModel model,
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol enumerableType,
+        int parameterCount,
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
+            && reduced.Parameters.Length == parameterCount
+            && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
+
+    /// <summary>Returns whether an invocation binds, in extension form, to a resolved LINQ type's method whose only parameter is the source.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="invocation">The invocation to bind.</param>
+    /// <param name="enumerableType">The LINQ extension class resolved for the compilation.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the call is a reduced source-only extension declared on <paramref name="enumerableType"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsSourceOnlyExtensionOn(
+        SemanticModel model,
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol enumerableType,
+        CancellationToken cancellationToken) =>
+        IsReducedExtensionOn(model, invocation, enumerableType, SourceOnlyParameterCount, cancellationToken);
+
     /// <summary>Returns whether a named type is <c>System.Linq.Enumerable</c>.</summary>
     /// <param name="type">The type.</param>
     /// <returns><see langword="true"/> for <c>System.Linq.Enumerable</c>.</returns>

@@ -39,7 +39,7 @@ public class Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixBenchmarks
     [Benchmark]
     public async Task<int> Sst1169TypeParameterListMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

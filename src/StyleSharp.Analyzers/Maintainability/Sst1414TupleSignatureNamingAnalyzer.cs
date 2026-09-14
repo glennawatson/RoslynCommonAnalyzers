@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -43,17 +45,7 @@ public sealed class Sst1414TupleSignatureNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether any element of the tuple type lacks a name.</summary>
     /// <param name="node">The tuple type.</param>
     /// <returns><see langword="true"/> when at least one element has no identifier.</returns>
-    private static bool HasUnnamedElement(TupleTypeSyntax node)
-    {
-        var elements = node.Elements;
-        for (var i = 0; i < elements.Count; i++)
-        {
-            if (elements[i].Identifier.IsKind(SyntaxKind.None))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasUnnamedElement(TupleTypeSyntax node) =>
+        ListScan.Any(node.Elements, static element => element.Identifier.IsKind(SyntaxKind.None));
 }

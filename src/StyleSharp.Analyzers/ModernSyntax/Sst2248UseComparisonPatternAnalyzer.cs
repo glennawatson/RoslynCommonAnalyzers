@@ -138,7 +138,7 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
 
         subject = candidate.Right;
         constant = candidate.Left;
-        comparison = Flip(candidate.Kind());
+        comparison = ComparisonKinds.Mirror(candidate.Kind());
         return true;
     }
 
@@ -177,19 +177,6 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
         kind is SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression
             or SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression;
-
-    /// <summary>Mirrors a comparison so its constant can move from the left of the operator to the right.</summary>
-    /// <param name="kind">The comparison kind with the constant on the left.</param>
-    /// <returns>The equivalent comparison kind with the subject on the left.</returns>
-    private static SyntaxKind Flip(SyntaxKind kind) =>
-        kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
-        };
 
     /// <summary>Reads the declared type of a local, parameter, or field symbol.</summary>
     /// <param name="symbol">The subject symbol, or <see langword="null"/> when the name did not bind.</param>

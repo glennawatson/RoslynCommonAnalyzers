@@ -66,6 +66,30 @@ public class EmptyTestClassAnalyzerUnitTest
             }
             """ + "\n" + NUnitStubs);
 
+    /// <summary>Verifies an MSTest STA test class, which derives from the test-class attribute, is reported when it has no test method.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MSTestStaTestClassWithNoTestMethodIsFlaggedAsync() =>
+        VerifyAsync(
+            """
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+            [STATestClass]
+            public class {|SST2504:Fixture|}
+            {
+                public void Helper() { }
+            }
+
+            namespace Microsoft.VisualStudio.TestTools.UnitTesting
+            {
+                using System;
+                public class TestClassAttribute : Attribute { }
+                public sealed class STATestClassAttribute : TestClassAttribute { }
+                public class TestMethodAttribute : Attribute { }
+            }
+            """);
+
     /// <summary>Verifies an MSTest test class with a test method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

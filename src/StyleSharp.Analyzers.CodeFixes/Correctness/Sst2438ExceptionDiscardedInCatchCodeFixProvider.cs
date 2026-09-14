@@ -13,13 +13,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2438ExceptionDiscardedInCatchCodeFixProvider))]
 [Shared]
-public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.ExceptionDiscardedInCatch.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -27,12 +30,18 @@ public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixPro
             context,
             "Pass the caught exception to the logger",
             nameof(Sst2438ExceptionDiscardedInCatchCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
+            && TryReadProperties(diagnostic, out _, out var insertIndex, out _, out _)
+            && insertIndex >= 0
+            && insertIndex < invocation.ArgumentList.Arguments.Count;
 
     /// <summary>Resolves the reported call and rewrites it to pass the caught exception.</summary>
     /// <param name="root">The syntax root.</param>
@@ -76,9 +85,9 @@ public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixPro
         }
 
         name = stored!;
-        return LoggerFixProperties.TryGetIndex(diagnostic, LoggerCallAnalyzer.InsertIndexKey, out insertIndex)
-            && LoggerFixProperties.TryGetIndex(diagnostic, LoggerCallAnalyzer.TailStartKey, out tailStart)
-            && LoggerFixProperties.TryGetIndex(diagnostic, LoggerCallAnalyzer.DegradedArgumentKey, out removeIndex);
+        return DiagnosticPropertyReader.TryGetInt32(diagnostic, LoggerCallAnalyzer.InsertIndexKey, out insertIndex)
+            && DiagnosticPropertyReader.TryGetInt32(diagnostic, LoggerCallAnalyzer.TailStartKey, out tailStart)
+            && DiagnosticPropertyReader.TryGetInt32(diagnostic, LoggerCallAnalyzer.DegradedArgumentKey, out removeIndex);
     }
 
     /// <summary>Inserts the caught exception, dropping a stand-in value when there is one.</summary>

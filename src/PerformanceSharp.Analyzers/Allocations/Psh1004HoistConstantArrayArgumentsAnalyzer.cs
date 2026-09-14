@@ -41,7 +41,7 @@ public sealed class Psh1004HoistConstantArrayArgumentsAnalyzer : DiagnosticAnaly
         if (initializer is { Expressions.Count: > 0 }
             && IsArgumentToCall(creation)
             && AllElementsLookConstant(initializer)
-            && !IsInsideAttributeArgument(creation))
+            && !Psh1001UseArrayEmptyAnalyzer.IsInsideAttributeArgument(creation))
         {
             return true;
         }
@@ -50,32 +50,13 @@ public sealed class Psh1004HoistConstantArrayArgumentsAnalyzer : DiagnosticAnaly
         return false;
     }
 
-    /// <summary>Returns whether every initializer element binds to a compile-time constant.</summary>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="initializer">The initializer whose elements to verify.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when every element has a constant value.</returns>
-    internal static bool AreAllElementsConstant(SemanticModel model, InitializerExpressionSyntax initializer, CancellationToken cancellationToken)
-    {
-        var expressions = initializer.Expressions;
-        for (var i = 0; i < expressions.Count; i++)
-        {
-            if (!model.GetConstantValue(expressions[i], cancellationToken).HasValue)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>Reports PSH1004 for a constant inline array argument that is reallocated on every call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeCreation(SyntaxNodeAnalysisContext context)
     {
         var creation = (ExpressionSyntax)context.Node;
         if (!TryGetCandidateInitializer(creation, out var initializer)
-            || !AreAllElementsConstant(context.SemanticModel, initializer!, context.CancellationToken))
+            || !InitializerConstants.AreAllConstant(context.SemanticModel, initializer!, context.CancellationToken))
         {
             return;
         }
@@ -133,25 +114,4 @@ public sealed class Psh1004HoistConstantArrayArgumentsAnalyzer : DiagnosticAnaly
         {
             Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax }
         };
-
-    /// <summary>Returns whether a node sits inside an attribute argument.</summary>
-    /// <param name="node">The node to inspect.</param>
-    /// <returns><see langword="true"/> when an <see cref="AttributeArgumentSyntax"/> ancestor is found before any statement or member.</returns>
-    private static bool IsInsideAttributeArgument(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            if (current is AttributeArgumentSyntax)
-            {
-                return true;
-            }
-
-            if (current is StatementSyntax or MemberDeclarationSyntax)
-            {
-                return false;
-            }
-        }
-
-        return false;
-    }
 }

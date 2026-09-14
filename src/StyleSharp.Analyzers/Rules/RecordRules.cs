@@ -68,16 +68,14 @@ internal static class RecordRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
-        new(
+        DescriptorFactory.CreateInfo(
             id,
             title,
             messageFormat,
             Category,
-            DiagnosticSeverity.Info,
-            isEnabledByDefault: true,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+            description);
 
     /// <summary>Creates a Records descriptor that is disabled by default (opt-in via .editorconfig).</summary>
     /// <param name="id">The diagnostic id.</param>

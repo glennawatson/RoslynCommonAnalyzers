@@ -108,7 +108,13 @@ internal static class FieldReferenceAnalysis
         var found = false;
         for (var i = 0; i < references.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var identifier = references[i];
+            if (found && allowedSpan.Contains(identifier.Span))
+            {
+                continue;
+            }
+
             if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
             {
                 continue;
@@ -414,31 +420,11 @@ internal static class FieldReferenceAnalysis
         SyntaxNode node,
         SemanticModel model,
         IFieldSymbol field,
-        CancellationToken cancellationToken)
-    {
-        if (node is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText == field.Name
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field);
-        }
-
-        var children = node.ChildNodesAndTokens();
-        for (var i = 0; i < children.Count; i++)
-        {
-            var child = children[i];
-            if (!child.IsNode || child.AsNode() is not { } childNode)
-            {
-                continue;
-            }
-
-            if (ContainsFieldReference(childNode, model, field, cancellationToken))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        CancellationToken cancellationToken) =>
+        node is IdentifierNameSyntax identifier
+            ? identifier.Identifier.ValueText == field.Name
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field)
+            : ContainsFieldReference(model, node, field, cancellationToken);
 
     /// <summary>Finds the direct field declaration with the supplied name in the containing type.</summary>
     /// <param name="type">The containing type.</param>
@@ -482,7 +468,7 @@ internal static class FieldReferenceAnalysis
     /// <returns><see langword="true"/> when the field matches the private object pattern.</returns>
     private static bool IsPrivateObjectField(FieldDeclarationSyntax field, string name)
     {
-        if (!IsUnambiguousObjectType(field.Declaration.Type) || !HasPrivateModifier(field.Modifiers))
+        if (!ObjectTypeSyntax.IsUnambiguousObjectType(field.Declaration.Type) || !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.PrivateKeyword))
         {
             return false;
         }
@@ -509,11 +495,11 @@ internal static class FieldReferenceAnalysis
         {
             switch (current)
             {
-                case BaseMethodDeclarationSyntax method when HasParameterNamed(method.ParameterList.Parameters, name):
-                case LocalFunctionStatementSyntax localFunction when HasParameterNamed(localFunction.ParameterList.Parameters, name):
+                case BaseMethodDeclarationSyntax method when ParameterNames.Contains(method.ParameterList.Parameters, name):
+                case LocalFunctionStatementSyntax localFunction when ParameterNames.Contains(localFunction.ParameterList.Parameters, name):
                 case SimpleLambdaExpressionSyntax lambda when lambda.Parameter.Identifier.ValueText == name:
-                case ParenthesizedLambdaExpressionSyntax parenthesizedLambda when HasParameterNamed(parenthesizedLambda.ParameterList.Parameters, name):
-                case AnonymousMethodExpressionSyntax anonymousMethod when anonymousMethod.ParameterList is not null && HasParameterNamed(anonymousMethod.ParameterList.Parameters, name):
+                case ParenthesizedLambdaExpressionSyntax parenthesizedLambda when ParameterNames.Contains(parenthesizedLambda.ParameterList.Parameters, name):
+                case AnonymousMethodExpressionSyntax anonymousMethod when anonymousMethod.ParameterList is not null && ParameterNames.Contains(anonymousMethod.ParameterList.Parameters, name):
                     return true;
 
                 case AccessorDeclarationSyntax accessor:
@@ -539,23 +525,6 @@ internal static class FieldReferenceAnalysis
         return false;
     }
 
-    /// <summary>Returns whether a parameter list contains the specified name.</summary>
-    /// <param name="parameters">The parameters to inspect.</param>
-    /// <param name="name">The expected parameter name.</param>
-    /// <returns><see langword="true"/> when a parameter matches.</returns>
-    private static bool HasParameterNamed(SeparatedSyntaxList<ParameterSyntax> parameters, string name)
-    {
-        for (var i = 0; i < parameters.Count; i++)
-        {
-            if (parameters[i].Identifier.ValueText == name)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a callable scope declares a matching local before the field reference.</summary>
     /// <param name="scope">The scope to inspect.</param>
     /// <param name="position">The reference position.</param>
@@ -567,13 +536,6 @@ internal static class FieldReferenceAnalysis
         _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, EarlierLocalSearchState>(scope, ref state, VisitEarlierLocalCandidate);
         return state.Found;
     }
-
-    /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
-    /// <param name="type">The type syntax.</param>
-    /// <returns><see langword="true"/> for unambiguous object spellings.</returns>
-    private static bool IsUnambiguousObjectType(TypeSyntax type) =>
-        (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
-            || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
 
     /// <summary>Records whether the scan has found a matching local declared before the reference.</summary>
     /// <param name="node">The visited syntax node.</param>
@@ -601,29 +563,6 @@ internal static class FieldReferenceAnalysis
                 return true;
         }
     }
-
-    /// <summary>Returns whether a modifier list contains <c>private</c>.</summary>
-    /// <param name="modifiers">The modifier list to inspect.</param>
-    /// <returns><see langword="true"/> when the field is private.</returns>
-    private static bool HasPrivateModifier(in SyntaxTokenList modifiers)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].IsKind(SyntaxKind.PrivateKeyword))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
-    /// <param name="name">The syntax to inspect.</param>
-    /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
-    private static bool IsSystemNamespace(NameSyntax name) =>
-        name is IdentifierNameSyntax { Identifier.ValueText: "System" }
-            or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 
     /// <summary>Captures the state required while searching for earlier locals.</summary>
     /// <param name="Position">The position of the field reference; only declarations starting before it can shadow it.</param>

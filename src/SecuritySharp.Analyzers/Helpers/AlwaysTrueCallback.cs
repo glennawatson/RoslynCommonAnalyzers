@@ -16,6 +16,19 @@ namespace SecuritySharp.Analyzers;
 /// </summary>
 internal static class AlwaysTrueCallback
 {
+    /// <summary>Classifies a callback value into the shape that lets it be reported, before anything binds.</summary>
+    /// <param name="value">The assigned callback or passed predicate.</param>
+    /// <returns>An always-true lambda, a method group that needs binding, or neither.</returns>
+    internal static AlwaysTrueCallbackShape Classify(ExpressionSyntax value)
+    {
+        if (value is AnonymousFunctionExpressionSyntax function)
+        {
+            return IsAlwaysTrueLambda(function) ? AlwaysTrueCallbackShape.AlwaysTrueLambda : AlwaysTrueCallbackShape.None;
+        }
+
+        return value is IdentifierNameSyntax or MemberAccessExpressionSyntax ? AlwaysTrueCallbackShape.MethodGroup : AlwaysTrueCallbackShape.None;
+    }
+
     /// <summary>Returns whether a lambda or anonymous method always yields <see langword="true"/>.</summary>
     /// <param name="function">The lambda or anonymous method.</param>
     /// <returns><see langword="true"/> when the body is <c>=&gt; true</c> or a block whose only result is <c>return true;</c>.</returns>

@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1511 — the forwarded-headers trust boundary is removed, letting untrusted proxies spoof client values.</summary>
-    public static readonly DiagnosticDescriptor ForwardedHeadersTrustBoundaryRemoval = Create(
+    public static readonly DiagnosticDescriptor ForwardedHeadersTrustBoundaryRemoval = DescriptorFactory.Create(
         "SES1511",
         "The forwarded-headers trust boundary must not be removed",
         ForwardedHeadersTrustBoundaryRemovalMessage,

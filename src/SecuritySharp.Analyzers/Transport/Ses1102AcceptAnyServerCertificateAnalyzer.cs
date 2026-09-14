@@ -11,18 +11,17 @@ namespace SecuritySharp.Analyzers;
 /// server authentication and opens the connection to man-in-the-middle attacks. Reading the member has no
 /// other purpose, so every member-access reference to it is reported — the rule does not try to follow where
 /// the value is later assigned. The member is bound (never matched on identifier text alone), and the rule is
-/// resolved once per compilation by probing <c>System.Net.Http.HttpClientHandler</c> and confirming the member
-/// exists on it; on a target framework without either (netstandard2.0, .NET Framework) nothing is registered,
-/// so a project that cannot reference the member pays nothing.
+/// gated on <c>System.Net.Http.HttpClientHandler</c> exposing the member. The type and member are resolved
+/// only after a member access passes the name check.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the handler type that owns the accept-any validator.</summary>
-    private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
-
     /// <summary>The name of the accept-any server-certificate validator member.</summary>
     private const string ValidatorMemberName = "DangerousAcceptAnyServerCertificateValidator";
+
+    /// <summary>The metadata name of the handler type that owns the accept-any validator.</summary>
+    private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AcceptAnyServerCertificate);
@@ -36,22 +35,17 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var handlerType = start.Compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName);
-            if (handlerType is null || handlerType.GetMembers(ValidatorMemberName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, handlerType), SyntaxKind.SimpleMemberAccessExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, HttpClientHandlerMetadataName),
+            AnalyzeMemberAccess,
+            SyntaxKind.SimpleMemberAccessExpression);
     }
 
     /// <summary>Reports SES1102 for a member access that reads the accept-any server-certificate validator.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="handlerType">The gated <c>HttpClientHandler</c> type resolved for the compilation.</param>
-    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkType)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -63,7 +57,9 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
 
         // Bind the member: report only when it truly resolves to the member on HttpClientHandler, so a
         // same-named member on an unrelated type is never flagged.
-        if (context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is not { Name: ValidatorMemberName } member
+        if (frameworkType.Get() is not { } handlerType
+            || handlerType.GetMembers(ValidatorMemberName).IsEmpty
+            || context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is not { Name: ValidatorMemberName } member
             || !SymbolEqualityComparer.Default.Equals(member.ContainingType, handlerType))
         {
             return;

@@ -21,7 +21,7 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2300DisposePatternCodeFixProvider))]
 [Shared]
-public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider
 {
     /// <summary>
     /// The call the fix inserts, written from the global namespace so it binds wherever it lands. The
@@ -29,11 +29,14 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     /// </summary>
     private const string SuppressFinalizeCall = "global::System.GC.SuppressFinalize(this);";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DesignRules.DisposePattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -56,8 +59,10 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (FindMethod(editor.OriginalRoot, diagnostic) is not { } method
             || !diagnostic.Properties.TryGetValue(Sst2300DisposePatternAnalyzer.ClauseKey, out var clause))
@@ -154,10 +159,18 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
 
         var existing = SyntaxFactory.ExpressionStatement(expressionBody.Expression);
         var block = SyntaxFactory.Block(existing, suppress).WithAdditionalAnnotations(Formatter.Annotation);
-        return method
-            .WithExpressionBody(null)
-            .WithSemicolonToken(default)
-            .WithBody(block);
+        return method.Update(
+            method.AttributeLists,
+            method.Modifiers,
+            method.ReturnType,
+            method.ExplicitInterfaceSpecifier,
+            method.Identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            block,
+            expressionBody: null,
+            semicolonToken: default);
     }
 
     /// <summary>Builds the <c>GC.SuppressFinalize(this);</c> statement.</summary>
@@ -171,8 +184,7 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static StatementSyntax BuildSuppressFinalizeStatement() =>
         SyntaxFactory.ParseStatement(SuppressFinalizeCall)
-            .WithAdditionalAnnotations(Simplifier.Annotation)
-            .WithAdditionalAnnotations(Formatter.Annotation);
+            .WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation);
 
     /// <summary>Replaces a <c>Dispose(bool)</c>'s <c>public</c> with the modifiers the pattern asks for.</summary>
     /// <param name="method">The <c>Dispose(bool)</c> declaration.</param>

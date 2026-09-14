@@ -24,7 +24,7 @@ namespace StyleSharp.Analyzers;
 /// the rule assumes.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on the date/time types and the provider types resolving.
+/// The date/time and provider types are resolved once per compilation, only for a syntactic candidate.
 /// The clean path is a token compare and a character scan of the literal for a separator; nothing binds until
 /// a candidate call or interpolation carries one.
 /// </para>
@@ -58,17 +58,11 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (DateFormatContext.TryCreate(start.Compilation) is not { } formatContext)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, formatContext), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInterpolation(nodeContext, formatContext), SyntaxKind.InterpolatedStringExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyCompilationValue<DateFormatContext?>(compilation, DateFormatContext.TryCreate),
+            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]),
+            new(AnalyzeInterpolation, [SyntaxKind.InterpolatedStringExpression]));
     }
 
     /// <summary>Returns whether an invocation's callee is one of the date/time formatting or parsing methods.</summary>
@@ -82,8 +76,8 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
 
     /// <summary>Analyzes one method call for a culture-sensitive custom date/time format.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="formatContext">The resolved date/time types.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, DateFormatContext formatContext)
+    /// <param name="formatContext">The lazily resolved date/time types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DateFormatContext?> formatContext)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList is not { } arguments || !IsCandidateName(invocation) || !HasSeparatorLiteral(arguments))
@@ -91,13 +85,14 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
-            || !formatContext.IsDateTimeType(operation.TargetMethod.ContainingType))
+        if (formatContext.Get() is not { } resolvedContext
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
+            || !resolvedContext.IsDateTimeType(operation.TargetMethod.ContainingType))
         {
             return;
         }
 
-        var read = ReadFormatCall(context.SemanticModel, operation, formatContext);
+        var read = ReadFormatCall(context.SemanticModel, operation, resolvedContext);
         if (read.Format is null || read.ProviderExpression is null || !DateFormatText.HasUnquotedSeparator(read.Format))
         {
             return;
@@ -111,11 +106,12 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
 
     /// <summary>Analyzes one interpolated string for a culture-sensitive custom date/time format.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="formatContext">The resolved date/time types.</param>
-    private static void AnalyzeInterpolation(in SyntaxNodeAnalysisContext context, DateFormatContext formatContext)
+    /// <param name="formatContext">The lazily resolved date/time types.</param>
+    private static void AnalyzeInterpolation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<DateFormatContext?> formatContext)
     {
         var interpolated = (InterpolatedStringExpressionSyntax)context.Node;
         if (!HasSeparatorFormatClause(interpolated)
+            || formatContext.Get() is not { } resolvedContext
             || context.SemanticModel.GetTypeInfo(interpolated, context.CancellationToken).ConvertedType is not { SpecialType: SpecialType.System_String })
         {
             return;
@@ -126,7 +122,7 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
         {
             if (content is not InterpolationSyntax { FormatClause: { } clause } interpolation
                 || !DateFormatText.HasUnquotedSeparator(clause.FormatStringToken.ValueText)
-                || !formatContext.IsDateTimeType(context.SemanticModel.GetTypeInfo(interpolation.Expression, context.CancellationToken).Type))
+                || !resolvedContext.IsDateTimeType(context.SemanticModel.GetTypeInfo(interpolation.Expression, context.CancellationToken).Type))
             {
                 continue;
             }
@@ -192,14 +188,14 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
         return false;
     }
 
-    /// <summary>Returns whether an interpolated string has a format clause carrying a separator.</summary>
+    /// <summary>Returns whether an interpolated string has a format clause carrying an unquoted separator.</summary>
     /// <param name="interpolated">The interpolated string.</param>
     /// <returns><see langword="true"/> when a candidate format clause is present.</returns>
     private static bool HasSeparatorFormatClause(InterpolatedStringExpressionSyntax interpolated)
     {
         foreach (var content in interpolated.Contents)
         {
-            if (content is InterpolationSyntax { FormatClause: { } clause } && ContainsSeparator(clause.FormatStringToken.ValueText))
+            if (content is InterpolationSyntax { FormatClause: { } clause } && DateFormatText.HasUnquotedSeparator(clause.FormatStringToken.ValueText))
             {
                 return true;
             }
@@ -250,7 +246,7 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
         ];
 
         /// <summary>The resolved date/time types.</summary>
-        private readonly ImmutableArray<INamedTypeSymbol> _dateTimeTypes;
+        private readonly INamedTypeSymbol[] _dateTimeTypes;
 
         /// <summary>The resolved format-provider interface.</summary>
         private readonly INamedTypeSymbol _formatProvider;
@@ -262,7 +258,7 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
         /// <param name="dateTimeTypes">The resolved date/time types.</param>
         /// <param name="formatProvider">The resolved format-provider interface.</param>
         /// <param name="cultureInfo">The resolved culture type.</param>
-        private DateFormatContext(ImmutableArray<INamedTypeSymbol> dateTimeTypes, INamedTypeSymbol formatProvider, INamedTypeSymbol cultureInfo)
+        private DateFormatContext(INamedTypeSymbol[] dateTimeTypes, INamedTypeSymbol formatProvider, INamedTypeSymbol cultureInfo)
         {
             _dateTimeTypes = dateTimeTypes;
             _formatProvider = formatProvider;
@@ -281,16 +277,8 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
                 return null;
             }
 
-            var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>(DateTimeMetadataNames.Length);
-            foreach (var name in DateTimeMetadataNames)
-            {
-                if (compilation.GetTypeByMetadataName(name) is { } type)
-                {
-                    builder.Add(type);
-                }
-            }
-
-            return builder.Count == 0 ? null : new DateFormatContext(builder.ToImmutable(), formatProvider, cultureInfo);
+            var dateTimeTypes = MetadataTypeLookup.ResolveAll(compilation, DateTimeMetadataNames);
+            return dateTimeTypes.Length == 0 ? null : new DateFormatContext(dateTimeTypes, formatProvider, cultureInfo);
         }
 
         /// <summary>Returns whether a type is one of the date/time types, unwrapping a nullable value type.</summary>
@@ -303,15 +291,7 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
                 type = underlying;
             }
 
-            foreach (var candidate in _dateTimeTypes)
-            {
-                if (SymbolEqualityComparer.Default.Equals(type, candidate))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return TypeRelations.IsOneOf(type, _dateTimeTypes);
         }
 
         /// <summary>Returns whether a parameter is the format-provider parameter.</summary>

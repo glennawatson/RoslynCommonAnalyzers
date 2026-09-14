@@ -8,6 +8,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -78,7 +79,7 @@ public class IntegerDivisionCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> IntegerDivision_ApplyFixAsync()
     {
-        var updated = Sst1477IntegerDivisionAsFloatingPointCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst1477IntegerDivisionAsFloatingPointCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -10,6 +10,42 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1475 (a condition should not be repeated).</summary>
 public class DuplicateConditionAnalyzerUnitTest
 {
+    /// <summary>Verifies writes in the else branch can invalidate a repeated sequential condition.</summary>
+    /// <param name="write">The write between the two tests.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value++")]
+    [Arguments("value--")]
+    [Arguments("++value")]
+    [Arguments("--value")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ElseBranchWritesInvalidateRepeatedConditionsAsync(string write) =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync($"class C {{ void M(int value) {{ if (value > 0) {{ }} else {{ {write}; }} if (value > 0) {{ }} }} }}");
+
+    /// <summary>Verifies unrelated parameter writes and harmless unary expressions leave the condition unchanged.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task HarmlessElseBranchStillReportsDuplicateAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            "class C { void M(bool flag, int other, string text) { if (flag) { other = -other; } else { other++; _ = text!; } if ({|SST1475:flag|}) { } } }");
+
+    /// <summary>Verifies switches with fewer than two comparable selectors are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SingleSelectorSwitchesAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            "class C { int M(int value) { switch (value) { case 1: break; default: break; } switch (value) { default: break; } return value switch { _ => 0 }; } }");
+
+    /// <summary>Verifies a repeated pure guard is included in the reported selector span.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RepeatedGuardedSwitchArmIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
+            "class C { int M(int value, bool flag) => value switch { 1 when flag => 1, {|SST1475:1 when flag|} => 2, _ => 0 }; }");
+
     /// <summary>Verifies two adjacent if statements testing the same condition are reported on the second.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

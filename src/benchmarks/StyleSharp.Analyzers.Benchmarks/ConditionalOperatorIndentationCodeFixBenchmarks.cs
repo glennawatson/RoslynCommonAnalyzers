@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -28,9 +27,6 @@ public class ConditionalOperatorIndentationCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private CompilationUnitSyntax _root = null!;
 
-    /// <summary>The cached source text for the benchmark document.</summary>
-    private SourceText _text = null!;
-
     /// <summary>The representative diagnostic passed to the code fix.</summary>
     private Diagnostic _diagnostic = null!;
 
@@ -49,7 +45,6 @@ public class ConditionalOperatorIndentationCodeFixBenchmarks : IDisposable
         _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, DiscreteAnalyzerBenchmarkSource.GenerateConditionalOperatorPlacement(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _text = await _document.GetTextAsync().ConfigureAwait(false);
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
         var conditional = (ConditionalExpressionSyntax)method.ExpressionBody!.Expression;
         _diagnostic = Diagnostic.Create(ReadabilityRules.ConditionalOperatorIndentedLine, conditional.QuestionToken.GetLocation(), "?");
@@ -72,7 +67,11 @@ public class ConditionalOperatorIndentationCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ConditionalOperatorIndentation_ApplyFixAsync()
     {
-        var updated = Sst1140ConditionalOperatorIndentationCodeFixProvider.Apply(_document, _text, _root, _diagnostic);
+        var updated = await TextChangeCodeFix.ApplyAsync(
+            _document,
+            _diagnostic,
+            Sst1140ConditionalOperatorIndentationCodeFixProvider.RegisterTextChanges,
+            CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

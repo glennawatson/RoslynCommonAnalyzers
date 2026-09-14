@@ -11,96 +11,64 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantCastCodeFixProvider))]
 [Shared]
-public sealed class RedundantCastCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class RedundantCastCodeFixProvider : CodeFixProvider
 {
+    /// <summary>
+    /// Batches this fix's edits across a document, rewriting each conversion from the form nested edits left it in
+    /// so an outer cast wrapping an inner one resolves in one pass.
+    /// </summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindConversion, static (current, _) => RemoveConversion(current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantCast.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove the unnecessary cast",
+            nameof(RedundantCastCodeFixProvider),
+            FindConversion,
+            RemoveConversion);
+
+    /// <summary>Returns the expression a conversion was wrapping, carrying the conversion's trivia.</summary>
+    /// <param name="conversion">The conversion node.</param>
+    /// <returns>The operand or receiver that survives removing the conversion.</returns>
+    internal static ExpressionSyntax RemoveConversion(SyntaxNode conversion)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
+        var kept = conversion switch
         {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not var (reported, kept))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the unnecessary cast",
-                    cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(reported, kept.WithTriviaFrom(reported)))),
-                    equivalenceKey: nameof(RedundantCastCodeFixProvider)),
-                diagnostic);
-        }
+            CastExpressionSyntax cast => cast.Expression,
+            BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AsExpression) => binary.Left,
+            InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax memberAccess } => memberAccess.Expression,
+            _ => (ExpressionSyntax)conversion,
+        };
+        return kept.WithTriviaFrom(conversion);
     }
 
-    /// <inheritdoc/>
-    /// <remarks>
-    /// The replacement is recomputed from the node as it stands after nested edits are composed, so an
-    /// outer conversion wrapping an inner one resolves in a single pass instead of surviving into another.
-    /// </remarks>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not var (reported, _))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(reported, static (current, _) => KeptExpression(current).WithTriviaFrom(current));
-    }
-
-    /// <summary>Replaces the cast expression with its operand.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="cast">The redundant cast expression.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, CastExpressionSyntax cast)
-    {
-        var replacement = cast.Expression.WithTriviaFrom(cast);
-        return document.WithSyntaxRoot(root.ReplaceNode(cast, replacement));
-    }
-
-    /// <summary>Resolves the reported node and the expression that survives removing the conversion.</summary>
+    /// <summary>Resolves the reported conversion: a cast expression, an <c>as</c> test, or a sequence re-typing call.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The node to replace and its replacement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (SyntaxNode Reported, ExpressionSyntax Kept)? Resolve(SyntaxNode root, Diagnostic diagnostic)
+    /// <returns>The conversion node, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static SyntaxNode? FindConversion(SyntaxNode root, Diagnostic diagnostic)
     {
         var node = root.FindNode(diagnostic.Location.SourceSpan);
 
         if (node.FirstAncestorOrSelf<CastExpressionSyntax>() is { } cast)
         {
-            return (cast, cast.Expression);
+            return cast;
         }
 
         if (node.FirstAncestorOrSelf<BinaryExpressionSyntax>() is { } asExpression && asExpression.IsKind(SyntaxKind.AsExpression))
         {
-            return (asExpression, asExpression.Left);
+            return asExpression;
         }
 
-        return node.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax memberAccess } invocation
-            ? (invocation, memberAccess.Expression)
+        return node.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax } invocation
+            ? invocation
             : null;
     }
-
-    /// <summary>Returns the expression a reported conversion was wrapping.</summary>
-    /// <param name="conversion">The reported conversion node.</param>
-    /// <returns>The operand or receiver that survives removing it.</returns>
-    private static ExpressionSyntax KeptExpression(SyntaxNode conversion) => conversion switch
-    {
-        CastExpressionSyntax cast => cast.Expression,
-        BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AsExpression) => binary.Left,
-        InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax memberAccess } => memberAccess.Expression,
-        _ => (ExpressionSyntax)conversion,
-    };
 }

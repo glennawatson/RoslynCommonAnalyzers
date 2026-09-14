@@ -2,27 +2,23 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes a redundant <c>default:</c> switch section that only breaks (SST1179).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(RedundantDefaultSwitchSectionCodeFixProvider))]
 [Shared]
-public sealed class RedundantDefaultSwitchSectionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class RedundantDefaultSwitchSectionCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RemoveNodeCodeFix.Ancestor<SwitchSectionSyntax>);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.NoRedundantDefaultSwitchSection.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
         RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant 'default' section", nameof(RedundantDefaultSwitchSectionCodeFixProvider), RemoveNodeCodeFix.Ancestor<SwitchSectionSyntax>);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<SwitchSectionSyntax>);
 }

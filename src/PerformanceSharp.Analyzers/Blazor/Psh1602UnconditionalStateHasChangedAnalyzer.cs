@@ -11,8 +11,8 @@ namespace PerformanceSharp.Analyzers;
 /// pins the CPU and, on Interactive Server, floods the SignalR circuit.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>Microsoft.AspNetCore.Components.ComponentBase</c>
-/// resolving; a project that does not reference Blazor registers no syntax action. On the clean path a
+/// The component base type is resolved once per compilation, after a candidate passes the syntax checks.
+/// A project that does not reference Blazor reports nothing. On the clean path a
 /// candidate invocation fails fast on syntax — its invoked member must be named <c>StateHasChanged</c>
 /// (bare or on <c>this</c>), its nearest enclosing method (reached without crossing a lambda or local
 /// function) must be named <c>OnAfterRender</c>/<c>OnAfterRenderAsync</c> with a single parameter, and the
@@ -24,9 +24,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the component base type whose presence proves a Blazor project.</summary>
-    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
-
     /// <summary>The name of the method that requests another render.</summary>
     private const string StateHasChangedMethodName = "StateHasChanged";
 
@@ -35,6 +32,9 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
 
     /// <summary>The name of the asynchronous post-render lifecycle callback.</summary>
     private const string OnAfterRenderAsyncMethodName = "OnAfterRenderAsync";
+
+    /// <summary>The metadata name of the component base type whose presence proves a Blazor project.</summary>
+    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(BlazorRules.UnconditionalStateHasChanged);
@@ -50,22 +50,17 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         // The post-render callbacks are hand-written overrides, never generated render code.
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            if (componentBase is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, componentBase), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ComponentBaseMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1602 when a component reaches <c>StateHasChanged()</c> unconditionally from a post-render callback.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="componentBase">The resolved component base type gating the rule.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol componentBase)
+    /// <param name="types">The component type resolved only after a syntax match.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsStateHasChangedName(invocation.Expression))
@@ -79,11 +74,16 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
             return;
         }
 
+        if (types.Get() is not { } componentBase)
+        {
+            return;
+        }
+
         // 'StateHasChanged' is a protected member of the component base, so binding it there also proves the
         // enclosing type derives from the component base — no separate derivation check is needed.
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol called
             || called.Name != StateHasChangedMethodName
-            || !DerivesFromOrIs(called.ContainingType, componentBase))
+            || !TypeRelations.IsOrDerivesFrom(called.ContainingType, componentBase))
         {
             return;
         }
@@ -155,22 +155,5 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         }
 
         return true;
-    }
-
-    /// <summary>Returns whether a type is the component base or derives from it.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="componentBase">The resolved component base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or derives from <paramref name="componentBase"/>.</returns>
-    private static bool DerivesFromOrIs(ITypeSymbol? type, INamedTypeSymbol componentBase)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, componentBase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

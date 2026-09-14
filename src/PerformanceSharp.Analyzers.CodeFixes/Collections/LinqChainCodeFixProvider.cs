@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -17,13 +15,16 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(LinqChainCodeFixProvider))]
 [Shared]
-public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class LinqChainCodeFixProvider : CodeFixProvider
 {
     /// <summary>Initial capacity for the rename target list.</summary>
     private const int RenameTargetCapacity = 4;
 
     /// <summary>Initial capacity for the predicate body walk stack.</summary>
     private const int WalkStackCapacity = 8;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(CreateEdit);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -32,25 +33,21 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         CollectionRules.MergeConsecutiveWhere.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CanRewrite, CreateEdit);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, CreateEdit);
-
-    /// <summary>Applies the chain fix for one diagnostic to a document.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original when no edit applies.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.Apply(document, root, diagnostic, CreateEdit);
+    /// <returns>The nodes to swap, or <see langword="null"/> when no edit applies.</returns>
+    internal static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var replacement = CreateReplacement(root, diagnostic, out var oldNode);
+        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+    }
 
     /// <summary>Returns the action wording naming the chain rewrite being offered.</summary>
     /// <param name="diagnostic">The diagnostic being fixed.</param>
@@ -67,14 +64,56 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
             : "Merge the Where predicates";
     }
 
-    /// <summary>Creates the replacement node for one diagnostic.</summary>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when no edit applies.</returns>
-    private static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        var replacement = CreateReplacement(root, diagnostic, out var oldNode);
-        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        if (string.Equals(diagnostic.Id, CollectionRules.UseThenBy.Id, StringComparison.Ordinal))
+        {
+            return node is SimpleNameSyntax name
+                && IsSingleKeySortName(name.Identifier.ValueText);
+        }
+
+        var invocation = node.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+        return string.Equals(diagnostic.Id, CollectionRules.FilterBeforeSort.Id, StringComparison.Ordinal)
+            ? invocation is
+            {
+                ArgumentList.Arguments.Count: 1,
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Expression: InvocationExpressionSyntax
+                    {
+                        ArgumentList.Arguments.Count: 1,
+                        Expression: MemberAccessExpressionSyntax { Name: { } sortName, Expression: { } receiver },
+                    },
+                },
+            }
+                && IsSingleKeySortName(sortName.Identifier.ValueText)
+                && !IsSortInvocation(receiver)
+            : CanMergeWhere(invocation);
+    }
+
+    /// <summary>Checks whether the predicates can be combined without changing parameter binding.</summary>
+    /// <param name="invocation">The outer Where call.</param>
+    /// <returns>Whether the predicates can be merged.</returns>
+    private static bool CanMergeWhere(InvocationExpressionSyntax? invocation)
+    {
+        if (invocation is not { Expression: MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax inner } }
+            || !LinqCallSyntax.TryGetOneParameterLambda(invocation, out var second)
+            || !LinqCallSyntax.TryGetOneParameterLambda(inner, out var first)
+            || first.ExpressionBody is null
+            || second.ExpressionBody is not { } body)
+        {
+            return false;
+        }
+
+        var firstName = GetLambdaParameterName(first);
+        var secondName = GetLambdaParameterName(second);
+        return firstName == secondName
+            || TryCollectRenameTargets(body, secondName, firstName, new(RenameTargetCapacity));
     }
 
     /// <summary>Creates the replacement node the reported chain rewrite produces.</summary>
@@ -131,9 +170,11 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
             SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, source.WithoutTrivia(), filterName.WithoutTrivia()),
             filterArguments.WithoutTrivia());
         return SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, filterInvocation, sortName.WithoutTrivia()),
-            sortArguments.WithoutTrivia())
-            .WithTriviaFrom(invocation);
+            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, filterInvocation.WithLeadingTrivia(invocation.GetLeadingTrivia()), sortName.WithoutTrivia()),
+            sortArguments.Update(
+                sortArguments.OpenParenToken.WithLeadingTrivia(),
+                sortArguments.Arguments,
+                sortArguments.CloseParenToken.WithTrailingTrivia(invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Creates the <c>ThenBy</c>/<c>ThenByDescending</c> name for a repeated sort call.</summary>
@@ -153,10 +194,10 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         oldNode = name;
         var refiningName = name.Identifier.ValueText == "OrderBy" ? "ThenBy" : "ThenByDescending";
         return name is GenericNameSyntax generic
-            ? SyntaxFactory.GenericName(SyntaxFactory.Identifier(refiningName))
-                .WithTypeArgumentList(generic.TypeArgumentList)
-                .WithTriviaFrom(generic)
-            : SyntaxFactory.IdentifierName(refiningName).WithTriviaFrom(name);
+            ? SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(generic.GetLeadingTrivia(), refiningName, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                generic.TypeArgumentList)
+            : SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(name.GetLeadingTrivia(), refiningName, name.GetTrailingTrivia()));
     }
 
     /// <summary>Creates one merged <c>Where</c> call from two consecutive <c>Where</c> calls.</summary>
@@ -194,9 +235,12 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         var mergedLambda = firstLambda is SimpleLambdaExpressionSyntax simple
             ? (LambdaExpressionSyntax)simple.WithExpressionBody(merged)
             : ((ParenthesizedLambdaExpressionSyntax)firstLambda).WithExpressionBody(merged);
-        return innerInvocation
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(mergedLambda))))
-            .WithTriviaFrom(invocation);
+        return innerInvocation.Update(
+            innerInvocation.Expression.WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(mergedLambda)),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Renames references to the second lambda's parameter unless the new name risks capture.</summary>
@@ -221,7 +265,7 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
 
         renamed = body.ReplaceNodes(
             targets,
-            (original, _) => SyntaxFactory.IdentifierName(newName).WithTriviaFrom(original));
+            (original, _) => SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(original.GetLeadingTrivia(), newName, original.GetTrailingTrivia())));
         return true;
     }
 

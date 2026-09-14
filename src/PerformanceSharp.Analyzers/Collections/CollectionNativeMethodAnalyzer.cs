@@ -175,41 +175,13 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
             || expressionBody is not BinaryExpressionSyntax equality
             || !equality.IsKind(SyntaxKind.EqualsExpression)
             || !LinqCallSyntax.TryGetComparedValue(equality, parameterName, out var value)
-            || ReferencesParameter(value, parameterName))
+            || IdentifierReferences.MentionsName(value, parameterName))
         {
             return false;
         }
 
         return method.TypeArguments.Length == 1
             && HasAccessibleContains(receiverType, method.TypeArguments[0]);
-    }
-
-    /// <summary>Returns whether an expression mentions the lambda parameter anywhere.</summary>
-    /// <param name="expression">The expression to scan.</param>
-    /// <param name="parameterName">The lambda parameter name.</param>
-    /// <returns><see langword="true"/> when the parameter is referenced.</returns>
-    private static bool ReferencesParameter(ExpressionSyntax expression, string parameterName)
-    {
-        if (expression is IdentifierNameSyntax identifier)
-        {
-            return identifier.Identifier.ValueText == parameterName;
-        }
-
-        var state = (ParameterName: parameterName, Found: false);
-        _ = DescendantTraversalHelper.VisitDescendants(
-            expression,
-            ref state,
-            static (IdentifierNameSyntax candidate, ref (string ParameterName, bool Found) current) =>
-            {
-                if (candidate.Identifier.ValueText != current.ParameterName)
-                {
-                    return true;
-                }
-
-                current.Found = true;
-                return false;
-            });
-        return state.Found;
     }
 
     /// <summary>Returns whether the receiver's static type exposes an accessible instance <c>bool Contains(T)</c>.</summary>

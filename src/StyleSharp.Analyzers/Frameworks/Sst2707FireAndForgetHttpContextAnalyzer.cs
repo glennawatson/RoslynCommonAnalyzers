@@ -22,9 +22,9 @@ namespace StyleSharp.Analyzers;
 /// <c>Microsoft.AspNetCore.Mvc.ControllerBase</c>.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on both <c>HttpContext</c> and <c>ControllerBase</c> resolving,
-/// so a non-web project registers nothing. The clean path is a syntactic shape probe — the invoked name, the
-/// discard shape, and a lambda argument — before any binding; the semantic model is consulted only once that
+/// The framework types are resolved on the first syntactic candidate and cached for the compilation.
+/// The clean path is a syntactic shape probe — the invoked name, the discard shape, and a lambda argument —
+/// before any binding; the semantic model is consulted only once that
 /// shape matches, to confirm the call is <c>System.Threading.Tasks.Task.Run</c> on a controller and that the
 /// delegate really closes over an <c>HttpContext</c>-typed value.
 /// </para>
@@ -32,6 +32,12 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The name of the offloading helper the rule reports.</summary>
+    private const string RunMethodName = "Run";
+
+    /// <summary>The identifier a discard target carries.</summary>
+    private const string DiscardName = "_";
+
     /// <summary>The metadata name of the request context whose capture is reported.</summary>
     private const string HttpContextMetadataName = "Microsoft.AspNetCore.Http.HttpContext";
 
@@ -41,14 +47,8 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <summary>The metadata name of the type that owns the offloading helper.</summary>
     private const string TaskMetadataName = "System.Threading.Tasks.Task";
 
-    /// <summary>The name of the offloading helper the rule reports.</summary>
-    private const string RunMethodName = "Run";
-
-    /// <summary>The identifier a discard target carries.</summary>
-    private const string DiscardName = "_";
-
-    /// <summary>The cached descendant visitor that finds an <c>HttpContext</c>-typed reference in a delegate body.</summary>
-    private static readonly DescendantTraversalHelper.DescendantVisitor<ExpressionSyntax, CaptureSearch> CaptureVisitor = VisitExpression;
+    /// <summary>The context, controller and task metadata names, in slot order.</summary>
+    private static readonly string[] FrameworkMetadataNames = [HttpContextMetadataName, ControllerBaseMetadataName, TaskMetadataName];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.FireAndForgetHttpContext);
@@ -62,32 +62,17 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var compilation = start.Compilation;
-            if (compilation.GetTypeByMetadataName(HttpContextMetadataName) is not { } httpContextType
-                || compilation.GetTypeByMetadataName(ControllerBaseMetadataName) is not { } controllerBaseType
-                || compilation.GetTypeByMetadataName(TaskMetadataName) is not { } taskType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, httpContextType, controllerBaseType, taskType),
-                SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, FrameworkMetadataNames),
+            Analyze,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports a discarded <c>Task.Run</c> in a controller that captures the request's <c>HttpContext</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpContextType">The resolved <c>HttpContext</c> type.</param>
-    /// <param name="controllerBaseType">The resolved <c>ControllerBase</c> type.</param>
-    /// <param name="taskType">The resolved <c>System.Threading.Tasks.Task</c> type.</param>
-    private static void Analyze(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol httpContextType,
-        INamedTypeSymbol controllerBaseType,
-        INamedTypeSymbol taskType)
+    /// <param name="frameworkTypes">The deferred framework-type lookup for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataTypes frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -101,7 +86,8 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
 
         var typeDeclaration = invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>();
         if (typeDeclaration is null
-            || !IsOrDerivesFrom(context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken), controllerBaseType))
+            || frameworkTypes.Get() is not [{ } httpContextType, { } controllerBaseType, { } taskType]
+            || !TypeRelations.IsOrDerivesFrom(context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken), controllerBaseType))
         {
             return;
         }
@@ -177,7 +163,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
         }
 
         var search = new CaptureSearch(model, httpContextType, cancellationToken);
-        _ = DescendantTraversalHelper.VisitDescendants(body, ref search, CaptureVisitor);
+        _ = DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, CaptureSearch>(body, ref search, VisitExpression);
         return search.Found;
     }
 
@@ -196,24 +182,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression is <c>HttpContext</c>-typed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsHttpContextTyped(ExpressionSyntax expression, SemanticModel model, INamedTypeSymbol httpContextType, CancellationToken cancellationToken) =>
-        IsOrDerivesFrom(model.GetTypeInfo(expression, cancellationToken).Type, httpContextType);
-
-    /// <summary>Returns whether a type is, or derives from, a given base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to test against.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is <paramref name="baseType"/> or a subtype of it.</returns>
-    private static bool IsOrDerivesFrom(ITypeSymbol? type, INamedTypeSymbol baseType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        TypeRelations.IsOrDerivesFrom(model.GetTypeInfo(expression, cancellationToken).Type, httpContextType);
 
     /// <summary>The state threaded through the delegate-body descendant walk.</summary>
     /// <param name="model">The semantic model.</param>

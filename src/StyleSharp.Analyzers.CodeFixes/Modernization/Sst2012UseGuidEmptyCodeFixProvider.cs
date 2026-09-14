@@ -11,12 +11,13 @@ namespace StyleSharp.Analyzers;
 /// The replacement is spelled the way the construction was: <c>new Guid()</c> becomes <c>Guid.Empty</c>,
 /// <c>new System.Guid()</c> becomes <c>System.Guid.Empty</c>. A target-typed <c>new()</c> has no spelling to
 /// borrow, so <c>Guid.Empty</c> is tried first and the fully qualified name is the fallback for a file with no
-/// <c>using System</c>. Each candidate is bound speculatively at the site it would occupy, and the fix is only
-/// offered once one of them resolves to <c>System.Guid.Empty</c>.
+/// <c>using System</c>. Registration checks that the globally qualified field is available; candidate
+/// spellings are bound when applying. If the global name is ambiguous or unavailable, registration also
+/// checks the written spelling speculatively so an alias can still make the fix available.
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2012UseGuidEmptyCodeFixProvider))]
 [Shared]
-public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider
 {
     /// <summary>The name of the field that holds the all-zero GUID.</summary>
     private const string EmptyFieldName = "Empty";
@@ -27,101 +28,71 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
     /// <summary>The fully qualified fallback, used when the simple name does not bind.</summary>
     private const string QualifiedEmpty = "global::System.Guid.Empty";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseGuidEmpty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryBuildReplacement(root, model, diagnostic, out var creation, out var replacement))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use 'Guid.Empty'",
-                    _ => Task.FromResult(Apply(context.Document, root, creation!, replacement!)),
-                    equivalenceKey: nameof(Sst2012UseGuidEmptyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryBuildReplacement(editor.OriginalRoot, editor.SemanticModel, diagnostic, out var creation, out var replacement))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(creation!, replacement!);
-    }
-
-    /// <summary>Replaces one reported construction with the named empty GUID.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="creation">The reported construction.</param>
-    /// <param name="replacement">The <c>Guid.Empty</c> expression built for it.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(
-        Document document,
-        SyntaxNode root,
-        BaseObjectCreationExpressionSyntax creation,
-        ExpressionSyntax replacement) =>
-        document.WithSyntaxRoot(root.ReplaceNode(creation, replacement));
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Use 'Guid.Empty'",
+            nameof(Sst2012UseGuidEmptyCodeFixProvider),
+            CanRewrite,
+            TryRewrite);
 
     /// <summary>Resolves the reported construction and builds the first replacement that binds.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="creation">The reported construction, when the shape still matches.</param>
-    /// <param name="replacement">The <c>Guid.Empty</c> expression, when one binds.</param>
-    /// <returns><see langword="true"/> when the fix can be offered.</returns>
-    internal static bool TryBuildReplacement(
-        SyntaxNode root,
-        SemanticModel model,
-        Diagnostic diagnostic,
-        out BaseObjectCreationExpressionSyntax? creation,
-        out ExpressionSyntax? replacement)
+    /// <returns>The construction and its <c>Guid.Empty</c> replacement, or <see langword="null"/> when none binds.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
-        replacement = null;
-        creation = root.FindNode(diagnostic.Location.SourceSpan) as BaseObjectCreationExpressionSyntax;
-        if (creation is null)
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not BaseObjectCreationExpressionSyntax creation)
         {
-            return false;
+            return null;
         }
 
         var position = creation.SpanStart;
         var written = BuildEmptyAccess(GetTypeName(creation));
         if (BindsToGuidEmpty(model, position, written))
         {
-            replacement = written.WithTriviaFrom(creation);
-            return true;
+            return new NodeReplacement(creation, written.WithTriviaFrom(creation));
         }
 
         var qualified = SyntaxFactory.ParseExpression(QualifiedEmpty);
-        if (!BindsToGuidEmpty(model, position, qualified))
-        {
-            return false;
-        }
-
-        replacement = qualified.WithTriviaFrom(creation);
-        return true;
+        return BindsToGuidEmpty(model, position, qualified)
+            ? new NodeReplacement(creation, qualified.WithTriviaFrom(creation))
+            : null;
     }
+
+    /// <summary>Checks the global field first and binds candidate spellings only when it is unusable.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a replacement binds.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is BaseObjectCreationExpressionSyntax creation
+            && (CanUseQualifiedEmpty(model, creation.SpanStart) || TryRewrite(root, model, diagnostic) is not null);
+
+    /// <summary>Checks the global field directly so ordinary registration needs no candidate syntax.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="position">The position where the field would be used.</param>
+    /// <returns>Whether the fully qualified fallback is unambiguous and accessible.</returns>
+    /// <remarks>Unusual namespace or reference conflicts fall back to speculative binding of the written name.</remarks>
+    private static bool CanUseQualifiedEmpty(SemanticModel model, int position) =>
+        model.Compilation.GetTypeByMetadataName(Sst2012UseGuidEmptyAnalyzer.GuidMetadataName) is { } guid
+            && model.LookupNamespacesAndTypes(position, model.Compilation.GlobalNamespace, nameof(System)) is [INamespaceSymbol system]
+            && model.LookupNamespacesAndTypes(position, system, GuidTypeName) is [INamedTypeSymbol globalGuid]
+            && SymbolEqualityComparer.Default.Equals(globalGuid, guid)
+            && guid.GetMembers(EmptyFieldName) is [IFieldSymbol { IsStatic: true } field]
+            && model.IsAccessible(position, guid)
+            && model.IsAccessible(position, field);
 
     /// <summary>Gets the type name the construction was written with, or the bare name for a target-typed one.</summary>
     /// <param name="creation">The reported construction.</param>

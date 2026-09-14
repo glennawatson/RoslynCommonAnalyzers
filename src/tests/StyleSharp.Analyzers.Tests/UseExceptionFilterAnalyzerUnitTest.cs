@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
 using VerifyExceptionFilter = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2009UseExceptionFilterAnalyzer,
     StyleSharp.Analyzers.Sst2009UseExceptionFilterCodeFixProvider>;
@@ -83,6 +84,95 @@ public class UseExceptionFilterAnalyzerUnitTest
             }
         }
         """;
+
+    /// <summary>Verifies the same guard is unavailable before exception filters were introduced.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task CSharp5GuardIsCleanAsync()
+    {
+        var test = new VerifyExceptionFilter.Test { TestCode = "class C { void M(bool flag) { try { M(flag); } catch { if (flag) throw; M(false); } } }" };
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+            solution.WithProjectParseOptions(projectId, new CSharpParseOptions(LanguageVersion.CSharp5)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies comparisons and patterns that can be evaluated in a filter are reported.</summary>
+    /// <param name="condition">The side-effect-free guard.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("!(flag)")]
+    [Arguments("ex.HResult != 0 && flag")]
+    [Arguments("ex.HResult <= 0 || flag")]
+    [Arguments("ex.HResult > 0")]
+    [Arguments("ex.HResult >= 0")]
+    [Arguments("ex is System.InvalidOperationException")]
+    [Arguments("ex is null")]
+    [Arguments("ex is { InnerException: object }")]
+    [Arguments("ex is { HResult: 0, InnerException: System.Exception }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SafeGuardIsReportedAsync(string condition) =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                void M(bool flag)
+                {
+                    try { M(flag); }
+                    catch (System.Exception ex)
+                    {
+                        {|SST2009:if|} ({{condition}}) throw;
+                        M(false);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies guards with unsupported syntax or calls remain in the catch body.</summary>
+    /// <param name="condition">The guard that must stay in place.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("flag & true")]
+    [Arguments("ex.HResult + 1 == 0")]
+    [Arguments("flag == GetFlag()")]
+    [Arguments("GetFlag() == flag")]
+    [Arguments("ex is { HResult: > 0 }")]
+    [Arguments("ex is System.Exception captured")]
+    [Arguments("GetException() is null")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsafeGuardIsCleanAsync(string condition) =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                bool GetFlag() => true;
+                System.Exception GetException() => null;
+                void M(bool flag)
+                {
+                    try { M(flag); }
+                    catch (System.Exception ex)
+                    {
+                        if ({{condition}}) throw;
+                        M(false);
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies incomplete and nonexclusive rethrow shapes are not filter candidates.</summary>
+    /// <param name="body">The catch body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("M(flag);")]
+    [Arguments("if (flag) throw;")]
+    [Arguments("if (flag) throw; else throw;")]
+    [Arguments("if (flag) M(flag); else M(false);")]
+    [Arguments("if (flag) throw; else M(false); M(flag);")]
+    [Arguments("if (flag) { M(flag); throw; } M(false);")]
+    [Arguments("if (flag) throw new System.Exception(); M(false);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonFilterCatchShapeIsCleanAsync(string body) =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync($$"""
+            class C { void M(bool flag) { try { M(flag); } catch { {{body}} } } }
+            """);
 
     /// <summary>Verifies a catch carrying a region is reported but not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

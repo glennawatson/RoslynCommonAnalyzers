@@ -14,8 +14,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on <c>Microsoft.Extensions.Logging.ILogger</c> resolving; a
-/// project that references no such abstraction registers no per-node work and pays nothing. The generic
+/// The rule resolves <c>Microsoft.Extensions.Logging.ILogger</c> only after a member passes the syntax filter.
+/// A project with no candidate members performs no metadata lookup. The generic
 /// <c>ILogger&lt;T&gt;</c> is recognised through the non-generic interface it derives from, so no second type
 /// needs resolving.
 /// </para>
@@ -36,11 +36,11 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the logger abstraction the rule gates on.</summary>
-    private const string LoggerTypeMetadataName = "Microsoft.Extensions.Logging.ILogger";
-
     /// <summary>The simple type name a candidate member's declared type must carry.</summary>
     private const string LoggerTypeSimpleName = "ILogger";
+
+    /// <summary>The metadata name of the logger abstraction the rule gates on.</summary>
+    private const string LoggerTypeMetadataName = "Microsoft.Extensions.Logging.ILogger";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LoggingRules.LoggerMemberNaming);
@@ -54,46 +54,41 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Gates the rule on the logger abstraction being available, then analyzes each member.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (context.Compilation.GetTypeByMetadataName(LoggerTypeMetadataName) is not { } loggerType)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, loggerType),
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, LoggerTypeMetadataName),
+            Analyze,
             SyntaxKind.FieldDeclaration,
             SyntaxKind.PropertyDeclaration);
     }
 
     /// <summary>Dispatches a field or property declaration to the matching check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="loggerType">The resolved logger type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol loggerType)
+    /// <param name="types">The compilation-scoped logger type cache.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         if (context.Node is FieldDeclarationSyntax field)
         {
-            AnalyzeField(context, field, loggerType);
+            AnalyzeField(context, field, types);
         }
         else if (context.Node is PropertyDeclarationSyntax property)
         {
-            AnalyzeProperty(context, property, loggerType);
+            AnalyzeProperty(context, property, types);
         }
     }
 
     /// <summary>Checks each declarator of a logger-typed field against the convention for its modifiers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="field">The field declaration.</param>
-    /// <param name="loggerType">The resolved logger type.</param>
-    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, FieldDeclarationSyntax field, INamedTypeSymbol loggerType)
+    /// <param name="types">The compilation-scoped logger type cache.</param>
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, FieldDeclarationSyntax field, LazyMetadataType types)
     {
         if (!IsLoggerTypeName(field.Declaration.Type))
+        {
+            return;
+        }
+
+        if (types.Get() is not { } loggerType)
         {
             return;
         }
@@ -115,15 +110,16 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Checks a logger-typed property against the convention for its accessibility and static-ness.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The property declaration.</param>
-    /// <param name="loggerType">The resolved logger type.</param>
-    private static void AnalyzeProperty(in SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, INamedTypeSymbol loggerType)
+    /// <param name="types">The compilation-scoped logger type cache.</param>
+    private static void AnalyzeProperty(in SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, LazyMetadataType types)
     {
         if (property.ExplicitInterfaceSpecifier is not null || !IsLoggerTypeName(property.Type))
         {
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { } symbol
+        if (types.Get() is not { } loggerType
+            || context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { } symbol
             || !IsLoggerType(symbol.Type, loggerType))
         {
             return;

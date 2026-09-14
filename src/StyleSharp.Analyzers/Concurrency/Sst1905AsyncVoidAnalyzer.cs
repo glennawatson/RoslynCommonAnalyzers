@@ -43,25 +43,21 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var compilation = start.Compilation;
-            var eventArgs = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName("System.EventArgs"));
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, eventArgs), SyntaxKind.MethodDeclaration);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeLocalFunction(nodeContext, eventArgs), SyntaxKind.LocalFunctionStatement);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeLambda(nodeContext, eventArgs),
-                SyntaxKind.SimpleLambdaExpression,
-                SyntaxKind.ParenthesizedLambdaExpression,
-                SyntaxKind.AnonymousMethodExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeActions(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(
+                compilation,
+                static target => target.GetTypeByMetadataName("System.EventArgs"),
+                runOnce: true),
+            new(AnalyzeMethod, [SyntaxKind.MethodDeclaration]),
+            new(AnalyzeLocalFunction, [SyntaxKind.LocalFunctionStatement]),
+            new(AnalyzeLambda, [SyntaxKind.SimpleLambdaExpression, SyntaxKind.ParenthesizedLambdaExpression, SyntaxKind.AnonymousMethodExpression]));
     }
 
     /// <summary>Reports an <c>async void</c> method that is not an event handler or an inherited signature.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> eventArgs)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!method.Modifiers.Any(SyntaxKind.AsyncKeyword) || !IsVoid(method.ReturnType))
@@ -70,7 +66,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { } symbol
-            || IsEventHandlerShape(symbol, eventArgs.Value)
+            || IsEventHandlerShape(symbol, eventArgs)
             || IsInheritedSignature(symbol))
         {
             return;
@@ -82,7 +78,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> local function that is not an event handler.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeLocalFunction(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeLocalFunction(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> eventArgs)
     {
         var localFunction = (LocalFunctionStatementSyntax)context.Node;
         if (!localFunction.Modifiers.Any(SyntaxKind.AsyncKeyword) || !IsVoid(localFunction.ReturnType))
@@ -91,7 +87,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(localFunction, context.CancellationToken) is IMethodSymbol symbol
-            && IsEventHandlerShape(symbol, eventArgs.Value))
+            && IsEventHandlerShape(symbol, eventArgs))
         {
             return;
         }
@@ -102,7 +98,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> lambda or anonymous method whose converted delegate is not an event handler.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeLambda(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeLambda(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> eventArgs)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
         if (function.AsyncKeyword.IsKind(SyntaxKind.None))
@@ -114,7 +110,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         // void, a Func<Task>-shaped target returns a Task and is correct.
         if (context.SemanticModel.GetSymbolInfo(function, context.CancellationToken).Symbol is not IMethodSymbol symbol
             || !symbol.ReturnsVoid
-            || IsEventHandlerShape(symbol, eventArgs.Value))
+            || IsEventHandlerShape(symbol, eventArgs))
         {
             return;
         }
@@ -130,69 +126,26 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a symbol has the standard <c>(object, TEventArgs)</c> event-handler shape.</summary>
     /// <param name="method">The candidate method symbol.</param>
-    /// <param name="eventArgs">The resolved <c>System.EventArgs</c> type, if any.</param>
+    /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
     /// <returns><see langword="true"/> when the method is a genuine event handler.</returns>
-    private static bool IsEventHandlerShape(IMethodSymbol method, INamedTypeSymbol? eventArgs)
+    private static bool IsEventHandlerShape(IMethodSymbol method, LazyCompilationValue<INamedTypeSymbol?> eventArgs)
     {
-        if (eventArgs is null || method.Parameters.Length != 2)
+        if (method.Parameters.Length != 2 || method.Parameters[0].Type.SpecialType != SpecialType.System_Object)
         {
             return false;
         }
 
-        return method.Parameters[0].Type.SpecialType == SpecialType.System_Object
-            && DerivesFrom(method.Parameters[1].Type, eventArgs);
+        return eventArgs.Get() is { } resolvedEventArgs
+            && TypeRelations.IsOrDerivesFrom(method.Parameters[1].Type, resolvedEventArgs);
     }
 
     /// <summary>Returns whether a method overrides or implements a signature its author cannot change.</summary>
     /// <param name="method">The method symbol.</param>
     /// <returns><see langword="true"/> when the void return is dictated by a base or an interface.</returns>
     private static bool IsInheritedSignature(IMethodSymbol method) =>
-        method.IsOverride || !method.ExplicitInterfaceImplementations.IsEmpty || ImplementsInterfaceMember(method);
-
-    /// <summary>Returns whether a method implicitly implements an interface member.</summary>
-    /// <param name="method">The method symbol.</param>
-    /// <returns><see langword="true"/> when the containing type exposes it as an interface implementation.</returns>
-    private static bool ImplementsInterfaceMember(IMethodSymbol method)
-    {
-        var containingType = method.ContainingType;
-        if (containingType is null)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var members = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < members.Length; j++)
-            {
-                if (members[j] is IMethodSymbol interfaceMethod
-                    && SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(interfaceMethod), method))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, a base type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
-    private static bool DerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        method.IsOverride
+            || !method.ExplicitInterfaceImplementations.IsEmpty
+            || InterfaceImplementationLookup.FindImplementedInterfaceMember(method) is not null;
 
     /// <summary>Gets the <c>async</c> modifier token from a modifier list.</summary>
     /// <param name="modifiers">The modifier list, already known to contain <c>async</c>.</param>

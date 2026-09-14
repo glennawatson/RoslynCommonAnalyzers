@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1006 — persisted Data Protection keys are stored without at-rest encryption.</summary>
-    public static readonly DiagnosticDescriptor UnprotectedDataProtectionKeys = Create(
+    public static readonly DiagnosticDescriptor UnprotectedDataProtectionKeys = DescriptorFactory.Create(
         "SES1006",
         "Persisted Data Protection keys must be encrypted at rest",
         "'{0}' persists the Data Protection key ring to an explicit repository with no 'ProtectKeysWith...' call in the same chain, so the keys are stored unencrypted at rest",

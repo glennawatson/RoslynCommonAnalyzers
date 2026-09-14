@@ -43,7 +43,7 @@ public class CommentContentCodeFixBenchmarks
     [Benchmark]
     public async Task<int> CommentContent_ApplyFixAsync()
     {
-        var updated = await Sst1120CommentContentCodeFixProvider.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
+        var updated = await CommentRemovalHelper.RemoveAsync(_context.Document, _context.Target, CancellationToken.None).ConfigureAwait(false);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -291,6 +291,26 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an attributed partial declaration can inherit its component base in another part.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task PartialComponentWithBaseOnAnotherPartIsReportedAsync() =>
+        VerifyAsync(
+            """
+            using Microsoft.AspNetCore.Authorization;
+            using Microsoft.AspNetCore.Components;
+
+            [{|SES1703:Authorize|}]
+            public partial class Widget
+            {
+            }
+
+            public partial class Widget : ComponentBase
+            {
+            }
+            """ + BlazorStub);
+
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

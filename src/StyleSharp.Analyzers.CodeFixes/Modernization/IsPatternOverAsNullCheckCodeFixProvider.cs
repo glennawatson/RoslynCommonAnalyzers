@@ -7,65 +7,40 @@ namespace StyleSharp.Analyzers;
 /// <summary>Rewrites an <c>as</c> cast compared to null as an <c>is</c> type pattern (SST2005).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(IsPatternOverAsNullCheckCodeFixProvider))]
 [Shared]
-public sealed class IsPatternOverAsNullCheckCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class IsPatternOverAsNullCheckCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(Resolve, static (current, _) => Rewrite((BinaryExpressionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseIsPatternOverAsNullCheck.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use an 'is' type pattern",
+            nameof(IsPatternOverAsNullCheckCodeFixProvider),
+            Resolve,
+            Rewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison
-                || PatternMatchingAnalyzer.GetAsOperandComparedToNull(comparison) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use an 'is' type pattern",
-                    _ => Task.FromResult(Apply(context.Document, root, comparison)),
-                    equivalenceKey: nameof(IsPatternOverAsNullCheckCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison
-            || PatternMatchingAnalyzer.GetAsOperandComparedToNull(comparison) is not { } asExpression)
-        {
-            return;
-        }
-
-        var operand = asExpression.Left;
-        var type = (TypeSyntax)asExpression.Right;
-
-        ExpressionSyntax replacement = comparison.IsKind(SyntaxKind.NotEqualsExpression)
-            ? PatternMatchingAnalyzer.BuildIsTypeTest(operand, type)
-            : PatternMatchingAnalyzer.BuildIsNotPattern(operand, type);
-
-        editor.ReplaceNode(comparison, replacement.WithTriviaFrom(comparison));
-    }
-
-    /// <summary>Replaces the comparison with <c>x is T</c> (for <c>!=</c>) or <c>x is not T</c> (for <c>==</c>).</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported comparison when it still compares an <c>as</c> cast to null.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="comparison">The <c>as</c>-to-null comparison.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The comparison, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static BinaryExpressionSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is BinaryExpressionSyntax comparison
+            && PatternMatchingAnalyzer.GetAsOperandComparedToNull(comparison) is not null
+            ? comparison
+            : null;
+
+    /// <summary>Builds <c>x is T</c> (for <c>!=</c>) or <c>x is not T</c> (for <c>==</c>) from an <c>as</c>-to-null comparison.</summary>
+    /// <param name="comparison">The comparison <see cref="Resolve"/> matched.</param>
+    /// <returns>The type-pattern expression, carrying the comparison's trivia.</returns>
+    private static ExpressionSyntax Rewrite(BinaryExpressionSyntax comparison)
     {
         var asExpression = PatternMatchingAnalyzer.GetAsOperandComparedToNull(comparison)!;
         var operand = asExpression.Left;
@@ -75,6 +50,6 @@ public sealed class IsPatternOverAsNullCheckCodeFixProvider : CodeFixProvider, I
             ? PatternMatchingAnalyzer.BuildIsTypeTest(operand, type)
             : PatternMatchingAnalyzer.BuildIsNotPattern(operand, type);
 
-        return document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement.WithTriviaFrom(comparison)));
+        return replacement.WithTriviaFrom(comparison);
     }
 }

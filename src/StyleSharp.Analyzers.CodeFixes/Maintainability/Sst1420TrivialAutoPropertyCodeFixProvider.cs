@@ -119,33 +119,32 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         // newline onto the trailing semicolon instead.
         var updated = property.AccessorList is { } accessorList
             ? property.WithAccessorList(accessorList.WithAccessors(ToAutoAccessors(accessorList.Accessors)))
-            : property
-                .WithExpressionBody(null)
-                .WithSemicolonToken(default)
-                .WithAccessorList(CreateGetOnlyAccessorList().WithTrailingTrivia(property.GetTrailingTrivia()));
+            : property.Update(
+                property.AttributeLists,
+                property.Modifiers,
+                property.Type,
+                property.ExplicitInterfaceSpecifier,
+                property.Identifier,
+                CreateGetOnlyAccessorList().WithTrailingTrivia(property.GetTrailingTrivia()),
+                expressionBody: null,
+                property.Initializer,
+                semicolonToken: default);
 
         if (variable.Initializer is { } initializer)
         {
-            updated = updated
-                .WithAccessorList(updated.AccessorList!.WithTrailingTrivia(SyntaxFactory.Space))
-                .WithInitializer(initializer)
-                .WithSemicolonToken(SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, property.GetTrailingTrivia()));
+            updated = updated.Update(
+                updated.AttributeLists,
+                updated.Modifiers,
+                updated.Type,
+                updated.ExplicitInterfaceSpecifier,
+                updated.Identifier,
+                updated.AccessorList!.WithTrailingTrivia(SyntaxFactory.Space),
+                updated.ExpressionBody,
+                initializer,
+                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, property.GetTrailingTrivia()));
         }
 
-        var annotation = new SyntaxAnnotation();
-        updated = updated.WithAdditionalAnnotations(annotation);
-        var changed = root.TrackNodes(property, field);
-        var trackedProperty = changed.GetCurrentNode(property)!;
-        changed = changed.ReplaceNode(trackedProperty, updated);
-        var trackedField = changed.GetCurrentNode(field)!;
-        changed = changed.RemoveNode(trackedField, SyntaxRemoveOptions.KeepNoTrivia)!;
-        var currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
-        var previousToken = currentProperty.GetFirstToken().GetPreviousToken();
-        var leadingTrivia = previousToken.TrailingTrivia.AddRange(currentProperty.GetLeadingTrivia());
-        changed = changed.ReplaceToken(previousToken, previousToken.WithTrailingTrivia(default(SyntaxTriviaList)));
-        currentProperty = CodeFixTriviaHelper.GetSingleAnnotatedProperty(changed, annotation);
-        var normalizedProperty = currentProperty.WithLeadingTrivia(CodeFixTriviaHelper.CollapseLeadingBlankLine(leadingTrivia));
-        return document.WithSyntaxRoot(changed.ReplaceNode(currentProperty, normalizedProperty));
+        return document.WithSyntaxRoot(CodeFixTriviaHelper.ReplacePropertyRemovingField(root, property, updated, field));
     }
 
     /// <summary>Strips every accessor down to its auto-implemented semicolon form.</summary>
@@ -156,10 +155,14 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         var rewritten = new AccessorDeclarationSyntax[accessors.Count];
         for (var i = 0; i < accessors.Count; i++)
         {
-            rewritten[i] = accessors[i]
-                .WithBody(null)
-                .WithExpressionBody(null)
-                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+            var accessor = accessors[i];
+            rewritten[i] = accessor.Update(
+                accessor.AttributeLists,
+                accessor.Modifiers,
+                accessor.Keyword,
+                body: null,
+                expressionBody: null,
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken));
         }
 
         return SyntaxFactory.List(rewritten);
@@ -176,7 +179,13 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         SyntaxFactory.AccessorList(
             SyntaxFactory.Token(default, SyntaxKind.OpenBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             SyntaxFactory.SingletonList(
-                SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                    .WithSemicolonToken(SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)))),
+                SyntaxFactory.AccessorDeclaration(
+                    SyntaxKind.GetAccessorDeclaration,
+                    attributeLists: default,
+                    modifiers: default,
+                    SyntaxFactory.Token(SyntaxKind.GetKeyword),
+                    body: null,
+                    expressionBody: null,
+                    SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)))),
             SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
 }

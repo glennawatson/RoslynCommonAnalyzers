@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.DocumentationPeriodCodeFixProvider>;
@@ -12,6 +16,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the member documentation rules (SST1600/1602/1604/1606/1611/1615/1617/1618/1629).</summary>
 public class MemberDocumentationAnalyzerUnitTest
 {
+    /// <summary>The diagnostic markup for an undocumented method.</summary>
+    private const string UndocumentedMethod = "{|SST1600:M|}";
+
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
 
@@ -22,6 +29,224 @@ public class MemberDocumentationAnalyzerUnitTest
         stylesharp.document_private_fields = true
 
         """;
+
+    /// <summary>Verifies incomplete parameter names do not produce documentation diagnostics while typing.</summary>
+    /// <param name="declaration">The incomplete documented member.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public void M(int) { }")]
+    [Arguments("public void M<>() { }")]
+    public async Task MissingParameterNamesAreIgnoredAsync(string declaration)
+    {
+        var source = $$"""
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Runs an action.</summary>
+                {{declaration}}
+            }
+            """;
+        var tree = CSharpSyntaxTree.ParseText(source, new(documentationMode: DocumentationMode.Diagnose));
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        await Assert.That(compilation.GetDiagnostics().Any(static d => d.Id == "CS1001")).IsTrue();
+        var diagnostics = await compilation.WithAnalyzers([new MemberDocumentationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies delegate parameters, type parameters, and return values use member documentation rules.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DelegateDocumentationAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>Transforms a value.</summary>
+            /// <typeparam name="T">The value type.</typeparam>
+            /// <param name="value">The input.</param>
+            /// <returns>The output.</returns>
+            public delegate T Transform<T>(T value);
+            /// <summary>Transforms a value.</summary>
+            public delegate T {|SST1615:Missing|}<{|SST1618:T|}>(T {|SST1611:value|});
+            /// <summary>Runs an action.</summary>
+            public delegate void Action();
+            """);
+
+    /// <summary>Verifies a static constructor has no instance-constructor summary convention.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task StaticConstructorSummaryAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary>Registers shared state.</summary>
+                static C() { }
+            }
+            """);
+
+    /// <summary>Verifies a private constructor must use either accepted constructor prefix.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PrivateConstructorRejectsUnrelatedSummaryAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1642:<summary>Creates a container.</summary>|}
+                private C() { }
+            }
+            """);
+
+    /// <summary>Verifies top-level inheritance skips all content checks regardless of element order.</summary>
+    /// <param name="inheritance">The inheritance element.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("<inheritdoc/>")]
+    [Arguments("<inheritdoc></inheritdoc>")]
+    public async Task InheritedDocumentationSkipsContentAsync(string inheritance)
+    {
+        var source = $$"""
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// <summary/>
+                /// <param>Missing name</param>
+                /// <returns>No punctuation</returns>
+                /// {{inheritance}}
+                public void M<T>(T value) { }
+            }
+            """;
+        await Verify.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>Verifies a self-closing summary is reported as empty.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SelfClosingSummaryIsEmptyAsync() =>
+        Verify.VerifyAnalyzerAsync("/// <summary/>\npublic class {|SST1606:C|} { }");
+
+    /// <summary>Verifies a partial declaration accepts type parameter documentation from a sibling.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SiblingDocumentsTypeParameterAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public partial class C<T> { }
+            public partial class C<T> { }
+            /// <content>Additional members.</content>
+            public partial class C<T> { }
+            /// <content>Generic contract.</content>
+            /// <typeparam name="T">The stored type.</typeparam>
+            public partial class C<T> { }
+            """);
+
+    /// <summary>Verifies missing type parameter documentation is still reported on partial declarations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NoSiblingDocumentsTypeParameterAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public partial class C<{|SST1618:T|}> { }
+            public partial class C<T> { }
+            /// <content>Additional members.</content>
+            public partial class C<{|SST1618:T|}> { }
+            """);
+
+    /// <summary>Verifies explicit interface implementations do not require duplicate documentation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ExplicitInterfaceMembersInheritCoverageAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A contract.</summary>
+            public interface I
+            {
+                /// <summary>Runs an action.</summary>
+                void M();
+                /// <summary>Gets a value.</summary>
+                int Value { get; }
+            }
+            /// <summary>An implementation.</summary>
+            public class C : I
+            {
+                void I.M() { }
+                int I.Value => 0;
+            }
+            """);
+
+    /// <summary>Verifies an unrelated summary is rejected for a restricted setter.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RestrictedSetterRequiresGetsAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            /// <summary>A container.</summary>
+            public class C
+            {
+                /// {|SST1624:<summary>The stored value.</summary>|}
+                public int Value { get; private set; }
+            }
+            """);
+
+    /// <summary>Verifies accessibility options enable and disable the corresponding declarations and fields.</summary>
+    /// <param name="key">The documentation option.</param>
+    /// <param name="visibility">The member accessibility.</param>
+    /// <param name="enabled">Whether documentation is required.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("document_exposed_elements", "public", true)]
+    [Arguments("document_exposed_elements", "public", false)]
+    [Arguments("document_internal_elements", "internal", true)]
+    [Arguments("document_internal_elements", "internal", false)]
+    [Arguments("document_private_elements", "private", true)]
+    [Arguments("document_private_elements", "private", false)]
+    public async Task AccessibilityOptionControlsMembersAsync(string key, string visibility, bool enabled)
+    {
+        var test = new Verify.Test
+        {
+            TestCode = $$"""
+                /// <summary>A container.</summary>
+                public class C { {{visibility}} void {{(enabled ? UndocumentedMethod : "M")}}() { } }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $"root = true\n[*.cs]\nstylesharp.{key} = {enabled}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies interface modes distinguish public and internal contracts.</summary>
+    /// <param name="mode">The interface documentation mode.</param>
+    /// <param name="publicRequired">Whether public contracts require documentation.</param>
+    /// <param name="internalRequired">Whether internal contracts require documentation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("all", true, true)]
+    [Arguments("exposed", true, false)]
+    [Arguments("none", false, false)]
+    public async Task InterfaceModeControlsContractsAsync(string mode, bool publicRequired, bool internalRequired)
+    {
+        var publicName = publicRequired ? "{|SST1600:IPublic|}" : "IPublic";
+        var internalName = internalRequired ? "{|SST1600:IInternal|}" : "IInternal";
+        var test = new Verify.Test
+        {
+            TestCode = $$"""
+                public interface {{publicName}} { void {{(publicRequired ? UndocumentedMethod : "M")}}(); }
+                internal interface {{internalName}} { void {{(mode == "none" ? "M" : UndocumentedMethod)}}(); }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $"root = true\n[*.cs]\nstylesharp.document_interfaces = {mode}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies a fully documented type produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

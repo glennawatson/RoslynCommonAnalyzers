@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1502 — a CORS origin predicate unconditionally allows every origin.</summary>
-    public static readonly DiagnosticDescriptor AlwaysAllowedCorsOrigin = Create(
+    public static readonly DiagnosticDescriptor AlwaysAllowedCorsOrigin = DescriptorFactory.Create(
         "SES1502",
         "A CORS origin predicate must not unconditionally allow every origin",
         "The predicate passed to 'SetIsOriginAllowed' always returns true, so every origin is allowed; this is equivalent to AllowAnyOrigin and is unsafe, especially combined with credentials",

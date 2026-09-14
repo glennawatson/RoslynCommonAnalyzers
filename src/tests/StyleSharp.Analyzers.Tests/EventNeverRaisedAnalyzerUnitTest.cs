@@ -10,6 +10,41 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2407 (an event nothing in the compilation raises).</summary>
 public class EventNeverRaisedAnalyzerUnitTest
 {
+    /// <summary>Verifies field attributes exclude events while event attributes leave raising obligations intact.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AttributeTargetsDetermineRaisingOwnershipAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync("""
+            using System;
+            [AttributeUsage(AttributeTargets.Event | AttributeTargets.Field)]
+            class MarkerAttribute : Attribute { }
+            class C
+            {
+                [field: Marker] public event Action Stored;
+                [Marker] public event Action {|SST2407:Plain|};
+                [event: Marker] public event Action {|SST2407:Explicit|};
+            }
+            """);
+
+    /// <summary>Verifies same-named interface members do not hide an unrelated event's raising obligation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedInterfaceMembersDoNotOwnEventAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync("""
+            using System;
+            interface IProperty { int Changed { get; } }
+            interface IEvent { event Action Started; }
+            class C : IProperty, IEvent
+            {
+                int IProperty.Changed => 0;
+                event Action IEvent.Started { add { } remove { } }
+                public event Action {|SST2407:Changed|};
+                public event Action {|SST2407:Started|};
+            }
+            """);
+
     /// <summary>Verifies an event nothing raises is reported, on its own declaration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

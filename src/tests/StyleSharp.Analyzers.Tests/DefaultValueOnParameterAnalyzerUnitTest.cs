@@ -136,6 +136,46 @@ public class DefaultValueOnParameterAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a marker-shaped alias to an unrelated attribute remains clean.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnrelatedAttributeAliasIsCleanAsync()
+    {
+        const string Source = """
+                              using DefaultValue = Custom.OtherAttribute;
+
+                              namespace Custom
+                              {
+                                  public sealed class OtherAttribute : System.Attribute
+                                  {
+                                      public OtherAttribute(int value) { }
+                                  }
+                              }
+
+                              public static class Api
+                              {
+                                  public static void Connect([DefaultValue(5)] int retries) { }
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
+    /// <summary>Verifies declaration-based filtering preserves an alias to the designer attribute.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DesignerAttributeAliasIsReportedAsync()
+    {
+        const string Source = """
+                              using DefaultValue = System.ComponentModel.DefaultValueAttribute;
+
+                              public static class Api
+                              {
+                                  public static void Connect([{|SST2460:DefaultValue(5)|}] int retries) { }
+                              }
+                              """;
+        await VerifyAnalyzerAsync(Source);
+    }
+
     /// <summary>Verifies a record parameter that retargets the attribute to its property is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,14 +11,17 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider))]
 [Shared]
-public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(CorrectnessRules.NullComparisonOnUnconstrainedGeneric.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -28,12 +29,16 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider :
             context,
             "Use 'is null' / 'is not null'",
             nameof(Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is { } binary
+            && ExpressionShapes.OperandComparedToNull(binary)is { };
 
     /// <summary>Resolves the reported comparison and builds its constant-pattern replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -42,7 +47,7 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider :
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>() is not { } binary
-            || GetOperandComparedToNull(binary) is not { } operand)
+            || ExpressionShapes.OperandComparedToNull(binary) is not { } operand)
         {
             return null;
         }
@@ -52,19 +57,6 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider :
         var replacement = SyntaxFactory.IsPatternExpression(operand.WithoutTrivia(), isKeyword, pattern)
             .WithTriviaFrom(binary);
         return new NodeReplacement(binary, replacement);
-    }
-
-    /// <summary>Returns the non-null operand of an equality whose other operand is the null literal.</summary>
-    /// <param name="binary">The equality expression.</param>
-    /// <returns>The non-null operand, or <see langword="null"/> when neither operand is the null literal.</returns>
-    private static ExpressionSyntax? GetOperandComparedToNull(BinaryExpressionSyntax binary)
-    {
-        if (binary.Right.IsKind(SyntaxKind.NullLiteralExpression))
-        {
-            return binary.Left;
-        }
-
-        return binary.Left.IsKind(SyntaxKind.NullLiteralExpression) ? binary.Right : null;
     }
 
     /// <summary>Builds the <c>null</c> constant pattern, negated for a not-equal comparison.</summary>

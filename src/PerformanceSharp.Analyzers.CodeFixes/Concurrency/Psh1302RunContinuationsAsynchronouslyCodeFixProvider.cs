@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,7 +13,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1302RunContinuationsAsynchronouslyCodeFixProvider))]
 [Shared]
-public sealed class Psh1302RunContinuationsAsynchronouslyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1302RunContinuationsAsynchronouslyCodeFixProvider : CodeFixProvider
 {
     /// <summary>The simple name of the options enum type.</summary>
     private const string OptionsTypeName = "TaskCreationOptions";
@@ -26,20 +24,27 @@ public sealed class Psh1302RunContinuationsAsynchronouslyCodeFixProvider : CodeF
     /// <summary>The fully qualified spelling used when the simple name does not resolve.</summary>
     private const string QualifiedFlagExpression = "global::System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.RunContinuationsAsynchronously.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Run continuations asynchronously", nameof(Psh1302RunContinuationsAsynchronouslyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Run continuations asynchronously", nameof(Psh1302RunContinuationsAsynchronouslyCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is BaseObjectCreationExpressionSyntax creation
+            && model.GetSymbolInfo(creation, CancellationToken.None).Symbol is IMethodSymbol;
 
     /// <summary>Resolves the reported creation and builds its flagged replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -95,42 +100,7 @@ public sealed class Psh1302RunContinuationsAsynchronouslyCodeFixProvider : CodeF
         {
             if (parameters[ordinal].Type.Name == OptionsTypeName)
             {
-                return FindArgumentForOrdinal(creation, parameters[ordinal].Name, ordinal);
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Returns the argument at a parameter ordinal, honoring named arguments.</summary>
-    /// <param name="creation">The creation expression.</param>
-    /// <param name="parameterName">The parameter's name, for named-argument matching.</param>
-    /// <param name="ordinal">The parameter ordinal to resolve.</param>
-    /// <returns>The matching argument, or <see langword="null"/> when it is not supplied.</returns>
-    private static ArgumentSyntax? FindArgumentForOrdinal(BaseObjectCreationExpressionSyntax creation, string parameterName, int ordinal)
-    {
-        if (creation.ArgumentList is not { } argumentList)
-        {
-            return null;
-        }
-
-        var arguments = argumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            var argument = arguments[i];
-            if (argument.NameColon is { } nameColon)
-            {
-                if (nameColon.Name.Identifier.ValueText == parameterName)
-                {
-                    return argument;
-                }
-
-                continue;
-            }
-
-            if (i == ordinal)
-            {
-                return argument;
+                return Psh1302RunContinuationsAsynchronouslyAnalyzer.FindArgumentForOrdinal(creation, parameters[ordinal].Name, ordinal);
             }
         }
 

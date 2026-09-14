@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -68,7 +69,7 @@ public class RedundantParamsArrayCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> RedundantParamsArray_ApplyFixAsync()
     {
-        var updated = Psh1018RedundantParamsArrayCodeFixProvider.Apply(_document, _root, _invocation);
+        var updated = TargetCodeFix.Apply(_document, _root, _invocation, Psh1018RedundantParamsArrayCodeFixProvider.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -14,44 +13,40 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider))]
 [Shared]
-public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.CollapseElseIntoElseIf.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Collapse to 'else if'", nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Applies one SST1465 collapse for the reported else clause.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        TryRewrite(root, diagnostic) is { } edit
-            ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
-            : document;
+        ReplaceNodeCodeFix.RegisterAsync(context, "Collapse to 'else if'", nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Resolves the reported else clause and builds its collapsed <c>else if</c> form.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>() is { } elseClause && IsCollapsible(elseClause)
             ? new NodeReplacement(
                 elseClause,
                 Collapse(elseClause),
                 static current => current is ElseClauseSyntax currentElse && IsCollapsible(currentElse) ? Collapse(currentElse) : current)
             : null;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>()is { } elseClause
+            && IsCollapsible(elseClause);
 
     /// <summary>Returns whether an else clause still wraps exactly one if statement that is safe to hoist.</summary>
     /// <param name="elseClause">The else clause to inspect.</param>
@@ -75,13 +70,24 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     {
         var block = (BlockSyntax)elseClause.Statement;
         var innerIf = (IfStatementSyntax)block.Statements[0];
-        var hoisted = innerIf
-            .WithLeadingTrivia(BuildLeadingTrivia(elseClause, block, innerIf))
-            .WithTrailingTrivia(BuildTrailingTrivia(block, innerIf))
+        var leading = BuildLeadingTrivia(elseClause, block, innerIf);
+        var trailing = BuildTrailingTrivia(block, innerIf);
+        var hoisted = innerIf.Update(
+                innerIf.AttributeLists.Count == 0
+                    ? innerIf.AttributeLists
+                    : innerIf.AttributeLists.Replace(
+                        innerIf.AttributeLists[0],
+                        innerIf.AttributeLists[0].WithLeadingTrivia(leading)),
+                innerIf.AttributeLists.Count == 0 ? innerIf.IfKeyword.WithLeadingTrivia(leading) : innerIf.IfKeyword,
+                innerIf.OpenParenToken,
+                innerIf.Condition,
+                innerIf.CloseParenToken,
+                innerIf.Else is null ? innerIf.Statement.WithTrailingTrivia(trailing) : innerIf.Statement,
+                innerIf.Else?.WithTrailingTrivia(trailing))
             .WithAdditionalAnnotations(Formatter.Annotation);
-        return elseClause
-            .WithElseKeyword(elseClause.ElseKeyword.WithTrailingTrivia(SyntaxFactory.Space))
-            .WithStatement(hoisted);
+        return elseClause.Update(
+            elseClause.ElseKeyword.WithTrailingTrivia(SyntaxFactory.Space),
+            hoisted);
     }
 
     /// <summary>Merges comment trivia that preceded the inner if onto the hoisted if's leading trivia.</summary>
@@ -91,7 +97,11 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <returns>The leading trivia for the hoisted if.</returns>
     private static SyntaxTriviaList BuildLeadingTrivia(ElseClauseSyntax elseClause, BlockSyntax block, IfStatementSyntax innerIf)
     {
-        var pieces = new List<SyntaxTrivia>();
+        var capacity = elseClause.ElseKeyword.TrailingTrivia.Count
+            + block.OpenBraceToken.LeadingTrivia.Count
+            + block.OpenBraceToken.TrailingTrivia.Count
+            + innerIf.GetLeadingTrivia().Count;
+        var pieces = new List<SyntaxTrivia>(capacity);
         AppendComments(pieces, elseClause.ElseKeyword.TrailingTrivia);
         AppendComments(pieces, block.OpenBraceToken.LeadingTrivia);
         AppendComments(pieces, block.OpenBraceToken.TrailingTrivia);
@@ -105,7 +115,10 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <returns>The trailing trivia for the hoisted if.</returns>
     private static SyntaxTriviaList BuildTrailingTrivia(BlockSyntax block, IfStatementSyntax innerIf)
     {
-        var pieces = new List<SyntaxTrivia>();
+        var capacity = innerIf.GetTrailingTrivia().Count
+            + block.CloseBraceToken.LeadingTrivia.Count
+            + block.CloseBraceToken.TrailingTrivia.Count;
+        var pieces = new List<SyntaxTrivia>(capacity);
         AppendAll(pieces, innerIf.GetTrailingTrivia());
         AppendComments(pieces, block.CloseBraceToken.LeadingTrivia);
         AppendAll(pieces, block.CloseBraceToken.TrailingTrivia);

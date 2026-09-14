@@ -21,26 +21,64 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2306ReturnEmptyCollectionNotNullCodeFixProvider))]
 [Shared]
-public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DesignRules.ReturnEmptyCollectionNotNull.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(
-            context,
-            "Return an empty collection",
-            nameof(Sst2306ReturnEmptyCollectionNotNullCodeFixProvider),
-            TryRewrite);
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        SemanticModel? model = null;
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (!TryGetReplacementSource(root, diagnostic, out var nullLiteral, out var replacementText))
+            {
+                continue;
+            }
+
+            if (replacementText == "[]")
+            {
+                if (!Sst2306ReturnEmptyCollectionNotNullAnalyzer.SupportsCollectionExpressions(nullLiteral.SyntaxTree))
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                // Named replacements still need speculative binding: a visible type does not prove
+                // that the suggested expression resolves in this scope.
+                model ??= await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+                if (model is null || !Compiles(model, nullLiteral, SyntaxFactory.ParseExpression(replacementText)))
+                {
+                    continue;
+                }
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Return an empty collection",
+                    cancellationToken =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return Task.FromResult(Apply(context.Document, root, nullLiteral, replacementText));
+                    },
+                    nameof(Sst2306ReturnEmptyCollectionNotNullCodeFixProvider)),
+                diagnostic);
+        }
+    }
 
     /// <summary>Replaces one reported null with the analyzer's empty-collection expression.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -52,6 +90,29 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFix
     internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax nullLiteral, string replacementText) =>
         document.WithSyntaxRoot(root.ReplaceNode(nullLiteral, CreateReplacement(nullLiteral, SyntaxFactory.ParseExpression(replacementText))));
 
+    /// <summary>Resolves the null literal and replacement text without parsing the replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="nullLiteral">The reported null literal.</param>
+    /// <param name="replacementText">The suggested empty-collection expression.</param>
+    /// <returns>Whether the diagnostic still has a null literal and a replacement.</returns>
+    private static bool TryGetReplacementSource(SyntaxNode root, Diagnostic diagnostic, out ExpressionSyntax nullLiteral, out string replacementText)
+    {
+        nullLiteral = null!;
+        replacementText = string.Empty;
+        if (!diagnostic.Properties.TryGetValue(Sst2306ReturnEmptyCollectionNotNullAnalyzer.ReplacementKey, out var text)
+            || text is not { Length: > 0 }
+            || root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not ExpressionSyntax expression
+            || !ExpressionShapes.IsNullLiteral(expression))
+        {
+            return false;
+        }
+
+        nullLiteral = expression;
+        replacementText = text;
+        return true;
+    }
+
     /// <summary>Resolves the reported null literal, proves the replacement compiles there, and builds the swap.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The document's semantic model.</param>
@@ -59,10 +120,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFix
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches or the replacement would not bind.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
-        if (!diagnostic.Properties.TryGetValue(Sst2306ReturnEmptyCollectionNotNullAnalyzer.ReplacementKey, out var replacementText)
-            || replacementText is not { Length: > 0 }
-            || root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not ExpressionSyntax nullLiteral
-            || !Sst2306ReturnEmptyCollectionNotNullAnalyzer.IsNullLiteral(nullLiteral))
+        if (!TryGetReplacementSource(root, diagnostic, out var nullLiteral, out var replacementText))
         {
             return null;
         }

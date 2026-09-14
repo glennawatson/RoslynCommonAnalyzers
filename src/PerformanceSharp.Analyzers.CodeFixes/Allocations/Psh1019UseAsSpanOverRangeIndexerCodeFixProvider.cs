@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -19,13 +17,16 @@ namespace PerformanceSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1019UseAsSpanOverRangeIndexerCodeFixProvider))]
 [Shared]
-public sealed class Psh1019UseAsSpanOverRangeIndexerCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1019UseAsSpanOverRangeIndexerCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(AllocationRules.UseAsSpanOverRangeIndexer.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -34,11 +35,6 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerCodeFixProvider : CodeFixPro
             "Slice in place instead of copying",
             nameof(Psh1019UseAsSpanOverRangeIndexerCodeFixProvider),
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported range indexer and builds its slice rewrite.</summary>
     /// <param name="root">The syntax root.</param>

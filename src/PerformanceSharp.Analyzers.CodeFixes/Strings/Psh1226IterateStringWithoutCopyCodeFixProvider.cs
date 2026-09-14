@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,25 +12,31 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1226IterateStringWithoutCopyCodeFixProvider))]
 [Shared]
-public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProvider
 {
     /// <summary>The contextual keyword marking an implicitly typed local.</summary>
     private const string VarKeyword = "var";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.IterateStringWithoutCopy.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Iterate the string directly", nameof(Psh1226IterateStringWithoutCopyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Iterate the string directly", nameof(Psh1226IterateStringWithoutCopyCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && Psh1226IterateStringWithoutCopyAnalyzer.TryGetRetypeableLocal(invocation, out var _, out var _);
 
     /// <summary>Resolves the reported copy and builds the retyped declaration that drops it.</summary>
     /// <param name="root">The syntax root.</param>
@@ -59,9 +63,9 @@ public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProv
         var newDeclarator = declarator.WithInitializer(declarator.Initializer!.WithValue(newValue));
 
         var declaration = (VariableDeclarationSyntax)declarator.Parent!;
-        var newDeclaration = declaration
-            .WithType(RetypeToString(declaration.Type))
-            .WithVariables(SyntaxFactory.SingletonSeparatedList(newDeclarator));
+        var newDeclaration = declaration.Update(
+            RetypeToString(declaration.Type),
+            SyntaxFactory.SingletonSeparatedList(newDeclarator));
 
         return localDeclaration.WithDeclaration(newDeclaration);
     }
@@ -72,5 +76,5 @@ public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProv
     private static TypeSyntax RetypeToString(TypeSyntax type) =>
         type is IdentifierNameSyntax { Identifier.ValueText: VarKeyword }
             ? type
-            : SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)).WithTriviaFrom(type);
+            : SyntaxFactory.PredefinedType(SyntaxFactory.Token(type.GetLeadingTrivia(), SyntaxKind.StringKeyword, type.GetTrailingTrivia()));
 }

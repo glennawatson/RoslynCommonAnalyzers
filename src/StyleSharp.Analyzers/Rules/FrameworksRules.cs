@@ -33,14 +33,12 @@ internal static partial class FrameworksRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateDisabled(string id, string title, string messageFormat, string description) =>
-        new(
+        DescriptorFactory.CreateOptIn(
             id,
             title,
             messageFormat,
             "Frameworks",
-            DiagnosticSeverity.Warning,
-            isEnabledByDefault: false,
-            description: description,
-            helpLinkUri: $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md");
+            description);
 }

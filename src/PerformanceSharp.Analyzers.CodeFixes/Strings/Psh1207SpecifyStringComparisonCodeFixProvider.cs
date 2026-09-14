@@ -13,25 +13,31 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1207SpecifyStringComparisonCodeFixProvider))]
 [Shared]
-public sealed class Psh1207SpecifyStringComparisonCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1207SpecifyStringComparisonCodeFixProvider : CodeFixProvider
 {
     /// <summary>The fully-qualified ordinal comparison argument reused across fixes.</summary>
     private static readonly ExpressionSyntax OrdinalSyntax = SyntaxFactory.ParseExpression("System.StringComparison.Ordinal");
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.SpecifyStringComparison.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Specify StringComparison.Ordinal", nameof(Psh1207SpecifyStringComparisonCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Specify StringComparison.Ordinal", nameof(Psh1207SpecifyStringComparisonCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic, out var _);
 
     /// <summary>Resolves the reported invocation and builds its argument list with the ordinal comparison appended.</summary>
     /// <param name="root">The syntax root.</param>

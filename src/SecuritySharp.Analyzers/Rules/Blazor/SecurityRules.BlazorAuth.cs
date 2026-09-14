@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1703 — <c>[Authorize]</c> on a component that is not routable enforces nothing.</summary>
-    public static readonly DiagnosticDescriptor NonRoutableComponentAuthorization = Create(
+    public static readonly DiagnosticDescriptor NonRoutableComponentAuthorization = DescriptorFactory.Create(
         "SES1703",
         "Authorize on a non-routable component enforces nothing",
         NonRoutableComponentAuthorizationMessage,
@@ -16,7 +16,7 @@ internal static partial class SecurityRules
         NonRoutableComponentAuthorizationDescription);
 
     /// <summary>SES1704 — an interactive component captures <c>HttpContext</c>, which is null or stale there.</summary>
-    public static readonly DiagnosticDescriptor InteractiveComponentHttpContext = Create(
+    public static readonly DiagnosticDescriptor InteractiveComponentHttpContext = DescriptorFactory.Create(
         "SES1704",
         "HttpContext accessed from an interactive component is stale",
         InteractiveComponentHttpContextMessage,

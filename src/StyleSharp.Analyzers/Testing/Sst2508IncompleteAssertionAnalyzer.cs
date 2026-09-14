@@ -13,10 +13,11 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on a fluent-assertion library being referenced — the
+/// The rule requires a fluent-assertion library to be referenced — the
 /// <c>AssertionExtensions</c> type that hosts the <c>Should()</c> extension methods, under either the
 /// <c>FluentAssertions</c> or the <c>AwesomeAssertions</c> namespace, must resolve. A project that
-/// references neither registers no per-statement callback and pays nothing.
+/// contains no candidate assertion never resolves these types. Availability is cached per compilation
+/// after the first candidate passes the syntax checks.
 /// </para>
 /// <para>
 /// The clean path is syntax only: the statement's expression must be an invocation whose invoked member
@@ -59,44 +60,22 @@ public sealed class Sst2508IncompleteAssertionAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Registers the per-statement callback only when a fluent-assertion library is referenced.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (!IsFluentAssertionLibraryPresent(context.Compilation))
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.ExpressionStatement);
-    }
-
-    /// <summary>Returns whether the compilation references a fluent-assertion library.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <returns><see langword="true"/> when a hosting <c>AssertionExtensions</c> type resolves.</returns>
-    private static bool IsFluentAssertionLibraryPresent(Compilation compilation)
-    {
-        for (var i = 0; i < AssertionExtensionsMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(AssertionExtensionsMetadataNames[i]) is not null)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => LazyCompilationProbe.Create(compilation, static current => MetadataTypeLookup.AnyResolves(current, AssertionExtensionsMetadataNames)),
+            Analyze,
+            SyntaxKind.ExpressionStatement);
     }
 
     /// <summary>Analyzes one expression statement for a bare, never-completed <c>Should()</c> assertion.</summary>
     /// <param name="context">The syntax node context.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context)
+    /// <param name="library">The compilation's deferred assertion-library availability check.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyCompilationProbe library)
     {
         if (((ExpressionStatementSyntax)context.Node).Expression is not InvocationExpressionSyntax invocation
             || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
-            || memberAccess.Name.Identifier.ValueText != ShouldMethodName)
+            || memberAccess.Name.Identifier.ValueText != ShouldMethodName
+            || !library.Get())
         {
             return;
         }

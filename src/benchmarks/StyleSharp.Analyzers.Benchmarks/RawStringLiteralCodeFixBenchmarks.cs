@@ -7,6 +7,8 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+using RoslynCommon.Analyzers.CodeFixes;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for raw-string-literal code fixes.</summary>
@@ -69,7 +71,7 @@ public class RawStringLiteralCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> RawStringLiteral_ApplyFixAsync()
     {
-        var updated = Sst2243UseRawStringLiteralCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2243UseRawStringLiteralCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

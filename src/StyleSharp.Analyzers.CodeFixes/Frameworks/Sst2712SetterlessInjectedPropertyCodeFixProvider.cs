@@ -18,49 +18,25 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2712SetterlessInjectedPropertyCodeFixProvider))]
 [Shared]
-public sealed class Sst2712SetterlessInjectedPropertyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2712SetterlessInjectedPropertyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(Resolve, static (current, _) => AddPrivateSetter((PropertyDeclarationSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(FrameworksRules.SetterlessInjectedProperty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not { } property)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add a private setter",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(property, AddPrivateSetter(property)))),
-                    equivalenceKey: nameof(Sst2712SetterlessInjectedPropertyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not { } property)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(property, static (current, _) => AddPrivateSetter((PropertyDeclarationSyntax)current));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Add a private setter",
+            nameof(Sst2712SetterlessInjectedPropertyCodeFixProvider),
+            Resolve,
+            AddPrivateSetter);
 
     /// <summary>Resolves the reported auto-property, or <see langword="null"/> when no fix is offered.</summary>
     /// <param name="root">The syntax root.</param>
@@ -97,9 +73,14 @@ public sealed class Sst2712SetterlessInjectedPropertyCodeFixProvider : CodeFixPr
     /// <returns>The property with a private setter.</returns>
     private static PropertyDeclarationSyntax AddPrivateSetter(PropertyDeclarationSyntax property)
     {
-        var setter = SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        var setter = SyntaxFactory.AccessorDeclaration(
+            SyntaxKind.SetAccessorDeclaration,
+            attributeLists: default,
+            SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
+            SyntaxFactory.Token(SyntaxKind.SetKeyword),
+            body: null,
+            expressionBody: null,
+            SyntaxFactory.Token(SyntaxKind.SemicolonToken));
 
         return property
             .WithAccessorList(property.AccessorList!.AddAccessors(setter))

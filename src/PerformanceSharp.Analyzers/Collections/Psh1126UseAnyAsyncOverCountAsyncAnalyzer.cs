@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -38,6 +40,13 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAnyAsyncOverCountAsync);
 
+    /// <summary>The metadata names DeferredAwaitableTypes resolves, in slot order.</summary>
+    private static readonly string[] DeferredAwaitableTypesMetadataNames =
+    [
+        TaskOfTMetadataName,
+        ValueTaskOfTMetadataName
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -47,33 +56,24 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName) is not { } taskOfT)
-            {
-                return;
-            }
-
-            var awaitables = new AwaitableTypes(taskOfT, start.Compilation.GetTypeByMetadataName(ValueTaskOfTMetadataName));
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeComparison(nodeContext, awaitables),
-                SyntaxKind.EqualsExpression,
-                SyntaxKind.NotEqualsExpression,
-                SyntaxKind.GreaterThanExpression,
-                SyntaxKind.GreaterThanOrEqualExpression,
-                SyntaxKind.LessThanExpression,
-                SyntaxKind.LessThanOrEqualExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataTypes(compilation, DeferredAwaitableTypesMetadataNames),
+            AnalyzeComparison,
+            SyntaxKind.EqualsExpression,
+            SyntaxKind.NotEqualsExpression,
+            SyntaxKind.GreaterThanExpression,
+            SyntaxKind.GreaterThanOrEqualExpression,
+            SyntaxKind.LessThanExpression,
+            SyntaxKind.LessThanOrEqualExpression);
     }
 
     /// <summary>Classifies an emptiness-shaped awaited CountAsync() comparison, before any binding.</summary>
     /// <param name="binary">The comparison to inspect.</param>
     /// <returns>The awaited CountAsync invocation and whether the check means "has elements", or <see langword="null"/>.</returns>
-    internal static (InvocationExpressionSyntax Invocation, bool HasElements)? TryGetComparisonShape(BinaryExpressionSyntax binary)
-    {
-        var shape = EmptinessComparisonClassifier.Classify(binary, TryGetAwaitedCount(binary.Left), TryGetAwaitedCount(binary.Right));
-        return shape is { } resolved ? (resolved.Count, resolved.HasElements) : null;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static EmptinessComparison<InvocationExpressionSyntax>? TryGetComparisonShape(BinaryExpressionSyntax binary) =>
+        EmptinessComparisonClassifier.Classify(binary, TryGetAwaitedCount(binary.Left), TryGetAwaitedCount(binary.Right));
 
     /// <summary>Resolves the <c>AnyAsync</c> sibling of a bound <c>CountAsync</c> call, proving it exists for this receiver.</summary>
     /// <param name="countAsync">The bound, reduced CountAsync extension method.</param>
@@ -106,8 +106,8 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1126 for an emptiness comparison of an awaited CountAsync() result.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="awaitables">The awaitable types resolved for the compilation.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, AwaitableTypes awaitables)
+    /// <param name="types">The deferred awaitable types for the compilation.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, LazyMetadataTypes types)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonShape(binary) is not { } shape)
@@ -115,7 +115,14 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(shape.Invocation, context.CancellationToken).Symbol
+        var resolved = types.Get();
+        if (resolved[0] is not { } taskOfT)
+        {
+            return;
+        }
+
+        var awaitables = new AwaitableTypes(taskOfT, resolved[1]);
+        if (context.SemanticModel.GetSymbolInfo(shape.Count, context.CancellationToken).Symbol
                 is not IMethodSymbol { IsExtensionMethod: true, Name: CountAsyncMethodName } countAsync
             || TryResolveAnySibling(countAsync, awaitables) is null)
         {

@@ -3,8 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyMemberCopyDeconstruction = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2247MemberCopyDeconstructionAnalyzer,
@@ -77,6 +80,43 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
             }
         }
         """;
+
+    /// <summary>Verifies ambiguous and non-out Deconstruct overloads cannot justify folding member reads.</summary>
+    /// <param name="members">The source type's deconstruction members.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public void Deconstruct(out int x, out int y) { x = y = 0; } public void Deconstruct(out long x, out long y) { x = y = 0; }")]
+    [Arguments("public void Deconstruct(out int x, ref int y) { x = 0; }")]
+    [Arguments("public static void Deconstruct(out int x, out int y) { x = y = 0; }")]
+    [Arguments("private void Deconstruct(out int x, out int y) { x = y = 0; }")]
+    [Arguments("public int Deconstruct(out int x, out int y) { x = y = 0; return 0; }")]
+    [Arguments("public void Deconstruct(out int x) { x = 0; }")]
+    [Arguments("public int Deconstruct;")]
+    public async Task UnsuitableDeconstructIsIgnoredAsync(string members)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class Point {{ public int X, Y; {members} }} class C {{ int M(Point point) {{ var x = point.X; var y = point.Y; return x + y; }} }}");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2247MemberCopyDeconstructionAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies a parameter remains eligible when an unrelated statement precedes its member copies.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedPrecedingStatementDoesNotHideParameterCopiesAsync() =>
+        RunAsync("""
+            class C
+            {
+                int M((int, int) pair)
+                {
+                    _ = 0;
+                    {|SST2247:var first = pair.Item1;|}
+                    var second = pair.Item2;
+                    return first + second;
+                }
+            }
+            """);
 
     /// <summary>Verifies tuple member copies off a parameter fold into a deconstruction.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

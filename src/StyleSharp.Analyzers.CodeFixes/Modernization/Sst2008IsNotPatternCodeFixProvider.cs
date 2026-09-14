@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,35 +11,28 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2008IsNotPatternCodeFixProvider))]
 [Shared]
-public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernizationRules.UseIsNotPattern.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use an 'is not' pattern", nameof(Sst2008IsNotPatternCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use an 'is not' pattern", nameof(Sst2008IsNotPatternCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Removes enclosing parentheses around an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The unwrapped expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } notExpression
+            && ExpressionShapes.WalkDownParentheses(notExpression.Operand) is IsPatternExpressionSyntax;
 
     /// <summary>Resolves the reported negation and builds its <c>is not</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -49,7 +40,12 @@ public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider, IBatch
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } notExpression
-            && Unwrap(notExpression.Operand) is IsPatternExpressionSyntax isPattern
-            ? new NodeReplacement(notExpression, isPattern.WithPattern(PatternNegation.Negate(isPattern.Pattern.WithoutLeadingTrivia())).WithTriviaFrom(notExpression))
+            && ExpressionShapes.WalkDownParentheses(notExpression.Operand) is IsPatternExpressionSyntax isPattern
+            ? new NodeReplacement(
+                notExpression,
+                isPattern.Update(
+                    isPattern.Expression.WithLeadingTrivia(notExpression.GetLeadingTrivia()),
+                    isPattern.IsKeyword,
+                    PatternNegation.Negate(isPattern.Pattern.WithoutLeadingTrivia()).WithTrailingTrivia(notExpression.GetTrailingTrivia())))
             : null;
 }

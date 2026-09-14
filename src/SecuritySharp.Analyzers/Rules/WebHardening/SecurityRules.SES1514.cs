@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1514 — an OpenID Connect PKCE, state, or nonce protection is disabled.</summary>
-    public static readonly DiagnosticDescriptor OidcProtocolProtectionDisabled = Create(
+    public static readonly DiagnosticDescriptor OidcProtocolProtectionDisabled = DescriptorFactory.Create(
         "SES1514",
         "OpenID Connect PKCE, state, and nonce protections must not be disabled",
         OidcProtocolProtectionDisabledMessage,

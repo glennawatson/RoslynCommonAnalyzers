@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -30,8 +31,8 @@ public class UseMemoryBasedStreamOverloadsCodeFixBenchmarks : IDisposable
     /// <summary>The semantic model used to resolve the representative stream call.</summary>
     private SemanticModel _model = null!;
 
-    /// <summary>The representative stream call passed to the code fix.</summary>
-    private InvocationExpressionSyntax _invocation = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -50,10 +51,10 @@ public class UseMemoryBasedStreamOverloadsCodeFixBenchmarks : IDisposable
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _invocation = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
+        _diagnostic = Diagnostic.Create(ConcurrencyRules.UseMemoryBasedStreamOverloads, CodeFixBenchmarkSyntaxLookup.GetNthDescendant<InvocationExpressionSyntax>(
             type,
             0,
-            static invocation => invocation.Expression is MemberAccessExpressionSyntax access && access.Name.Identifier.ValueText == "ReadAsync");
+            static invocation => invocation.Expression is MemberAccessExpressionSyntax access && access.Name.Identifier.ValueText == "ReadAsync").GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -73,7 +74,7 @@ public class UseMemoryBasedStreamOverloadsCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UseMemoryBasedStreamOverloads_ApplyFixAsync()
     {
-        var updated = Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider.Apply(_document, _root, _model, _invocation);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _model, _diagnostic, Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

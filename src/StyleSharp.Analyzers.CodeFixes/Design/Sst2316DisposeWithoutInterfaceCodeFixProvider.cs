@@ -13,60 +13,36 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2316DisposeWithoutInterfaceCodeFixProvider))]
 [Shared]
-public sealed class Sst2316DisposeWithoutInterfaceCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2316DisposeWithoutInterfaceCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = TypeDeclarationValueCodeFix.CreateFixAll(Resolve, AddInterface);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(DesignRules.DisposeWithoutInterface.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is not var (declaration, interfaceName))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Implement {interfaceName}",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, AddInterface(declaration, interfaceName)))),
-                    equivalenceKey: nameof(Sst2316DisposeWithoutInterfaceCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not var (declaration, interfaceName))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, (current, _) => AddInterface((TypeDeclarationSyntax)current, interfaceName));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TypeDeclarationValueCodeFix.RegisterAsync(
+            context,
+            static interfaceName => $"Implement {interfaceName}",
+            nameof(Sst2316DisposeWithoutInterfaceCodeFixProvider),
+            Resolve,
+            AddInterface);
 
     /// <summary>Resolves the reported method to its type declaration and the interface to add.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The type declaration and interface name, or <see langword="null"/>.</returns>
-    private static (TypeDeclarationSyntax Declaration, string InterfaceName)? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+    private static TypeDeclarationFix? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
             || !diagnostic.Properties.TryGetValue(Sst2316DisposeWithoutInterfaceAnalyzer.InterfaceKey, out var interfaceName)
             || interfaceName is null
             ? null
-            : (declaration, interfaceName);
+            : new TypeDeclarationFix(declaration, interfaceName);
 
     /// <summary>Adds the fully-qualified disposal interface to a type's base list.</summary>
     /// <param name="declaration">The type declaration.</param>

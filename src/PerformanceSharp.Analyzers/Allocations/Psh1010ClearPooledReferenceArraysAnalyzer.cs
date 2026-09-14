@@ -21,11 +21,11 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
     /// <summary>The name of the flag parameter the fix supplies.</summary>
     internal const string ClearArrayParameterName = "clearArray";
 
-    /// <summary>The metadata name of the array pool type.</summary>
-    private const string ArrayPoolMetadataName = "System.Buffers.ArrayPool`1";
-
     /// <summary>The argument count of the Return overload that carries the clear flag.</summary>
     private const int FlagArgumentCount = 2;
+
+    /// <summary>The metadata name of the array pool type.</summary>
+    private const string ArrayPoolMetadataName = "System.Buffers.ArrayPool`1";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.ClearPooledReferenceArrays);
@@ -39,32 +39,27 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var poolType = start.Compilation.GetTypeByMetadataName(ArrayPoolMetadataName);
-            if (poolType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, poolType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ArrayPoolMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports PSH1010 for a pool return of reference-containing elements without clearing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="poolType">The array pool type definition.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol poolType)
+    /// <param name="poolTypes">The lazily resolved array pool type definition.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType poolTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText != ReturnMethodName
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ReturnMethodName }
             || invocation.ArgumentList.Arguments.Count is not (1 or FlagArgumentCount))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (poolTypes.Get() is not { } poolType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.ContainingType is not { } containingType
             || !SymbolEqualityComparer.Default.Equals(containingType.OriginalDefinition, poolType)
             || !ElementKeepsReferencesAlive(containingType.TypeArguments[0]))

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports loops that cannot naturally reach a second iteration.</summary>
@@ -100,7 +102,7 @@ public sealed class SingleIterationLoopAnalyzer : DiagnosticAnalyzer
         /// <inheritdoc/>
         public override void VisitBreakStatement(BreakStatementSyntax node)
         {
-            if (!BreakTargetsNestedSwitch(node))
+            if (!SyntaxAncestry.HasAncestorBefore<SwitchStatementSyntax>(node, _loop))
             {
                 StoreTerminatingJump(node);
             }
@@ -164,37 +166,15 @@ public sealed class SingleIterationLoopAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a jump is under a conditional construct inside the loop.</summary>
         /// <param name="jump">The jump statement.</param>
         /// <returns><see langword="true"/> when the jump is conditional.</returns>
-        private bool IsConditional(StatementSyntax jump)
-        {
-            for (var current = jump.Parent; current is not null && current != _loop; current = current.Parent)
-            {
-                if (current is IfStatementSyntax
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsConditional(StatementSyntax jump) =>
+            SyntaxAncestry.HasAncestorBefore(
+                jump,
+                _loop,
+                static current => current is IfStatementSyntax
                     or ElseClauseSyntax
                     or SwitchSectionSyntax
                     or CatchClauseSyntax
-                    or TryStatementSyntax)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>Returns whether a break exits a nested switch instead of the analyzed loop.</summary>
-        /// <param name="breakStatement">The break statement.</param>
-        /// <returns><see langword="true"/> when a switch owns the break before the loop does.</returns>
-        private bool BreakTargetsNestedSwitch(BreakStatementSyntax breakStatement)
-        {
-            for (var current = breakStatement.Parent; current is not null && current != _loop; current = current.Parent)
-            {
-                if (current is SwitchStatementSyntax)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+                    or TryStatementSyntax);
     }
 }

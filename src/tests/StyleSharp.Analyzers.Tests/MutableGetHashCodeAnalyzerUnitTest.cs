@@ -294,6 +294,102 @@ public class MutableGetHashCodeAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an abstract hash override has no body to inspect.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AbstractOverrideIsCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync("abstract class C { public abstract override int GetHashCode(); }");
+
+    /// <summary>Verifies conditional access reports its mutable receiver but not another object's property.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConditionalAccessReportsOnlyReceiverAsync() =>
+        VerifyHash.VerifyAnalyzerAsync("""
+            class C
+            {
+                private C _other;
+                public int Value { get; set; }
+                public override int GetHashCode() => {|SST1482:_other|}?.Value ?? 0;
+            }
+            """);
+
+    /// <summary>Verifies property patterns inspect the receiver and values, not the matched property name.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PropertyPatternNamesAreCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync("""
+            class C
+            {
+                private C _other;
+                public int Value { get; set; }
+                public override int GetHashCode() => {|SST1482:_other|} is { Value: > 0 } ? 1 : 0;
+            }
+            """);
+
+    /// <summary>Verifies argument labels, anonymous member labels, and qualified type names are not state reads.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task LabelsAndQualifiedNamesAreCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync("""
+            class C
+            {
+                private int _value;
+                private int Identity(int value) => value;
+                public override int GetHashCode()
+                {
+                    var anonymous = new { Value = {|SST1482:_value|} };
+                    var qualified = default(System.Int32);
+                    var aliased = default(global::System.Int32);
+                    _ = default(global::C);
+                    return Identity(value: anonymous.Value + qualified + aliased);
+                }
+            }
+            """);
+
+    /// <summary>Verifies with-initializers inspect assigned values without reporting the cloned object's members.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task WithInitializerReportsAssignedValueAsync() =>
+        VerifyHash.VerifyAnalyzerAsync($$"""
+            record Box { public int Width { get; init; } }
+            class C
+            {
+                private readonly Box _box = new Box();
+                private int _width;
+                public override int GetHashCode() => (_box with { Width = {|SST1482:_width|} }).Width;
+            }{{IsExternalInit}}
+            """);
+
+    /// <summary>Verifies collection-initializer elements are reads of their values.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CollectionInitializerReportsElementAsync() =>
+        VerifyHash.VerifyAnalyzerAsync("""
+            using System.Collections.Generic;
+            class C
+            {
+                private int _value;
+                public override int GetHashCode() => new List<int> { {|SST1482:_value|} }.Count;
+            }
+            """);
+
+    /// <summary>Verifies a partially typed object initializer still inspects its incomplete value entry.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task IncompleteObjectInitializerReportsValueAsync() =>
+        new VerifyHash.Test
+        {
+            TestCode = "class C { int _value; public override int GetHashCode() => new C { _value = 0, {|SST1482:_value|} }.GetHashCode(); }",
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Builds a test that runs against the .NET 8 reference assemblies, where <c>System.HashCode</c> exists.</summary>
     /// <param name="source">The source to analyze.</param>
     /// <returns>The configured test.</returns>

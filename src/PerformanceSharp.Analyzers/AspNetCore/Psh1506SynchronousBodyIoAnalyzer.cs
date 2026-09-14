@@ -16,9 +16,9 @@ namespace PerformanceSharp.Analyzers;
 /// under load, and the synchronous form buffers the payload unbounded.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>Microsoft.AspNetCore.Http.HttpRequest</c>
-/// resolving; a project that does not reference ASP.NET Core registers no syntax action. The clean
-/// path fails fast on a syntactic member-name prefilter before the semantic model is consulted, and
+/// The rule resolves <c>Microsoft.AspNetCore.Http.HttpRequest</c> only after a synchronous I/O call
+/// passes the syntactic member-name prefilter and reports nothing when that type is absent. The
+/// clean path rejects other calls before resolving metadata or consulting the semantic model, and
 /// the async replacement is resolved on the receiver's own type — a member named after the async
 /// sibling must exist there — so a framework that cannot offer the overload is never reported. The
 /// analyzer reports the defect wherever it occurs; only the code fix requires an <c>async</c> context.
@@ -26,12 +26,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the request type whose <c>Body</c> the rule watches, and the compilation gate.</summary>
-    private const string HttpRequestMetadataName = "Microsoft.AspNetCore.Http.HttpRequest";
-
-    /// <summary>The metadata name of the response type whose <c>Body</c> the rule watches.</summary>
-    private const string HttpResponseMetadataName = "Microsoft.AspNetCore.Http.HttpResponse";
-
     /// <summary>The name of the body property on the request and response types.</summary>
     private const string BodyPropertyName = "Body";
 
@@ -40,6 +34,12 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The writer wrapper type whose synchronous writes over the body are reported.</summary>
     private const string StreamWriterTypeName = "StreamWriter";
+
+    /// <summary>The metadata name of the request type whose <c>Body</c> the rule watches, and the compilation gate.</summary>
+    private const string HttpRequestMetadataName = "Microsoft.AspNetCore.Http.HttpRequest";
+
+    /// <summary>The metadata name of the response type whose <c>Body</c> the rule watches.</summary>
+    private const string HttpResponseMetadataName = "Microsoft.AspNetCore.Http.HttpResponse";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.SynchronousBodyIo);
@@ -53,17 +53,11 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var httpRequest = start.Compilation.GetTypeByMetadataName(HttpRequestMetadataName);
-            if (httpRequest is null)
-            {
-                return;
-            }
-
-            var gate = new BodyGate(httpRequest, start.Compilation.GetTypeByMetadataName(HttpResponseMetadataName));
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, gate), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<BodyGate?>(compilation, ResolveBodyGate, runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Maps a synchronous stream or reader I/O method to the async method that replaces it.</summary>
@@ -91,12 +85,17 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1506 when a synchronous I/O call binds to the HTTP body and an async overload exists on the receiver.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The resolved ASP.NET Core body-owning types.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, BodyGate gate)
+    /// <param name="markers">The compilation's lazily resolved HTTP body types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<BodyGate?> markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access
             || AsyncCounterpartName(access.Name.Identifier.ValueText) is not { } asyncName)
+        {
+            return;
+        }
+
+        if (markers.Get() is not { } gate)
         {
             return;
         }
@@ -127,7 +126,7 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the receiver is the body stream, a wrapper over it, or a local initialised from one.</returns>
     private static bool ReceiverReadsHttpBody(SemanticModel model, ExpressionSyntax receiver, BodyGate gate, CancellationToken cancellationToken)
     {
-        var expr = Unwrap(receiver);
+        var expr = ExpressionShapes.WalkDownParentheses(receiver);
         return expr is ObjectCreationExpressionSyntax creation
             ? CreationWrapsBody(model, creation, gate, cancellationToken)
             : model.GetSymbolInfo(expr, cancellationToken).Symbol switch
@@ -151,7 +150,7 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var init = Unwrap(initializer);
+        var init = ExpressionShapes.WalkDownParentheses(initializer);
         return init is ObjectCreationExpressionSyntax creation
             ? CreationWrapsBody(model, creation, gate, cancellationToken)
             : model.GetSymbolInfo(init, cancellationToken).Symbol is IPropertySymbol property && IsBodyProperty(property, gate);
@@ -174,7 +173,13 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
         var arguments = argumentList.Arguments;
         for (var i = 0; i < arguments.Count; i++)
         {
-            if (model.GetSymbolInfo(Unwrap(arguments[i].Expression), cancellationToken).Symbol is IPropertySymbol property
+            var expression = ExpressionShapes.WalkDownParentheses(arguments[i].Expression);
+            if (!CouldBeBodyProperty(expression))
+            {
+                continue;
+            }
+
+            if (model.GetSymbolInfo(expression, cancellationToken).Symbol is IPropertySymbol property
                 && IsBodyProperty(property, gate))
             {
                 return true;
@@ -183,6 +188,18 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>Rejects expressions whose syntax cannot name the body property.</summary>
+    /// <param name="expression">The unwrapped constructor argument.</param>
+    /// <returns>Whether the expression still needs semantic verification.</returns>
+    private static bool CouldBeBodyProperty(ExpressionSyntax expression) => expression switch
+    {
+        IdentifierNameSyntax identifier => identifier.Identifier.ValueText == BodyPropertyName,
+        MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText == BodyPropertyName,
+        MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText == BodyPropertyName,
+        LiteralExpressionSyntax or ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => false,
+        _ => true,
+    };
 
     /// <summary>Returns whether a property is the <c>Body</c> of the request or response type.</summary>
     /// <param name="property">The candidate property.</param>
@@ -246,20 +263,6 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <summary>Peels parentheses off an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        var current = expression;
-        while (current is ParenthesizedExpressionSyntax parenthesized)
-        {
-            current = parenthesized.Expression;
-        }
-
-        return current;
-    }
-
     /// <summary>Returns the rightmost identifier of a written type name.</summary>
     /// <param name="type">The type syntax.</param>
     /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple identifier.</returns>
@@ -271,8 +274,16 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
         _ => null,
     };
 
-    /// <summary>The ASP.NET Core body-owning types resolved once per compilation.</summary>
-    /// <param name="HttpRequest">The request type whose <c>Body</c> the rule watches; always present while the rule is registered.</param>
+    /// <summary>Resolves the HTTP request and optional response types.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    /// <returns>The gate, or null when the request type is absent.</returns>
+    private static BodyGate? ResolveBodyGate(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(HttpRequestMetadataName) is { } httpRequest
+            ? new BodyGate(httpRequest, compilation.GetTypeByMetadataName(HttpResponseMetadataName))
+            : null;
+
+    /// <summary>The ASP.NET Core body-owning types resolved for a candidate call.</summary>
+    /// <param name="HttpRequest">The request type whose <c>Body</c> the rule watches; always present while a candidate is analyzed.</param>
     /// <param name="HttpResponse">The response type whose <c>Body</c> the rule watches, when the framework has one.</param>
     private readonly record struct BodyGate(INamedTypeSymbol HttpRequest, INamedTypeSymbol? HttpResponse);
 }

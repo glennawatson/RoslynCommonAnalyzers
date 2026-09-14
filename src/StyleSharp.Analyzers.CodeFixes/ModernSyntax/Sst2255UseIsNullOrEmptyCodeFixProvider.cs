@@ -13,43 +13,39 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2255UseIsNullOrEmptyCodeFixProvider))]
 [Shared]
-public sealed class Sst2255UseIsNullOrEmptyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2255UseIsNullOrEmptyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ModernSyntaxRules.UseIsNullOrEmpty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.IsNullOrEmpty", nameof(Sst2255UseIsNullOrEmptyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.IsNullOrEmpty", nameof(Sst2255UseIsNullOrEmptyCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        EnclosingBinaryExpression.Find(root, diagnostic, SyntaxKind.LogicalOrExpression, SyntaxKind.LogicalAndExpression) is { } binary
+            && Sst2255UseIsNullOrEmptyAnalyzer.TryMatch(binary, out var _, out var _);
 
     /// <summary>Resolves the reported disjunction/conjunction and rewrites it to the helper call.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-    {
-        var node = root.FindNode(diagnostic.Location.SourceSpan);
-        for (var current = node; current is not null; current = current.Parent)
-        {
-            if (current is BinaryExpressionSyntax binary
-                && (binary.IsKind(SyntaxKind.LogicalOrExpression) || binary.IsKind(SyntaxKind.LogicalAndExpression)))
-            {
-                return Sst2255UseIsNullOrEmptyAnalyzer.TryMatch(binary, out var value, out var negated)
-                    ? new NodeReplacement(binary, Build(binary, value, negated))
-                    : null;
-            }
-        }
-
-        return null;
-    }
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        EnclosingBinaryExpression.Find(root, diagnostic, SyntaxKind.LogicalOrExpression, SyntaxKind.LogicalAndExpression) is { } binary
+            && Sst2255UseIsNullOrEmptyAnalyzer.TryMatch(binary, out var value, out var negated)
+            ? new NodeReplacement(binary, Build(binary, value, negated))
+            : null;
 
     /// <summary>Builds the <c>string.IsNullOrEmpty</c> call replacing the reported expression.</summary>
     /// <param name="binary">The reported expression, used for its trivia.</param>

@@ -12,10 +12,10 @@ namespace StyleSharp.Analyzers;
 /// use-after-free window.
 /// </summary>
 /// <remarks>
-/// The prepass is ordered so a normal type exits early: the type must implement <c>IDisposable</c>, it
-/// must have an instance field of a pointer-ish type, and it must have no finalizer. Only a type that
-/// passes all three has its disposal path examined for the field being handed to a call — the proof
-/// that the handle is an owned resource rather than an opaque cookie. The rule stays silent unless
+/// The prepass is ordered so a normal type exits before metadata resolution: it must have no finalizer
+/// and must have an instance field of a pointer-ish type passed to a call on the disposal path — the
+/// proof that the handle is an owned resource rather than an opaque cookie. Only then are the disposal
+/// types resolved to check that the type implements <c>IDisposable</c>. The rule stays silent unless
 /// <c>System.Runtime.InteropServices.SafeHandle</c> resolves, so the suggestion always compiles.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -33,26 +33,20 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (DisposableTypes.Create(start.Compilation) is not { } types
-                || start.Compilation.GetTypeByMetadataName("System.Runtime.InteropServices.SafeHandle") is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, types), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<DisposableTypes?>(compilation, ResolveNativeResourceTypes),
+            Analyze,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Analyzes one named type for an owned native handle with no finalizer.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SymbolAnalysisContext context, in DisposableTypes types)
+    /// <param name="types">The disposal and safe-handle types resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, LazyCompilationValue<DisposableTypes?> types)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
-            || !types.ImplementsSyncDisposable(type)
             || HasFinalizer(type))
         {
             return;
@@ -62,7 +56,9 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
         var field = FindOwnedNativeField(members);
         if (field is null
             || !IsReleasedOnDisposalPath(members, field.Name, context.CancellationToken)
-            || field.Locations is not [var location, ..])
+            || field.Locations is not [var location, ..]
+            || types.Get() is not { } resolved
+            || !resolved.ImplementsSyncDisposable(type))
         {
             return;
         }
@@ -131,9 +127,7 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
             var references = method.DeclaringSyntaxReferences;
             for (var j = 0; j < references.Length; j++)
             {
-                var scan = new FieldArgumentScan(fieldName);
-                _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldArgumentScan>(references[j].GetSyntax(cancellationToken), ref scan, VisitFieldArgument);
-                if (scan.Found)
+                if (!DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, string>(references[j].GetSyntax(cancellationToken), ref fieldName, VisitFieldArgument))
                 {
                     return true;
                 }
@@ -143,20 +137,12 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
         return false;
     }
 
-    /// <summary>Records the field being handed to a call, stopping the walk once found.</summary>
+    /// <summary>Continues the walk past an identifier that is not the field handed to a call.</summary>
     /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="state">The scan state.</param>
-    /// <returns><see langword="false"/> once the field is found as a call argument.</returns>
-    private static bool VisitFieldArgument(IdentifierNameSyntax identifier, ref FieldArgumentScan state)
-    {
-        if (identifier.Identifier.ValueText != state.FieldName || !IsInvocationArgument(identifier))
-        {
-            return true;
-        }
-
-        state.Found = true;
-        return false;
-    }
+    /// <param name="fieldName">The native field name.</param>
+    /// <returns><see langword="false"/> once the field is found as a call argument, which stops the walk.</returns>
+    private static bool VisitFieldArgument(IdentifierNameSyntax identifier, ref string fieldName) =>
+        identifier.Identifier.ValueText != fieldName || !IsInvocationArgument(identifier);
 
     /// <summary>Returns whether an identifier is passed as an argument to an invocation.</summary>
     /// <param name="identifier">The identifier.</param>
@@ -170,11 +156,14 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
         return expression.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax } };
     }
 
-    /// <summary>The state threaded through the disposal-path field scan.</summary>
-    /// <param name="FieldName">The native field name.</param>
-    private record struct FieldArgumentScan(string FieldName)
+    /// <summary>Resolves the disposal types and verifies safe-handle support.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>The disposal types, or <see langword="null"/> when the required types are unavailable.</returns>
+    private static DisposableTypes? ResolveNativeResourceTypes(Compilation compilation)
     {
-        /// <summary>Gets or sets a value indicating whether the field was found as a call argument.</summary>
-        public bool Found { get; set; }
+        var types = DisposableTypes.Create(compilation);
+        return types is not null && compilation.GetTypeByMetadataName("System.Runtime.InteropServices.SafeHandle") is not null
+            ? types
+            : null;
     }
 }

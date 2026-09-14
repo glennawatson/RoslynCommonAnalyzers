@@ -17,7 +17,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ExcessBlankLineCodeFixProvider))]
 [Shared]
-public sealed class ExcessBlankLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class ExcessBlankLineCodeFixProvider : CodeFixProvider
 {
     /// <summary>The action offered for a run of consecutive blank lines.</summary>
     private const string RemoveExtraBlankLinesTitle = "Remove extra blank lines";
@@ -25,33 +25,32 @@ public sealed class ExcessBlankLineCodeFixProvider : CodeFixProvider, ITextChang
     /// <summary>The action offered for blank lines ahead of the first line of code.</summary>
     private const string RemoveLeadingBlankLinesTitle = "Remove blank lines at start of file";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         LayoutRules.MultipleBlankLines.Id,
         LayoutRules.NoBlankLinesAtStartOfFile.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    GetTitle(diagnostic),
-                    cancellationToken => RemoveAsync(context.Document, diagnostic.Location.SourceSpan, cancellationToken),
-                    equivalenceKey: nameof(ExcessBlankLineCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            GetTitle,
+            nameof(ExcessBlankLineCodeFixProvider),
+            static (document, diagnostic, cancellationToken) => RemoveAsync(document, diagnostic.Location.SourceSpan, cancellationToken));
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
         changes.Add(new(diagnostic.Location.SourceSpan, string.Empty));
 
     /// <summary>Deletes the reported span.</summary>

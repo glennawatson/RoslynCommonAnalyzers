@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class UppercaseLiteralSuffixCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private SyntaxNode _root = null!;
 
-    /// <summary>The representative literal passed to the code fix.</summary>
-    private LiteralExpressionSyntax _literal = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -45,10 +46,10 @@ public class UppercaseLiteralSuffixCodeFixBenchmarks : IDisposable
         _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, UppercaseLiteralSuffixBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _literal = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<LiteralExpressionSyntax>(
+        _diagnostic = Diagnostic.Create(ModernSyntaxRules.UppercaseLiteralSuffix, CodeFixBenchmarkSyntaxLookup.GetNthDescendant<LiteralExpressionSyntax>(
             _root,
             RepresentativeNodeIndex,
-            static candidate => Sst2244UppercaseLiteralSuffixAnalyzer.TryGetLowercaseSuffix(candidate.Token.Text, out _));
+            static candidate => Sst2244UppercaseLiteralSuffixAnalyzer.TryGetLowercaseSuffix(candidate.Token.Text, out _)).GetLocation());
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
@@ -68,7 +69,7 @@ public class UppercaseLiteralSuffixCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> UppercaseLiteralSuffix_ApplyFixAsync()
     {
-        var updated = Sst2244UppercaseLiteralSuffixCodeFixProvider.Apply(_document, _root, _literal);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2244UppercaseLiteralSuffixCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

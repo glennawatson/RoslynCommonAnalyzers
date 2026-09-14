@@ -11,57 +11,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2496RedundantDisposeCodeFixProvider))]
 [Shared]
-public sealed class Sst2496RedundantDisposeCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2496RedundantDisposeCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TrySelectRedundantStatement);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.RedundantDispose.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetRedundantStatement(root, diagnostic) is not { } statement)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant disposal",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives)!)),
-                    nameof(Sst2496RedundantDisposeCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetRedundantStatement(editor.OriginalRoot, diagnostic) is not { } statement)
-        {
-            return;
-        }
-
-        editor.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives);
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(
+            context,
+            "Remove the redundant disposal",
+            nameof(Sst2496RedundantDisposeCodeFixProvider),
+            TrySelectRedundantStatement);
 
     /// <summary>Resolves the diagnostic to the expression statement that only makes the redundant call.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The removable statement, or <see langword="null"/> when the call is not its own statement.</returns>
-    private static ExpressionStatementSyntax? TryGetRedundantStatement(SyntaxNode root, Diagnostic diagnostic) =>
+    /// <returns>The statement removal, or <see langword="null"/> when the call is not its own statement.</returns>
+    private static NodeRemoval? TrySelectRedundantStatement(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { } invocation
             && invocation.Parent is ExpressionStatementSyntax statement
-            ? statement
+            ? new NodeRemoval(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives)
             : null;
 }

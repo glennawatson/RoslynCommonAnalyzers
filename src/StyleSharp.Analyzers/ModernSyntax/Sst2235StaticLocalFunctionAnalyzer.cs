@@ -30,7 +30,7 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeLocalFunction(SyntaxNodeAnalysisContext context)
     {
         var localFunction = (LocalFunctionStatementSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(localFunction, CSharp8)
+        if (!LanguageVersions.IsAtLeast(localFunction, CSharp8)
             || ModifierListHelper.Contains(localFunction.Modifiers, SyntaxKind.StaticKeyword)
             || !IsCaptureFree(localFunction, context.SemanticModel, context.CancellationToken))
         {
@@ -64,18 +64,29 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
         // and the local function that builds the lambda cannot then be static (CS8421). Their own
         // parameters and locals are declared inside this function, so IsCapturedReference already tells
         // them apart from the outer state.
-        foreach (var node in body.DescendantNodesAndSelf())
+        var state = new CaptureAnalysisState(localFunction, model, cancellationToken);
+        return IsCaptureFreeNode(body, state)
+            && DescendantTraversalHelper.VisitDescendants(
+                body,
+                ref state,
+                static (SyntaxNode node, ref CaptureAnalysisState state) => IsCaptureFreeNode(node, state));
+    }
+
+    /// <summary>Checks one node for a capture, including an expression-bodied function's root.</summary>
+    /// <param name="node">The node to classify.</param>
+    /// <param name="state">The enclosing function and binding inputs.</param>
+    /// <returns><see langword="true"/> when traversal can continue without a capture.</returns>
+    private static bool IsCaptureFreeNode(SyntaxNode node, in CaptureAnalysisState state)
+    {
+        state.CancellationToken.ThrowIfCancellationRequested();
+        switch (node)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            switch (node)
-            {
-                case ThisExpressionSyntax or BaseExpressionSyntax:
-                    return false;
-                case IdentifierNameSyntax identifier when IsCaptureFreeSyntax(identifier, localFunction):
-                    break;
-                case IdentifierNameSyntax identifier when IsCapturedReference(identifier, localFunction, model, cancellationToken):
-                    return false;
-            }
+            case ThisExpressionSyntax or BaseExpressionSyntax:
+                return false;
+            case IdentifierNameSyntax identifier when IsCaptureFreeSyntax(identifier, state.LocalFunction):
+                break;
+            case IdentifierNameSyntax identifier when IsCapturedReference(identifier, state.LocalFunction, state.Model, state.CancellationToken):
+                return false;
         }
 
         return true;
@@ -167,10 +178,12 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    /// <summary>Carries the enclosing function and binding inputs through capture analysis.</summary>
+    /// <param name="LocalFunction">The function that must own referenced locals and parameters.</param>
+    /// <param name="Model">The semantic model used to classify references.</param>
+    /// <param name="CancellationToken">A token checked for every visited node.</param>
+    private readonly record struct CaptureAnalysisState(
+        LocalFunctionStatementSyntax LocalFunction,
+        SemanticModel Model,
+        CancellationToken CancellationToken);
 }

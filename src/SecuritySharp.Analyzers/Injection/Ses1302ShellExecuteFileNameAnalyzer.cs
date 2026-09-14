@@ -15,17 +15,13 @@ namespace SecuritySharp.Analyzers;
 /// command-injection and unexpected-program risk; the non-constant filename span is reported. Detection
 /// is strictly local to the one object-creation expression -- properties are never tracked across
 /// separate statements -- and the type is proven by binding its <c>UseShellExecute</c> member by symbol
-/// and containing type, never matched on identifier text alone. The rule is resolved once per compilation
-/// by probing
-/// <c>System.Diagnostics.ProcessStartInfo</c>; on a target framework without it nothing is registered,
-/// so a project that cannot use the type pays nothing.
+/// and containing type, never matched on identifier text alone. The rule resolves
+/// <c>System.Diagnostics.ProcessStartInfo</c> on the first syntactic candidate and caches the result for
+/// the compilation, including when the type is unavailable.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the process-start descriptor type this rule guards.</summary>
-    private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
-
     /// <summary>The name of the member whose <c>true</c> value routes launching through the OS shell.</summary>
     private const string UseShellExecuteMemberName = "UseShellExecute";
 
@@ -34,6 +30,9 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The name of the constructor parameter that supplies the filename.</summary>
     private const string FileNameParameterName = "fileName";
+
+    /// <summary>The metadata name of the process-start descriptor type this rule guards.</summary>
+    private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ShellExecuteFileName);
@@ -47,22 +46,17 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var processStartInfoType = start.Compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName);
-            if (processStartInfoType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, processStartInfoType), SyntaxKind.ObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ProcessStartInfoMetadataName),
+            AnalyzeObjectCreation,
+            SyntaxKind.ObjectCreationExpression);
     }
 
     /// <summary>Reports SES1302 for a shell-executed <c>ProcessStartInfo</c> whose filename is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="processStartInfoType">The gated <c>ProcessStartInfo</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
+    /// <param name="types">The process-start type resolved on first candidate.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -76,6 +70,16 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
 
         ScanInitializer(initializer, out var useShellExecuteAssignment, out var fileNameAssignment);
         if (useShellExecuteAssignment is null)
+        {
+            return;
+        }
+
+        if (fileNameAssignment is null && objectCreation.ArgumentList is not { Arguments.Count: > 0 })
+        {
+            return;
+        }
+
+        if (types.Get() is not { } processStartInfoType)
         {
             return;
         }

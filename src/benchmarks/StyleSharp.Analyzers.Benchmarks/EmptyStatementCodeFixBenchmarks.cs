@@ -4,7 +4,10 @@
 
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -40,7 +43,8 @@ public class EmptyStatementCodeFixBenchmarks
     [Benchmark]
     public async Task<int> EmptyStatement_ApplyFixAsync()
     {
-        var updated = await Sst1106EmptyStatementCodeFixProvider.RemoveAsync(_context.Document, _context.Root, _context.Node).ConfigureAwait(false);
+        var removal = new NodeRemoval(_context.Node);
+        var updated = _context.Document.WithSyntaxRoot(_context.Root.RemoveNode(removal.Node, removal.Options)!);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 }

@@ -113,7 +113,7 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
         var left = parameters[0].Identifier.ValueText;
         var right = parameters[1].Identifier.ValueText;
 
-        return Unwrap(body) switch
+        return ExpressionShapes.WalkDownParentheses(body) switch
         {
             InvocationExpressionSyntax invocation => IsReferenceEqualsCall(invocation, left, right, model, cancellationToken),
             BinaryExpressionSyntax { OperatorToken.RawKind: (int)SyntaxKind.EqualsEqualsToken } binary =>
@@ -139,19 +139,6 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
             : null;
     }
 
-    /// <summary>Strips redundant parentheses from an expression.</summary>
-    /// <param name="expression">The expression to unwrap.</param>
-    /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-        {
-            expression = parenthesized.Expression;
-        }
-
-        return expression;
-    }
-
     /// <summary>Returns whether an invocation is <c>object.ReferenceEquals</c> applied to the two operands.</summary>
     /// <param name="invocation">The invocation expression.</param>
     /// <param name="left">The first operand's name.</param>
@@ -175,8 +162,8 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
     /// <returns><see langword="true"/> when one names <paramref name="left"/> and the other <paramref name="right"/>.</returns>
     private static bool ArgumentsNameBothParameters(ExpressionSyntax first, ExpressionSyntax second, string left, string right)
     {
-        var a = (Unwrap(first) as IdentifierNameSyntax)?.Identifier.ValueText;
-        var b = (Unwrap(second) as IdentifierNameSyntax)?.Identifier.ValueText;
+        var a = (ExpressionShapes.WalkDownParentheses(first) as IdentifierNameSyntax)?.Identifier.ValueText;
+        var b = (ExpressionShapes.WalkDownParentheses(second) as IdentifierNameSyntax)?.Identifier.ValueText;
         return (a == left && b == right) || (a == right && b == left);
     }
 
@@ -187,12 +174,12 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
     /// <returns><see langword="true"/> when the expression casts one operand to <c>object</c>.</returns>
     private static bool IsObjectCastOfParameter(ExpressionSyntax expression, string left, string right)
     {
-        if (Unwrap(expression) is not CastExpressionSyntax { Type: PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword } } cast)
+        if (ExpressionShapes.WalkDownParentheses(expression) is not CastExpressionSyntax { Type: PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword } } cast)
         {
             return false;
         }
 
-        var name = (Unwrap(cast.Expression) as IdentifierNameSyntax)?.Identifier.ValueText;
+        var name = (ExpressionShapes.WalkDownParentheses(cast.Expression) as IdentifierNameSyntax)?.Identifier.ValueText;
         return name == left || name == right;
     }
 }

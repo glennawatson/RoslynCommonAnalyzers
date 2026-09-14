@@ -10,53 +10,29 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2329FlagsEnumMissingZeroValueCodeFixProvider))]
 [Shared]
-public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixProvider
 {
     /// <summary>The conventional name for a flags enum's zero-valued member.</summary>
     private const string NoneMemberName = "None";
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindDeclaration, static (current, _) => AddNoneMember((EnumDeclarationSyntax)current));
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DesignRules.FlagsEnumMissingZeroValue.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindDeclaration(root, diagnostic) is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add 'None = 0'",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, AddNoneMember(declaration)))),
-                    equivalenceKey: nameof(Sst2329FlagsEnumMissingZeroValueCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (FindDeclaration(editor.OriginalRoot, diagnostic) is not { } declaration)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(declaration, static (current, _) => AddNoneMember((EnumDeclarationSyntax)current));
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Add 'None = 0'",
+            nameof(Sst2329FlagsEnumMissingZeroValueCodeFixProvider),
+            FindDeclaration,
+            AddNoneMember);
 
     /// <summary>Resolves the diagnostic's span to the enum it was reported on.</summary>
     /// <param name="root">The syntax root.</param>
@@ -78,8 +54,11 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
     /// <returns>The rewritten declaration.</returns>
     private static EnumDeclarationSyntax AddNoneMember(EnumDeclarationSyntax declaration)
     {
-        var member = SyntaxFactory.EnumMemberDeclaration(NoneMemberName)
-            .WithEqualsValue(SyntaxFactory.EqualsValueClause(
+        var member = SyntaxFactory.EnumMemberDeclaration(
+            attributeLists: default,
+            modifiers: default,
+            SyntaxFactory.Identifier(NoneMemberName),
+            SyntaxFactory.EqualsValueClause(
                 SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))));
 
         var members = declaration.Members;
@@ -91,11 +70,22 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
         // An empty enum body: place the member on its own indented line and push the close brace down after it.
         var newLine = LineEndingHelper.GetLineBreak(declaration);
         var indent = SyntaxFactory.Whitespace($"{GetIndent(declaration)}    ");
-        var placed = member.WithLeadingTrivia(newLine, indent).WithTrailingTrivia(newLine);
+        var placed = member.Update(
+            member.AttributeLists,
+            member.Modifiers,
+            member.Identifier.WithLeadingTrivia(newLine, indent),
+            member.EqualsValue!.WithTrailingTrivia(newLine));
         var closeBrace = declaration.CloseBraceToken.WithLeadingTrivia(SyntaxFactory.Whitespace(GetIndent(declaration)));
-        return declaration
-            .WithMembers(SyntaxFactory.SingletonSeparatedList(placed))
-            .WithCloseBraceToken(closeBrace);
+        return declaration.Update(
+            declaration.AttributeLists,
+            declaration.Modifiers,
+            declaration.EnumKeyword,
+            declaration.Identifier,
+            declaration.BaseList,
+            declaration.OpenBraceToken,
+            SyntaxFactory.SingletonSeparatedList(placed),
+            closeBrace,
+            declaration.SemicolonToken);
     }
 
     /// <summary>Gets the whitespace that positions a member, without what the author wrote above it.</summary>

@@ -36,7 +36,7 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
             || method!.Body is not { Statements.Count: > 0 } body
             || body.Statements[0] is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment }
             || !IsFieldTarget(context.SemanticModel, assignment.Left, field!, context.CancellationToken)
-            || RightSideReadsField(assignment.Right, field!, context.SemanticModel, context.CancellationToken))
+            || IdentifierReferences.References(assignment.Right, field!, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -161,26 +161,4 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
         IFieldSymbol field,
         CancellationToken cancellationToken) =>
         SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
-
-    /// <summary>Returns whether the right side of the resetting assignment reads the field.</summary>
-    /// <param name="right">The assignment's right-hand side.</param>
-    /// <param name="field">The field symbol.</param>
-    /// <param name="model">The semantic model.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the field's previous value flows into the reset.</returns>
-    private static bool RightSideReadsField(ExpressionSyntax right, IFieldSymbol field, SemanticModel model, CancellationToken cancellationToken)
-    {
-        foreach (var token in right.DescendantTokens())
-        {
-            if (token.IsKind(SyntaxKind.IdentifierToken)
-                && string.Equals(token.ValueText, field.Name, StringComparison.Ordinal)
-                && token.Parent is IdentifierNameSyntax identifier
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

@@ -51,7 +51,10 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer : Diagnosti
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        if (NestedTypeOnlyMembers.Collect(context.SemanticModel, (TypeDeclarationSyntax)context.Node, context.CancellationToken) is not { } members)
+        var type = (TypeDeclarationSyntax)context.Node;
+        if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword)
+            || !HasNestedTypeAndCandidate(type)
+            || NestedTypeOnlyMembers.Collect(context.SemanticModel, type, context.CancellationToken) is not { } members)
         {
             return;
         }
@@ -65,5 +68,34 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer : Diagnosti
                 member.Symbol.Name,
                 member.NestedUser!.Identifier.ValueText));
         }
+    }
+
+    /// <summary>Rejects types without a nested type and a movable member before requesting the semantic model.</summary>
+    /// <param name="type">The type declaration to inspect.</param>
+    /// <returns><see langword="true"/> when the shared member collector may find a candidate.</returns>
+    private static bool HasNestedTypeAndCandidate(TypeDeclarationSyntax type)
+    {
+        var nested = false;
+        var candidate = false;
+        foreach (var member in type.Members)
+        {
+            nested |= member is BaseTypeDeclarationSyntax { Identifier.ValueText.Length: > 0 };
+            if (member.AttributeLists.Count == 0)
+            {
+                candidate |= member switch
+                {
+                    MethodDeclarationSyntax method => !ModifierListHelper.ContainsEither(method.Modifiers, SyntaxKind.PartialKeyword, SyntaxKind.ExternKeyword),
+                    FieldDeclarationSyntax or PropertyDeclarationSyntax => true,
+                    _ => false,
+                };
+            }
+
+            if (nested && candidate)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

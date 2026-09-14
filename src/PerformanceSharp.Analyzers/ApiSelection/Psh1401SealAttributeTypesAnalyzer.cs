@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -29,26 +31,24 @@ public sealed class Psh1401SealAttributeTypesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(AttributeMetadataName) is not { } attributeType)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, attributeType), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveAttributeType, runOnce: true),
+            AnalyzeNamedType,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Reports PSH1401 for an unsealed, non-abstract class deriving from <c>System.Attribute</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="attributeType">The resolved <c>System.Attribute</c> symbol.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="attributeType">The attribute base type, resolved only for an eligible class.</param>
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> attributeType)
     {
         var symbol = (INamedTypeSymbol)context.Symbol;
         if (symbol.TypeKind != TypeKind.Class
             || symbol.IsSealed
             || symbol.IsAbstract
+            || symbol.BaseType is null
+            || symbol.BaseType.SpecialType == SpecialType.System_Object
             || !DerivesFromAttribute(symbol, attributeType))
         {
             return;
@@ -59,13 +59,15 @@ public sealed class Psh1401SealAttributeTypesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a class derives (directly or indirectly) from <c>System.Attribute</c>.</summary>
     /// <param name="symbol">The class symbol to inspect.</param>
-    /// <param name="attributeType">The resolved <c>System.Attribute</c> symbol.</param>
+    /// <param name="attributeType">The attribute base type, resolved only for a matching base name.</param>
     /// <returns><see langword="true"/> when the base-type chain contains <c>System.Attribute</c>.</returns>
-    private static bool DerivesFromAttribute(INamedTypeSymbol symbol, INamedTypeSymbol attributeType)
+    private static bool DerivesFromAttribute(INamedTypeSymbol symbol, LazyCompilationValue<INamedTypeSymbol?> attributeType)
     {
         for (var baseType = symbol.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
-            if (SymbolEqualityComparer.Default.Equals(baseType, attributeType))
+            if (baseType.MetadataName == "Attribute"
+                && attributeType.Get() is { } resolvedType
+                && SymbolEqualityComparer.Default.Equals(baseType, resolvedType))
             {
                 return true;
             }
@@ -73,4 +75,11 @@ public sealed class Psh1401SealAttributeTypesAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>Resolves the attribute base type.</summary>
+    /// <param name="compilation">The compilation whose metadata is resolved.</param>
+    /// <returns>The attribute base type, or null when it is unavailable.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static INamedTypeSymbol? ResolveAttributeType(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(AttributeMetadataName);
 }

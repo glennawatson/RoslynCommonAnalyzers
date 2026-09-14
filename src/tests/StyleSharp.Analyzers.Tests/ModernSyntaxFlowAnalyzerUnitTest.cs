@@ -2,8 +2,15 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
+using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyModernSyntaxFlow = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ModernSyntaxFlowAnalyzer,
@@ -14,6 +21,205 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for flow-shaped modern syntax rules (SST2207/SST2208).</summary>
 public class ModernSyntaxFlowAnalyzerUnitTest
 {
+    /// <summary>Verifies applying stale flow diagnostics preserves statements that no longer form a supported pair.</summary>
+    /// <param name="id">The diagnostic being applied.</param>
+    /// <param name="body">The method body at application time.</param>
+    /// <param name="targetClass">Whether the diagnostic has moved outside all statements.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("SST2207", "if (value == null) return value; return value;", false)]
+    [Arguments("SST2207", "return value;", false)]
+    [Arguments("SST2208", "int number;", false)]
+    [Arguments("SST2208", "int number = 1; return value;", false)]
+    [Arguments("SST2208", "return value;", false)]
+    [Arguments("SST2207", "return value;", true)]
+    [Arguments("SST2208", "return value;", true)]
+    [Arguments("SST9999", "return value;", true)]
+    public async Task StaleFlowDiagnosticLeavesDocumentUnchangedAsync(string id, string body, bool targetClass)
+    {
+        var source = $"class C {{ string M(string value) {{ {body} }} }}";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        SyntaxNode target = targetClass ? root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single() : root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single().Body!.Statements[0];
+        var descriptor = new DiagnosticDescriptor(id, "Flow", "Flow", "Style", DiagnosticSeverity.Info, true);
+        var diagnostic = Diagnostic.Create(descriptor, target.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<ModernSyntaxFlowCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(id == "SST9999" ? 0 : 1);
+        await Assert.That(await ModernSyntaxFlowCodeFixProvider.ApplyAsync(document, root, diagnostic, CancellationToken.None)).IsSameReferenceAs(document);
+    }
+
+    /// <summary>Verifies equality guards support either null operand and redundant parentheses.</summary>
+    /// <param name="condition">The supported null check.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value == null")]
+    [Arguments("null == value")]
+    [Arguments("((value) == (null))")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EqualityNullGuardIsReportedAsync(string condition) =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                string M(string value)
+                {
+                    {|SST2207:if|} ({{condition}}) throw new System.Exception();
+                    return value;
+                }
+            }
+            """);
+
+    /// <summary>Verifies near-miss guards cannot be folded into a return expression.</summary>
+    /// <param name="body">The guard and following statements.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("if (value == null) throw new System.Exception(); else { } return value;")]
+    [Arguments("if (value != null) throw new System.Exception(); return value;")]
+    [Arguments("if (value == other) throw new System.Exception(); return value;")]
+    [Arguments("if (null == null) throw new System.Exception(); return value;")]
+    [Arguments("if (value is string) throw new System.Exception(); return value;")]
+    [Arguments("if (value == null) { } return value;")]
+    [Arguments("if (value == null) { value = other; throw new System.Exception(); } return value;")]
+    [Arguments("if (value == null) value = other; return value;")]
+    [Arguments("if (value == null) throw new System.Exception(); return other;")]
+    [Arguments("if (value == null) throw new System.Exception(); return value + other;")]
+    [Arguments("\n\n    // guard\nif (value == null) throw new System.Exception(); return value;")]
+    [Arguments("if (value == null) throw new System.Exception(); // guard\nreturn value;")]
+    [Arguments("try { return value; } catch { if (value == null) throw; return value; }")]
+    [Arguments("while (value == null) if (value == null) throw new System.Exception(); return value;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsupportedGuardIsCleanAsync(string body) =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync($"class C {{ string M(string value, string other) {{ {body} }} }}");
+
+    /// <summary>Verifies declarations with no unique immediate out argument remain unchanged.</summary>
+    /// <param name="body">The declarations and their first use.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int value, other; int.TryParse(text, out value); int.TryParse(text, out other);")]
+    [Arguments("var value = 0; int.TryParse(text, out value);")]
+    [Arguments("int value = 0; int.TryParse(text, out value);")]
+    [Arguments("int value;")]
+    [Arguments("int value; System.Console.WriteLine(text);")]
+    [Arguments("int value; int.TryParse(text, out var other);")]
+    [Arguments("int value; Both(out value, out value);")]
+    [Arguments("int value; System.Action action = () => int.TryParse(text, out value);")]
+    [Arguments("\n// value\nint value; int.TryParse(text, out value);")]
+    [Arguments("int value; // value\nint.TryParse(text, out value);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsupportedOutDeclarationIsCleanAsync(string body) =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                void M(string text) { {{body}} }
+                void Both(out int first, out int second) { first = second = 0; }
+            }
+            """);
+
+    /// <summary>Verifies declarations inline when every reference remains within the new scope.</summary>
+    /// <param name="statement">The first use and any later references.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int.TryParse(text, out value); System.Console.WriteLine(value);")]
+    [Arguments("{ int.TryParse(text, out value); System.Console.WriteLine(value); } System.Console.WriteLine(text);")]
+    [Arguments("while (int.TryParse(text, out value)) { System.Console.WriteLine(value); }")]
+    [Arguments("do { } while (int.TryParse(text, out value));")]
+    [Arguments("for (; int.TryParse(text, out value);) { System.Console.WriteLine(value); }")]
+    [Arguments("for (int i = int.TryParse(text, out value) ? 0 : 1;;) { break; }")]
+    [Arguments("switch (int.TryParse(text, out value)) { default: System.Console.WriteLine(value); break; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task OutVariableReferencesRemainInScopeAsync(string statement) =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync($"class C {{ void M(string text) {{ int {{|SST2208:value|}}; {statement} }} }}");
+
+    /// <summary>Verifies loop and switch condition declarations cannot hide a later use.</summary>
+    /// <param name="statement">The restricted-scope statement.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("do { } while (int.TryParse(text, out value));")]
+    [Arguments("for (; int.TryParse(text, out value);) { }")]
+    [Arguments("switch (int.TryParse(text, out value)) { default: break; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task OutVariableUseAfterRestrictedScopeIsCleanAsync(string statement) =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync($"class C {{ void M(string text) {{ int value; {statement} System.Console.WriteLine(value); }} }}");
+
+    /// <summary>Verifies unresolved symbols are rejected before a throw expression is suggested.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnresolvedGuardDoesNotMatchAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("class C { object M() { if (missing == null) throw new System.Exception(); return missing; } }");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform);
+        var statement = (await tree.GetRootAsync()).DescendantNodes().OfType<IfStatementSyntax>().Single();
+        var matched = ModernSyntaxFlowAnalyzer.TryGetThrowExpressionCandidate(statement, compilation.GetSemanticModel(tree), CancellationToken.None, out var expression);
+        await Assert.That(matched).IsFalse();
+        await Assert.That(expression).IsNull();
+    }
+
+    /// <summary>Verifies a final statement and a detached statement have no following sibling.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task StatementWithoutFollowingSiblingIsRejectedAsync()
+    {
+        var block = (BlockSyntax)SyntaxFactory.ParseStatement("{ return; }");
+        await Assert.That(ModernSyntaxFlowAnalyzer.TryGetNextStatement(block.Statements[0], out _)).IsFalse();
+        await Assert.That(ModernSyntaxFlowAnalyzer.TryGetNextStatement(SyntaxFactory.ReturnStatement(), out _)).IsFalse();
+    }
+
+    /// <summary>Verifies a same-named field after an inner scope does not keep the local declaration outside it.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SameNamedFieldDoesNotExtendLocalScopeAsync() =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync("""
+            class C
+            {
+                int value;
+                void M(string text)
+                {
+                    int {|SST2208:value|};
+                    while (int.TryParse(text, out value)) { }
+                    System.Console.WriteLine(this.value);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a same-named field before a nested condition does not count as an earlier local use.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SameNamedFieldBeforeInlineScopeIsIgnoredAsync() =>
+        VerifyModernSyntaxFlow.VerifyAnalyzerAsync("""
+            class C
+            {
+                int value;
+                void M(string text)
+                {
+                    int {|SST2208:value|};
+                    {
+                        System.Console.WriteLine(this.value);
+                        if (int.TryParse(text, out value)) { }
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a nested local function's same-named parameter is not the outer local.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task SameNamedParameterIsNotAnOutUseOfTheLocalAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("class C { void M() { int value; void Local(int value) { int.TryParse(string.Empty, out value); } } }");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform);
+        var root = await tree.GetRootAsync();
+        var declaration = root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Single();
+        var next = root.DescendantNodes().OfType<LocalFunctionStatementSyntax>().Single();
+        var matches = ModernSyntaxFlowAnalyzer.TryGetInlineOutArgument(declaration, next, compilation.GetSemanticModel(tree), CancellationToken.None, out var argument);
+        await Assert.That(matches).IsFalse();
+        await Assert.That(argument).IsNull();
+    }
+
     /// <summary>Verifies a guard separated from its return by a region is reported but not folded.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>

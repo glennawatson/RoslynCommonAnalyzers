@@ -99,6 +99,22 @@ internal static class LinqCallSyntax
         return false;
     }
 
+    /// <summary>Returns whether an expression is a lambda that returns its own single parameter.</summary>
+    /// <param name="expression">The candidate selector expression.</param>
+    /// <returns><see langword="true"/> for <c>x =&gt; x</c> in simple or parenthesized form.</returns>
+    internal static bool IsIdentityLambda(ExpressionSyntax expression) =>
+        expression switch
+        {
+            SimpleLambdaExpressionSyntax simple =>
+                simple.ExpressionBody is IdentifierNameSyntax body
+                    && body.Identifier.ValueText == simple.Parameter.Identifier.ValueText,
+            ParenthesizedLambdaExpressionSyntax parenthesized =>
+                parenthesized.ParameterList.Parameters.Count == 1
+                    && parenthesized.ExpressionBody is IdentifierNameSyntax body
+                    && body.Identifier.ValueText == parenthesized.ParameterList.Parameters[0].Identifier.ValueText,
+            _ => false,
+        };
+
     /// <summary>Returns whether the method name is a LINQ sort operator.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for the four LINQ sort operators.</returns>

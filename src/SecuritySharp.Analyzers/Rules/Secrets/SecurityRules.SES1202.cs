@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1202 — a non-empty string literal is bound to a credential parameter or credential-type constructor.</summary>
-    public static readonly DiagnosticDescriptor HardcodedCredentialArgument = Create(
+    public static readonly DiagnosticDescriptor HardcodedCredentialArgument = DescriptorFactory.Create(
         "SES1202",
         "Do not hard-code a credential value",
         "A string literal is passed where a credential is expected ('{0}'); move the secret to configuration, an environment variable, or a secret store",

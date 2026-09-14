@@ -39,24 +39,15 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
     ];
 
     /// <summary>The metadata names of the method-attribute markers that make a method a test.</summary>
-    private static readonly string[] TestMethodMarkerMetadataNames =
-    [
-        "Xunit.FactAttribute",
-        "Xunit.TheoryAttribute",
-        "NUnit.Framework.TestAttribute",
-        "NUnit.Framework.TestCaseAttribute",
-        "NUnit.Framework.TestCaseSourceAttribute",
-        "NUnit.Framework.TheoryAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
-        "TUnit.Core.TestAttribute",
-    ];
+    private static readonly string[] TestMethodMarkerMetadataNames = TestAttributeNames.CreateMarkerMetadataNames();
 
     /// <summary>The unqualified test-class attribute names probed in the syntactic prepass.</summary>
     private static readonly string[] ClassMarkerSimpleNames =
     [
         "TestClass",
         "TestClassAttribute",
+        "STATestClass",
+        "STATestClassAttribute",
         "TestFixture",
         "TestFixtureAttribute",
     ];
@@ -76,33 +67,30 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var classMarkers = ResolveMarkers(start.Compilation, ClassMarkerMetadataNames);
-            if (classMarkers.Length == 0)
-            {
-                return;
-            }
-
-            var methodMarkers = ResolveMarkers(start.Compilation, TestMethodMarkerMetadataNames);
+            var classMarkers = new LazyMetadataTypeSet(start.Compilation, ClassMarkerMetadataNames);
+            var methodMarkers = new LazyMetadataTypeSet(start.Compilation, TestMethodMarkerMetadataNames);
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, classMarkers, methodMarkers), SyntaxKind.ClassDeclaration);
         });
     }
 
     /// <summary>Analyzes one class declaration for a test fixture with no tests.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="classMarkers">The resolved test-class attribute markers.</param>
-    /// <param name="methodMarkers">The resolved test-method attribute markers.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] classMarkers, INamedTypeSymbol[] methodMarkers)
+    /// <param name="classMarkers">The lazily resolved test-class attribute markers.</param>
+    /// <param name="methodMarkers">The lazily resolved test-method attribute markers.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataTypeSet classMarkers, LazyMetadataTypeSet methodMarkers)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
-        if (IsAbstract(declaration.Modifiers) || !CarriesTestClassAttributeName(declaration.AttributeLists))
+        if (ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.AbstractKeyword) || !CarriesTestClassAttributeName(declaration.AttributeLists))
         {
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } classSymbol
-            || !HasAttributeFrom(classSymbol.GetAttributes(), classMarkers)
-            || HasTestMethod(classSymbol, methodMarkers)
-            || InheritsTests(classSymbol, classMarkers, methodMarkers))
+        var resolvedClassMarkers = classMarkers.Get();
+        if (resolvedClassMarkers.Length == 0
+            || context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } classSymbol
+            || !SymbolFacts.HasAttributeDerivedFromAny(classSymbol.GetAttributes(), resolvedClassMarkers)
+            || HasTestMethod(classSymbol, methodMarkers.Get())
+            || InheritsTests(classSymbol, resolvedClassMarkers, methodMarkers.Get()))
         {
             return;
         }
@@ -111,51 +99,6 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
             TestingRules.EmptyTestClass,
             declaration.Identifier.GetLocation(),
             declaration.Identifier.ValueText));
-    }
-
-    /// <summary>Resolves the non-null named-type symbols for a set of metadata names, right-sized.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <param name="metadataNames">The metadata names to resolve.</param>
-    /// <returns>The resolved markers, an array no longer than <paramref name="metadataNames"/>.</returns>
-    private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation, string[] metadataNames)
-    {
-        var buffer = new INamedTypeSymbol[metadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < metadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } marker)
-            {
-                continue;
-            }
-
-            buffer[count] = marker;
-            count++;
-        }
-
-        if (count == buffer.Length)
-        {
-            return buffer;
-        }
-
-        var result = new INamedTypeSymbol[count];
-        Array.Copy(buffer, result, count);
-        return result;
-    }
-
-    /// <summary>Returns whether a modifier list contains <c>abstract</c>.</summary>
-    /// <param name="modifiers">The declaration's modifiers.</param>
-    /// <returns><see langword="true"/> when the class is abstract.</returns>
-    private static bool IsAbstract(in SyntaxTokenList modifiers)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].IsKind(SyntaxKind.AbstractKeyword))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether any attribute is written with a test-class attribute's simple name.</summary>
@@ -173,26 +116,10 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
             var attributes = attributeLists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (IsClassMarkerName(attributes[j].Name.GetLastToken().ValueText))
+                if (StringArrays.ContainsOrdinal(ClassMarkerSimpleNames, attributes[j].Name.GetLastToken().ValueText))
                 {
                     return true;
                 }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether an unqualified attribute name is one of the test-class markers.</summary>
-    /// <param name="name">The unqualified attribute name.</param>
-    /// <returns><see langword="true"/> when the name matches a marker.</returns>
-    private static bool IsClassMarkerName(string name)
-    {
-        for (var i = 0; i < ClassMarkerSimpleNames.Length; i++)
-        {
-            if (string.Equals(name, ClassMarkerSimpleNames[i], StringComparison.Ordinal))
-            {
-                return true;
             }
         }
 
@@ -208,7 +135,7 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
         var members = type.GetMembers();
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is IMethodSymbol method && HasAttributeFrom(method.GetAttributes(), methodMarkers))
+            if (members[i] is IMethodSymbol method && SymbolFacts.HasAttributeDerivedFromAny(method.GetAttributes(), methodMarkers))
             {
                 return true;
             }
@@ -231,46 +158,9 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
     {
         for (var baseType = classSymbol.BaseType; baseType is not null && baseType.SpecialType != SpecialType.System_Object; baseType = baseType.BaseType)
         {
-            if (HasAttributeFrom(baseType.GetAttributes(), classMarkers) || HasTestMethod(baseType, methodMarkers))
+            if (SymbolFacts.HasAttributeDerivedFromAny(baseType.GetAttributes(), classMarkers) || HasTestMethod(baseType, methodMarkers))
             {
                 return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether any attribute binds to a resolved marker (equal to or derived from it).</summary>
-    /// <param name="attributes">The attributes to inspect.</param>
-    /// <param name="markers">The resolved markers to match against.</param>
-    /// <returns><see langword="true"/> when an attribute matches a marker.</returns>
-    private static bool HasAttributeFrom(ImmutableArray<AttributeData> attributes, INamedTypeSymbol[] markers)
-    {
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (MatchesAnyMarker(attributes[i].AttributeClass, markers))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether an attribute class equals or derives from any resolved marker.</summary>
-    /// <param name="attributeClass">The bound attribute class, or <see langword="null"/>.</param>
-    /// <param name="markers">The resolved markers.</param>
-    /// <returns><see langword="true"/> when a marker is in the attribute class's base chain.</returns>
-    private static bool MatchesAnyMarker(INamedTypeSymbol? attributeClass, INamedTypeSymbol[] markers)
-    {
-        for (var current = attributeClass; current is not null; current = current.BaseType)
-        {
-            for (var i = 0; i < markers.Length; i++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(current, markers[i]))
-                {
-                    return true;
-                }
             }
         }
 

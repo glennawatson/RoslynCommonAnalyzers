@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,14 +17,17 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1477IntegerDivisionAsFloatingPointCodeFixProvider))]
 [Shared]
-public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(MaintainabilityRules.IntegerDivisionAsFloatingPoint.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
@@ -34,28 +35,14 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
             context,
             "Divide in floating point",
             nameof(Sst1477IntegerDivisionAsFloatingPointCodeFixProvider),
+            CanRewrite,
             TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Applies one SST1477 promotion for the reported division.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
-        TryRewrite(root, diagnostic) is { } edit
-            ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
-            : document;
 
     /// <summary>Resolves the reported division and builds its floating-point form.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         if (!diagnostic.Properties.TryGetValue(Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey, out var target)
             || GetKeyword(target) is not { } keyword)
@@ -81,6 +68,16 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
         return new NodeReplacement(cast, replacement.WithTriviaFrom(cast));
     }
 
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey, out var target)
+            && GetKeyword(target) is not null
+            && root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+                is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.DivideExpression };
+
     /// <summary>Builds the cast that promotes the division's left operand.</summary>
     /// <param name="keyword">The floating-point type's keyword.</param>
     /// <param name="left">The division's left operand.</param>
@@ -99,9 +96,10 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
         }
 
         return SyntaxFactory.CastExpression(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(keyword)),
-                operand)
-            .WithTriviaFrom(left);
+            SyntaxFactory.Token(left.GetLeadingTrivia(), SyntaxKind.OpenParenToken, default),
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(keyword)),
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken),
+            operand.WithTrailingTrivia(left.GetTrailingTrivia()));
     }
 
     /// <summary>Gets the explicit cast the division only exists to feed, when it targets the same type.</summary>

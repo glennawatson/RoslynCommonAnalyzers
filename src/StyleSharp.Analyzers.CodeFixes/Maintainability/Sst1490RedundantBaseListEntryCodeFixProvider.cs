@@ -10,44 +10,33 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1490RedundantBaseListEntryCodeFixProvider))]
 [Shared]
-public sealed class Sst1490RedundantBaseListEntryCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1490RedundantBaseListEntryCodeFixProvider : CodeFixProvider
 {
     /// <summary>The smallest base list this fix will trim, leaving the implying entry behind.</summary>
     private const int MinimumTrimmableEntryCount = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.RedundantBaseListEntry.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Remove the redundant base-list entry",
+            nameof(Sst1490RedundantBaseListEntryCodeFixProvider),
+            TryGetEntry,
+            Apply);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetEntry(root, diagnostic) is not { } entry)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Remove the redundant base-list entry",
-                    _ => Task.FromResult(Apply(context.Document, root, entry)),
-                    equivalenceKey: nameof(Sst1490RedundantBaseListEntryCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (TryGetEntry(editor.OriginalRoot, diagnostic) is not { Parent: BaseListSyntax baseList } entry)
         {
@@ -105,9 +94,19 @@ public sealed class Sst1490RedundantBaseListEntryCodeFixProvider : CodeFixProvid
                 continue;
             }
 
-            return baseList
-                .WithTypes(entries.RemoveAt(i))
-                .WithTrailingTrivia(baseList.GetTrailingTrivia());
+            var remaining = entries.RemoveAt(i);
+            if (remaining.SeparatorCount == remaining.Count)
+            {
+                var separator = remaining.GetSeparator(remaining.SeparatorCount - 1);
+                remaining = remaining.ReplaceSeparator(separator, separator.WithTrailingTrivia(baseList.GetTrailingTrivia()));
+            }
+            else
+            {
+                var last = remaining[remaining.Count - 1];
+                remaining = remaining.Replace(last, last.WithTrailingTrivia(baseList.GetTrailingTrivia()));
+            }
+
+            return baseList.Update(baseList.ColonToken, remaining);
         }
 
         return baseList;

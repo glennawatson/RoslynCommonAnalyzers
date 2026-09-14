@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using VerifyFloatingPoint = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1473FloatingPointEqualityAnalyzer,
     StyleSharp.Analyzers.Sst1473FloatingPointEqualityCodeFixProvider>;
@@ -14,6 +15,117 @@ public class FloatingPointEqualityAnalyzerUnitTest
 {
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>Checks equality operators honor the equality-member option in both states.</summary>
+    /// <param name="allowed">Whether exact comparisons in equality members are allowed.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task EqualityOperatorsRespectTheOptionAsync(bool allowed)
+    {
+        var equality = allowed ? "a.Value == b.Value" : "{|SST1473:a.Value == b.Value|}";
+        var inequality = allowed ? "a.Value != b.Value" : "{|SST1473:a.Value != b.Value|}";
+        var test = new VerifyFloatingPoint.Test
+        {
+            TestCode = $$"""
+                class C
+                {
+                    double Value;
+                    public static bool operator ==(C a, C b) => {{equality}};
+                    public static bool operator !=(C a, C b) => {{inequality}};
+                    public static C operator +(C a, C b) => {|SST1473:a.Value == b.Value|} ? a : b;
+                    bool P => {|SST1473:Value == 1d|};
+                }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $"root = true\n[*.cs]\nstylesharp.SST1473.allow_equality_member_comparison = {allowed}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks unresolved operands use the right-hand type while nonfloating NaN comparisons remain unreported.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnresolvedComparisonOperandsUseAvailableTypeInformationAsync()
+    {
+        var test = new VerifyFloatingPoint.Test
+        {
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+            TestCode = """
+                class C
+                {
+                    bool M(double x) => {|SST1473:missing == x|};
+                    bool N(object x) => x == double.NaN;
+                    bool P(double x) => Missing.Equals(x);
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks top-level comparisons do not inherit an equality-member exemption.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TopLevelComparisonIsReportedAsync()
+    {
+        var test = new VerifyFloatingPoint.Test { TestCode = "double x = 1; double y = 2; _ = {|SST1473:x == y|};", TestState = { OutputKind = OutputKind.ConsoleApplication } };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks hexadecimal and binary nonzero literals still report exact comparisons.</summary>
+    /// <param name="literal">The nonzero literal spelling.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("0x1")]
+    [Arguments("0xa")]
+    [Arguments("0xF")]
+    [Arguments("0b1")]
+    public Task NonzeroBitLiteralsAreReportedAsync(string literal) =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync($"class C {{ bool M(double x) => {{|SST1473:x == {literal}|}}; }}");
+
+    /// <summary>Checks zero mantissas, default literals, and conditional Equals calls retain their exemptions.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ZeroAndSpecialEqualsOperandsAreCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync("""
+            using static System.Double;
+            class C
+            {
+                bool M(double x, double? y) => x == 0e10 || x == 0E-10 || x == default ||
+                    x == 0X0UL || x == 0x0ul || x == 0B0 || x.Equals(0) || y?.Equals(0) == true ||
+                    NaN.Equals(x) || PositiveInfinity.Equals(x) || x.Equals(NegativeInfinity) ||
+                    x.Equals((object)x) || x == PositiveInfinity || PositiveInfinity == x || null == y || y?.CompareTo(x) == 1;
+            }
+            """);
+
+    /// <summary>Checks properties named after special floating-point values remain ordinary comparisons.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SpecialValuePropertyNamesDoNotExemptComparisonsAsync() => VerifyFloatingPoint.VerifyAnalyzerAsync("""
+        class C
+        {
+            double NaN => 1d;
+            double PositiveInfinity => 1d;
+            bool M(double x) => {|SST1473:x == NaN|} || {|SST1473:x == PositiveInfinity|};
+        }
+        """);
+
+    /// <summary>Checks nullable Equals calls and zero receivers are reported when they compare ordinary values.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ConditionalEqualsAndZeroReceiversAreReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync("""
+            class C
+            {
+                bool? M(double? x, double y) => x?{|SST1473:.Equals(y)|};
+                bool N() => {|SST1473:0d.Equals(0d)|};
+                bool P(float x) => {|SST1473:x != float.NaN|};
+            }
+            """);
 
     /// <summary>Verifies an exact equality on <c>double</c> and on <c>float</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

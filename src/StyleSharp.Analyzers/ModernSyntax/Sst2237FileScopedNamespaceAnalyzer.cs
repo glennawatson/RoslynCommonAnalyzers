@@ -52,7 +52,7 @@ public sealed class Sst2237FileScopedNamespaceAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNamespace(SyntaxNodeAnalysisContext context)
     {
         var namespaceDeclaration = (NamespaceDeclarationSyntax)context.Node;
-        if (!IsLanguageVersionAtLeast(namespaceDeclaration, CSharp10)
+        if (!LanguageVersions.IsAtLeast(namespaceDeclaration, CSharp10)
             || namespaceDeclaration.Parent is not CompilationUnitSyntax compilationUnit
             || compilationUnit.Members.Count != 1
             || compilationUnit.Members[0] != namespaceDeclaration
@@ -100,11 +100,4 @@ public sealed class Sst2237FileScopedNamespaceAnalyzer : DiagnosticAnalyzer
             name.GetLocation(),
             name.ToString(),
             wanted));
-
-    /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
-    /// <param name="node">The syntax node.</param>
-    /// <param name="version">The numeric language version.</param>
-    /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
-        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

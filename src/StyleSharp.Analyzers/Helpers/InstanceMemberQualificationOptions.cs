@@ -23,15 +23,15 @@ internal static class InstanceMemberQualificationOptions
             return Default;
         }
 
-        var trimmed = value.Trim();
-        if (string.Equals(trimmed, "require_this", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(trimmed, "this", StringComparison.OrdinalIgnoreCase))
+        var trimmed = AnalyzerOptionReader.TrimSegment(value, 0, value.Length);
+        if (trimmed.Equals("require_this".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("this".AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
             return InstanceMemberQualification.RequireThis;
         }
 
-        return string.Equals(trimmed, "omit_this", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(trimmed, "omit", StringComparison.OrdinalIgnoreCase)
+        return trimmed.Equals("omit_this".AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("omit".AsSpan(), StringComparison.OrdinalIgnoreCase)
             ? InstanceMemberQualification.OmitThis
             : Default;
     }

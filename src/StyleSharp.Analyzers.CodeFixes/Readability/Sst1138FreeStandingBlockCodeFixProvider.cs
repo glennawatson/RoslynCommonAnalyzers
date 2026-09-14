@@ -12,41 +12,30 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1138FreeStandingBlockCodeFixProvider))]
 [Shared]
-public sealed class Sst1138FreeStandingBlockCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1138FreeStandingBlockCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.FreeStandingBlock.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Splice the block's statements into the enclosing block",
+            nameof(Sst1138FreeStandingBlockCodeFixProvider),
+            Resolve,
+            Apply);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (Resolve(root, diagnostic) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Splice the block's statements into the enclosing block",
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: nameof(Sst1138FreeStandingBlockCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
         if (Resolve(editor.OriginalRoot, diagnostic) is not { Parent: BlockSyntax parent } block)
         {
@@ -57,20 +46,15 @@ public sealed class Sst1138FreeStandingBlockCodeFixProvider : CodeFixProvider, I
         editor.ReplaceNode(parent, (current, _) => current is BlockSyntax currentBlock ? Splice(currentBlock, index) : current);
     }
 
-    /// <summary>Splices the reported block into its parent.</summary>
+    /// <summary>Splices a resolved free-standing block into its parent.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document, or the original when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="block">The free-standing block, whose parent is a block.</param>
+    /// <returns>The updated document.</returns>
+    private static Document Apply(Document document, SyntaxNode root, BlockSyntax block)
     {
-        if (Resolve(root, diagnostic) is not { Parent: BlockSyntax parent } block)
-        {
-            return document;
-        }
-
-        var updated = Splice(parent, parent.Statements.IndexOf(block));
-        return document.WithSyntaxRoot(root.ReplaceNode(parent, updated));
+        var parent = (BlockSyntax)block.Parent!;
+        return document.WithSyntaxRoot(root.ReplaceNode(parent, Splice(parent, parent.Statements.IndexOf(block))));
     }
 
     /// <summary>Resolves the reported free-standing block.</summary>

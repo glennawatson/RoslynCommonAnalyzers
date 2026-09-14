@@ -114,7 +114,13 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     private static bool TryGetHungarianPrefix(string name, out string prefix)
     {
         prefix = string.Empty;
-        var core = name.TrimStart('_');
+        var start = 0;
+        while (start < name.Length && name[start] == '_')
+        {
+            start++;
+        }
+
+        var core = name.AsSpan(start);
         var length = 0;
         while (length < core.Length && char.IsLower(core[length]))
         {
@@ -126,7 +132,7 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        prefix = core[..length];
+        prefix = core[..length].ToString();
         return true;
     }
 

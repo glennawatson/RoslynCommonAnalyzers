@@ -4,7 +4,6 @@
 
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -17,43 +16,32 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1664SummaryParagraphCodeFixProvider))]
 [Shared]
-public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DocumentationRules.SummaryParagraph.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (text, root, diagnostic) => TryBuildChange(text, root, diagnostic, out _) ? "Wrap the paragraphs in <para> elements" : null,
+            nameof(Sst1664SummaryParagraphCodeFixProvider),
+            RegisterTextChanges);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryBuildChange(text, root, diagnostic, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Wrap the paragraphs in <para> elements",
-                    cancellationToken => WrapAsync(context.Document, diagnostic, cancellationToken),
-                    equivalenceKey: nameof(Sst1664SummaryParagraphCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryBuildChange(text, root, diagnostic, out var change))
         {
@@ -61,18 +49,6 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
         }
 
         changes.Add(change);
-    }
-
-    /// <summary>Applies the paragraph wrapping to the document.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> WrapAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
-    {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return root is null || !TryBuildChange(text, root, diagnostic, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the change that rewrites the summary's inner lines with <c>&lt;para&gt;</c> wrappers.</summary>
@@ -85,8 +61,7 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
     {
         change = default;
 
-        var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
-        if (node.FirstAncestorOrSelf<XmlElementSyntax>() is not { StartTag.Name.LocalName.ValueText: "summary" } summary
+        if (DocumentationElementFix.FindElement(root, diagnostic) is not { StartTag.Name.LocalName.ValueText: "summary" } summary
             || !SummaryParagraphLayout.TryGetInnerLineRange(text, summary, out var firstInnerLine, out var lastInnerLine))
         {
             return false;
@@ -96,7 +71,14 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
         var indent = text.ToString(TextSpan.FromBounds(text.Lines[firstInnerLine - 1].Start, IndentEnd(text, firstInnerLine - 1)));
         var newLine = NewLine(text, startLine.End, startLine.EndIncludingLineBreak);
 
-        var builder = new StringBuilder();
+        const string ParagraphEnd = "/// </para>";
+        const int LinesPerSeparatedParagraph = 2;
+        var replaceStart = startLine.Start;
+        var replaceEnd = text.Lines[lastInnerLine + 1].Start;
+        var paragraphWrapperLength = indent.Length + "/// <para>".Length + newLine.Length
+            + indent.Length + ParagraphEnd.Length + newLine.Length;
+        var maximumParagraphs = ((lastInnerLine - firstInnerLine) / LinesPerSeparatedParagraph) + 1;
+        var builder = new StringBuilder(replaceEnd - replaceStart + (maximumParagraphs * paragraphWrapperLength));
         var inParagraph = false;
         for (var lineNumber = firstInnerLine; lineNumber <= lastInnerLine; lineNumber++)
         {
@@ -113,18 +95,16 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
             }
             else if (inParagraph)
             {
-                _ = builder.Append(indent).Append("/// </para>").Append(newLine);
+                _ = builder.Append(indent).Append(ParagraphEnd).Append(newLine);
                 inParagraph = false;
             }
         }
 
         if (inParagraph)
         {
-            _ = builder.Append(indent).Append("/// </para>").Append(newLine);
+            _ = builder.Append(indent).Append(ParagraphEnd).Append(newLine);
         }
 
-        var replaceStart = text.Lines[firstInnerLine].Start;
-        var replaceEnd = text.Lines[lastInnerLine + 1].Start;
         change = new(TextSpan.FromBounds(replaceStart, replaceEnd), builder.ToString());
         return true;
     }

@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyExtensionBlock = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.ExtensionBlockAnalyzer>;
 using VerifyExtensionBlockFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -18,6 +19,73 @@ public class ExtensionBlockAnalyzerUnitTest
 {
     /// <summary>The receiver-shape text an extension block declared over the string type classifies to.</summary>
     private const string StringReceiverShape = "string";
+
+    /// <summary>Verifies incomplete receiver lists do not produce unrelated block diagnostics.</summary>
+    /// <param name="parameters">The incomplete receiver list.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("int first, int second")]
+    public async Task IncompleteReceiverListIsIgnoredAsync(string parameters)
+    {
+        var source = $"static class CExtensions {{ extension({parameters}) {{ public static int Value => 1; }} }}";
+        var test = new VerifyExtensionBlock.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies duplicate tracking retains earlier receivers after the second block.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ThirdAndFourthBlocksTrackDuplicateReceiversAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            static class CExtensions
+            {
+                extension(int value) { public int A() => 1; }
+                extension(string value) { public int B() => 1; }
+                {|SST1701:{|SST1707:extension|}|}(int value) { public int C() => 1; }
+                extension(long value) { public int D() => 1; }
+            }
+            """);
+
+    /// <summary>Verifies receiver modifiers distinguish otherwise identical blocks.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ReceiverPassingModesAreNotCombinedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            static class CExtensions
+            {
+                extension(int value) { public int A() => 1; }
+                extension(ref int value) { public int B() => 1; }
+                extension(ref readonly int value) { public int C() => 1; }
+            }
+            """);
+
+    /// <summary>Verifies qualified broad receivers and complex receiver types take their fallback paths.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task QualifiedAndArrayReceiversAreClassifiedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync("static class CExtensions { {|SST1706:extension|}(System.Object value) { public int A() => 1; } extension(int[] value) { public int B() => 1; } }");
+
+    /// <summary>Verifies receiver matching scans all type parameters and ignores constraints on other parameters.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ClassicGenericReceiverMatchesItsOwnConstraintsAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
+            """
+            class Item { }
+            static class CExtensions
+            {
+                public static void A<T, U>(this {|SST1706:U|} value) where T : class { }
+                public static void B<T>(this Item value) { }
+                public static void C<T, U>(this U value) where T : class where U : class { }
+            }
+            """);
 
     /// <summary>Verifies an empty extension block is reported (SST1700).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

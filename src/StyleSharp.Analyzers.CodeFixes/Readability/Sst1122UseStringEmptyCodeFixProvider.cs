@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -9,69 +10,34 @@ namespace StyleSharp.Analyzers;
 /// <summary>Replaces an empty string literal with <c>string.Empty</c> (SST1122).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1122UseStringEmptyCodeFixProvider))]
 [Shared]
-public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(ReportedNode.Find<LiteralExpressionSyntax>, static (current, _) => CreateStringEmpty((LiteralExpressionSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.UseStringEmpty.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Use string.Empty",
+            nameof(Sst1122UseStringEmptyCodeFixProvider),
+            ReportedNode.Find<LiteralExpressionSyntax>,
+            CreateStringEmpty);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not LiteralExpressionSyntax literal)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use string.Empty",
-                    _ => Task.FromResult(Replace(context.Document, root, literal)),
-                    equivalenceKey: nameof(Sst1122UseStringEmptyCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan) is not LiteralExpressionSyntax literal)
-        {
-            return;
-        }
-
-        var replacement = SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
-                SyntaxFactory.IdentifierName("Empty"))
-            .WithTriviaFrom(literal);
-
-        editor.ReplaceNode(literal, replacement);
-    }
-
-    /// <summary>Replaces the empty string literal with a <c>string.Empty</c> member access.</summary>
-    /// <param name="document">The document to fix.</param>
-    /// <param name="root">The syntax root.</param>
+    /// <summary>Builds the <c>string.Empty</c> access that takes the literal's place and trivia.</summary>
     /// <param name="literal">The empty string literal.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Replace(Document document, SyntaxNode root, LiteralExpressionSyntax literal)
-    {
-        var replacement = SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
-                SyntaxFactory.IdentifierName("Empty"))
-            .WithTriviaFrom(literal);
-
-        return document.WithSyntaxRoot(root.ReplaceNode(literal, replacement));
-    }
+    /// <returns>The member access.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static MemberAccessExpressionSyntax CreateStringEmpty(LiteralExpressionSyntax literal) =>
+        SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(literal.GetLeadingTrivia(), SyntaxKind.StringKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), "Empty", literal.GetTrailingTrivia())));
 }

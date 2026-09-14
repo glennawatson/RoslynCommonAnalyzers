@@ -15,22 +15,20 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider))]
 [Shared]
-public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ConcurrencyRules.RemovePassThroughStateMachine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Return the task directly", nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider), TryRewrite);
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Return the task directly", nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <summary>Applies the pass-through rewrite to one method declaration.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -41,6 +39,17 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
         Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(method, out _, out _, out _)
             ? document.WithSyntaxRoot(root.ReplaceNode(method, Rewrite(method)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        return Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(node, out _, out _, out _)
+            && node is MethodDeclarationSyntax or LocalFunctionStatementSyntax;
+    }
 
     /// <summary>Resolves the reported declaration and builds its de-async'd replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -66,7 +75,18 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     {
         var returnType = method.ReturnType;
         var modifiers = RemoveAsyncModifier(method.Modifiers, ref returnType);
-        var updated = method.WithModifiers(modifiers).WithReturnType(returnType);
+        var updated = method.Update(
+            method.AttributeLists,
+            modifiers,
+            returnType,
+            method.ExplicitInterfaceSpecifier,
+            method.Identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            method.Body,
+            method.ExpressionBody,
+            method.SemicolonToken);
         updated = updated.ExpressionBody is { } arrow
             ? updated.WithExpressionBody(RewriteArrow(arrow))
             : updated.WithBody(RewriteBlock(updated.Body!));
@@ -80,7 +100,17 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     {
         var returnType = localFunction.ReturnType;
         var modifiers = RemoveAsyncModifier(localFunction.Modifiers, ref returnType);
-        var updated = localFunction.WithModifiers(modifiers).WithReturnType(returnType);
+        var updated = localFunction.Update(
+            localFunction.AttributeLists,
+            modifiers,
+            returnType,
+            localFunction.Identifier,
+            localFunction.TypeParameterList,
+            localFunction.ParameterList,
+            localFunction.ConstraintClauses,
+            localFunction.Body,
+            localFunction.ExpressionBody,
+            localFunction.SemicolonToken);
         updated = updated.ExpressionBody is { } arrow
             ? updated.WithExpressionBody(RewriteArrow(arrow))
             : updated.WithBody(RewriteBlock(updated.Body!));
@@ -130,10 +160,9 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
         var statement = (ExpressionStatementSyntax)body.Statements[0];
         var awaited = (AwaitExpressionSyntax)statement.Expression;
         var replacement = SyntaxFactory.ReturnStatement(
-                SyntaxFactory.Token(default, SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                UnwrapForwardedTask(awaited).WithLeadingTrivia(),
-                statement.SemicolonToken)
-            .WithLeadingTrivia(statement.GetLeadingTrivia());
+            SyntaxFactory.Token(statement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            UnwrapForwardedTask(awaited).WithLeadingTrivia(),
+            statement.SemicolonToken);
         return body.ReplaceNode(statement, replacement);
     }
 

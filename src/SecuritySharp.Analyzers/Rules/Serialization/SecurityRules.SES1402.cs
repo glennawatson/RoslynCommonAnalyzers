@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1402 — an assembly is loaded from raw bytes or a non-constant location.</summary>
-    public static readonly DiagnosticDescriptor UnsafeAssemblyLoad = Create(
+    public static readonly DiagnosticDescriptor UnsafeAssemblyLoad = DescriptorFactory.Create(
         "SES1402",
         "Do not load an assembly from raw bytes or a non-constant location",
         "'{0}' loads an assembly whose code cannot be verified before it runs with full trust; load assemblies only from a trusted, fixed location",

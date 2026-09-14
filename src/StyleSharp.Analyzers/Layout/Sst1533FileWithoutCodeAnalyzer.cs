@@ -37,7 +37,7 @@ public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
         if (context.Tree.GetRoot(context.CancellationToken) is not CompilationUnitSyntax root
             || root.Members.Count != 0
             || root.AttributeLists.Count != 0
-            || DeclaresSomethingInAnotherConfiguration(root))
+            || InactivePreprocessorRegions.Contains(root))
         {
             return;
         }
@@ -64,32 +64,6 @@ public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(LayoutRules.FileWithoutCode, trivia.GetLocation()));
             return;
         }
-    }
-
-    /// <summary>Returns whether the file has source that this compilation happens to have compiled out.</summary>
-    /// <param name="root">The compilation unit.</param>
-    /// <returns><see langword="true"/> when an inactive <c>#if</c> region holds the file's content.</returns>
-    /// <remarks>
-    /// A polyfill guarded by <c>#if</c> looks empty on the target frameworks that already have the API, and
-    /// declares its type on the ones that do not. The file is not the empty shell it appears to be here, and
-    /// reporting it would ask for a deletion that breaks every other framework the project builds.
-    /// </remarks>
-    private static bool DeclaresSomethingInAnotherConfiguration(CompilationUnitSyntax root)
-    {
-        if (!root.ContainsDirectives)
-        {
-            return false;
-        }
-
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
-        {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a trivia kind is one of the comment forms.</summary>

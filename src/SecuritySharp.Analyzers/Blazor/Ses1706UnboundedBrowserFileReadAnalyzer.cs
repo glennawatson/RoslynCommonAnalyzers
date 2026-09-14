@@ -16,17 +16,14 @@ namespace SecuritySharp.Analyzers;
 /// 10 MB). With no real cap a single upload can fill the server's memory or disk and take the process down
 /// (CWE-770). The no-argument <c>OpenReadStream()</c> keeps the safe ~500 KB default and is never reported,
 /// and a bounded constant at or below the threshold, or any other non-constant size, is left alone. The
-/// whole rule is gated on <c>IBrowserFile</c> resolving, so a non-Blazor project registers nothing and pays
-/// nothing.
+/// whole rule is gated on <c>IBrowserFile</c> resolving, with the lookup deferred until a call passes the
+/// syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The default byte ceiling (10 MB) a constant <c>maxAllowedSize</c> may reach before it is reported.</summary>
     internal const long DefaultMaxBytes = 10L * 1024 * 1024;
-
-    /// <summary>The metadata name of the uploaded-file abstraction the rule gates on.</summary>
-    private const string BrowserFileMetadataName = "Microsoft.AspNetCore.Components.Forms.IBrowserFile";
 
     /// <summary>The name of the stream-opening method whose size limit is guarded.</summary>
     private const string OpenReadStreamMethodName = "OpenReadStream";
@@ -58,6 +55,9 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <summary>The smallest ceiling that means anything: a ceiling below 1 would flag every positive size.</summary>
     private const long SmallestCeiling = 1;
 
+    /// <summary>The metadata name of the uploaded-file abstraction the rule gates on.</summary>
+    private const string BrowserFileMetadataName = "Microsoft.AspNetCore.Components.Forms.IBrowserFile";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.UnboundedBrowserFileRead);
 
@@ -70,29 +70,24 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var browserFile = start.Compilation.GetTypeByMetadataName(BrowserFileMetadataName);
-            if (browserFile is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, browserFile), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, BrowserFileMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1706 for an <c>OpenReadStream</c> call whose size limit is unbounded or client-derived.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="browserFile">The resolved <c>IBrowserFile</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol browserFile)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to 'OpenReadStream' with an explicit argument. The no-argument
         // overload keeps the safe ~500 KB default, so it is never a candidate.
         if (invocation.ArgumentList.Arguments.Count == 0
-            || !string.Equals(BlazorInvocation.GetInvokedName(invocation.Expression), OpenReadStreamMethodName, StringComparison.Ordinal))
+            || !string.Equals(MemberReferenceName.Of(invocation.Expression), OpenReadStreamMethodName, StringComparison.Ordinal))
         {
             return;
         }
@@ -103,8 +98,9 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: OpenReadStreamMethodName } method
-            || !IsOrImplements(method.ContainingType, browserFile))
+        if (frameworkType.Get() is not { } browserFile
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: OpenReadStreamMethodName } method
+            || !TypeRelations.IsOrImplements(method.ContainingType, browserFile))
         {
             return;
         }
@@ -153,7 +149,7 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the argument binds to the <c>Size</c> property of an <c>IBrowserFile</c>.</returns>
     private static bool IsClientReportedSize(in SyntaxNodeAnalysisContext context, ExpressionSyntax sizeArgument, INamedTypeSymbol browserFile) =>
         context.SemanticModel.GetSymbolInfo(sizeArgument, context.CancellationToken).Symbol is IPropertySymbol { Name: SizePropertyName } property
-            && IsOrImplements(property.ContainingType, browserFile);
+            && TypeRelations.IsOrImplements(property.ContainingType, browserFile);
 
     /// <summary>Reads the byte ceiling, preferring the rule-specific key over the project-wide key.</summary>
     /// <param name="options">The analyzer config options for the argument's tree.</param>
@@ -193,29 +189,6 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
         }
 
         size = 0;
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or implements, the gated <c>IBrowserFile</c> interface.</summary>
-    /// <param name="type">The bound member's containing type.</param>
-    /// <param name="browserFile">The resolved <c>IBrowserFile</c> type.</param>
-    /// <returns><see langword="true"/> when the type is <c>IBrowserFile</c> or implements it.</returns>
-    private static bool IsOrImplements(INamedTypeSymbol type, INamedTypeSymbol browserFile)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, browserFile))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], browserFile))
-            {
-                return true;
-            }
-        }
-
         return false;
     }
 }

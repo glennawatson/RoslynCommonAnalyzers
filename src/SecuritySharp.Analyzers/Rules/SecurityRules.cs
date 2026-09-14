@@ -2,15 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
-/// Base descriptor factory shared by every SecuritySharp rule group. Each rule is declared in a
-/// per-id partial (<c>Rules/&lt;Group&gt;/SecurityRules.SESxxxx.cs</c>) and calls <see cref="Create"/>
-/// with its group's category, so a descriptor declaration stays a single call and the category names
-/// live in one place. The category maps 1:1 to the id's hundreds digit, matching the folder layout.
+/// The category names shared by every SecuritySharp rule group. Each rule is declared in a per-id
+/// partial (<c>Rules/&lt;Group&gt;/SecurityRules.SESxxxx.cs</c>) that builds its descriptor through
+/// <see cref="DescriptorFactory"/> with its group's category, so a descriptor declaration stays a single
+/// call and the category names live in one place. The category maps 1:1 to the id's hundreds digit,
+/// matching the folder layout.
 /// </summary>
 internal static partial class SecurityRules
 {
@@ -37,26 +36,4 @@ internal static partial class SecurityRules
 
     /// <summary>Blazor rules (SES17xx): server-rendered markup trust boundaries and JavaScript interop safety.</summary>
     public const string Blazor = "Blazor";
-
-    /// <summary>Creates an enabled-by-default Warning descriptor whose help link points at the rule's docs page.</summary>
-    /// <param name="id">The diagnostic id.</param>
-    /// <param name="title">The rule title.</param>
-    /// <param name="messageFormat">The message format.</param>
-    /// <param name="category">The rule category (one of the group constants on this class).</param>
-    /// <param name="description">The rule description.</param>
-    /// <returns>The descriptor.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string category, string description) =>
-        DescriptorFactory.Create(id, title, messageFormat, category, description);
-
-    /// <summary>Creates a Warning descriptor that is disabled by default (opt-in via <c>.editorconfig</c>).</summary>
-    /// <param name="id">The diagnostic id.</param>
-    /// <param name="title">The rule title.</param>
-    /// <param name="messageFormat">The message format.</param>
-    /// <param name="category">The rule category (one of the group constants on this class).</param>
-    /// <param name="description">The rule description.</param>
-    /// <returns>The descriptor.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string category, string description) =>
-        DescriptorFactory.CreateOptIn(id, title, messageFormat, category, description);
 }

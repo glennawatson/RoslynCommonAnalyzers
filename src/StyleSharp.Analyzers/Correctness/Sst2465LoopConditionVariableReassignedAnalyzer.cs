@@ -60,7 +60,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
         if (forStatement.Condition is not { } condition
             || !IsSimpleRelationalComparison(condition)
             || !TryGetCounter(forStatement, out var counter)
-            || !Mentions(condition, counter))
+            || !IdentifierReferences.MentionsName(condition, counter))
         {
             return;
         }
@@ -129,7 +129,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
         }
 
         var name = written.Identifier.ValueText;
-        if (!Mentions(condition, name))
+        if (!IdentifierReferences.MentionsName(condition, name))
         {
             return;
         }
@@ -195,75 +195,10 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <summary>Returns whether a condition is a single relational or equality comparison over simple operands.</summary>
     /// <param name="condition">The loop's condition.</param>
     /// <returns><see langword="true"/> when the condition is a comparison built only from names, literals and operators.</returns>
-    private static bool IsSimpleRelationalComparison(ExpressionSyntax condition)
-    {
-        if (condition is not BinaryExpressionSyntax binary || !IsRelationalOrEquality(binary.Kind()))
-        {
-            return false;
-        }
-
-        var scan = default(ShapeScan);
-        if (!VisitConditionNode(binary, ref scan))
-        {
-            return false;
-        }
-
-        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, ShapeScan>(binary, ref scan, VisitConditionNode);
-        return !scan.Rejected && scan.Identifiers is > 0 and <= MaximumConditionVariables;
-    }
-
-    /// <summary>Rejects a condition containing anything the rule cannot reason about.</summary>
-    /// <param name="node">The node being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once the condition is rejected, which stops the walk.</returns>
-    private static bool VisitConditionNode(SyntaxNode node, ref ShapeScan scan)
-    {
-        if (node is IdentifierNameSyntax)
-        {
-            scan.Identifiers++;
-            return true;
-        }
-
-        if (node is LiteralExpressionSyntax or ParenthesizedExpressionSyntax or BinaryExpressionSyntax
-            || (node is PrefixUnaryExpressionSyntax prefix && !IsIncrementOrDecrement(prefix.Kind())))
-        {
-            return true;
-        }
-
-        scan.Rejected = true;
-        return false;
-    }
-
-    /// <summary>Returns whether an expression mentions a name.</summary>
-    /// <param name="expression">The expression to search.</param>
-    /// <param name="name">The name to look for.</param>
-    /// <returns><see langword="true"/> when the name appears.</returns>
-    private static bool Mentions(ExpressionSyntax expression, string name)
-    {
-        if (expression is IdentifierNameSyntax self && self.Identifier.ValueText == name)
-        {
-            return true;
-        }
-
-        var scan = new NameScan(name);
-        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
-        return scan.Found;
-    }
-
-    /// <summary>Records whether an identifier is the name being looked for.</summary>
-    /// <param name="identifier">The identifier being visited.</param>
-    /// <param name="scan">The scan state.</param>
-    /// <returns><see langword="false"/> once the name is found, which stops the walk.</returns>
-    private static bool VisitName(IdentifierNameSyntax identifier, ref NameScan scan)
-    {
-        if (identifier.Identifier.ValueText != scan.Name)
-        {
-            return true;
-        }
-
-        scan.Found = true;
-        return false;
-    }
+    private static bool IsSimpleRelationalComparison(ExpressionSyntax condition) =>
+        condition is BinaryExpressionSyntax binary
+            && IsRelationalOrEquality(binary.Kind())
+            && SimpleConditionShape.IsSimple(binary, MaximumConditionVariables);
 
     /// <summary>Returns whether a syntax kind is a relational or equality comparison.</summary>
     /// <param name="kind">The syntax kind.</param>
@@ -284,22 +219,4 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
             or SyntaxKind.PreDecrementExpression
             or SyntaxKind.PostIncrementExpression
             or SyntaxKind.PostDecrementExpression;
-
-    /// <summary>The state threaded through the condition's shape scan.</summary>
-    private record struct ShapeScan
-    {
-        /// <summary>Gets or sets the number of variables the condition reads.</summary>
-        public int Identifiers { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether the condition was rejected.</summary>
-        public bool Rejected { get; set; }
-    }
-
-    /// <summary>The state threaded through a name search.</summary>
-    /// <param name="Name">The name being looked for.</param>
-    private record struct NameScan(string Name)
-    {
-        /// <summary>Gets or sets a value indicating whether the name was found.</summary>
-        public bool Found { get; set; }
-    }
 }

@@ -13,8 +13,7 @@ namespace PerformanceSharp.Analyzers;
 /// Each lambda whose body references the outer key identifier — binding to the same local or
 /// parameter symbol as the first argument — is reported, because the capture allocates a
 /// closure on every call where the lambda's own key parameter would let the delegate be
-/// cached. The rule is resolved once per compilation by probing for the dictionary type, so it
-/// costs nothing when the type is absent.
+/// cached. The dictionary type is resolved once per compilation on the first candidate call.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : DiagnosticAnalyzer
@@ -40,15 +39,11 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(ConcurrentDictionaryMetadataName) is not { } dictionaryType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, dictionaryType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ConcurrentDictionaryMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Extracts the syntax-only factory-call shape for a candidate invocation.</summary>
@@ -98,11 +93,12 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
 
     /// <summary>Reports PSH1006 for each factory lambda that captures the outer key variable.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dictionaryType">The resolved <c>ConcurrentDictionary`2</c> type for this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
+    /// <param name="dictionaryTypes">The deferred dictionary type for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType dictionaryTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetFactoryCallShape(invocation, out var memberAccess, out var keyIdentifier)
+            || dictionaryTypes.Get() is not { } dictionaryType
             || !IsConcurrentDictionaryReceiver(context.SemanticModel, memberAccess!.Expression, dictionaryType, context.CancellationToken)
             || context.SemanticModel.GetSymbolInfo(keyIdentifier!, context.CancellationToken).Symbol is not { } keySymbol
             || keySymbol is not (ILocalSymbol or IParameterSymbol))
@@ -110,7 +106,16 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
             return;
         }
 
-        var keyName = keyIdentifier!.Identifier.ValueText;
+        ReportCapturedLambdas(context, invocation, keyIdentifier!.Identifier.ValueText, keySymbol);
+    }
+
+    /// <summary>Reports each factory lambda that captures the bound key argument.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="invocation">The candidate dictionary invocation.</param>
+    /// <param name="keyName">The key argument's identifier.</param>
+    /// <param name="keySymbol">The bound key local or parameter.</param>
+    private static void ReportCapturedLambdas(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, string keyName, ISymbol keySymbol)
+    {
         var arguments = invocation.ArgumentList.Arguments;
         for (var i = 1; i < arguments.Count; i++)
         {
@@ -135,14 +140,14 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
     private static bool IsFactoryMethodName(string name) =>
         name is GetOrAddMethodName or AddOrUpdateMethodName;
 
-    /// <summary>Returns whether any argument after the key is a simple or parenthesized lambda.</summary>
+    /// <summary>Returns whether any argument after the key is a lambda with its own key parameter.</summary>
     /// <param name="arguments">The invocation's arguments.</param>
-    /// <returns><see langword="true"/> when at least one later argument is a lambda.</returns>
+    /// <returns><see langword="true"/> when at least one later argument is a lambda with a parameter.</returns>
     private static bool HasLambdaArgument(SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
         for (var i = 1; i < arguments.Count; i++)
         {
-            if (arguments[i].Expression is LambdaExpressionSyntax)
+            if (arguments[i].Expression is LambdaExpressionSyntax lambda && HasOwnKeyParameter(lambda))
             {
                 return true;
             }

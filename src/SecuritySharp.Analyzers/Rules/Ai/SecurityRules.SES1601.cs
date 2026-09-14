@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1601 — an LLM system-role message is given non-constant content.</summary>
-    public static readonly DiagnosticDescriptor NonConstantSystemPrompt = Create(
+    public static readonly DiagnosticDescriptor NonConstantSystemPrompt = DescriptorFactory.Create(
         "SES1601",
         "An LLM system prompt must be a constant, trusted template",
         "The system-role content passed to '{0}' is not a compile-time constant; runtime or user data placed in an LLM instruction channel enables prompt injection",

@@ -39,7 +39,7 @@ public class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesC
     [Benchmark]
     public async Task<int> Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

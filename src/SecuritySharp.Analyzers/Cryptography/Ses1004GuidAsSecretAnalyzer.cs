@@ -16,7 +16,7 @@ namespace SecuritySharp.Analyzers;
 /// <c>pwd</c>, <c>nonce</c>, <c>salt</c>, <c>otp</c>, an API key, a session id/key, a verification code, or a
 /// reset token -- matched on word boundaries so an ordinary <c>Guid.NewGuid()</c> used as an id is never
 /// touched. The suggestion is <c>System.Security.Cryptography.RandomNumberGenerator</c>; the rule resolves
-/// that type once per compilation and registers nothing when it is absent, so a project that cannot act on
+/// that type on the first candidate per compilation and reports nothing when it is absent, so a project that cannot act on
 /// the diagnostic never receives it. There is no code fix because the correct replacement call
 /// (<c>GetBytes</c>, <c>GetInt32</c>, <c>GetHexString</c>, <c>GetString</c>, and its size) depends on the shape
 /// of the secret being minted.
@@ -29,12 +29,6 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The <c>ToString</c> method name skipped when it wraps the GUID before it reaches a target.</summary>
     private const string ToStringMethodName = "ToString";
-
-    /// <summary>The metadata name of the GUID type whose factory is matched.</summary>
-    private const string GuidMetadataName = "System.Guid";
-
-    /// <summary>The metadata name of the cryptographic RNG the rule suggests; the gate for the whole rule.</summary>
-    private const string RandomNumberGeneratorMetadataName = "System.Security.Cryptography.RandomNumberGenerator";
 
     /// <summary>Single-concept secret words matched against a whole identifier word (case-insensitive).</summary>
     private static readonly string[] SecretWords =
@@ -76,26 +70,17 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // Gate the whole rule on the API we suggest: if a project cannot call RandomNumberGenerator, the
-            // diagnostic would not be actionable, so register nothing. The GUID type is resolved for the match
-            // and passed through; when it is absent (impossible once the RNG resolved) the symbol comparison
-            // simply never matches, so no separate guard is needed.
-            if (start.Compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is null)
-            {
-                return;
-            }
-
-            var guidType = start.Compilation.GetTypeByMetadataName(GuidMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, guidType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveGuidType, runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1004 for a <c>Guid.NewGuid()</c> call whose value flows into a secret-named target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="guidType">The resolved <c>System.Guid</c> type used to confirm the factory call; never matches when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? guidType)
+    /// <param name="types">The lazily resolved types used to confirm an actionable GUID secret diagnostic.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -118,6 +103,8 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
 
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NewGuidMethodName, IsStatic: true } method
             || !method.Parameters.IsEmpty
+            || method.ContainingType is not { Name: "Guid", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }
+            || types.Get() is not { } guidType
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, guidType))
         {
             return;
@@ -164,7 +151,7 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax property } => property.Identifier.ValueText,
 
             // The right-hand side of a simple assignment: the left-hand target is the sink.
-            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment => GetAssignmentTargetName(assignment.Left),
+            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment => MemberReferenceName.Of(assignment.Left),
 
             // A return statement: the enclosing member is the sink.
             ReturnStatementSyntax returnStatement => GetEnclosingMemberName(returnStatement),
@@ -186,19 +173,60 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The bound parameter's name, or <see langword="null"/> when the argument does not bind to one.</returns>
-    private static string? GetArgumentParameterName(ArgumentSyntax argument, SemanticModel model, CancellationToken cancellationToken) =>
-        model.GetOperation(argument, cancellationToken) is IArgumentOperation { Parameter.Name: { } parameterName } ? parameterName : null;
-
-    /// <summary>Returns the simple name written on the left-hand side of an assignment, or <see langword="null"/>.</summary>
-    /// <param name="left">The assignment target expression.</param>
-    /// <returns>The identifier or member name assigned to, or <see langword="null"/> for a computed target.</returns>
-    private static string? GetAssignmentTargetName(ExpressionSyntax left) =>
-        left switch
+    private static string? GetArgumentParameterName(ArgumentSyntax argument, SemanticModel model, CancellationToken cancellationToken)
+    {
+        if (argument.Parent is BaseArgumentListSyntax { Parent: { } owner } arguments)
         {
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
-            _ => null,
-        };
+            var symbolInfo = model.GetSymbolInfo(owner, cancellationToken);
+            var parameters = symbolInfo.CandidateReason == CandidateReason.None
+                ? symbolInfo.Symbol switch
+                {
+                    IMethodSymbol method => method.Parameters,
+                    IPropertySymbol property => property.Parameters,
+                    _ => default,
+                }
+                : default;
+
+            if (!parameters.IsDefaultOrEmpty)
+            {
+                var parameter = FindParameter(argument, arguments, parameters);
+                if (parameter is { IsParams: false })
+                {
+                    return parameter.Name;
+                }
+            }
+        }
+
+        // Expanded params arguments and dynamically bound or unresolved calls retain Roslyn's operation-based mapping.
+        return model.GetOperation(argument, cancellationToken) is IArgumentOperation { Parameter.Name: { } parameterName } ? parameterName : null;
+    }
+
+    /// <summary>Maps a named or positional argument to an already bound parameter without constructing operations.</summary>
+    /// <param name="argument">The argument to map.</param>
+    /// <param name="arguments">Its enclosing argument list.</param>
+    /// <param name="parameters">The bound member's parameters.</param>
+    /// <returns>The corresponding parameter, or null when no parameter matches.</returns>
+    private static IParameterSymbol? FindParameter(
+        ArgumentSyntax argument,
+        BaseArgumentListSyntax arguments,
+        ImmutableArray<IParameterSymbol> parameters)
+    {
+        if (argument.NameColon is { Name.Identifier.ValueText: var name })
+        {
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].Name == name)
+                {
+                    return parameters[i];
+                }
+            }
+
+            return null;
+        }
+
+        var index = arguments.Arguments.IndexOf(argument);
+        return index >= 0 && index < parameters.Length ? parameters[index] : null;
+    }
 
     /// <summary>Returns the name of the member (method, property, accessor's property, or local function) enclosing a node.</summary>
     /// <param name="node">The node whose enclosing member name is wanted.</param>
@@ -238,98 +266,71 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a whole word equals a secret term or a consecutive word run matches.</returns>
     private static bool IsSecretName(string name)
     {
-        // A valid identifier always yields at least one word; an empty list simply matches nothing below.
-        var words = SplitIntoWords(name);
-
-        for (var i = 0; i < words.Count; i++)
+        var position = 0;
+        while (position < name.Length)
         {
-            var word = words[i];
+            var word = ReadWord(name, ref position);
             for (var t = 0; t < SecretWords.Length; t++)
             {
-                if (string.Equals(word, SecretWords[t], StringComparison.Ordinal))
+                if (InvariantText.EqualsLowercase(word, SecretWords[t]))
+                {
+                    return true;
+                }
+            }
+
+            for (var r = 0; r < SecretWordRuns.Length; r++)
+            {
+                var run = SecretWordRuns[r];
+                if (InvariantText.EqualsLowercase(word, run[0]) && MatchesWordRun(name, position, run))
                 {
                     return true;
                 }
             }
         }
 
-        for (var r = 0; r < SecretWordRuns.Length; r++)
-        {
-            if (ContainsWordRun(words, SecretWordRuns[r]))
-            {
-                return true;
-            }
-        }
-
         return false;
     }
 
-    /// <summary>Returns whether a list of words contains a run of words in order (e.g. <c>api</c>, <c>key</c>).</summary>
-    /// <param name="words">The identifier's words.</param>
-    /// <param name="run">The consecutive words to find.</param>
-    /// <returns><see langword="true"/> when the run appears in order.</returns>
-    private static bool ContainsWordRun(List<string> words, string[] run)
+    /// <summary>Checks the remaining words of a secret term after its first word matched.</summary>
+    /// <param name="name">The identifier being scanned.</param>
+    /// <param name="position">The position immediately following the first word.</param>
+    /// <param name="run">The consecutive words to match.</param>
+    /// <returns>Whether all remaining words match in order.</returns>
+    private static bool MatchesWordRun(string name, int position, string[] run)
     {
-        for (var start = 0; start + run.Length <= words.Count; start++)
+        for (var offset = 1; offset < run.Length; offset++)
         {
-            var matched = true;
-            for (var offset = 0; offset < run.Length; offset++)
+            if (!InvariantText.EqualsLowercase(ReadWord(name, ref position), run[offset]))
             {
-                if (string.Equals(words[start + offset], run[offset], StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                matched = false;
-                break;
-            }
-
-            if (matched)
-            {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
-    /// <summary>Splits an identifier into lowercase words on separators, case transitions, and acronym ends.</summary>
-    /// <param name="name">The identifier to split.</param>
-    /// <returns>The lowercase words; empty when the identifier holds no letters or digits.</returns>
-    private static List<string> SplitIntoWords(string name)
+    /// <summary>Reads the next identifier word without allocating a collection of word slices.</summary>
+    /// <param name="name">The identifier being scanned.</param>
+    /// <param name="position">The scan position, advanced past the returned word.</param>
+    /// <returns>The next word, or an empty span when only separators remain.</returns>
+    private static ReadOnlySpan<char> ReadWord(string name, ref int position)
     {
-        const int InitialIdentifierWordCapacity = 4;
-
-        var words = new List<string>(InitialIdentifierWordCapacity);
-        var start = -1;
-        for (var i = 0; i < name.Length; i++)
+        while (position < name.Length && !char.IsLetterOrDigit(name[position]))
         {
-            var c = name[i];
-            if (!char.IsLetterOrDigit(c))
-            {
-                FlushWord(words, name, start, i);
-                start = -1;
-                continue;
-            }
-
-            if (start < 0)
-            {
-                start = i;
-                continue;
-            }
-
-            // aB -> a|B, and a1 / 1a digit boundaries.
-            if (!IsWordBoundary(name, i))
-            {
-                continue;
-            }
-
-            FlushWord(words, name, start, i);
-            start = i;
+            position++;
         }
 
-        FlushWord(words, name, start, name.Length);
-        return words;
+        var start = position;
+        if (position < name.Length)
+        {
+            position++;
+            while (position < name.Length && char.IsLetterOrDigit(name[position]) && !IsWordBoundary(name, position))
+            {
+                position++;
+            }
+        }
+
+        return name.AsSpan(start, position - start);
     }
 
     /// <summary>Returns whether a boundary falls immediately before the character at <paramref name="i"/>.</summary>
@@ -357,19 +358,11 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         return char.IsDigit(current) != char.IsDigit(previous);
     }
 
-    /// <summary>Appends the lowercased span <c>[start, end)</c> of <paramref name="name"/> as a word when non-empty.</summary>
-    /// <param name="words">The accumulating word list.</param>
-    /// <param name="name">The identifier being split.</param>
-    /// <param name="start">The inclusive word start, or a negative value when no word is open.</param>
-    /// <param name="end">The exclusive word end.</param>
-    private static void FlushWord(List<string> words, string name, int start, int end)
-    {
-        // Callers only pass end > start once a word is open (start >= 0), so a single guard suffices.
-        if (start < 0)
-        {
-            return;
-        }
-
-        words.Add(name.Substring(start, end - start).ToLowerInvariant());
-    }
+    /// <summary>Resolves the actionable GUID type after a secret target passes the candidate checks.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>The GUID type when the suggested cryptographic RNG is available; otherwise <see langword="null"/>.</returns>
+    private static INamedTypeSymbol? ResolveGuidType(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.Security.Cryptography.RandomNumberGenerator") is not null
+            ? compilation.GetTypeByMetadataName("System.Guid")
+            : null;
 }

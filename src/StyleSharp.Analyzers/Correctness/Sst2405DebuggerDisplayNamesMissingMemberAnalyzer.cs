@@ -43,6 +43,9 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DebuggerDisplayNamesMissingMember);
 
+    /// <summary>The attribute syntax kind shared by every registration.</summary>
+    private static readonly SyntaxKind[] AnalyzedKinds = [SyntaxKind.Attribute];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         SupportedDiagnosticsValue;
@@ -52,7 +55,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.Attribute);
+        context.RegisterSyntaxNodeAction(Analyze, AnalyzedKinds);
     }
 
     /// <summary>Analyzes one attribute.</summary>
@@ -91,7 +94,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
                 CorrectnessRules.DebuggerDisplayNamesMissingMember,
                 Location.Create(literal.SyntaxTree, span),
                 DebuggerDisplayName,
-                name,
+                name.ToString(),
                 type.Name));
         }
     }
@@ -108,7 +111,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// string. A backslash escapes the character after it, which is how a display string writes a literal
     /// brace.
     /// </remarks>
-    private static bool TryReadNextMemberName(string text, ref int index, [NotNullWhen(true)] out string? name, out int offset)
+    private static bool TryReadNextMemberName(string text, ref int index, out ReadOnlySpan<char> name, out int offset)
     {
         while (index < text.Length)
         {
@@ -138,7 +141,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
             }
         }
 
-        name = null;
+        name = default;
         offset = 0;
         return false;
     }
@@ -150,9 +153,9 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="name">The member name when the expression is one.</param>
     /// <param name="offset">The name's offset into the literal's text.</param>
     /// <returns><see langword="true"/> when the expression is a plain member name.</returns>
-    private static bool TryReadMemberName(string text, int open, int close, [NotNullWhen(true)] out string? name, out int offset)
+    private static bool TryReadMemberName(string text, int open, int close, out ReadOnlySpan<char> name, out int offset)
     {
-        name = null;
+        name = default;
         offset = 0;
         var start = open;
         var end = GetExpressionEnd(text, open, close);
@@ -163,7 +166,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
             return false;
         }
 
-        name = text.Substring(start, end - start);
+        name = text.AsSpan(start, end - start);
         offset = start;
         return true;
     }
@@ -231,15 +234,19 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
 
     /// <summary>Returns whether a type, or anything it inherits from, declares a member with this name.</summary>
     /// <param name="type">The type the attribute is on.</param>
-    /// <param name="name">The member name.</param>
+    /// <param name="name">The member name as a slice of the display literal.</param>
     /// <returns><see langword="true"/> when the debugger will find the member.</returns>
-    private static bool DeclaresMember(INamedTypeSymbol type, string name)
+    private static bool DeclaresMember(INamedTypeSymbol type, ReadOnlySpan<char> name)
     {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
         {
-            if (!current.GetMembers(name).IsEmpty)
+            var members = current.GetMembers();
+            for (var i = 0; i < members.Length; i++)
             {
-                return true;
+                if (name.SequenceEqual(members[i].Name.AsSpan()))
+                {
+                    return true;
+                }
             }
         }
 
@@ -263,16 +270,5 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="name">The attribute's name.</param>
     /// <returns><see langword="true"/> when the rightmost name matches, with or without the suffix.</returns>
     private static bool IsDebuggerDisplayName(NameSyntax name) =>
-        GetSimpleName(name) is DebuggerDisplayName or DebuggerDisplayAttributeName;
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
+        SyntaxNames.GetSimpleName(name) is DebuggerDisplayName or DebuggerDisplayAttributeName;
 }

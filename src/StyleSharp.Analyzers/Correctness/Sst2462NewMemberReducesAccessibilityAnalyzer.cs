@@ -62,7 +62,7 @@ public sealed class Sst2462NewMemberReducesAccessibilityAnalyzer : DiagnosticAna
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (!IsHideableMember(member))
+            if (!MemberAccessibility.IsAuthored(member))
             {
                 continue;
             }
@@ -83,28 +83,10 @@ public sealed class Sst2462NewMemberReducesAccessibilityAnalyzer : DiagnosticAna
                 CorrectnessRules.NewMemberReducesAccessibility,
                 member.Locations[0],
                 member.Name,
-                AccessibilityKeyword(hidden.DeclaredAccessibility),
-                AccessibilityKeyword(member.DeclaredAccessibility),
+                MemberAccessibility.Keyword(hidden.DeclaredAccessibility),
+                MemberAccessibility.Keyword(member.DeclaredAccessibility),
                 hidden.ContainingType.Name));
         }
-    }
-
-    /// <summary>Returns whether a member is one of the kinds that can carry <c>new</c> and hide an inherited member.</summary>
-    /// <param name="member">The declared member.</param>
-    /// <returns><see langword="true"/> for a non-override method, property, event, field, or nested type.</returns>
-    private static bool IsHideableMember(ISymbol member)
-    {
-        if (member.IsOverride || member.IsImplicitlyDeclared)
-        {
-            return false;
-        }
-
-        return member switch
-        {
-            IMethodSymbol method => method.MethodKind == MethodKind.Ordinary,
-            IPropertySymbol or IEventSymbol or IFieldSymbol or INamedTypeSymbol => true,
-            _ => false,
-        };
     }
 
     /// <summary>Walks the base chain for the nearest inherited member this one hides and is strictly less accessible than.</summary>
@@ -220,20 +202,6 @@ public sealed class Sst2462NewMemberReducesAccessibilityAnalyzer : DiagnosticAna
         Accessibility.Protected => SameAssemblyDerived | OtherAssemblyDerived,
         Accessibility.ProtectedAndInternal => SameAssemblyDerived,
         _ => 0,
-    };
-
-    /// <summary>Returns the C# keyword spelling of an accessibility for the diagnostic message.</summary>
-    /// <param name="accessibility">The accessibility to spell.</param>
-    /// <returns>The keyword text.</returns>
-    private static string AccessibilityKeyword(Accessibility accessibility) => accessibility switch
-    {
-        Accessibility.Public => "public",
-        Accessibility.ProtectedOrInternal => "protected internal",
-        Accessibility.Protected => "protected",
-        Accessibility.Internal => "internal",
-        Accessibility.ProtectedAndInternal => "private protected",
-        Accessibility.Private => "private",
-        _ => accessibility.ToString(),
     };
 
     /// <summary>Returns whether a member's declaration carries the <c>new</c> modifier.</summary>

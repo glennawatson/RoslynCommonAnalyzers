@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.Text;
@@ -16,13 +17,16 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(SpacingCodeFixProvider))]
 [Shared]
-public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class SpacingCodeFixProvider : CodeFixProvider
 {
     /// <summary>The number of spaces a tab is replaced with (the repository uses four-space indents).</summary>
     private const int TabWidth = 4;
 
     /// <summary>The width of the comment opener.</summary>
     private const int CommentOpenerLength = 2;
+
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
@@ -57,33 +61,24 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
         SpacingRules.OpeningSquareBracket.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            _ = diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
-            var id = diagnostic.Id;
-            var span = diagnostic.Location.SourceSpan;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Fix spacing",
-                    cancellationToken => FixAsync(context.Document, id, span, action, cancellationToken),
-                    equivalenceKey: nameof(SpacingCodeFixProvider)),
-                diagnostic);
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Fix spacing",
+            nameof(SpacingCodeFixProvider),
+            static (document, diagnostic, cancellationToken) => FixAsync(document, diagnostic.Id, diagnostic.Location.SourceSpan, ActionOf(diagnostic), cancellationToken));
 
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        _ = diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
-        changes.Add(BuildChange(diagnostic.Id, diagnostic.Location.SourceSpan, action, text));
-    }
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        changes.Add(BuildChange(diagnostic.Id, diagnostic.Location.SourceSpan, ActionOf(diagnostic), text));
 
     /// <summary>Applies the text change for the reported spacing diagnostic.</summary>
     /// <param name="document">The document to fix.</param>
@@ -97,6 +92,12 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         return document.WithText(text.WithChanges(BuildChange(id, span, action, text)));
     }
+
+    /// <summary>Reads the punctuation fix action the analyzer stashed on a diagnostic.</summary>
+    /// <param name="diagnostic">The diagnostic to read.</param>
+    /// <returns>The stashed action, or <see langword="null"/> for a trivia spacing diagnostic.</returns>
+    private static string? ActionOf(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action) ? action : null;
 
     /// <summary>Computes the text change for the reported spacing diagnostic.</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -124,7 +125,41 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
             return new(span, " ");
         }
 
-        return id == SpacingRules.UseSpacesNotTabs.Id ? new(span, text.ToString(span).Replace("\t", new(' ', TabWidth))) : new(new(span.Start + CommentOpenerLength, 0), " ");
+        if (id != SpacingRules.UseSpacesNotTabs.Id)
+        {
+            return new(new(span.Start + CommentOpenerLength, 0), " ");
+        }
+
+        var length = span.Length;
+        for (var i = span.Start; i < span.End; i++)
+        {
+            if (text[i] == '\t')
+            {
+                length += TabWidth - 1;
+            }
+        }
+
+        var characters = new char[length];
+        var index = 0;
+        for (var i = span.Start; i < span.End; i++)
+        {
+            var character = text[i];
+            if (character == '\t')
+            {
+                for (var space = 0; space < TabWidth; space++)
+                {
+                    characters[index] = ' ';
+                    index++;
+                }
+            }
+            else
+            {
+                characters[index] = character;
+                index++;
+            }
+        }
+
+        return new(span, new string(characters));
     }
 
     /// <summary>Computes the text change for a comma/semicolon spacing diagnostic.</summary>

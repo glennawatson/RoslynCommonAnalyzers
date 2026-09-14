@@ -9,15 +9,18 @@ namespace StyleSharp.Analyzers;
 /// <summary>Adds the implicit access modifier to a declaration that omits one (SST1400).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1400AccessModifierCodeFixProvider))]
 [Shared]
-public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(RegisterBatchEdits);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         MaintainabilityRules.AccessModifierDeclared.Id,
         OrderingRules.PartialElementAccess.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -30,17 +33,11 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!diagnostic.Properties.TryGetValue(Sst1400AccessModifierAnalyzer.ModifierKey, out var modifier) || string.IsNullOrEmpty(modifier))
+            if (!TryGetTarget(root, diagnostic, out var member, out var modifier, out var accessibility))
             {
                 continue;
             }
 
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
-            {
-                continue;
-            }
-
-            var accessibility = string.Equals(modifier, "internal", StringComparison.Ordinal) ? Accessibility.Internal : Accessibility.Private;
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Add '{modifier}' modifier",
@@ -50,20 +47,16 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
+    /// <summary>Registers the edits that fix one diagnostic against the editor's original root.</summary>
+    /// <param name="editor">The shared document editor.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    internal static void RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (!diagnostic.Properties.TryGetValue(Sst1400AccessModifierAnalyzer.ModifierKey, out var modifier) || string.IsNullOrEmpty(modifier))
+        if (!TryGetTarget(editor.OriginalRoot, diagnostic, out var member, out _, out var accessibility))
         {
             return;
         }
 
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
-        {
-            return;
-        }
-
-        var accessibility = string.Equals(modifier, "internal", StringComparison.Ordinal) ? Accessibility.Internal : Accessibility.Private;
         editor.ReplaceNode(member, (current, generator) => generator.WithAccessibility(current, accessibility));
     }
 
@@ -81,15 +74,34 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(member, updated)));
     }
 
-    /// <summary>Applies the implicit accessibility to the member.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves a diagnostic to the member that omits its access modifier and the modifier the analyzer chose.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="member">The member that omits an access modifier.</param>
-    /// <param name="accessibility">The accessibility to declare.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    internal static async Task<Document> AddAsync(Document document, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
+    /// <param name="modifier">The modifier the analyzer chose.</param>
+    /// <param name="accessibility">The accessibility that modifier declares.</param>
+    /// <returns><see langword="true"/> when the diagnostic names a modifier and still resolves to a member.</returns>
+    private static bool TryGetTarget(
+        SyntaxNode root,
+        Diagnostic diagnostic,
+        [NotNullWhen(true)] out MemberDeclarationSyntax? member,
+        out string? modifier,
+        out Accessibility accessibility)
     {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        return await AddAsync(document, root!, member, accessibility).ConfigureAwait(false);
+        member = null;
+        accessibility = Accessibility.NotApplicable;
+        if (!diagnostic.Properties.TryGetValue(Sst1400AccessModifierAnalyzer.ModifierKey, out modifier) || string.IsNullOrEmpty(modifier))
+        {
+            return false;
+        }
+
+        member = DiagnosticEnclosingNode.Find<MemberDeclarationSyntax>(root, diagnostic);
+        if (member is null)
+        {
+            return false;
+        }
+
+        accessibility = string.Equals(modifier, "internal", StringComparison.Ordinal) ? Accessibility.Internal : Accessibility.Private;
+        return true;
     }
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -12,68 +13,38 @@ namespace StyleSharp.Analyzers;
 /// <summary>Reflows a wrapped conditional so its operators lead the branch lines.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1140ConditionalOperatorIndentationCodeFixProvider))]
 [Shared]
-public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ReadabilityRules.ConditionalOperatorIndentedLine.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(
+            context,
+            static (text, root, diagnostic) => CanBuildChanges(text, root, diagnostic) ? "Reflow conditional operators" : null,
+            nameof(Sst1140ConditionalOperatorIndentationCodeFixProvider),
+            RegisterTextChanges);
 
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            if (!CanBuildChanges(text, root, diagnostic))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Reflow conditional operators",
-                    _ => Task.FromResult(Apply(context.Document, text, root, diagnostic)),
-                    equivalenceKey: nameof(Sst1140ConditionalOperatorIndentationCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-    {
-        if (!TryFindConditional(root, diagnostic, out var conditional))
-        {
-            return;
-        }
-
-        AppendChanges(text, conditional, changes);
-    }
-
-    /// <summary>Applies the text changes for one diagnostic.</summary>
-    /// <param name="document">The document to update.</param>
-    /// <param name="text">The current source text.</param>
-    /// <param name="root">The current syntax root.</param>
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SourceText text, SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        var changes = new List<TextChange>();
         if (!TryFindConditional(root, diagnostic, out var conditional))
         {
-            return document;
+            return;
         }
 
         AppendChanges(text, conditional, changes);
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
 
     /// <summary>Returns whether the diagnostic can be fixed without touching non-whitespace trivia.</summary>
@@ -81,20 +52,9 @@ public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeF
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to inspect.</param>
     /// <returns><see langword="true"/> when a safe text rewrite exists.</returns>
-    private static bool CanBuildChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (!TryFindConditional(root, diagnostic, out var conditional))
-        {
-            return false;
-        }
-
-        var conditionLast = conditional.Condition.GetLastToken();
-        var whenTrueFirst = conditional.WhenTrue.GetFirstToken();
-        var whenTrueLast = conditional.WhenTrue.GetLastToken();
-        var whenFalseFirst = conditional.WhenFalse.GetFirstToken();
-        return CanReplaceOperatorGap(text, conditionLast, conditional.QuestionToken, whenTrueFirst)
-            && CanReplaceOperatorGap(text, whenTrueLast, conditional.ColonToken, whenFalseFirst);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanBuildChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic) =>
+        TryFindConditional(root, diagnostic, out var conditional) && CanReplaceOperatorGaps(text, conditional);
 
     /// <summary>Appends the text changes that move both operators to the expected branch-leading indentation.</summary>
     /// <param name="text">The source text.</param>
@@ -102,20 +62,35 @@ public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeF
     /// <param name="changes">The change list to append to.</param>
     private static void AppendChanges(SourceText text, ConditionalExpressionSyntax conditional, List<TextChange> changes)
     {
-        var conditionLast = conditional.Condition.GetLastToken();
-        var whenTrueFirst = conditional.WhenTrue.GetFirstToken();
-        var whenTrueLast = conditional.WhenTrue.GetLastToken();
-        var whenFalseFirst = conditional.WhenFalse.GetFirstToken();
-        if (!CanReplaceOperatorGap(text, conditionLast, conditional.QuestionToken, whenTrueFirst)
-            || !CanReplaceOperatorGap(text, whenTrueLast, conditional.ColonToken, whenFalseFirst))
+        if (!CanReplaceOperatorGaps(text, conditional))
         {
             return;
         }
 
+        BuildChanges(text, conditional, out var question, out var colon);
+        changes.Add(question);
+        changes.Add(colon);
+    }
+
+    /// <summary>Returns whether both operators and their surrounding trivia can be replaced by plain layout trivia.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="conditional">The conditional expression to reflow.</param>
+    /// <returns><see langword="true"/> when neither gap holds a comment or other trivia.</returns>
+    private static bool CanReplaceOperatorGaps(SourceText text, ConditionalExpressionSyntax conditional) =>
+        CanReplaceOperatorGap(text, conditional.Condition.GetLastToken(), conditional.QuestionToken, conditional.WhenTrue.GetFirstToken())
+            && CanReplaceOperatorGap(text, conditional.WhenTrue.GetLastToken(), conditional.ColonToken, conditional.WhenFalse.GetFirstToken());
+
+    /// <summary>Builds the changes that put each operator at the head of its branch line.</summary>
+    /// <param name="text">The source text.</param>
+    /// <param name="conditional">The conditional expression to reflow.</param>
+    /// <param name="question">The change that rewrites the gap around <c>?</c>.</param>
+    /// <param name="colon">The change that rewrites the gap around <c>:</c>.</param>
+    private static void BuildChanges(SourceText text, ConditionalExpressionSyntax conditional, out TextChange question, out TextChange colon)
+    {
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var indent = LayoutFixHelpers.IndentOfLine(text, conditional.GetFirstToken().SpanStart) + LayoutFixHelpers.IndentStep;
-        changes.Add(new(TextSpan.FromBounds(conditionLast.Span.End, whenTrueFirst.SpanStart), $"{newLine}{indent}? "));
-        changes.Add(new(TextSpan.FromBounds(whenTrueLast.Span.End, whenFalseFirst.SpanStart), $"{newLine}{indent}: "));
+        question = new(TextSpan.FromBounds(conditional.Condition.GetLastToken().Span.End, conditional.WhenTrue.GetFirstToken().SpanStart), $"{newLine}{indent}? ");
+        colon = new(TextSpan.FromBounds(conditional.WhenTrue.GetLastToken().Span.End, conditional.WhenFalse.GetFirstToken().SpanStart), $"{newLine}{indent}: ");
     }
 
     /// <summary>Returns whether an operator and its surrounding trivia can be replaced by plain layout trivia.</summary>

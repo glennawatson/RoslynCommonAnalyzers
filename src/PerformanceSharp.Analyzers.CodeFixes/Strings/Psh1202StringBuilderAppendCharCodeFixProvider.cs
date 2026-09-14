@@ -13,64 +13,35 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1202StringBuilderAppendCharCodeFixProvider))]
 [Shared]
-public sealed class Psh1202StringBuilderAppendCharCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1202StringBuilderAppendCharCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(StringRules.StringBuilderAppendChar.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1202StringBuilderAppendCharCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1202StringBuilderAppendCharCodeFixProvider), CanRewrite, TryRewrite);
 
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
-
-    /// <summary>Replaces the reported string literal with its char literal form.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="literal">The reported single-character string literal.</param>
-    /// <returns>The updated document.</returns>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, LiteralExpressionSyntax literal) =>
-        document.WithSyntaxRoot(root.ReplaceNode(literal, Rewrite(literal)));
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        SingleCharacterLiteralFix.TryFind(root, diagnostic, out var _);
 
     /// <summary>Resolves the reported string literal and builds its char literal replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetLiteral(root, diagnostic, out var literal)
-            ? new NodeReplacement(literal!, Rewrite(literal!))
+        SingleCharacterLiteralFix.TryFind(root, diagnostic, out var literal)
+            ? new NodeReplacement(literal!, SingleCharacterLiteralFix.ToCharacterLiteral(literal!))
             : null;
-
-    /// <summary>Finds the reported single-character string literal for a diagnostic.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="literal">The reported literal when found.</param>
-    /// <returns><see langword="true"/> when the literal was found.</returns>
-    private static bool TryGetLiteral(SyntaxNode root, Diagnostic diagnostic, out LiteralExpressionSyntax? literal)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is ExpressionSyntax expression
-            && StringLiteralHelper.TryGetSingleCharacterLiteral(expression, out literal, out _))
-        {
-            return true;
-        }
-
-        literal = null;
-        return false;
-    }
-
-    /// <summary>Builds the char literal that replaces the string literal.</summary>
-    /// <param name="literal">The reported single-character string literal.</param>
-    /// <returns>The replacement char literal.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static LiteralExpressionSyntax Rewrite(LiteralExpressionSyntax literal) =>
-        SyntaxFactory.LiteralExpression(
-            SyntaxKind.CharacterLiteralExpression,
-            SyntaxFactory.Literal(literal.Token.ValueText[0])).WithTriviaFrom(literal);
 }

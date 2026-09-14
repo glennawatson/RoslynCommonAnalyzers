@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -129,22 +131,15 @@ public sealed class Sst1493MethodReturnsConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a modifier means the member's shape is decided somewhere other than here.</summary>
     /// <param name="modifiers">The method's modifiers.</param>
     /// <returns><see langword="true"/> for an override, a virtual or abstract member, and a partial or extern one.</returns>
-    private static bool HasShapeFixingModifier(in SyntaxTokenList modifiers)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].Kind() is SyntaxKind.OverrideKeyword
-                or SyntaxKind.VirtualKeyword
-                or SyntaxKind.AbstractKeyword
-                or SyntaxKind.PartialKeyword
-                or SyntaxKind.ExternKeyword)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasShapeFixingModifier(in SyntaxTokenList modifiers) =>
+        ModifierListHelper.ContainsAny(
+            modifiers,
+            SyntaxKind.OverrideKeyword,
+            SyntaxKind.VirtualKeyword,
+            SyntaxKind.AbstractKeyword,
+            SyntaxKind.PartialKeyword,
+            SyntaxKind.ExternKeyword);
 
     /// <summary>Returns whether a return type is <see langword="void"/>.</summary>
     /// <param name="returnType">The declared return type.</param>
@@ -157,26 +152,7 @@ public sealed class Sst1493MethodReturnsConstantAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when an interface dictates that the member is a method.</returns>
     /// <remarks>Runs last: only a method that already looks like a constant pays for the bind and the walk.</remarks>
-    private static bool ImplementsInterfaceMember(MethodDeclarationSyntax method, in SyntaxNodeAnalysisContext context)
-    {
-        if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { ContainingType: { } containingType } symbol)
-        {
-            return false;
-        }
-
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(symbol.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidates[j]), symbol))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    private static bool ImplementsInterfaceMember(MethodDeclarationSyntax method, in SyntaxNodeAnalysisContext context) =>
+        context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is { ContainingType: { } containingType } symbol
+            && InterfaceImplementationLookup.FindImplementedInterfaceMember(containingType, symbol) is not null;
 }

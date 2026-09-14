@@ -25,14 +25,14 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>The property carrying the enclosing type's name for the code fix.</summary>
     internal const string EnclosingTypeKey = "EnclosingType";
 
-    /// <summary>The metadata name of the generic logger type.</summary>
-    private const string GenericLoggerMetadataName = "Microsoft.Extensions.Logging.ILogger`1";
-
     /// <summary>The identifier a typed-logger type is written with.</summary>
     private const string LoggerIdentifier = "ILogger";
 
     /// <summary>The identifier a category-producing factory call is written with.</summary>
     private const string CreateLoggerIdentifier = "CreateLogger";
+
+    /// <summary>The metadata name of the generic logger type.</summary>
+    private const string GenericLoggerMetadataName = "Microsoft.Extensions.Logging.ILogger`1";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.WrongLoggerCategory);
@@ -47,11 +47,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var genericLogger = start.Compilation.GetTypeByMetadataName(GenericLoggerMetadataName);
-            if (genericLogger is null)
-            {
-                return;
-            }
+            var genericLogger = new LazyMetadataType(start.Compilation, GenericLoggerMetadataName);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeType(nodeContext, GetFieldType(nodeContext.Node), genericLogger), SyntaxKind.FieldDeclaration);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeType(nodeContext, ((PropertyDeclarationSyntax)nodeContext.Node).Type, genericLogger), SyntaxKind.PropertyDeclaration);
@@ -63,8 +59,8 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes a written <c>ILogger&lt;T&gt;</c> type for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="type">The declared type syntax, when present.</param>
-    /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, TypeSyntax? type, INamedTypeSymbol genericLogger)
+    /// <param name="genericLogger">The lazily resolved generic logger type.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, TypeSyntax? type, LazyMetadataType genericLogger)
     {
         if (type is not GenericNameSyntax { Identifier.ValueText: LoggerIdentifier } generic
             || generic.TypeArgumentList.Arguments.Count != 1)
@@ -72,8 +68,9 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(generic, context.CancellationToken).Symbol is not INamedTypeSymbol { TypeArguments: [{ } category] } constructed
-            || !SymbolEqualityComparer.Default.Equals(constructed.OriginalDefinition, genericLogger))
+        if (genericLogger.Get() is not { } loggerType
+            || context.SemanticModel.GetSymbolInfo(generic, context.CancellationToken).Symbol is not INamedTypeSymbol { TypeArguments: [{ } category] } constructed
+            || !SymbolEqualityComparer.Default.Equals(constructed.OriginalDefinition, loggerType))
         {
             return;
         }
@@ -83,8 +80,8 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes a <c>CreateLogger&lt;T&gt;()</c> or <c>CreateLogger(typeof(T))</c> call for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeCreateLogger(in SyntaxNodeAnalysisContext context, INamedTypeSymbol genericLogger)
+    /// <param name="genericLogger">The lazily resolved generic logger type.</param>
+    private static void AnalyzeCreateLogger(in SyntaxNodeAnalysisContext context, LazyMetadataType genericLogger)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax { Identifier.ValueText: CreateLoggerIdentifier } name })
@@ -94,7 +91,11 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
 
         if (name is GenericNameSyntax { TypeArgumentList.Arguments: [{ } typeArgument] })
         {
-            AnalyzeGenericCreateLogger(context, invocation, typeArgument, genericLogger);
+            if (genericLogger.Get() is { } loggerType)
+            {
+                AnalyzeGenericCreateLogger(context, invocation, typeArgument, loggerType);
+            }
+
             return;
         }
 
@@ -120,12 +121,13 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes a <c>CreateLogger(typeof(T))</c> call for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="invocation">The factory call.</param>
-    /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeTypeofCreateLogger(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, INamedTypeSymbol genericLogger)
+    /// <param name="genericLogger">The lazily resolved generic logger type.</param>
+    private static void AnalyzeTypeofCreateLogger(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, LazyMetadataType genericLogger)
     {
         if (invocation.ArgumentList.Arguments is not [{ Expression: TypeOfExpressionSyntax typeOf }]
+            || genericLogger.Get() is not { } loggerType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol createLogger
-            || !ReturnsLogger(createLogger.ReturnType, genericLogger)
+            || !ReturnsLogger(createLogger.ReturnType, loggerType)
             || context.SemanticModel.GetTypeInfo(typeOf.Type, context.CancellationToken).Type is not INamedTypeSymbol namedCategory)
         {
             return;
@@ -191,11 +193,20 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="category">The category type.</param>
     /// <param name="enclosing">The enclosing type.</param>
     /// <returns><see langword="true"/> when the category is a base type.</returns>
-    private static bool IsBaseType(INamedTypeSymbol category, INamedTypeSymbol enclosing)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsBaseType(INamedTypeSymbol category, INamedTypeSymbol enclosing) =>
+        ChainContains(enclosing.BaseType, category, static type => type.BaseType);
+
+    /// <summary>Returns whether a chain of types, followed one step at a time, reaches the category.</summary>
+    /// <param name="start">The first type in the chain.</param>
+    /// <param name="category">The category type.</param>
+    /// <param name="next">Returns the type after a given one, or <see langword="null"/> at the end of the chain.</param>
+    /// <returns><see langword="true"/> when a type in the chain has the category's definition.</returns>
+    private static bool ChainContains(INamedTypeSymbol? start, INamedTypeSymbol category, Func<INamedTypeSymbol, INamedTypeSymbol?> next)
     {
-        for (var baseType = enclosing.BaseType; baseType is not null; baseType = baseType.BaseType)
+        for (var type = start; type is not null; type = next(type))
         {
-            if (SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, category.OriginalDefinition))
+            if (SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, category.OriginalDefinition))
             {
                 return true;
             }
@@ -231,18 +242,9 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="category">The category type.</param>
     /// <param name="enclosing">The enclosing type.</param>
     /// <returns><see langword="true"/> when the enclosing type is nested inside the category.</returns>
-    private static bool IsNestedInside(INamedTypeSymbol category, INamedTypeSymbol enclosing)
-    {
-        for (var container = enclosing.ContainingType; container is not null; container = container.ContainingType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(container.OriginalDefinition, category.OriginalDefinition))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsNestedInside(INamedTypeSymbol category, INamedTypeSymbol enclosing) =>
+        ChainContains(enclosing.ContainingType, category, static type => type.ContainingType);
 
     /// <summary>Returns whether a category is a dedicated marker type rather than a real logging type.</summary>
     /// <param name="category">The category type.</param>

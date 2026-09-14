@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1203 — a database connection string authenticates with a user name but has an empty or missing password.</summary>
-    public static readonly DiagnosticDescriptor EmptyConnectionStringPassword = Create(
+    public static readonly DiagnosticDescriptor EmptyConnectionStringPassword = DescriptorFactory.Create(
         "SES1203",
         "Do not use an empty or missing database connection-string password",
         "This connection string names a user but supplies an empty or missing password; require a strong password or use integrated authentication",

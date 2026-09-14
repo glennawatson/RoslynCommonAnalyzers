@@ -40,7 +40,7 @@ public sealed class Sst2463InheritedFieldCaseClashAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNamedType(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Class || type.BaseType is null or { SpecialType: SpecialType.System_Object })
+        if (!ClassInheritance.HasNonObjectBase(type))
         {
             return;
         }

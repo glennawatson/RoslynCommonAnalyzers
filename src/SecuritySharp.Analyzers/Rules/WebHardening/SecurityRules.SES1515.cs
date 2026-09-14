@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1515 — a Content-Security-Policy value permits inline, eval, or wildcard sources.</summary>
-    public static readonly DiagnosticDescriptor PermissiveContentSecurityPolicy = Create(
+    public static readonly DiagnosticDescriptor PermissiveContentSecurityPolicy = DescriptorFactory.Create(
         "SES1515",
         "A Content-Security-Policy value disables its own protection",
         PermissiveContentSecurityPolicyMessage,

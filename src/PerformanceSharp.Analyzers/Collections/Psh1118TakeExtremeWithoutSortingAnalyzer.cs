@@ -64,16 +64,11 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            var hasMinBy = !enumerableType.GetMembers(MinByMethodName).IsEmpty;
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType, hasMinBy), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, EnumerableMetadataName),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the sort-then-take-one chain shape, before any binding.</summary>
@@ -96,7 +91,7 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
         var isLast = terminal.Name.Identifier.ValueText is LastMethodName or LastOrDefaultMethodName;
         var isDescending = sortAccess.Name.Identifier.ValueText == OrderByDescendingMethodName;
         var wantsMax = isLast != isDescending;
-        if (IsIdentityLambda(sort.ArgumentList.Arguments[0].Expression))
+        if (LinqCallSyntax.IsIdentityLambda(sort.ArgumentList.Arguments[0].Expression))
         {
             return wantsMax ? MaxMethodName : MinMethodName;
         }
@@ -127,22 +122,6 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
         expression is SimpleLambdaExpressionSyntax
             or ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 };
 
-    /// <summary>Returns whether an expression is a lambda that returns its own single parameter.</summary>
-    /// <param name="expression">The candidate selector expression.</param>
-    /// <returns><see langword="true"/> for <c>x =&gt; x</c> in simple or parenthesized form.</returns>
-    private static bool IsIdentityLambda(ExpressionSyntax expression) =>
-        expression switch
-        {
-            SimpleLambdaExpressionSyntax simple =>
-                simple.ExpressionBody is IdentifierNameSyntax body
-                    && body.Identifier.ValueText == simple.Parameter.Identifier.ValueText,
-            ParenthesizedLambdaExpressionSyntax parenthesized =>
-                parenthesized.ParameterList.Parameters.Count == 1
-                    && parenthesized.ExpressionBody is IdentifierNameSyntax body
-                    && body.Identifier.ValueText == parenthesized.ParameterList.Parameters[0].Identifier.ValueText,
-            _ => false,
-        };
-
     /// <summary>Returns whether the extreme scan reacts to an empty sequence exactly like the terminal.</summary>
     /// <param name="terminalName">The terminal method name.</param>
     /// <param name="elementType">The sequence element type.</param>
@@ -157,9 +136,8 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1118 for a sort-then-take-one chain that binds to the LINQ extension class.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    /// <param name="hasMinBy">Whether the compilation's <c>Enumerable</c> exposes <c>MinBy</c>.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType, bool hasMinBy)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyMetadataType frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsExtremeChainShape(invocation))
@@ -168,7 +146,8 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
         }
 
         var replacement = GetReplacementName(invocation);
-        if (!hasMinBy && replacement is MinByMethodName or MaxByMethodName)
+        if (frameworkTypes.Get() is not { } enumerableType
+            || (replacement is MinByMethodName or MaxByMethodName && enumerableType.GetMembers(MinByMethodName).IsEmpty))
         {
             return;
         }

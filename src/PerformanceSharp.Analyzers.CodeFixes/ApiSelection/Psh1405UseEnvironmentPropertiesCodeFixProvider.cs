@@ -15,7 +15,7 @@ namespace PerformanceSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Psh1405UseEnvironmentPropertiesCodeFixProvider))]
 [Shared]
-public sealed class Psh1405UseEnvironmentPropertiesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Psh1405UseEnvironmentPropertiesCodeFixProvider : CodeFixProvider
 {
     /// <summary>The namespace qualifier used by the replacement expression.</summary>
     private const string SystemNamespaceName = "System";
@@ -23,59 +23,32 @@ public sealed class Psh1405UseEnvironmentPropertiesCodeFixProvider : CodeFixProv
     /// <summary>The environment type name used by the replacement expression.</summary>
     private const string EnvironmentTypeName = "Environment";
 
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(ApiSelectionRules.UseEnvironmentProperties.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            TryCreateTitle,
+            static _ => nameof(Psh1405UseEnvironmentPropertiesCodeFixProvider),
+            TryRewrite);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (TryGetChain(root, diagnostic) is not { } access
-                || !Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use System.Environment.{propertyName}",
-                    cancellationToken => Task.FromResult(Apply(context.Document, root, access)),
-                    equivalenceKey: nameof(Psh1405UseEnvironmentPropertiesCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (TryGetChain(editor.OriginalRoot, diagnostic) is not { } access
-            || !Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(access, CreateReplacement(propertyName).WithTriviaFrom(access));
-    }
-
-    /// <summary>Replaces the reported chain with its direct Environment property form.</summary>
-    /// <param name="document">The document being fixed.</param>
+    /// <summary>Resolves the reported chain and builds its direct Environment property replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="access">The reported chain to rewrite.</param>
-    /// <returns>The updated document, unchanged when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, MemberAccessExpressionSyntax access) =>
-        Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName)
-            ? document.WithSyntaxRoot(root.ReplaceNode(access, CreateReplacement(propertyName).WithTriviaFrom(access)))
-            : document;
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The replacement, or <see langword="null"/> when the shape no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetChain(root, diagnostic) is { } access
+            && Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName)
+            ? new NodeReplacement(access, CreateReplacement(propertyName).WithTriviaFrom(access))
+            : null;
 
     /// <summary>Returns the reported chain when the diagnostic location covers one.</summary>
     /// <param name="root">The syntax root.</param>
@@ -83,6 +56,15 @@ public sealed class Psh1405UseEnvironmentPropertiesCodeFixProvider : CodeFixProv
     /// <returns>The reported chain, or <see langword="null"/> when the location is not a member access.</returns>
     private static MemberAccessExpressionSyntax? TryGetChain(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) as MemberAccessExpressionSyntax;
+
+    /// <summary>Words the action with the environment property that replaces the reported chain.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The code action title, or <see langword="null"/> when the chain no longer maps to a property.</returns>
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetChain(root, diagnostic) is { } access && Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName)
+            ? $"Use System.Environment.{propertyName}"
+            : null;
 
     /// <summary>Builds the fully qualified <c>System.Environment</c> property replacement.</summary>
     /// <param name="propertyName">The Environment property name.</param>

@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -17,42 +15,33 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1663SummaryCommentCodeFixProvider))]
 [Shared]
-public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly TextChangeBatchFixAllProvider FixAll = new(RegisterTextChanges);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DocumentationRules.SummaryComment.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<TextChange>(
+            context,
+            "Convert to a '/// <summary>' documentation comment",
+            nameof(Sst1663SummaryCommentCodeFixProvider),
+            TryBuildChange,
+            DocumentationElementFix.ApplyAsync);
 
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryBuildChange(root, diagnostic, out _))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Convert to a '/// <summary>' documentation comment",
-                    cancellationToken => ConvertAsync(context.Document, diagnostic, cancellationToken),
-                    equivalenceKey: nameof(Sst1663SummaryCommentCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
+    /// <summary>Adds the text changes that fix one diagnostic.</summary>
+    /// <param name="text">The document's original text.</param>
+    /// <param name="root">The document's original syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <param name="changes">The text changes for the whole document.</param>
+    internal static void RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
         if (!TryBuildChange(root, diagnostic, out var change))
         {
@@ -60,18 +49,6 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
         }
 
         changes.Add(change);
-    }
-
-    /// <summary>Applies the comment conversion to the document.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>The updated document.</returns>
-    private static async Task<Document> ConvertAsync(Document document, Diagnostic diagnostic, CancellationToken cancellationToken)
-    {
-        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return root is null || !TryBuildChange(root, diagnostic, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the change that rewrites the <c>//</c> comment as a <c>/// &lt;summary&gt;</c> line.</summary>
@@ -92,15 +69,8 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
         }
 
         var raw = trivia.ToString();
-        var content = Escape(raw[SingleLineCommentMarkerLength..].Trim());
+        var content = XmlTextEscaping.Escape(raw.AsSpan(SingleLineCommentMarkerLength).Trim());
         change = new(trivia.Span, $"/// <summary>{content}</summary>");
         return true;
     }
-
-    /// <summary>Escapes the XML-significant characters in a run of comment text.</summary>
-    /// <param name="value">The comment text.</param>
-    /// <returns>The XML-escaped text.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string Escape(string value) =>
-        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 }

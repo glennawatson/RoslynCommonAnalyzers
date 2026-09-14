@@ -46,14 +46,8 @@ public sealed class Sst2310ObsoleteCodeShouldBeRemovedAnalyzer : DiagnosticAnaly
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var attribute = (AttributeSyntax)context.Node;
-        if (!ObsoleteAttributeFacts.IsObsoleteName(attribute.Name))
-        {
-            return;
-        }
-
-        var target = ObsoleteAttributeFacts.GetAnnotatedName(attribute.Parent?.Parent);
-        if (target.Length == 0
-            || !ObsoleteAttributeFacts.IsFrameworkObsoleteAttribute(context.SemanticModel, attribute, context.CancellationToken))
+        if (!ObsoleteAttributeFacts.IsObsoleteName(attribute.Name)
+            || ObsoleteAttributeFacts.GetFrameworkObsoleteTarget(context.SemanticModel, attribute, context.CancellationToken) is not { } target)
         {
             return;
         }

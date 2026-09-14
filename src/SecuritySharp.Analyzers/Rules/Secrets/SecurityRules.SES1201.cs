@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1201 — a string literal holds what looks like a hard-coded credential, key, or token.</summary>
-    public static readonly DiagnosticDescriptor HardcodedSecret = Create(
+    public static readonly DiagnosticDescriptor HardcodedSecret = DescriptorFactory.Create(
         "SES1201",
         "Do not hard-code secrets in source",
         "This string literal looks like a hard-coded {0}; move the secret into configuration or a secret store and rotate it",

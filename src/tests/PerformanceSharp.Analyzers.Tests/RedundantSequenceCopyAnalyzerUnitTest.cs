@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1217RedundantSequenceCopyAnalyzer,
@@ -392,6 +396,128 @@ public class RedundantSequenceCopyAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies only parameterless simple member calls have the sequence-copy shape.</summary>
+    /// <param name="expression">The invocation syntax.</param>
+    /// <param name="expected">Whether the invocation can be a supported copy.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value.ToCharArray()", true)]
+    [Arguments("value.ToArray()", true)]
+    [Arguments("value.ToCharArray(0, 1)", false)]
+    [Arguments("ToCharArray()", false)]
+    [Arguments("value.Other()", false)]
+    [Arguments("value->ToArray()", false)]
+    public async Task SequenceCopySyntaxRequiresSimpleParameterlessMemberAsync(string expression, bool expected)
+    {
+        var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(expression);
+        await Assert.That(Psh1217RedundantSequenceCopyAnalyzer.IsSequenceCopyShape(invocation)).IsEqualTo(expected);
+    }
+
+    /// <summary>Verifies writes, unsupported consumers, and non-framework copies keep their allocation.</summary>
+    /// <param name="source">The complete source containing an unsupported copy use.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { int M(string s) => s.ToCharArray(0, 1).Length; }")]
+    [Arguments("class C { int M(string s) => s.ToUpper().Length; }")]
+    [Arguments("class C { int M(string s) => s.ToCharArray().Rank; }")]
+    [Arguments("class C { int? M(string s) => s?.ToCharArray().Length; }")]
+    [Arguments("class C { int M() => Missing.ToCharArray().Length; }")]
+    [Arguments("class C { static int[] ToArray() => null; int M() => C.ToArray().Length; }")]
+    [Arguments("class C { int[] ToArray(int x = 0) => null; int M(C c) => c.ToArray().Length; }")]
+    [Arguments("class C { char[] ToCharArray() => null; int M(C c) => c.ToCharArray().Length; }")]
+    [Arguments("class C { int[] ToArray() => null; int M(C c) => c.ToArray().Length; }")]
+    [Arguments("class ReadOnlySpan { public int[] ToArray() => null; } class C { int M(ReadOnlySpan s) => s.ToArray().Length; }")]
+    [Arguments("namespace Other { class ReadOnlySpan<T> { public T[] ToArray() => null; } class C { int M(ReadOnlySpan<int> s) => s.ToArray().Length; } }")]
+    [Arguments("namespace Other.System { class ReadOnlySpan<T> { public T[] ToArray() => null; } class C { int M(ReadOnlySpan<int> s) => s.ToArray().Length; } }")]
+    [Arguments("namespace System { class ReadOnlySpan<T, U> { public T[] ToArray() => null; } } class C { int M(System.ReadOnlySpan<int, int> s) => s.ToArray().Length; }")]
+    [Arguments("class C { void M(string s) { ++s.ToCharArray()[0]; } }")]
+    [Arguments("class C { void M(string s) { --s.ToCharArray()[0]; } }")]
+    [Arguments("class C { void M(string s) { s.ToCharArray()[0]++; } }")]
+    [Arguments("class C { void M(string s) { s.ToCharArray()[0]--; } }")]
+    [Arguments("class C { void M(string s) { s.ToCharArray()[0] += (char)1; } }")]
+    [Arguments("class C { ref char M(string s) => ref s.ToCharArray()[0]; }")]
+    [Arguments("class C { void Use(ref char c) {} void M(string s) => Use(ref s.ToCharArray()[0]); }")]
+    [Arguments("class C { void Use(out char c) { c = 'a'; } void M(string s) => Use(out s.ToCharArray()[0]); }")]
+    [Arguments("class C { void Use(in char c) {} void M(string s) => Use(in s.ToCharArray()[0]); }")]
+    [Arguments("class C { void Use(char[] c) {} void Use(string c) {} void M(string s) => Use(c: s.ToCharArray()); }")]
+    [Arguments("class C { void Use(ref char[] c) {} void M(string s) => Use(ref s.ToCharArray()); }")]
+    [Arguments("class C { C(char[] c) {} C M(string s) => new C(s.ToCharArray()); }")]
+    [Arguments("class C { void M(string s) => Missing(s.ToCharArray()); }")]
+    [Arguments("static class Extensions { public static void Use(this string s, char[] c) {} } class C { void M(string s) => s.Use(s.ToCharArray()); }")]
+    [Arguments("static class Extensions { public static void Use(this string s, char[] c) {} } class C { void M(string s) => Extensions.Use(s, s.ToCharArray()); }")]
+    [Arguments("class C { void Use(in char[] c) {} void M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { void Use(params char[] c) {} void M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { void Use(params object[] c) {} void M(string s) => Use(1, s.ToCharArray()); }")]
+    [Arguments("class C { void Use(object c) {} void M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { void Use(char[] c) {} void Use(string c, int n = 0) {} void M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { static void Use(char[] c) {} void Use(string c) {} void M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { int Use(char[] c) => 0; string Use(string c) => null; object M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { void Use(char[] c, int n) {} void Use(string c, long n) {} void M(string s) => Use(s.ToCharArray(), 1); }")]
+    [Arguments("class B { protected void Use(char[] c) {} } class C : B { void Use(string c) {} void M(string s) => Use(s.ToCharArray()); }")]
+    [Arguments("class C { int[] M(System.ReadOnlySpan<int> s) => s.ToArray()[1..]; }")]
+    [Arguments("class C { void Use(object[] c) {} void M(System.ReadOnlySpan<string> s) => Use(s.ToArray()); }")]
+    [Arguments("class C { void Use(string[] c) {} void Use(object c) {} void M(System.ReadOnlySpan<string> s) => Use(s.ToArray()); }")]
+    public async Task UnsupportedCopyUseIsCleanAsync(string source)
+    {
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1217RedundantSequenceCopyAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies read-only element uses and multi-argument overloads still remove redundant copies.</summary>
+    /// <param name="source">The complete source containing one redundant copy.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { int M(System.ReadOnlySpan<int> s) => s.ToArray()[0]; }")]
+    [Arguments("class C { int M(string s) => -s.ToCharArray()[0]; }")]
+    [Arguments("class C { char M(string s) => s.ToCharArray()[0]!; }")]
+    [Arguments("class C { void M(string s, ref char c) { c = s.ToCharArray()[0]; } }")]
+    [Arguments("class C { void Use(char c) {} void M(string s) => Use(s.ToCharArray()[0]); }")]
+    [Arguments("class C { void Use(int a, char[] c, int b) {} void Use(int a, string c, int b) {} void M(string s) => Use(1, s.ToCharArray(), 2); }")]
+    [Arguments("class C { void Use(int[] c, int n) {} void Use(System.ReadOnlySpan<int> c, int n) {} void M(System.ReadOnlySpan<int> s) => Use(s.ToArray(), 1); }")]
+    public async Task ReadOnlyCopyUseReportsAsync(string source)
+    {
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1217RedundantSequenceCopyAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("PSH1217");
+    }
+
+    /// <summary>Verifies alternate span declarations cannot redirect a copy to an incompatible array or span.</summary>
+    /// <param name="declarations">The alternate sequence declarations and consumer.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("""
+        namespace System { class ReadOnlySpan<T> { public T[,] ToArray() => null; } }
+        class C { void Use(int[,] c) {} void M(System.ReadOnlySpan<int> s) => Use(s.ToArray()); }
+        """)]
+    [Arguments("""
+        namespace System { class ReadOnlySpan<T> { public object[] ToArray() => null; } }
+        class C { void Use(object[] c) {} void M(System.ReadOnlySpan<int> s) => Use(s.ToArray()); }
+        """)]
+    [Arguments("""
+        namespace System { class ReadOnlySpan<T> { public T[] ToArray() => null; public static implicit operator ReadOnlySpan<string>(ReadOnlySpan<T> value) => null; } }
+        class C { void Use(int[] c) {} void Use(System.ReadOnlySpan<string> c) {} void M(System.ReadOnlySpan<int> s) => Use(s.ToArray()); }
+        """)]
+    [Arguments("""
+        namespace Other { class ReadOnlySpan<T> { public static implicit operator ReadOnlySpan<T>(string value) => null; } }
+        class C { void Use(char[] c) {} void Use(Other.ReadOnlySpan<char> c) {} void M(string s) => Use(s.ToCharArray()); }
+        """)]
+    [Arguments("""
+        namespace Other.System { class ReadOnlySpan<T> { public static implicit operator ReadOnlySpan<T>(string value) => null; } }
+        class C { void Use(char[] c) {} void Use(Other.System.ReadOnlySpan<char> c) {} void M(string s) => Use(s.ToCharArray()); }
+        """)]
+    [Arguments("""
+        namespace System { class ReadOnlySpan<T> { public static implicit operator ReadOnlySpan<T>(string value) => null; } }
+        class C { void Use(char[] c) {} void Use(System.ReadOnlySpan<int> c) {} void M(string s) => Use(s.ToCharArray()); }
+        """)]
+    public async Task IncompatibleSequenceContractIsCleanAsync(string declarations)
+    {
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(declarations)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1217RedundantSequenceCopyAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>

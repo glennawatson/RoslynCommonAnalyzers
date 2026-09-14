@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -66,7 +67,7 @@ public class ShortCircuitOperatorCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ShortCircuitOperator_ApplyFixAsync()
     {
-        var updated = Sst1468UseShortCircuitOperatorCodeFixProvider.Apply(_document, _root, _binary);
+        var updated = TargetCodeFix.Apply(_document, _root, _binary, ShortCircuitOperatorRewrite.Rewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

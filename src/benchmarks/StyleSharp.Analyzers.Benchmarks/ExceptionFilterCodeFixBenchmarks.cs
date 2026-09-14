@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
@@ -27,8 +28,8 @@ public class ExceptionFilterCodeFixBenchmarks : IDisposable
     /// <summary>The cached syntax root for the benchmark document.</summary>
     private SyntaxNode _root = null!;
 
-    /// <summary>The representative catch clause passed to the code fix.</summary>
-    private CatchClauseSyntax _catchClause = null!;
+    /// <summary>The diagnostic reported on the representative node passed to the code fix.</summary>
+    private Diagnostic _diagnostic = null!;
 
     /// <summary>Tracks whether the benchmark instance has already been disposed.</summary>
     private bool _disposed;
@@ -45,7 +46,8 @@ public class ExceptionFilterCodeFixBenchmarks : IDisposable
         _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExceptionFilterBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        _catchClause = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<CatchClauseSyntax>(_root, RepresentativeNodeIndex, static _ => true);
+        var catchClause = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<CatchClauseSyntax>(_root, RepresentativeNodeIndex, static _ => true);
+        _diagnostic = Diagnostic.Create(ModernizationRules.UseExceptionFilter, catchClause.GetLocation());
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
@@ -65,7 +67,7 @@ public class ExceptionFilterCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> ExceptionFilter_ApplyFixAsync()
     {
-        var updated = Sst2009UseExceptionFilterCodeFixProvider.Apply(_document, _root, _catchClause);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, Sst2009UseExceptionFilterCodeFixProvider.TryRewrite);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

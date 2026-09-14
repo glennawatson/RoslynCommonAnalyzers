@@ -10,8 +10,8 @@ namespace SecuritySharp.Analyzers;
 /// full exception message and stack trace to every connected client, which belongs only in Development. The rule
 /// reports the flag assigned <c>true</c> -- written directly (<c>options.DetailedErrors = true</c>) or as an
 /// object-initializer member -- matched by symbol and containing type via <see cref="BlazorFlagAssignment"/>. The
-/// <c>Microsoft.AspNetCore.Components.Server.CircuitOptions</c> type is probed once per compilation and gates the
-/// rule, so a project without server-side Blazor registers nothing and pays nothing.
+/// <c>Microsoft.AspNetCore.Components.Server.CircuitOptions</c> type is probed on the first syntactic candidate
+/// and cached per compilation, so unrelated assignments require no metadata lookup.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1708CircuitDetailedErrorsAnalyzer : DiagnosticAnalyzer
@@ -34,23 +34,26 @@ public sealed class Ses1708CircuitDetailedErrorsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(CircuitOptionsMetadataName) is not { } circuitOptions)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, circuitOptions), SyntaxKind.SimpleAssignmentExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, CircuitOptionsMetadataName),
+            AnalyzeAssignment,
+            SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1708 for <c>DetailedErrors = true</c> on the gated circuit-options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="circuitOptions">The gated <c>CircuitOptions</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol circuitOptions)
+    /// <param name="types">The compilation's lazily resolved circuit-options type.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, LazyMetadataType types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
+        if (!assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression)
+            || assignment.Left is not (MemberAccessExpressionSyntax { Name.Identifier.ValueText: DetailedErrorsPropertyName }
+                or IdentifierNameSyntax { Identifier.ValueText: DetailedErrorsPropertyName })
+            || types.Get() is not { } circuitOptions)
+        {
+            return;
+        }
 
         if (!BlazorFlagAssignment.AssignsFlag(
                 assignment,

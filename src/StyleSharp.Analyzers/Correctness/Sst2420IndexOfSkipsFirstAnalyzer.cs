@@ -32,17 +32,18 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
-        {
-            var listInterface = start.Compilation.GetTypeByMetadataName(ListInterfaceMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, listInterface), SyntaxKind.GreaterThanExpression, SyntaxKind.LessThanExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyMetadataType(compilation, ListInterfaceMetadataName),
+            Analyze,
+            SyntaxKind.GreaterThanExpression,
+            SyntaxKind.LessThanExpression);
     }
 
     /// <summary>Reports one index-of comparison that skips the first position.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? listInterface)
+    /// <param name="listTypes">The list interface resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LazyMetadataType listTypes)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
         if (GetIndexOfCall(comparison) is not { } invocation)
@@ -52,7 +53,7 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
 
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.ReturnType.SpecialType != SpecialType.System_Int32
-            || !IsIndexSearch(method, listInterface))
+            || !IsIndexSearch(method, listTypes))
         {
             return;
         }
@@ -90,9 +91,9 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a method is a recognised index search on a container.</summary>
     /// <param name="method">The resolved method.</param>
-    /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
+    /// <param name="listTypes">The list interface resolved on first demand.</param>
     /// <returns><see langword="true"/> for a string, array, span, or list search.</returns>
-    private static bool IsIndexSearch(IMethodSymbol method, INamedTypeSymbol? listInterface)
+    private static bool IsIndexSearch(IMethodSymbol method, LazyMetadataType listTypes)
     {
         var container = method.ContainingType;
         if (container is null)
@@ -106,25 +107,11 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (listInterface is null)
+        if (listTypes.Get() is not { } listInterface)
         {
             return false;
         }
 
-        if (SymbolEqualityComparer.Default.Equals(container.OriginalDefinition, listInterface))
-        {
-            return true;
-        }
-
-        var interfaces = container.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i].OriginalDefinition, listInterface))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return TypeRelations.IsOrImplementsDefinition(container, listInterface);
     }
 }

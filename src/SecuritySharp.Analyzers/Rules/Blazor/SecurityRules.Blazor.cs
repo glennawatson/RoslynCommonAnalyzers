@@ -8,7 +8,7 @@ namespace SecuritySharp.Analyzers;
 internal static partial class SecurityRules
 {
     /// <summary>SES1701 -- a non-constant value is rendered as raw HTML, bypassing output encoding.</summary>
-    public static readonly DiagnosticDescriptor RawHtmlFromNonConstant = Create(
+    public static readonly DiagnosticDescriptor RawHtmlFromNonConstant = DescriptorFactory.Create(
         "SES1701",
         "Raw HTML is rendered from a non-constant value",
         RawHtmlFromNonConstantMessage,
@@ -16,7 +16,7 @@ internal static partial class SecurityRules
         RawHtmlFromNonConstantDescription);
 
     /// <summary>SES1702 -- a JavaScript interop call targets a script-evaluation primitive.</summary>
-    public static readonly DiagnosticDescriptor JsInteropScriptEvaluation = Create(
+    public static readonly DiagnosticDescriptor JsInteropScriptEvaluation = DescriptorFactory.Create(
         "SES1702",
         "A JavaScript interop call targets a script-evaluation primitive",
         JsInteropScriptEvaluationMessage,

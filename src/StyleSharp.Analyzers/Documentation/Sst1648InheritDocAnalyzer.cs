@@ -68,7 +68,7 @@ public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
         // currently binds. Checking it here avoids a false positive when the interface
         // lives in another assembly that is momentarily unresolved (incomplete semantics),
         // where the semantic ExplicitInterfaceImplementations set comes back empty.
-        if (HasExplicitInterfaceSpecifier(context.Node))
+        if (ExplicitInterfaceSpecifiers.IsPresent(context.Node))
         {
             return;
         }
@@ -91,18 +91,6 @@ public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
             ? !type.Interfaces.IsEmpty
               || (type.TypeKind == TypeKind.Class && type.BaseType is { SpecialType: not SpecialType.System_Object })
             : symbol.IsOverride || ImplementsInterfaceMember(symbol);
-
-    /// <summary>Returns whether the member declares an explicit interface specifier in its syntax.</summary>
-    /// <param name="node">The member declaration syntax.</param>
-    /// <returns><see langword="true"/> when the member explicitly implements an interface member.</returns>
-    private static bool HasExplicitInterfaceSpecifier(SyntaxNode node) => node switch
-    {
-        MethodDeclarationSyntax method => method.ExplicitInterfaceSpecifier is not null,
-        PropertyDeclarationSyntax property => property.ExplicitInterfaceSpecifier is not null,
-        IndexerDeclarationSyntax indexer => indexer.ExplicitInterfaceSpecifier is not null,
-        EventDeclarationSyntax @event => @event.ExplicitInterfaceSpecifier is not null,
-        _ => false
-    };
 
     /// <summary>Returns whether the member implicitly implements an interface member of its containing type.</summary>
     /// <param name="symbol">The member symbol.</param>

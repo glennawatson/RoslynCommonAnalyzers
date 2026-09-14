@@ -14,14 +14,17 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2333NonGenericContractCodeFixProvider))]
 [Shared]
-public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArrays.Of(DesignRules.MissingNonGenericContract.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
@@ -34,7 +37,7 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (Resolve(root, diagnostic) is not var (declaration, updated))
+            if (Resolve(root, diagnostic) is not var (declaration, contract, argument))
             {
                 continue;
             }
@@ -42,44 +45,39 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Add the non-generic member",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, updated))),
-                    equivalenceKey: nameof(Sst2333NonGenericContractCodeFixProvider) + diagnostic.Properties[Sst2333NonGenericContractAnalyzer.ContractKey]),
+                    _ => Task.FromResult(AddContract(declaration, contract, argument) is { } updated
+                        ? context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, updated))
+                        : context.Document),
+                    equivalenceKey: nameof(Sst2333NonGenericContractCodeFixProvider) + contract),
                 diagnostic);
         }
     }
 
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not var (declaration, updated))
-        {
-            return;
-        }
+    /// <summary>Resolves the reported type and builds it with the non-generic contract added.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <returns>The declaration and its replacement, or <see langword="null"/> when the contract cannot be added.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        Resolve(root, diagnostic) is var (declaration, contract, argument) && AddContract(declaration, contract, argument) is { } updated
+            ? new NodeReplacement(declaration, updated)
+            : null;
 
-        editor.ReplaceNode(declaration, updated);
-    }
-
-    /// <summary>Resolves the diagnostic to the type declaration and its rewrite carrying the non-generic member.</summary>
+    /// <summary>Resolves a supported contract without constructing its members.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The declaration and its rewrite, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (TypeDeclarationSyntax Declaration, TypeDeclarationSyntax Updated)? Resolve(SyntaxNode root, Diagnostic diagnostic)
-    {
-        // The members are appended after the last one and before the closing brace, which is where the
-        // directive closing a region over the tail sits — so they would land inside it.
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
-            || DirectiveBoundaries.SeparateMembers(declaration)
-            || !diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.ContractKey, out var contract)
-            || contract is null
-            || !diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.TypeArgumentKey, out var argument)
-            || argument is null)
-        {
-            return null;
-        }
-
-        var updated = AddContract(declaration, contract, argument);
-        return updated is null ? null : (declaration, updated);
-    }
+    /// <returns>The declaration and contract data, or null when the shape no longer matches.</returns>
+    private static ContractFix? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } declaration
+            && !DirectiveBoundaries.SeparateMembers(declaration)
+            && diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.ContractKey, out var contract)
+            && contract is Sst2333NonGenericContractAnalyzer.ComparableContract
+                or Sst2333NonGenericContractAnalyzer.ComparerContract
+                or Sst2333NonGenericContractAnalyzer.EqualityComparerContract
+                or Sst2333NonGenericContractAnalyzer.EquatableContract
+            && diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.TypeArgumentKey, out var argument)
+            && argument is not null
+            ? new ContractFix(declaration, contract, argument)
+            : null;
 
     /// <summary>Adds the non-generic base type (when any) and member(s) for one contract.</summary>
     /// <param name="declaration">The type declaration.</param>
@@ -115,21 +113,21 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
     /// <param name="contract">The contract to add.</param>
     /// <param name="argument">The fully-qualified generic type argument.</param>
     /// <returns>The base type name (or <see langword="null"/>) and the member declaration texts.</returns>
-    private static (string? BaseType, string[]? Members) Template(string contract, string argument) => contract switch
+    private static ContractTemplate Template(string contract, string argument) => contract switch
     {
-        Sst2333NonGenericContractAnalyzer.ComparableContract => (
+        Sst2333NonGenericContractAnalyzer.ComparableContract => new(
             "global::System.IComparable",
             [
                 $"int global::System.IComparable.CompareTo(object obj) => obj is {argument} other "
                 + $"? ((global::System.IComparable<{argument}>)this).CompareTo(other) "
                 + ": throw new global::System.InvalidCastException();",
             ]),
-        Sst2333NonGenericContractAnalyzer.ComparerContract => (
+        Sst2333NonGenericContractAnalyzer.ComparerContract => new(
             "global::System.Collections.IComparer",
             [
                 $"int global::System.Collections.IComparer.Compare(object x, object y) => {$"((global::System.Collections.Generic.IComparer<{argument}>)this).Compare(({argument})x, ({argument})y);"}",
             ]),
-        Sst2333NonGenericContractAnalyzer.EqualityComparerContract => (
+        Sst2333NonGenericContractAnalyzer.EqualityComparerContract => new(
             "global::System.Collections.IEqualityComparer",
             [
                 "bool global::System.Collections.IEqualityComparer.Equals(object x, object y) => "
@@ -137,13 +135,13 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
                 "int global::System.Collections.IEqualityComparer.GetHashCode(object obj) => "
                 + $"((global::System.Collections.Generic.IEqualityComparer<{argument}>)this).GetHashCode(({argument})obj);",
             ]),
-        Sst2333NonGenericContractAnalyzer.EquatableContract => (
+        Sst2333NonGenericContractAnalyzer.EquatableContract => new(
             null,
             [
                 $"public override bool Equals(object obj) => obj is {argument} other "
                 + $"&& ((global::System.IEquatable<{argument}>)this).Equals(other);",
             ]),
-        _ => (null, null),
+        _ => new(null, null),
     };
 
     /// <summary>Parses the member declaration texts, dropping any that fail to parse.</summary>

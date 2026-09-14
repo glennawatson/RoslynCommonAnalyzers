@@ -58,26 +58,25 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (ComparisonContractTypes.Create(start.Compilation) is not { } contracts)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, contracts), SymbolKind.NamedType);
+            LazyCompilationValue<ComparisonContractTypes?>? contracts = null;
+            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, ref contracts), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports each generic contract on a type whose non-generic counterpart is missing.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="contracts">The comparison contracts resolved for the compilation.</param>
-    private static void Analyze(in SymbolAnalysisContext context, in ComparisonContractTypes contracts)
+    /// <param name="contractTypes">The comparison contracts resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, ref LazyCompilationValue<ComparisonContractTypes?>? contractTypes)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
-            || type.IsStatic
-            || !SymbolVisibility.IsExternallyVisible(type)
-            || type.Locations.IsEmpty
-            || !type.Locations[0].IsInSource)
+        if (!ExternallyVisibleSourceTypes.IsInstanceClassOrStruct(type)
+            || !HasPossibleContract(type.AllInterfaces))
+        {
+            return;
+        }
+
+        var resolvedTypes = Volatile.Read(ref contractTypes) ?? CreateContractTypes(context.Compilation, ref contractTypes);
+        if (resolvedTypes.Get() is not { } contracts)
         {
             return;
         }
@@ -86,6 +85,33 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
         ReportForInterfaceCounterpart(context, type, contracts.ComparerOfT, contracts.Comparer, ComparerContract);
         ReportForInterfaceCounterpart(context, type, contracts.EqualityComparerOfT, contracts.EqualityComparer, EqualityComparerContract);
         ReportEquatable(context, contracts, type);
+    }
+
+    /// <summary>Rejects unrelated interfaces before creating the compilation's contract cache.</summary>
+    /// <param name="interfaces">All interfaces implemented by the candidate type.</param>
+    /// <returns>Whether an interface has the name and arity of a comparison contract.</returns>
+    private static bool HasPossibleContract(ImmutableArray<INamedTypeSymbol> interfaces)
+    {
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            var candidate = interfaces[i];
+            if (candidate.Arity == 1 && candidate.Name is "IComparable" or "IComparer" or "IEqualityComparer" or "IEquatable")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Creates the compilation cache only after a possible contract is encountered.</summary>
+    /// <param name="compilation">The compilation whose contracts are cached.</param>
+    /// <param name="contractTypes">The lazily published cache.</param>
+    /// <returns>The single cache used by all subsequent callbacks.</returns>
+    private static LazyCompilationValue<ComparisonContractTypes?> CreateContractTypes(Compilation compilation, ref LazyCompilationValue<ComparisonContractTypes?>? contractTypes)
+    {
+        var created = new LazyCompilationValue<ComparisonContractTypes?>(compilation, ComparisonContractTypes.Create, runOnce: true);
+        return Interlocked.CompareExchange(ref contractTypes, created, null) ?? created;
     }
 
     /// <summary>Reports <c>IComparable&lt;T&gt;</c> without the non-generic <c>IComparable</c>.</summary>

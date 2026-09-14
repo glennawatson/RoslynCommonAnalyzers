@@ -16,12 +16,18 @@ namespace SecuritySharp.Analyzers;
 /// exempt, as are any type names listed in <c>securitysharp.SES1703.exempt_types</c> /
 /// <c>securitysharp.exempt_types</c>. The whole rule is gated on
 /// <c>Microsoft.AspNetCore.Authorization.AuthorizeAttribute</c> and
-/// <c>Microsoft.AspNetCore.Components.ComponentBase</c> resolving; a project without Blazor components pays
-/// nothing.
+/// <c>Microsoft.AspNetCore.Components.ComponentBase</c> resolving. Marker resolution waits until a class
+/// declaration has attributes and is not explicitly abstract.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The rule-specific exempt-types key.</summary>
+    private const string ExemptTypesRuleKey = "securitysharp.SES1703.exempt_types";
+
+    /// <summary>The project-wide exempt-types key.</summary>
+    private const string ExemptTypesGeneralKey = "securitysharp.exempt_types";
+
     /// <summary>The metadata name of the marker whose presence on a non-routable component is reported.</summary>
     private const string AuthorizeMetadataName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
 
@@ -33,12 +39,6 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
 
     /// <summary>The metadata name of the layout base type whose descendants are exempt.</summary>
     private const string LayoutComponentBaseMetadataName = "Microsoft.AspNetCore.Components.LayoutComponentBase";
-
-    /// <summary>The rule-specific exempt-types key.</summary>
-    private const string ExemptTypesRuleKey = "securitysharp.SES1703.exempt_types";
-
-    /// <summary>The project-wide exempt-types key.</summary>
-    private const string ExemptTypesGeneralKey = "securitysharp.exempt_types";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonRoutableComponentAuthorization);
@@ -52,43 +52,29 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var authorize = start.Compilation.GetTypeByMetadataName(AuthorizeMetadataName);
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            var route = start.Compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
-            var layout = start.Compilation.GetTypeByMetadataName(LayoutComponentBaseMetadataName);
-
-            // The routing and layout markers ship in the same assembly as ComponentBase, so a project with
-            // Blazor components resolves all four; a project without them registers nothing and pays nothing.
-            if (authorize is null || componentBase is null || route is null || layout is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeType(nodeContext, authorize, componentBase, route, layout),
-                SyntaxKind.ClassDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol[]>(compilation, CollectMarkers, runOnce: true),
+            AnalyzeType,
+            SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Reports SES1703 when a non-routable component carries <c>[Authorize]</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="authorize">The resolved <c>AuthorizeAttribute</c> type.</param>
-    /// <param name="componentBase">The resolved <c>ComponentBase</c> type.</param>
-    /// <param name="route">The resolved <c>RouteAttribute</c> type.</param>
-    /// <param name="layout">The resolved <c>LayoutComponentBase</c> type.</param>
-    private static void AnalyzeType(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol authorize,
-        INamedTypeSymbol componentBase,
-        INamedTypeSymbol route,
-        INamedTypeSymbol layout)
+    /// <param name="markers">The compilation's deferred framework markers.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol[]> markers)
     {
         var declaration = (TypeDeclarationSyntax)context.Node;
 
         // Syntactic prefilter: no attributes means no '[Authorize]' can be present.
-        if (declaration.AttributeLists.Count == 0)
+        if (declaration.AttributeLists.Count == 0
+            || declaration.Modifiers.Any(SyntaxKind.AbstractKeyword)
+            || (declaration.BaseList is null && !declaration.Modifiers.Any(SyntaxKind.PartialKeyword)))
+        {
+            return;
+        }
+
+        if (markers.Get() is not [var authorize, var componentBase, var route, var layout])
         {
             return;
         }
@@ -122,29 +108,10 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         INamedTypeSymbol authorize,
-        INamedTypeSymbol route)
-    {
-        AttributeSyntax? authorizeAttribute = null;
-        var routable = false;
-        for (var i = 0; i < attributeLists.Count; i++)
-        {
-            var attributes = attributeLists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
-            {
-                var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
-                if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, route))
-                {
-                    routable = true;
-                }
-                else if (authorizeAttribute is null && BlazorComponentHelper.IsOrDerivesFrom(attributeType, authorize))
-                {
-                    authorizeAttribute = attributes[j];
-                }
-            }
-        }
-
-        return routable ? null : authorizeAttribute;
-    }
+        INamedTypeSymbol route) =>
+        ComponentAttributeScan.FindFirst(context.SemanticModel, attributeLists, route, authorize, context.CancellationToken, out var authorizeAttribute) is null
+            ? authorizeAttribute
+            : null;
 
     /// <summary>Returns whether a declaration is a concrete, non-exempt component the rule should report.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -159,9 +126,9 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         INamedTypeSymbol layout)
     {
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } typeSymbol
-            || !BlazorComponentHelper.IsOrDerivesFrom(typeSymbol, componentBase)
+            || !TypeRelations.IsOrDerivesFrom(typeSymbol, componentBase)
             || typeSymbol.IsAbstract
-            || BlazorComponentHelper.IsOrDerivesFrom(typeSymbol, layout))
+            || TypeRelations.IsOrDerivesFrom(typeSymbol, layout))
         {
             return false;
         }
@@ -195,5 +162,19 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the markers required to identify a non-routable component.</summary>
+    /// <param name="compilation">The compilation to probe.</param>
+    /// <returns>The four required markers, or an empty array when any is absent.</returns>
+    private static INamedTypeSymbol[] CollectMarkers(Compilation compilation)
+    {
+        var authorize = compilation.GetTypeByMetadataName(AuthorizeMetadataName);
+        var componentBase = compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
+        var route = compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
+        var layout = compilation.GetTypeByMetadataName(LayoutComponentBaseMetadataName);
+        return authorize is not null && componentBase is not null && route is not null && layout is not null
+            ? [authorize, componentBase, route, layout]
+            : [];
     }
 }

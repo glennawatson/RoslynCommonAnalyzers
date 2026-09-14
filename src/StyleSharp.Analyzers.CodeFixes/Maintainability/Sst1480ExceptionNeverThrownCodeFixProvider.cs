@@ -17,71 +17,25 @@ namespace StyleSharp.Analyzers;
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1480ExceptionNeverThrownCodeFixProvider))]
 [Shared]
-public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(FindStatement, static (current, _) => BuildThrow((ExpressionStatementSyntax)current));
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.ExceptionNeverThrown.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetStatement(root, diagnostic, out var statement))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Throw the exception",
-                    _ => Task.FromResult(Apply(context.Document, root, statement!)),
-                    equivalenceKey: nameof(Sst1480ExceptionNeverThrownCodeFixProvider)),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        if (!TryGetStatement(editor.OriginalRoot, diagnostic, out var statement))
-        {
-            return;
-        }
-
-        editor.ReplaceNode(statement!, static (current, _) => BuildThrow((ExpressionStatementSyntax)current));
-    }
-
-    /// <summary>Rewrites the discarded creation as a throw statement.</summary>
-    /// <param name="document">The document being fixed.</param>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="statement">The statement that only constructs the exception.</param>
-    /// <returns>The updated document.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement) =>
-        document.WithSyntaxRoot(root.ReplaceNode(statement, BuildThrow(statement)));
-
-    /// <summary>Resolves the diagnostic's span back to the statement that discards the exception.</summary>
-    /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <param name="statement">The reported statement when found.</param>
-    /// <returns><see langword="true"/> when the reported shape still matches.</returns>
-    private static bool TryGetStatement(SyntaxNode root, Diagnostic diagnostic, out ExpressionStatementSyntax? statement)
-    {
-        statement = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BaseObjectCreationExpressionSyntax creation
-            ? creation.Parent as ExpressionStatementSyntax
-            : null;
-        return statement is not null;
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Throw the exception",
+            nameof(Sst1480ExceptionNeverThrownCodeFixProvider),
+            FindStatement,
+            BuildThrow);
 
     /// <summary>Builds the throw statement, keeping the statement's indentation and its trailing trivia.</summary>
     /// <param name="statement">The statement that only constructs the exception.</param>
@@ -91,9 +45,19 @@ public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider
     /// that now starts the line; the original semicolon carries the trailing trivia across untouched.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ThrowStatementSyntax BuildThrow(ExpressionStatementSyntax statement) =>
+    internal static ThrowStatementSyntax BuildThrow(ExpressionStatementSyntax statement) =>
         SyntaxFactory.ThrowStatement(
             SyntaxFactory.Token(statement.GetLeadingTrivia(), SyntaxKind.ThrowKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             statement.Expression.WithLeadingTrivia(SyntaxFactory.TriviaList()),
             statement.SemicolonToken);
+
+    /// <summary>Resolves the diagnostic's span back to the statement that discards the exception.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The reported statement, or <see langword="null"/> when the reported shape no longer matches.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionStatementSyntax? FindStatement(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BaseObjectCreationExpressionSyntax creation
+            ? creation.Parent as ExpressionStatementSyntax
+            : null;
 }

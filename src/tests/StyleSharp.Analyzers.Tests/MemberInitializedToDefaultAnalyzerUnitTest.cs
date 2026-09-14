@@ -12,6 +12,49 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1176 (members initialized to default) and its fix.</summary>
 public class MemberInitializedToDefaultAnalyzerUnitTest
 {
+    /// <summary>Verifies each numeric literal representation and character default is recognized.</summary>
+    /// <param name="type">The member type.</param>
+    /// <param name="zero">The default literal.</param>
+    /// <param name="other">The nondefault literal.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("long", "0L", "1L")]
+    [Arguments("uint", "0U", "1U")]
+    [Arguments("ulong", "0UL", "1UL")]
+    [Arguments("float", "0F", "1F")]
+    [Arguments("double", "0D", "1D")]
+    [Arguments("decimal", "0M", "1M")]
+    [Arguments("char", "'\\0'", "'x'")]
+    [Arguments("int", "default(int)", "1")]
+    [Arguments("int", "default", "1")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task LiteralDefaultsAreRecognizedAsync(string type, string zero, string other) =>
+        VerifyDefaultInit.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                public {{type}} Field = {|SST1176:{{zero}}|};
+                public {{type}} Property { get; set; } = {|SST1176:{{zero}}|};
+                public {{type}} Other = {{other}};
+                public {{type}} OtherProperty { get; set; } = {{other}};
+            }
+            """);
+
+    /// <summary>Verifies event defaults are diagnosed while absent and computed initializers are retained.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EventAndComputedInitializersAsync() =>
+        VerifyDefaultInit.VerifyAnalyzerAsync("""
+            class C
+            {
+                public event System.Action Changed = {|SST1176:null|};
+                public int Empty;
+                public int Computed = Next();
+                public string Text = "";
+                static int Next() => 0;
+            }
+            """);
+
     /// <summary>Verifies field and auto-property default initializers are reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

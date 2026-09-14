@@ -30,9 +30,6 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the sort overload that carries a comparer.</summary>
     internal const int SelectorAndComparerArgumentCount = 2;
 
-    /// <summary>The metadata name of the LINQ extension class.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseNaturalOrder);
 
@@ -45,16 +42,11 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType
-                || enumerableType.GetMembers(OrderMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LazyCompilationValue<INamedTypeSymbol?>(compilation, ResolveEnumerableType, runOnce: true),
+            AnalyzeInvocation,
+            SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns whether an invocation has the identity-selector sort shape, before any binding.</summary>
@@ -64,31 +56,16 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
         invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText is OrderByMethodName or OrderByDescendingMethodName
             && invocation.ArgumentList.Arguments.Count is 1 or SelectorAndComparerArgumentCount
-            && IsIdentityLambda(invocation.ArgumentList.Arguments[0].Expression);
-
-    /// <summary>Returns whether an expression is a lambda that returns its own single parameter.</summary>
-    /// <param name="expression">The candidate selector expression.</param>
-    /// <returns><see langword="true"/> for <c>x =&gt; x</c> in simple or parenthesized form.</returns>
-    private static bool IsIdentityLambda(ExpressionSyntax expression) =>
-        expression switch
-        {
-            SimpleLambdaExpressionSyntax simple =>
-                simple.ExpressionBody is IdentifierNameSyntax body
-                    && body.Identifier.ValueText == simple.Parameter.Identifier.ValueText,
-            ParenthesizedLambdaExpressionSyntax parenthesized =>
-                parenthesized.ParameterList.Parameters.Count == 1
-                    && parenthesized.ExpressionBody is IdentifierNameSyntax body
-                    && body.Identifier.ValueText == parenthesized.ParameterList.Parameters[0].Identifier.ValueText,
-            _ => false,
-        };
+            && LinqCallSyntax.IsIdentityLambda(invocation.ArgumentList.Arguments[0].Expression);
 
     /// <summary>Reports PSH1113 for an identity-selector sort that binds to the LINQ extension class.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="enumerableSymbols">The LINQ extension class, resolved only for an identity-sort candidate.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LazyCompilationValue<INamedTypeSymbol?> enumerableSymbols)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsIdentitySortShape(invocation)
+            || enumerableSymbols.Get() is not { } enumerableType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, enumerableType))
         {
@@ -103,4 +80,12 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
             isDescending ? OrderDescendingMethodName : OrderMethodName,
             name.Identifier.ValueText));
     }
+
+    /// <summary>Resolves natural-order support after the first identity-sort candidate.</summary>
+    /// <param name="compilation">The compilation whose LINQ API is probed.</param>
+    /// <returns>The LINQ extension class, or <see langword="null"/> when <c>Enumerable.Order</c> is unavailable.</returns>
+    private static INamedTypeSymbol? ResolveEnumerableType(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.Linq.Enumerable") is { } enumerableType && !enumerableType.GetMembers(OrderMethodName).IsEmpty
+            ? enumerableType
+            : null;
 }

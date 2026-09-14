@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -58,22 +60,15 @@ public sealed class Sst1400AccessModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the modifier list already declares accessibility (including <c>file</c>).</summary>
     /// <param name="modifiers">The declaration modifiers.</param>
     /// <returns><see langword="true"/> when an access modifier is present.</returns>
-    internal static bool HasAccessModifierFast(in SyntaxTokenList modifiers)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].Kind() is SyntaxKind.PublicKeyword
-                or SyntaxKind.PrivateKeyword
-                or SyntaxKind.ProtectedKeyword
-                or SyntaxKind.InternalKeyword
-                or SyntaxKind.FileKeyword)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasAccessModifierFast(in SyntaxTokenList modifiers) =>
+        ModifierListHelper.ContainsAny(
+            modifiers,
+            SyntaxKind.PublicKeyword,
+            SyntaxKind.PrivateKeyword,
+            SyntaxKind.ProtectedKeyword,
+            SyntaxKind.InternalKeyword,
+            SyntaxKind.FileKeyword);
 
     /// <summary>Returns whether an access modifier may and should be declared on the member.</summary>
     /// <param name="member">The member declaration.</param>

@@ -3,7 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeFailOpen = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     SecuritySharp.Analyzers.Ses1508FailOpenValidationAnalyzer>;
@@ -13,6 +16,91 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for SES1508 (a security-check method must not fail open by returning success from a catch).</summary>
 public class FailOpenValidationAnalyzerUnitTest
 {
+    /// <summary>Checks success-expression and fall-through boundaries, including incomplete code.</summary>
+    /// <param name="returnType">The security method's return type.</param>
+    /// <param name="body">The method body.</param>
+    /// <param name="expected">The expected diagnostic count.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("bool", "try { } catch { ; return ((true)); }", 1)]
+    [Arguments("bool", "try { } catch { ; } ; return ((true));", 1)]
+    [Arguments("bool", "if (value) try { } catch { } return true;", 0)]
+    [Arguments("bool", "{ try { } catch { } } return true;", 0)]
+    [Arguments("bool", "try { } catch { } value = true; return true;", 0)]
+    [Arguments("bool", "try { } catch { return value; } return false;", 0)]
+    [Arguments("bool", "try { } catch { return; } return false;", 0)]
+    [Arguments("bool", "try { } catch { return GetValue(); } return false;", 0)]
+    [Arguments("Task<bool>", "try { } catch { return Task.FromResult((true)); } return null;", 1)]
+    [Arguments("System.Threading.Tasks.ValueTask<bool>", "try { } catch { return ValueTask.FromResult((true)); } return default;", 1)]
+    [Arguments("Task<bool>", "try { } catch { return Task.FromResult(false); } return null;", 0)]
+    [Arguments("Task<bool>", "try { } catch { return Task.FromResult(value); } return null;", 0)]
+    [Arguments("Task<bool>", "try { } catch { return Task.FromResult(true, false); } return null;", 0)]
+    [Arguments("Task<bool>", "try { } catch { return Task.Other(true); } return null;", 0)]
+    [Arguments("Task<bool>", "try { } catch { return FromResult(true); } return null;", 0)]
+    [Arguments("System.Boolean", "try { } catch { return true; } return false;", 0)]
+    [Arguments("bool?", "try { } catch { return true; } return false;", 0)]
+    [Arguments("Task<int>", "try { } catch { return Task.FromResult(true); } return null;", 0)]
+    [Arguments("Task<System.Boolean>", "try { } catch { return Task.FromResult(true); } return null;", 0)]
+    [Arguments("Task<bool, bool>", "try { } catch { return Task.FromResult(true); } return null;", 0)]
+    [Arguments("Other<bool>", "try { } catch { return Task.FromResult(true); } return null;", 0)]
+    public async Task OnlyRecognizedSuccessShapesReportAsync(string returnType, string body, int expected)
+    {
+        var source = $$"""
+            using System.Threading.Tasks;
+            class C { {{returnType}} EnsureValid(bool value) { {{body}} } }
+            """;
+        var compilation = CSharpCompilation.Create(nameof(OnlyRecognizedSuccessShapesReportAsync), [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Ses1508FailOpenValidationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expected);
+        await Assert.That(diagnostics.All(static diagnostic => diagnostic.Id == "SES1508")).IsTrue();
+    }
+
+    /// <summary>Checks function boundaries and semantic exception near misses.</summary>
+    /// <param name="source">The complete source.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("try { } catch { return true; }")]
+    [Arguments("class C { C() { try { } catch { } } }")]
+    [Arguments("class C { bool Validate { get { try { } catch { return true; } return false; } } }")]
+    [Arguments("class C { bool Validate() { bool Read() { try { } catch { return true; } return false; } return Read(); } }")]
+    [Arguments("class C { bool Validate<T>() { try { } catch (T) { return true; } return false; } }")]
+    [Arguments("class C { bool Validate() { try { } catch (Missing) { return true; } return false; } }")]
+    [Arguments("class Exception : System.Exception {} class C { bool Validate() { try { } catch (Exception) { return true; } return false; } }")]
+    [Arguments("class CryptographicException : System.Exception {} class C { bool Validate() { try { } catch (CryptographicException) { return true; } return false; } }")]
+    [Arguments("class AuthenticationException : System.Exception {} class C { bool Validate() { try { } catch (AuthenticationException) { return true; } return false; } }")]
+    [Arguments("class C { bool Validate() { System.Func<bool> run = delegate { try { } catch { return true; } return false; }; return run(); } }")]
+    public async Task UnrelatedFunctionsAndExceptionTypesStayCleanAsync(string source)
+    {
+        var compilation = CSharpCompilation.Create(nameof(UnrelatedFunctionsAndExceptionTypesStayCleanAsync), [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Ses1508FailOpenValidationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Checks every security-check prefix with a filtered broad catch.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("ValidateToken")]
+    [Arguments("VerifyToken")]
+    [Arguments("AuthenticateToken")]
+    [Arguments("AuthorizeToken")]
+    [Arguments("CheckToken")]
+    [Arguments("IsValidToken")]
+    [Arguments("IsAuthenticToken")]
+    [Arguments("EnsureToken")]
+    public Task SecurityPrefixesReportFilteredSuccessAsync(string name) =>
+        VerifyNet90Async($$"""
+            class C
+            {
+                bool {{name}}(bool filter)
+                {
+                    try { return false; }
+                    {|SES1508:catch|} (System.Exception) when (filter) { return true; }
+                }
+            }
+            """);
+
     /// <summary>Verifies a bool validator that catches <c>Exception</c> and returns true is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

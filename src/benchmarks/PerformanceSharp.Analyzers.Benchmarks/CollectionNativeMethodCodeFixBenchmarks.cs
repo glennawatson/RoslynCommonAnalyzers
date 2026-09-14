@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.CodeFixes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
@@ -76,7 +77,7 @@ public class CollectionNativeMethodCodeFixBenchmarks : IDisposable
     [Benchmark]
     public async Task<int> CollectionNativeMethod_ApplyFixAsync()
     {
-        var updated = CollectionNativeMethodCodeFixProvider.Apply(_document, _root, _diagnostic);
+        var updated = ReplaceNodeCodeFix.Apply(_document, _root, _diagnostic, CollectionNativeMethodCodeFixProvider.CreateEdit);
         return (await updated.GetTextAsync().ConfigureAwait(false)).Length;
     }
 

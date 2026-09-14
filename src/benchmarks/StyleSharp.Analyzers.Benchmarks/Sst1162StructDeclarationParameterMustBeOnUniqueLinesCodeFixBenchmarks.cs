@@ -39,7 +39,7 @@ public class Sst1162StructDeclarationParameterMustBeOnUniqueLinesCodeFixBenchmar
     [Benchmark]
     public async Task<int> Sst1162StructDeclarationParameterMustBeOnUniqueLines_ApplyFixAsync()
     {
-        var updated = await Sst1162StructDeclarationParameterMustBeOnUniqueLinesCodeFixProvider.FixAsync(
+        var updated = await Sst1162StructDeclarationParameterMustBeOnUniqueLinesCodeFixProvider.Fix.FixAsync(
             _context.Document,
             _context.Root,
             _context.Node).ConfigureAwait(false);

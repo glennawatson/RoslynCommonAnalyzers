@@ -2,70 +2,58 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Applies compact C# syntax preference fixes (SST2218-SST2219).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ModernSyntaxPreferenceCodeFixProvider))]
 [Shared]
-public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
+public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider
 {
+    /// <summary>Batches this fix's edits across a document.</summary>
+    private static readonly BatchEditFixAllProvider FixAll = new(TryRewrite);
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ModernSyntaxRules.UseImplicitLambdaParameterTypes.Id,
         ModernSyntaxRules.SimplifyPropertyAccessor.Id);
 
     /// <inheritdoc/>
-    public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
+    public override FixAllProvider GetFixAllProvider() => FixAll;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            static diagnostic => Title(diagnostic.Id),
+            static diagnostic => diagnostic.Id,
+            CanRewrite,
+            TryRewrite);
 
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-            if (CreateReplacement(root, diagnostic, out _, out _) is null)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    Title(diagnostic.Id),
-                    _ => Task.FromResult(Apply(context.Document, root, diagnostic)),
-                    equivalenceKey: diagnostic.Id),
-                diagnostic);
-        }
-    }
-
-    /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        var replacement = CreateReplacement(editor.OriginalRoot, diagnostic, out var oldNode, out _);
-        if (oldNode is null || replacement is null)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(oldNode, replacement);
-    }
-
-    /// <summary>Applies one diagnostic fix.</summary>
-    /// <param name="document">The document.</param>
+    /// <summary>Resolves the reported lambda or accessor and builds its simplified replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic.</param>
-    /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    internal static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        var replacement = CreateReplacement(root, diagnostic, out var oldNode, out _);
-        return oldNode is null || replacement is null
-            ? document
-            : document.WithSyntaxRoot(root.ReplaceNode(oldNode, replacement));
+        if (diagnostic.Id == ModernSyntaxRules.UseImplicitLambdaParameterTypes.Id)
+        {
+            return FindAncestor<ParenthesizedLambdaExpressionSyntax>(root, diagnostic) is { } lambda
+                && ModernSyntaxPreferenceAnalyzer.CanUseImplicitParameterTypes(lambda)
+                ? new NodeReplacement(lambda, ModernSyntaxPreferenceAnalyzer.RemoveLambdaParameterTypes(lambda))
+                : null;
+        }
+
+        if (diagnostic.Id == ModernSyntaxRules.SimplifyPropertyAccessor.Id)
+        {
+            return FindAncestor<AccessorDeclarationSyntax>(root, diagnostic) is { } accessor
+                && ModernSyntaxPreferenceAnalyzer.TryGetAccessorExpression(accessor, out var expression)
+                ? new NodeReplacement(accessor, SimplifyAccessor(accessor, expression))
+                : null;
+        }
+
+        return null;
     }
 
     /// <summary>Gets the code action title.</summary>
@@ -76,57 +64,36 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
             ? "Remove lambda parameter types"
             : "Use expression-bodied accessor";
 
-    /// <summary>Creates the replacement node for one diagnostic.</summary>
+    /// <summary>Checks the reported shape without constructing its replacement.</summary>
     /// <param name="root">The syntax root.</param>
-    /// <param name="diagnostic">The diagnostic.</param>
-    /// <param name="oldNode">The old node.</param>
-    /// <param name="replacement">The replacement node.</param>
-    /// <returns>The replacement node, or <see langword="null"/>.</returns>
-    private static SyntaxNode? CreateReplacement(
-        SyntaxNode root,
-        Diagnostic diagnostic,
-        out SyntaxNode? oldNode,
-        out SyntaxNode? replacement)
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the lambda or accessor can be simplified.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
-        oldNode = null;
-        replacement = null;
         if (diagnostic.Id == ModernSyntaxRules.UseImplicitLambdaParameterTypes.Id)
         {
-            oldNode = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ParenthesizedLambdaExpressionSyntax>();
-            if (oldNode is ParenthesizedLambdaExpressionSyntax lambda && ModernSyntaxPreferenceAnalyzer.CanUseImplicitParameterTypes(lambda))
-            {
-                replacement = RemoveLambdaParameterTypes(lambda);
-            }
-        }
-        else if (diagnostic.Id == ModernSyntaxRules.SimplifyPropertyAccessor.Id)
-        {
-            oldNode = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<AccessorDeclarationSyntax>();
-            if (oldNode is AccessorDeclarationSyntax accessor
-                && ModernSyntaxPreferenceAnalyzer.TryGetAccessorExpression(accessor, out var expression))
-            {
-                replacement = SimplifyAccessor(accessor, expression);
-            }
+            return FindAncestor<ParenthesizedLambdaExpressionSyntax>(root, diagnostic) is { } lambda
+                && ModernSyntaxPreferenceAnalyzer.CanUseImplicitParameterTypes(lambda);
         }
 
-        return replacement;
+        if (diagnostic.Id == ModernSyntaxRules.SimplifyPropertyAccessor.Id)
+        {
+            return FindAncestor<AccessorDeclarationSyntax>(root, diagnostic) is { } accessor
+                && ModernSyntaxPreferenceAnalyzer.TryGetAccessorExpression(accessor, out _);
+        }
+
+        return false;
     }
 
-    /// <summary>Removes explicit parameter types from a lambda.</summary>
-    /// <param name="lambda">The lambda.</param>
-    /// <returns>The updated lambda.</returns>
-    private static ParenthesizedLambdaExpressionSyntax RemoveLambdaParameterTypes(ParenthesizedLambdaExpressionSyntax lambda)
-    {
-        var parametersWithSeparators = lambda.ParameterList.Parameters.GetWithSeparators();
-        var rewritten = new SyntaxNodeOrToken[parametersWithSeparators.Count];
-        for (var i = 0; i < parametersWithSeparators.Count; i++)
-        {
-            rewritten[i] = parametersWithSeparators[i].AsNode() is ParameterSyntax parameter
-                ? parameter.WithType(null)
-                : parametersWithSeparators[i];
-        }
-
-        return lambda.WithParameterList(lambda.ParameterList.WithParameters(SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten)));
-    }
+    /// <summary>Finds the nearest node of one type enclosing the token a diagnostic starts at.</summary>
+    /// <typeparam name="T">The node type to find.</typeparam>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The enclosing node, or <see langword="null"/> when there is none.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static T? FindAncestor<T>(SyntaxNode root, Diagnostic diagnostic)
+        where T : SyntaxNode =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<T>();
 
     /// <summary>Rewrites an accessor body as an expression body.</summary>
     /// <param name="accessor">The accessor.</param>
@@ -135,9 +102,12 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
     private static AccessorDeclarationSyntax SimplifyAccessor(AccessorDeclarationSyntax accessor, ExpressionSyntax expression)
     {
         var trailingTrivia = accessor.Body?.CloseBraceToken.TrailingTrivia ?? accessor.SemicolonToken.TrailingTrivia;
-        return accessor
-            .WithBody(null)
-            .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(expression.WithoutTrivia()))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(trailingTrivia));
+        return accessor.Update(
+            accessor.AttributeLists,
+            accessor.Modifiers,
+            accessor.Keyword,
+            body: null,
+            SyntaxFactory.ArrowExpressionClause(expression.WithoutTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, trailingTrivia));
     }
 }

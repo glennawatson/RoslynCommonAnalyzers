@@ -130,24 +130,17 @@ internal static class NullCheckConditionalAccessFold
         }
 
         ExpressionSyntax? value = null;
-        if (IsNullLiteral(comparison.Right))
+        if (ExpressionShapes.IsNullLiteral(comparison.Right))
         {
             value = comparison.Left;
         }
-        else if (IsNullLiteral(comparison.Left))
+        else if (ExpressionShapes.IsNullLiteral(comparison.Left))
         {
             value = comparison.Right;
         }
 
         return value is not null && CompoundAssignmentOperators.IsSideEffectFreeTarget(value) ? value : null;
     }
-
-    /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <returns><see langword="true"/> for a bare <c>null</c>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsNullLiteral(ExpressionSyntax expression) =>
-        expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether a comparison keeps its answer when an operand becomes null.</summary>
     /// <param name="comparison">The candidate comparison.</param>
@@ -159,7 +152,7 @@ internal static class NullCheckConditionalAccessFold
     private static bool IsFoldableComparison(BinaryExpressionSyntax comparison) => comparison.Kind() switch
     {
         SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression or SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression => true,
-        SyntaxKind.EqualsExpression => !IsNullLiteral(comparison.Right),
+        SyntaxKind.EqualsExpression => !ExpressionShapes.IsNullLiteral(comparison.Right),
         _ => false,
     };
 
@@ -196,28 +189,10 @@ internal static class NullCheckConditionalAccessFold
     /// away, so a right operand that reads the guarded value would start dereferencing a null it used to be
     /// protected from.
     /// </remarks>
-    private static bool Mentions(ExpressionSyntax expression, ExpressionSyntax receiver)
-    {
-        if (IsSameValue(expression, receiver))
-        {
-            return true;
-        }
-
-        var state = (Receiver: receiver, Found: false);
-        _ = DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, (ExpressionSyntax Receiver, bool Found)>(
-            expression,
-            ref state,
-            static (node, ref current) =>
-            {
-                if (!IsSameValue(node, current.Receiver))
-                {
-                    return true;
-                }
-
-                current.Found = true;
-                return false;
-            });
-
-        return state.Found;
-    }
+    private static bool Mentions(ExpressionSyntax expression, ExpressionSyntax receiver) =>
+        IsSameValue(expression, receiver)
+            || !DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, ExpressionSyntax>(
+                expression,
+                ref receiver,
+                static (node, ref guarded) => !IsSameValue(node, guarded));
 }

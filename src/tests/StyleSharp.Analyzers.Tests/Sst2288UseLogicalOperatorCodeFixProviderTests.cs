@@ -64,6 +64,7 @@ public class Sst2288UseLogicalOperatorCodeFixProviderTests
         using var workspace = new AdhocWorkspace();
         var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp)
             .WithParseOptions(new CSharpParseOptions(version))
+            .WithCompilationOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .WithMetadataReferences(RuntimeMetadataReferences.Platform)
             .AddDocument(DocumentName, source);
         var root = (await document.GetSyntaxRootAsync())!;

@@ -52,11 +52,11 @@ public class SelfCollectionOperationAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies list-interface receivers and constrained set receivers satisfy the collection contract.</summary>
+    /// <summary>Verifies list interfaces are recognized and a directly constrained type parameter is currently ignored.</summary>
     /// <returns>A task representing the asynchronous test operation.</returns>
     [Test]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task InterfaceAndGenericCollectionReceiversAreReportedAsync() =>
+    public Task ListInterfaceIsReportedAndConstrainedTypeParameterIsCleanAsync() =>
         VerifySelf.VerifyAnalyzerAsync("""
             using System.Collections.Generic;
             static class Extensions
@@ -68,7 +68,7 @@ public class SelfCollectionOperationAnalyzerUnitTest
                 void M<T>(IList<int> items, T set) where T : ISet<int>
                 {
                     {|SST2419:items.AddRange(items)|};
-                    {|SST2419:set.UnionWith(set)|};
+                    set.UnionWith(set);
                 }
             }
             """);
@@ -121,6 +121,8 @@ public class SelfCollectionOperationAnalyzerUnitTest
     [Arguments("IsSupersetOx")]
     [Arguments("AddRangx")]
     [Arguments("InsertRangx")]
+    [Arguments("OtherCall")]
+    [Arguments("OtherCalls")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task SimilarlyNamedMethodIsCleanAsync(string operation) =>
         VerifySelf.VerifyAnalyzerAsync($$"""

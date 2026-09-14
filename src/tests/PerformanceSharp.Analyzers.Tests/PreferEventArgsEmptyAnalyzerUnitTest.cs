@@ -172,13 +172,26 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
     [Arguments("using System; class C { object M() => new EventArgs(1); }")]
-    [Arguments("using System; class C { object M() => new EventArgs<int>(); }")]
-    [Arguments("using System; class C { object M() => new EventArgs; }")]
     [Arguments("using System; class C { object M() => new EventArgs?(); }")]
     public async Task UnsupportedConstructorsAreCleanAsync(string source, CancellationToken cancellationToken)
     {
         var diagnostics = await AnalyzeAsync(source, RuntimeMetadataReferences.Platform, cancellationToken);
         await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies compiler-recovered EventArgs constructions currently retain the allocation diagnostic.</summary>
+    /// <param name="expression">The construction recovered by the compiler from erroneous source.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("new EventArgs<int>()")]
+    [Arguments("new EventArgs")]
+    public async Task RecoveredEventArgsConstructionsAreReportedAsync(string expression, CancellationToken cancellationToken)
+    {
+        var source = $$"""using System; class C { object M() => {{expression}}; }""";
+        var diagnostics = await AnalyzeAsync(source, RuntimeMetadataReferences.Platform, cancellationToken);
+        await Assert.That(diagnostics).Count().IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("PSH1022");
     }
 
     /// <summary>Verifies the rule requires an available static Empty field, not a property or instance field.</summary>

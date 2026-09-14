@@ -29,6 +29,37 @@ public class GeneratedRegexRefactoringUnitTest
     /// <summary>The cached minimal references used to test incomplete framework surfaces.</summary>
     private static readonly ImmutableArray<MetadataReference> MinimalReferences = [RuntimeMetadataReferences.CoreLibrary];
 
+    /// <summary>Checks selection inside a qualified construction retains the pattern's literal spelling.</summary>
+    /// <param name="type">The qualified regex type.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("R::Regex")]
+    [Arguments("global::System.Text.RegularExpressions.Regex")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task QualifiedConstructionKeepsVerbatimPatternAsync(string type) =>
+        VerifyAsync(
+            $$"""
+            using System.Text.RegularExpressions;
+            using R = System.Text.RegularExpressions;
+
+            public struct C
+            {
+                public Regex Build() => new {{type}}([|@"\d+"|]);
+            }
+            """,
+            """
+            using System.Text.RegularExpressions;
+            using R = System.Text.RegularExpressions;
+
+            public partial struct C
+            {
+                public Regex Build() => PatternRegex();
+
+                [GeneratedRegex(@"\d+")]
+                private static partial Regex {|CS8795:PatternRegex|}();
+            }
+            """);
+
     /// <summary>Verifies missing framework symbols, unresolved constructors, and top-level code receive no action.</summary>
     /// <param name="source">The document containing exactly one object construction.</param>
     /// <returns>A task representing the asynchronous test.</returns>

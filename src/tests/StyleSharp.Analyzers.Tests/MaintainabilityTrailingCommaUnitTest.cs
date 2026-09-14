@@ -12,6 +12,42 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the trailing-comma rule (SST1413).</summary>
 public class MaintainabilityTrailingCommaUnitTest
 {
+    /// <summary>Verifies only nonempty multiline lists without a trailing comma are reported.</summary>
+    /// <param name="source">The list with any expected diagnostic marked.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { int[] Values = new int[] {\n}; }")]
+    [Arguments("class C { object Value = new C {\n}; }")]
+    [Arguments("class C { object Value = new System.Collections.Generic.List<int> {\n}; }")]
+    [Arguments("class C { object Value = new {\n}; }")]
+    [Arguments("enum E {\n}")]
+    [Arguments("class C { object Value = new { A = 1 }; }")]
+    [Arguments("enum E { A, B }")]
+    [Arguments("class C { object Value = new {\n A = 1,\n}; }")]
+    [Arguments("enum E {\n A,\n B,\n}")]
+    [Arguments("class C { public int A; object Value = new C {\n A = 1,\n}; }")]
+    [Arguments("class C { object Value = new System.Collections.Generic.List<int> {\n 1,\n}; }")]
+    [Arguments("class C { public int A; object Value = new C {\n {|SST1413:A = 1|}\n}; }")]
+    [Arguments("class C { object Value = new System.Collections.Generic.List<int> {\n {|SST1413:1|}\n}; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ListsRespectTrailingCommaAsync(string source) => VerifyTrailingComma.VerifyAnalyzerAsync(source);
+
+    /// <summary>Verifies the final anonymous-object member receives the comma.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AnonymousObjectMemberIsFixedAsync() => VerifyTrailingComma.VerifyCodeFixAsync(
+        "class C\n{\n    object Value = new\n    {\n        {|SST1413:A = 1|}\n    };\n}",
+        "class C\n{\n    object Value = new\n    {\n        A = 1,\n    };\n}");
+
+    /// <summary>Verifies the final enum member receives the comma.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EnumMemberIsFixedAsync() => VerifyTrailingComma.VerifyCodeFixAsync(
+        "enum E\n{\n    A,\n    {|SST1413:B = 2|}\n}",
+        "enum E\n{\n    A,\n    B = 2,\n}");
+
     /// <summary>Verifies a multi-line initializer without a trailing comma is reported and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

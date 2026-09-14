@@ -241,6 +241,107 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
         await RunCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies empty XML elements can document receiver and type parameter names.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EmptyXmlElementsMatchDeclaredNamesAsync() =>
+        RunAnalyzerAsync(
+            """
+            public static class Extensions
+            {
+                /// <summary>Helpers.</summary>
+                /// <param name="value"/>
+                /// <typeparam name="T"/>
+                extension<T>(T value) { }
+            }
+            """);
+
+    /// <summary>Verifies nameless XML references are skipped while the receiver still requires documentation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task XmlReferencesWithoutNameAreIgnoredAsync() =>
+        RunAnalyzerAsync(
+            """
+            public static class Extensions
+            {
+                /// <summary>Helpers.</summary>
+                /// <param/>
+                /// <param unexpected="value">Missing name.</param>
+                /// <typeparam/>
+                extension(string {|SST1655:value|}) { }
+            }
+            """);
+
+    /// <summary>Verifies type parameter references on a non-generic block are rejected.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NonGenericBlockRejectsTypeParameterReferenceAsync() =>
+        RunAnalyzerAsync(
+            """
+            public static class Extensions
+            {
+                /// <summary>Helpers.</summary>
+                /// <param name="value"/>
+                /// <typeparam name="{|SST1657:T|}"/>
+                extension(string value) { }
+            }
+            """);
+
+    /// <summary>Verifies ordinary members are skipped and every block in a container is checked.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MultipleBlocksShareContainerScopeAsync() =>
+        RunAnalyzerAsync(
+            """
+            public static class Extensions
+            {
+                public static void M() { }
+                public class Nested { }
+                {|SST1654:extension|}(string value) { }
+                {|SST1654:extension|}(int value) { }
+            }
+            """);
+
+    /// <summary>Verifies unnamed receivers do not require a param element.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnnamedReceiverNeedsNoParameterDocumentationAsync() =>
+        RunAnalyzerAsync(
+            """
+            public static class Extensions
+            {
+                /// <summary>Static helpers.</summary>
+                extension(string) { }
+            }
+            """);
+
+    /// <summary>Verifies exposed and internal documentation switches govern extension containers.</summary>
+    /// <param name="accessibility">The container accessibility.</param>
+    /// <param name="setting">The documentation option.</param>
+    /// <param name="keyword">The extension keyword with any expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("public", "document_exposed_elements = true", "{|SST1654:extension|}")]
+    [Arguments("public", "document_exposed_elements = false", "extension")]
+    [Arguments("internal", "document_internal_elements = true", "{|SST1654:extension|}")]
+    [Arguments("internal", "document_internal_elements = false", "extension")]
+    [Arguments("public", "document_private_elements = true", "{|SST1654:extension|}")]
+    [Arguments("public", "document_private_elements = false", "{|SST1654:extension|}")]
+    [Arguments("public", "document_private_fields = true", "{|SST1654:extension|}")]
+    [Arguments("public", "document_private_fields = false", "{|SST1654:extension|}")]
+    [Arguments("public", "document_interfaces = all", "{|SST1654:extension|}")]
+    [Arguments("public", "document_interfaces = none", "{|SST1654:extension|}")]
+    public Task DocumentationOptionsControlContainerScopeAsync(string accessibility, string setting, string keyword) =>
+        RunAnalyzerAsync(
+            $"{accessibility} static class Extensions {{ {keyword}(string value) {{ }} }}",
+            $"root = true\n[*.cs]\nstylesharp.{setting}\n");
+
     /// <summary>Runs the analyzer verifier with a language version that supports extension blocks.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <param name="editorConfig">An optional <c>.editorconfig</c> file body to apply, or <see langword="null"/> for none.</param>

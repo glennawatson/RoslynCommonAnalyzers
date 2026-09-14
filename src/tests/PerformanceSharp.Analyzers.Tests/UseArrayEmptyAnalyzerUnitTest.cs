@@ -3,8 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyArrayEmpty = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1001UseArrayEmptyAnalyzer,
@@ -15,6 +19,9 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1001 (avoid allocating zero-length arrays) and its code fix.</summary>
 public class UseArrayEmptyAnalyzerUnitTest
 {
+    /// <summary>The analyzer configuration path shared by source and fixed documents.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>Verifies a literal zero-length allocation in a target-typed spot becomes a collection expression.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -349,8 +356,8 @@ public class UseArrayEmptyAnalyzerUnitTest
                               [*.cs]
                               performancesharp.prefer_collection_expressions = false
                               """;
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -440,6 +447,150 @@ public class UseArrayEmptyAnalyzerUnitTest
                 public int[,] M() => new int[0, 0];
             }
             """);
+
+    /// <summary>Verifies declared return types are found through accessors and local functions.</summary>
+    /// <param name="sourceMember">The member containing the allocation.</param>
+    /// <param name="fixedMember">The member after applying the fix.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("int[] P => {|PSH1001:new int[0]|};", "int[] P => []; ")]
+    [Arguments("int[] this[int i] => {|PSH1001:new int[0]|};", "int[] this[int i] => []; ")]
+    [Arguments("int[] P { get => {|PSH1001:new int[0]|}; }", "int[] P { get => []; }")]
+    [Arguments("int[] P { get { return {|PSH1001:new int[0]|}; } }", "int[] P { get { return []; } }")]
+    [Arguments("int[] this[int i] { get => {|PSH1001:new int[0]|}; }", "int[] this[int i] { get => []; }")]
+    [Arguments("int[] this[int i] { get { return {|PSH1001:new int[0]|}; } }", "int[] this[int i] { get { return []; } }")]
+    [Arguments("void M() { int[] Local() => {|PSH1001:new int[0]|}; _ = Local(); }", "void M() { int[] Local() => []; _ = Local(); }")]
+    [Arguments("void M() { int[] Local() { return {|PSH1001:new int[0]|}; } _ = Local(); }", "void M() { int[] Local() { return []; } _ = Local(); }")]
+    public Task ArrayReturnContextsUseCollectionExpressionsAsync(string sourceMember, string fixedMember) =>
+        VerifyNet90Async($"class C {{ {sourceMember} }}", $"class C {{ {fixedMember.Trim()} }}");
+
+    /// <summary>Verifies contexts without an exact array target preserve the allocated element type.</summary>
+    /// <param name="sourceMember">The allocation's enclosing member.</param>
+    /// <param name="fixedMember">The member using the shared empty array.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("System.Func<int[]> M() => () => { return {|PSH1001:new int[0]|}; };", "System.Func<int[]> M() => () => { return System.Array.Empty<int>(); };")]
+    [Arguments("System.Func<int[]> M() => delegate { return {|PSH1001:new int[0]|}; };", "System.Func<int[]> M() => delegate { return System.Array.Empty<int>(); };")]
+    [Arguments("static implicit operator int[](C value) { return {|PSH1001:new int[0]|}; }", "static implicit operator int[](C value) { return System.Array.Empty<int>(); }")]
+    [Arguments("static implicit operator int[](C value) => {|PSH1001:new int[0]|};", "static implicit operator int[](C value) => System.Array.Empty<int>();")]
+    [Arguments("void M() { object value; value = {|PSH1001:new int[0]|}; }", "void M() { object value; value = System.Array.Empty<int>(); }")]
+    [Arguments("void M() { object[] value; value = {|PSH1001:new string[0]|}; }", "void M() { object[] value; value = System.Array.Empty<string>(); }")]
+    [Arguments("void M() { object[] value = {|PSH1001:new string[0][]|}; }", "void M() { object[] value = System.Array.Empty<string[]>(); }")]
+    public Task InexactArrayTargetsUseArrayEmptyAsync(string sourceMember, string fixedMember) =>
+        VerifyNet90Async($"class C {{ public {sourceMember} }}", $"class C {{ public {fixedMember} }}");
+
+    /// <summary>Verifies all explicit falsy option spellings and enabled values choose the expected fix.</summary>
+    /// <param name="value">The collection-expression preference.</param>
+    /// <param name="replacement">The expected expression.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("FALSE", "System.Array.Empty<int>()")]
+    [Arguments("0", "System.Array.Empty<int>()")]
+    [Arguments("No", "System.Array.Empty<int>()")]
+    [Arguments("true", "[]")]
+    [Arguments("1", "[]")]
+    [Arguments("yes", "[]")]
+    public async Task CollectionExpressionPreferenceSelectsFixAsync(string value, string replacement)
+    {
+        var test = CreateNet90Test("class C { int[] M() => {|PSH1001:new int[0]|}; }", $"class C {{ int[] M() => {replacement}; }}");
+        var config = $"root = true\n[*.cs]\nperformancesharp.prefer_collection_expressions = {value}\n";
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies initialized, nonliteral and nonzero numeric arrays are not candidates.</summary>
+    /// <param name="creation">The array syntax.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("new int[] { 1 }")]
+    [Arguments("new int[0] { 1 }")]
+    [Arguments("new int[]")]
+    [Arguments("new int[0L]")]
+    [Arguments("new int[1 - 1]")]
+    public Task NonCandidateArraySyntaxIsCleanAsync(string creation) =>
+        new VerifyArrayEmpty.Test { TestCode = $"class C {{ object M() => {creation}; }}", ReferenceAssemblies = AnalyzerFrameworks.Net90, CompilerDiagnostics = CompilerDiagnostics.None }
+            .RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies pointer and ref-like elements cannot become generic method arguments.</summary>
+    /// <param name="element">The unsupported element type.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int*")]
+    [Arguments("delegate*<void>")]
+    [Arguments("System.Span<int>")]
+    public async Task InvalidGenericElementIsCleanAsync(string element)
+    {
+        var test = new VerifyArrayEmpty.Test
+        {
+            TestCode = $"unsafe class C {{ void M() {{ var values = new {element}[0]; }} }}",
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) => solution.WithProjectCompilationOptions(
+            projectId,
+            ((CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!).WithAllowUnsafe(true)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies detached array syntax has neither a usable rank nor an attribute ancestor.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DetachedArraySyntaxIsRejectedAsync()
+    {
+        var creation = SyntaxFactory.ArrayCreationExpression(SyntaxFactory.ArrayType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword))));
+        await Assert.That(Psh1001UseArrayEmptyAnalyzer.IsZeroLengthCreation(creation)).IsFalse();
+        await Assert.That(Psh1001UseArrayEmptyAnalyzer.IsInsideAttributeArgument(creation)).IsFalse();
+        var nested = SyntaxFactory.ParseExpression("Call(new int[0])");
+        await Assert.That(Psh1001UseArrayEmptyAnalyzer.IsInsideAttributeArgument(nested.DescendantNodes().OfType<ArrayCreationExpressionSyntax>().Single())).IsFalse();
+    }
+
+    /// <summary>Verifies an unavailable Array.Empty API prevents a diagnostic.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingArrayEmptyApiIsCleanAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            namespace System
+            {
+                public class Object { }
+                public abstract class Array { }
+                public class ValueType { }
+                public struct Int32 { }
+                public struct Void { }
+            }
+            class C { int[] M() => new int[0]; }
+            """);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree]);
+        await Assert.That(compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Empty")).IsEmpty();
+        var diagnostics = await compilation.WithAnalyzers([new Psh1001UseArrayEmptyAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies incomplete target contexts still report the allocation without assuming an array target.</summary>
+    /// <param name="source">The malformed target context.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C { void M(int[] value = {|PSH1001:new int[0]|}) { } }")]
+    [Arguments("class C { int[][,] M() => {|PSH1001:new int[0][,,]|}; }")]
+    [Arguments("class C { void M() { int[] value = null; value += {|PSH1001:new int[0]|}; } }")]
+    [Arguments("return {|PSH1001:new int[0]|};")]
+    public Task IncompleteArrayTargetsUseConservativeDiagnosticAsync(string source) =>
+        new VerifyArrayEmpty.Test { TestCode = source, ReferenceAssemblies = AnalyzerFrameworks.Net90, CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies the parser's invalid event getter does not produce an allocation diagnostic.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task InvalidEventGetterIsCleanAsync()
+    {
+        const string Source = "class C { event System.Action E { get { return new int[0]; } } }";
+        var test = new VerifyArrayEmpty.Test { TestCode = Source, ReferenceAssemblies = AnalyzerFrameworks.Net90, CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Creates a code-fix verifier test against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>

@@ -27,6 +27,41 @@ public class NameSimplificationAnalyzerUnitTest
                                                    stylesharp.instance_member_qualification = require_this
                                                    """;
 
+    /// <summary>Verifies a namespace used in an incomplete type position still binds consistently when shortened.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task NamespaceInIncompleteTypePositionUsesNamespaceArityAsync()
+    {
+        var compilation = CSharpCompilation.Create(
+            nameof(NamespaceInIncompleteTypePositionUsesNamespaceArityAsync),
+            [CSharpSyntaxTree.ParseText("namespace Alpha { namespace Beta { } class C { Alpha.Beta field; } }")],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new NameSimplificationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST1116");
+        var text = await diagnostics[0].Location.SourceTree!.GetTextAsync();
+        await Assert.That(text.ToString(diagnostics[0].Location.SourceSpan)).IsEqualTo("Alpha.Beta");
+    }
+
+    /// <summary>Verifies nullable generic names remain qualified when a nearer generic type would capture them.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ShadowedNullableGenericNameIsNotSimplifiedAsync() => VerifyNameSimplification.VerifyAnalyzerAsync(
+        """
+        #nullable enable
+        namespace Other { public class Item<T> { } }
+        class Item<T> { }
+        class C { Other.Item<int>? Value; }
+        """);
+
+    /// <summary>Verifies a global qualifier remains when the surrounding namespace shadows its type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ShadowedGlobalTypeIsNotSimplifiedAsync() => VerifyNameSimplification.VerifyAnalyzerAsync(
+        "class Item { } namespace Other { class Item { } class C { global::Item Value; } }");
+
     /// <summary>Verifies unresolved source symbols do not produce simplification diagnostics.</summary>
     /// <param name="source">The incomplete code being edited.</param>
     /// <returns>A task representing the asynchronous test.</returns>
@@ -69,6 +104,7 @@ public class NameSimplificationAnalyzerUnitTest
     [Arguments("int Local(int other) => {|SST1117:this.value|};")]
     [Arguments("foreach (var other in new int[0]) { _ = {|SST1117:this.value|}; }")]
     [Arguments("using (System.IDisposable other = null) { } _ = {|SST1117:this.value|};")]
+    [Arguments("using (new System.IO.MemoryStream()) { } _ = {|SST1117:this.value|};")]
     [Arguments("fixed (int* other = new int[1]) { } _ = {|SST1117:this.value|};")]
     public async Task LocalScopesControlThisSimplificationAsync(string body)
     {

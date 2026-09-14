@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Testing;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1448CallerInfoArgumentAnalyzer,
     StyleSharp.Analyzers.Sst1448CallerInfoArgumentCodeFixProvider>;
@@ -39,6 +43,131 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
             public void M() => Log("text");
         }
         """;
+
+    /// <summary>Verifies constructor, finalizer, accessor, and local-function names follow compiler spelling.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SpecialMemberNamesAreReportedAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Runtime.CompilerServices;
+            class C
+            {
+                C() { Log({|SST1448:".ctor"|}); }
+                static C() { Log({|SST1448:".cctor"|}); Log("C"); }
+                ~C() { Log({|SST1448:"Finalize"|}); Log("C"); }
+                string this[int index] => Log({|SST1448:"Item"|});
+                event Action Changed
+                {
+                    add { Log({|SST1448:"Changed"|}); }
+                    remove { Log({|SST1448:"Changed"|}); }
+                }
+                void Outer()
+                {
+                    void Local() { Log({|SST1448:"Outer"|}); Log("Local"); }
+                    Local();
+                }
+                static string Log([CallerMemberName] string name = "") => name;
+            }
+            """);
+
+    /// <summary>Verifies names in initializers and nonconstant or different arguments remain unchanged.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonRedundantMemberArgumentsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System.Runtime.CompilerServices;
+            class C
+            {
+                string field = Log("field");
+                string Property { get; } = Log("Property");
+                void M(string name)
+                {
+                    const string Other = "Other";
+                    Log(name);
+                    Log(Other);
+                    Log(null);
+                }
+                static string Log([CallerMemberName] string name = "") => name;
+            }
+            """);
+
+    /// <summary>Verifies file and line arguments report while forwarding preserves the original caller.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task FileAndLineArgumentsRespectForwardingAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Runtime.CompilerServices;
+            class C
+            {
+                static void Log([CallerFilePath] string file = "", [CallerLineNumber] int line = 0) { }
+                void M(string file, int line)
+                {
+                    Log({|SST1448:file|}, {|SST1448:line|});
+                    Log({|SST1448:"explicit.cs"|}, {|SST1448:42|});
+                }
+                void Forward([CallerFilePath] string file = "", [CallerLineNumber] int line = 0) => Log(file, line);
+                static void Ordinary([Marker] int value = 0) { }
+                void Other() { Ordinary(1); Log(); }
+            }
+            class MarkerAttribute : Attribute { }
+            """);
+
+    /// <summary>Verifies explicit and target-typed creations bind caller-info parameters.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConstructorArgumentsAreReportedAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System.Runtime.CompilerServices;
+            class C
+            {
+                public C([CallerLineNumber] int line = 0) { }
+                static void M()
+                {
+                    C first = new C({|SST1448:42|});
+                    C second = new({|SST1448:42|});
+                    C third = new C { };
+                }
+            }
+            """);
+
+    /// <summary>Verifies unresolved invocations and nonoptional arguments do not report.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnboundAndRequiredArgumentsAreIgnoredAsync() =>
+        new Verify.Test { TestCode = "class C { void M() { Missing(1); Required(1); } void Required(int value) { } }", CompilerDiagnostics = CompilerDiagnostics.None }
+            .RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies an attributed optional parameter is ignored when caller-info attributes are unavailable.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingCallerInfoAttributesAreCleanAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            namespace System
+            {
+                public class Object { }
+                public class Attribute { }
+                public struct Void { }
+                public struct Int32 { }
+            }
+            class MarkerAttribute : System.Attribute { }
+            class C
+            {
+                static void Log([Marker] int value = 0) { }
+                void M() { Log(1); Log(2); }
+            }
+            """);
+        var compilation = CSharpCompilation.Create("MissingCallerInfo", [tree], options: new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst1448CallerInfoArgumentAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
 
     /// <summary>Verifies an explicit caller-member-name argument is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

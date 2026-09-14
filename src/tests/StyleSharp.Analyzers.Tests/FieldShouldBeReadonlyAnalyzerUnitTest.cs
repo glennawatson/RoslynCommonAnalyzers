@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyReadonlyField = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1424FieldShouldBeReadonlyAnalyzer,
     StyleSharp.Analyzers.Sst1424FieldShouldBeReadonlyCodeFixProvider>;
@@ -12,6 +13,124 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1424 (make never-reassigned fields readonly).</summary>
 public class FieldShouldBeReadonlyAnalyzerUnitTest
 {
+    /// <summary>Verifies eligible field types are reported while excluded declarations and deferred writes remain clean.</summary>
+    /// <param name="source">The field declaration and its expected diagnostic, if eligible.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { int value; }")]
+    [Arguments("class C { public int value; }")]
+    [Arguments("class C { private static int value; }")]
+    [Arguments("class C { private readonly int value; }")]
+    [Arguments("class C { private const int value = 1; }")]
+    [Arguments("class C { private volatile int value; }")]
+    [Arguments("partial class C { private int value; }")]
+    [Arguments("class C { private int first, second; void Set() { second = 1; } }")]
+    [Arguments("class C { private int value; C() { void Set() { value = 1; } Set(); } }")]
+    [Arguments("class C { private int value; class Nested { Nested(C owner) { owner.value = 1; } } }")]
+    [Arguments("class C { private int[] {|SST1424:values|}; }")]
+    [Arguments("class C<T> { private T {|SST1424:value|}; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task FieldEligibilityControlsReadonlySuggestionAsync(string source) => VerifyReadonlyField.VerifyAnalyzerAsync(source);
+
+    /// <summary>Verifies namespace fields and unresolved struct members do not produce unsafe suggestions.</summary>
+    /// <param name="source">Malformed source with a candidate field.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("namespace N { private int value; }")]
+    [Arguments("struct Box { public int Field; } class C { private Box box; void M() { box.Missing(); } }")]
+    [Arguments("struct Box { public int Value { set { } } } class C { private Box box; int M() => box.Value; }")]
+    [Arguments("struct Box { public readonly int Value => 1; } class C { private Box box; void M() { box.Value = 1; } }")]
+    public async Task MalformedFieldUsesAreCleanAsync(string source)
+    {
+        var test = new VerifyReadonlyField.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a missing accessor conservatively blocks readonly suggestions even in unevaluated or null-forgiven reads.</summary>
+    /// <param name="use">A property use classified through a missing getter or setter.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("_ = nameof(box.WriteOnly);")]
+    [Arguments("_ = box.ReadOnly!;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MissingAccessorPreventsReadonlySuggestionAsync(string use) =>
+        VerifyReadonlyField.VerifyAnalyzerAsync($$"""
+            struct Box
+            {
+                public int WriteOnly { set { } }
+                public readonly string ReadOnly => string.Empty;
+            }
+            class C
+            {
+                private Box box;
+                void Use() { {{use}} }
+            }
+            """);
+
+    /// <summary>Verifies nested fields, properties and indexers distinguish mutating uses from readonly reads.</summary>
+    /// <param name="use">The use of the mutable struct field.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("box.Field = 1;")]
+    [Arguments("++box.Field;")]
+    [Arguments("--box.Field;")]
+    [Arguments("box.Field++;")]
+    [Arguments("box.Field--;")]
+    [Arguments("Mutate(ref box.Field);")]
+    [Arguments("Initialize(out box.Field);")]
+    [Arguments("(box.Field, _) = (1, 2);")]
+    [Arguments("box[0] = 1;")]
+    [Arguments("_ = box[0];")]
+    [Arguments("_ = box.Mutable;")]
+    [Arguments("box.Changed += () => { };")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MutableStructReceiverWritesAreCleanAsync(string use) =>
+        VerifyReadonlyField.VerifyAnalyzerAsync($$"""
+            struct Box
+            {
+                public int Field;
+                public int Mutable { get => Field; set => Field = value; }
+                public int this[int index] { get => Field; set => Field = value; }
+                public event System.Action Changed;
+            }
+            class C
+            {
+                private Box box;
+                void Use() { {{use}} }
+                static void Mutate(ref int value) { value = 1; }
+                static void Initialize(out int value) { value = 1; }
+            }
+            """);
+
+    /// <summary>Verifies readonly members and value reads do not disqualify a mutable struct field.</summary>
+    /// <param name="use">A use that cannot mutate the receiver.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("_ = box.Field;")]
+    [Arguments("_ = -box.Field;")]
+    [Arguments("_ = (box.Field, 1);")]
+    [Arguments("_ = box.Read();")]
+    [Arguments("_ = box[0];")]
+    [Arguments("box.Value = 1;")]
+    [Arguments("_ = box;")]
+    [Arguments("_ = this.box;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MutableStructReadonlyUsesAreReportedAsync(string use) =>
+        VerifyReadonlyField.VerifyAnalyzerAsync($$"""
+            struct Box
+            {
+                public int Field;
+                public readonly int Read() => Field;
+                public readonly int this[int index] => Field;
+                public readonly int Value { get => Field; set { } }
+            }
+            class C
+            {
+                private Box {|SST1424:box|};
+                void Use() { {{use}} }
+            }
+            """);
+
     /// <summary>Verifies a constructor-only assignment is reported and fixed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

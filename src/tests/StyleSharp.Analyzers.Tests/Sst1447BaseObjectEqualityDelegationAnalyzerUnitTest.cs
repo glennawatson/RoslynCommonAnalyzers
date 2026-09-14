@@ -11,6 +11,78 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Sst1447BaseObjectEqualityDelegationAnalyzer"/> (SST1447 base-object equality delegation).</summary>
 public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 {
+    /// <summary>Verifies parentheses do not hide a returned identity result.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ParenthesizedReturnedBaseCallsAreReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            class C
+            {
+                public override bool Equals(object obj) { return (({|SST1447:base.Equals(obj)|})); }
+                public override int GetHashCode() => (({|SST1447:base.GetHashCode()|}));
+            }
+            """);
+
+    /// <summary>Verifies nested functions and non-method members are not mistaken for the outer equality method.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NestedFunctionsAndPropertiesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            using System;
+            class C
+            {
+                int Identity => base.GetHashCode();
+                public override bool Equals(object obj)
+                {
+                    bool Local() => base.Equals(obj);
+                    Func<bool> lambda = () => base.Equals(obj);
+                    Func<bool> anonymous = delegate { return base.Equals(obj); };
+                    return Local() && lambda() && anonymous();
+                }
+                public override int GetHashCode() => 0;
+            }
+            """);
+
+    /// <summary>Verifies ordinary calls and differently shaped base overloads stay silent.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OtherReceiversNamesAndAritiesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
+            """
+            class B
+            {
+                protected bool Equals() => true;
+                protected int GetHashCode(int value) => value;
+            }
+            class C : B
+            {
+                public override bool Equals(object obj)
+                {
+                    base.ToString();
+                    obj.Equals(this);
+                    Equals();
+                    return base.Equals();
+                }
+                public override int GetHashCode() => base.GetHashCode(1);
+            }
+            """);
+
+    /// <summary>Verifies unresolved base calls and malformed top-level calls do not report.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnresolvedAndTopLevelBaseCallsAreCleanAsync() =>
+        new Verify.Test
+        {
+            TestCode = "base.GetHashCode(); class C { public override int GetHashCode() => base.GetHashCode<int>(); }",
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies base.Equals inside Equals is flagged when the base is object.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -12,6 +12,71 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests for SST2495 (a flags operand whose bits another operand already sets).</summary>
 public class Sst2495RedundantFlagsOperandAnalyzerUnitTest
 {
+    /// <summary>Verifies redundancy for every legal enum backing type, including signed high bits.</summary>
+    /// <param name="underlyingType">The enum backing type.</param>
+    /// <param name="all">A constant containing the low flag bit.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("int", "-1")]
+    [Arguments("uint", "4294967295U")]
+    [Arguments("long", "-1L")]
+    [Arguments("ulong", "18446744073709551615UL")]
+    [Arguments("short", "-1")]
+    [Arguments("ushort", "65535")]
+    [Arguments("sbyte", "-1")]
+    [Arguments("byte", "255")]
+    public Task IntegralBackingTypesReportSubsetAsync(string underlyingType, string all) =>
+        Verify.VerifyAnalyzerAsync($$"""
+            [System.Flags]
+            public enum F : {{underlyingType}} { A = 1, All = {{all}} }
+            class C { F M() => ({|SST2495:F.A|}) | (F.All); }
+            """);
+
+    /// <summary>Verifies nested chains flatten once while zero and unknown values remain untouched.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ParenthesizedChainPreservesZeroAndUnknownOperandsAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            [System.Flags]
+            public enum F { None = 0, A = 1, B = 2, Both = 3 }
+            class C
+            {
+                F M(F unknown) => ((F.None | unknown) | (({|SST2495:F.A|}) | F.Both));
+                F N() => (F.A & F.B) | F.None;
+                F P(F? value) => (value ?? F.None) | F.A;
+            }
+            """);
+
+    /// <summary>Verifies only the real System.FlagsAttribute enables redundancy diagnostics.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnrelatedAttributesAndNonFlagsEnumsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            namespace Other
+            {
+                public sealed class FlagsAttribute : System.Attribute { }
+            }
+            namespace Nested.System
+            {
+                public sealed class FlagsAttribute : global::System.Attribute { }
+            }
+            [Other.Flags] public enum F { A = 1, Both = 3 }
+            [Nested.System.Flags] public enum G { A = 1, Both = 3 }
+            [System.Serializable] public enum H { A = 1, Both = 3 }
+            public enum I { A = 1, Both = 3 }
+            class C
+            {
+                F M() => F.A | F.Both;
+                G N() => G.A | G.Both;
+                H O() => H.A | H.Both;
+                I P() => I.A | I.Both;
+                bool Q(bool a, bool b) => a | b;
+            }
+            """);
+
     /// <summary>Verifies a single flag already inside a composite operand is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

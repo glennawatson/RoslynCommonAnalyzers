@@ -2,8 +2,16 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyConstructors = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExceptionConstructorAnalyzer,
     StyleSharp.Analyzers.Sst1488ExceptionStandardConstructorsCodeFixProvider>;
@@ -19,6 +27,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExceptionConstructorAnalyzerUnitTest
 {
+    /// <summary>The document name used when exercising the code-fix provider directly.</summary>
+    private const string TestDocumentName = "Test.cs";
+
     /// <summary>The three constructors every exception is expected to declare.</summary>
     private const string StandardConstructors = """
                                                     /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
@@ -432,6 +443,148 @@ public class ExceptionConstructorAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies malformed diagnostic properties and stale locations produce neither an action nor batch edits.</summary>
+    /// <param name="value">The serialized constructor flags, or null to omit the property.</param>
+    /// <param name="targetClass">Whether the diagnostic still selects a class declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(null, true)]
+    [Arguments("invalid", true)]
+    [Arguments("2147483648", true)]
+    [Arguments("0", true)]
+    [Arguments("7", false)]
+    public async Task InvalidConstructorDiagnosticHasNoFixAsync(string? value, bool targetClass)
+    {
+        const string Source = "class WidgetException : System.Exception { int Value => 0; }";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument(TestDocumentName, Source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var declaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var location = targetClass ? declaration.Identifier.GetLocation() : declaration.Members[0].GetLocation();
+        var properties = ImmutableDictionary<string, string?>.Empty;
+        if (value is not null)
+        {
+            properties = properties.Add(ExceptionConstructorAnalyzer.MissingConstructorsKey, value);
+        }
+
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.ExceptionStandardConstructors, location, properties);
+        using var container = new ContainerConfiguration().WithPart<Sst1488ExceptionStandardConstructorsCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(Source);
+    }
+
+    /// <summary>Verifies each missing constructor is inserted after existing constructors and before later members.</summary>
+    /// <param name="missing">The constructor flag selected by the diagnostic.</param>
+    /// <param name="parameterCount">The expected number of parameters on the new constructor.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("1", 0)]
+    [Arguments("2", 1)]
+    [Arguments("4", 2)]
+    public async Task SelectedConstructorPreservesExistingMembersAsync(string missing, int parameterCount)
+    {
+        const int ExpectedConstructorCount = 2;
+        const string Source = """
+            class WidgetException : System.Exception
+            {
+                public WidgetException(int value) { Value = value; }
+                public int Value { get; }
+            }
+            """;
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform);
+        var document = project.AddDocument(TestDocumentName, Source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var declaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(ExceptionConstructorAnalyzer.MissingConstructorsKey, missing);
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.ExceptionStandardConstructors, declaration.Identifier.GetLocation(), properties);
+        using var container = new ContainerConfiguration().WithPart<Sst1488ExceptionStandardConstructorsCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(1);
+        var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
+        var changedDocument = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
+        var changedRoot = (await changedDocument.GetSyntaxRootAsync())!;
+        var changedClass = changedRoot.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var constructors = changedClass.Members.OfType<ConstructorDeclarationSyntax>().ToArray();
+        await Assert.That(constructors.Length).IsEqualTo(ExpectedConstructorCount);
+        await Assert.That(constructors[0].ParameterList.Parameters[0].Type!.ToString()).IsEqualTo("int");
+        await Assert.That(constructors[1].ParameterList.Parameters.Count).IsEqualTo(parameterCount);
+        await Assert.That(constructors[1].Initializer?.ArgumentList.Arguments.Count ?? 0).IsEqualTo(parameterCount);
+        await Assert.That(constructors[1].GetLeadingTrivia().ToFullString()).Contains("<summary>");
+        await Assert.That(changedClass.Members.Last()).IsTypeOf<PropertyDeclarationSyntax>();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().NormalizeWhitespace().ToFullString()).IsEqualTo(changedRoot.NormalizeWhitespace().ToFullString());
+    }
+
+    /// <summary>Verifies a preceding batch edit that replaces the class leaves no constructor target.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task BatchEditSkipsAReplacedClassAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument(TestDocumentName, "class WidgetException { }");
+        var root = (await document.GetSyntaxRootAsync())!;
+        var declaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var properties = ImmutableDictionary<string, string?>.Empty.Add(ExceptionConstructorAnalyzer.MissingConstructorsKey, "7");
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.ExceptionStandardConstructors, declaration.Identifier.GetLocation(), properties);
+        var editor = await DocumentEditor.CreateAsync(document);
+        var replacement = Microsoft.CodeAnalysis.CSharp.SyntaxFactory.StructDeclaration("Replacement");
+        editor.ReplaceNode(declaration, (current, _) => current.CopyAnnotationsTo(replacement));
+        using var container = new ContainerConfiguration().WithPart<Sst1488ExceptionStandardConstructorsCodeFixProvider>().CreateContainer();
+        ((IBatchFixableCodeFix)container.GetExport<CodeFixProvider>()).RegisterBatchEdits(editor, diagnostic);
+        var changed = editor.GetChangedRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
+        await Assert.That(changed.Identifier.ValueText).IsEqualTo("Replacement");
+        await Assert.That(changed.Members).IsEmpty();
+    }
+
+    /// <summary>Verifies the current CRLF separator inserted before a property, including in an LF document.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task FixSeparatesNewConstructorsFromFollowingPropertyAsync()
+    {
+        const string Source = """
+            public class {|SST1488:WidgetException|} : System.Exception
+            {
+                public int Value => 1;
+            }
+            """;
+        const string FixedSource = $$"""
+            public class WidgetException : System.Exception
+            {
+                /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
+                public WidgetException()
+                {
+                }
+
+                /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
+                /// <param name="message">The message that describes the error.</param>
+                public WidgetException(string message)
+                    : base(message)
+                {
+                }
+
+                /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
+                /// <param name="message">The message that describes the error.</param>
+                /// <param name="innerException">The exception that is the cause of this exception.</param>
+                public WidgetException(string message, System.Exception innerException)
+                    : base(message, innerException)
+                {
+                }
+            {{"\r"}}
+                public int Value => 1;
+            }
+            """;
+        await VerifyAsync(Source, FixedSource);
+    }
 
     /// <summary>Runs an analyzer-and-fix verification against a modern target.</summary>
     /// <param name="source">The source with diagnostic markup.</param>

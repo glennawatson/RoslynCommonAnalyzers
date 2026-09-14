@@ -2,8 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeWeightsUrl = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     SecuritySharp.Analyzers.Ses1606CleartextModelWeightsUrlAnalyzer>;
@@ -13,6 +18,9 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for SES1606 (a model-weights file must not be fetched over a cleartext http URL).</summary>
 public class CleartextModelWeightsUrlAnalyzerUnitTest
 {
+    /// <summary>The cached primitive references for compilations without the framework HTTP client.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
+
     /// <summary>Verifies a cleartext .onnx weights URL declared as a constant is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -303,6 +311,151 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies missing authorities, truncated paths, and authority queries cannot identify a weights download.</summary>
+    /// <param name="url">The literal that must remain clean.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("")]
+    [Arguments("http://")]
+    [Arguments("http://models.example.com?file=/model.onnx")]
+    [Arguments("http://models.example.com#file=/model.onnx")]
+    [Arguments("http:///model.onnx")]
+    [Arguments("http://models.example.com/")]
+    [Arguments("http://models.example.com/a")]
+    [Arguments("http://models.example.com/.p")]
+    [Arguments("http://models.example.com/model.onnx.txt")]
+    [Arguments("http://worker.localhost/model.onnx")]
+    [Arguments("http://[::1]/model.onnx")]
+    public Task IncompleteOrLocalWeightsUrlIsCleanAsync(string url) =>
+        VerifyNet90Async($$"""
+            class C { const string Url = "{{url}}"; }
+            """);
+
+    /// <summary>Verifies fragments do not hide a matching model extension.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task FragmentAfterWeightsPathIsReportedAsync() =>
+        VerifyNet90Async("""
+            class C { const string Url = {|SES1606:"http://models.example.com/model.onnx#download"|}; }
+            """);
+
+    /// <summary>Verifies named request arguments and inherited base-address assignments remain owned by the transport rule.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NamedRequestsAndInheritedBaseAddressAreDeferredAsync() =>
+        VerifyNet90Async("""
+            using System;
+            using System.Net.Http;
+            using System.Threading;
+            using System.Threading.Tasks;
+            class C : HttpClient
+            {
+                async Task M()
+                {
+                    BaseAddress = new Uri("http://models.example.com/model.onnx");
+                    await this.GetAsync(cancellationToken: CancellationToken.None, requestUri: "http://models.example.com/model.onnx");
+                    await this.GetAsync(requestUri: new Uri("http://models.example.com/model.onnx"));
+                }
+            }
+            """);
+
+    /// <summary>Verifies request-like calls and assignments outside the exact transport sink still report.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NonTransportArgumentsAndAssignmentsAreReportedAsync() =>
+        VerifyNet90Async("""
+            using System;
+            class OtherClient
+            {
+                public Uri BaseAddress { get; set; }
+            }
+            class Loader
+            {
+                public Uri BaseAddress;
+                public Uri Address { get; set; }
+                public void GetAsync(string address, string content = null) {}
+                public void Load(string address) {}
+                public void M(Loader loader, OtherClient other, dynamic unresolved)
+                {
+                    loader.GetAsync(address: {|SES1606:"http://models.example.com/model.onnx"|});
+                    loader.GetAsync("https://models.example.com/", {|SES1606:"http://models.example.com/model.onnx"|});
+                    loader.Load({|SES1606:"http://models.example.com/model.onnx"|});
+                    unresolved.GetAsync({|SES1606:"http://models.example.com/model.onnx"|});
+                    loader.Address = new Uri({|SES1606:"http://models.example.com/model.onnx"|});
+                    loader.BaseAddress = new Uri({|SES1606:"http://models.example.com/model.onnx"|});
+                    other.BaseAddress = new Uri({|SES1606:"http://models.example.com/model.onnx"|});
+                }
+            }
+            """);
+
+    /// <summary>Verifies constructor initializers and target-typed construction are not transport request arguments.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ConstructorArgumentShapesAreReportedAsync() =>
+        VerifyNet90Async("""
+            using System;
+            class C
+            {
+                public C() : this({|SES1606:"http://models.example.com/model.onnx"|}) {}
+                public C(string path) {}
+                public Uri Create() => new({|SES1606:"http://models.example.com/model.onnx"|});
+            }
+            """);
+
+    /// <summary>Verifies lookalike client types do not acquire the framework transport exclusion.</summary>
+    /// <param name="declaration">The type whose request method resembles the framework client.</param>
+    /// <param name="typeName">The fully qualified type used by the caller.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class HttpClient { public void GetAsync(string requestUri) {} }", "HttpClient")]
+    [Arguments("namespace System.Net.Http { class HttpClient<T> { public void GetAsync(string requestUri) {} } }", "System.Net.Http.HttpClient<int>")]
+    [Arguments("class Outer { public class HttpClient { public void GetAsync(string requestUri) {} } }", "Outer.HttpClient")]
+    [Arguments("namespace Other.Net.Http { class HttpClient { public void GetAsync(string requestUri) {} } }", "Other.Net.Http.HttpClient")]
+    [Arguments("namespace Other.System.Net.Http { class HttpClient { public void GetAsync(string requestUri) {} } }", "Other.System.Net.Http.HttpClient")]
+    [Arguments("namespace System.Other.Http { class HttpClient { public void GetAsync(string requestUri) {} } }", "System.Other.Http.HttpClient")]
+    [Arguments("namespace System.Net.Other { class HttpClient { public void GetAsync(string requestUri) {} } }", "System.Net.Other.HttpClient")]
+    public async Task LookalikeClientStillReportsWithoutFrameworkHttpClientAsync(string declaration, string typeName)
+    {
+        var tree = CSharpSyntaxTree.ParseText($$"""
+            {{declaration}}
+            class C { void M({{typeName}} client) { client.GetAsync("http://models.example.com/model.onnx"); } }
+            """);
+        var compilation = CSharpCompilation.Create("LookalikeClient", [tree], CoreReferences, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Ses1606CleartextModelWeightsUrlAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SES1606");
+        await Assert.That(diagnostics[0].GetMessage()).Contains("models.example.com");
+    }
+
+    /// <summary>Verifies wrapped URLs in constructor arguments or invalid assignment targets are not transport sinks.</summary>
+    /// <param name="body">The constructor use containing the cleartext URL.</param>
+    /// <param name="invalidAssignment">Whether the compiler rejects the assignment target.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("new Wrapper(new C(\"http://models.example.com/model.onnx\"));", false)]
+    [Arguments("new C(\"http://models.example.com/model.onnx\") = null;", true)]
+    public async Task NonRequestConstructionStillReportsAsync(string body, bool invalidAssignment)
+    {
+        var tree = CSharpSyntaxTree.ParseText($$"""
+            class C
+            {
+                public C(string path) { }
+                void M() { {{body}} }
+            }
+            class Wrapper { public Wrapper(C value) { } }
+            """);
+        var compilation = CSharpCompilation.Create("NonRequestConstruction", [tree], CoreReferences, new(OutputKind.DynamicallyLinkedLibrary));
+        await Assert.That(compilation.GetDiagnostics().Any(static diagnostic => diagnostic.Id == "CS0131")).IsEqualTo(invalidAssignment);
+        var diagnostics = await compilation.WithAnalyzers([new Ses1606CleartextModelWeightsUrlAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SES1606");
+    }
 
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies (where HttpClient exists).</summary>
     /// <param name="source">The source with diagnostic markup.</param>

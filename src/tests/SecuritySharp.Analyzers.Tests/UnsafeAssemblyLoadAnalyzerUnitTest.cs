@@ -2,8 +2,12 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeLoad = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     SecuritySharp.Analyzers.Ses1402UnsafeAssemblyLoadAnalyzer>;
@@ -13,6 +17,116 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for SES1402 (do not load an assembly from raw bytes or a non-constant location).</summary>
 public class UnsafeAssemblyLoadAnalyzerUnitTest
 {
+    /// <summary>Cached references for minimal assembly-loading contracts.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
+
+    /// <summary>Verifies parentheses and null-forgiving operators preserve trusted embedded-resource recognition.</summary>
+    /// <param name="source">The stream supplied to the loader.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("((host.GetManifestResourceStream(\"plugin\"))!)")]
+    [Arguments("(GetManifestResourceStream(\"plugin\"))!")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task WrappedResourceStreamIsCleanAsync(string source) =>
+        VerifyNet90Async(
+            $$"""
+            using System.IO;
+            using System.Reflection;
+            using System.Runtime.Loader;
+            class C
+            {
+                Assembly M(AssemblyLoadContext context, Assembly host) => context.LoadFromStream({{source}});
+                static Stream GetManifestResourceStream(string name) => Stream.Null;
+            }
+            """);
+
+    /// <summary>Verifies reordered named arguments identify the assembly stream rather than the symbols stream.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ReorderedStreamArgumentsUseAssemblySourceAsync() =>
+        VerifyNet90Async(
+            """
+            using System.IO;
+            using System.Reflection;
+            using System.Runtime.Loader;
+            class C
+            {
+                Assembly M(AssemblyLoadContext context, Assembly host, Stream stream)
+                    => {|SES1402:context.LoadFromStream(assemblySymbols: host.GetManifestResourceStream("symbols"), assembly: stream)|};
+                Assembly N(AssemblyLoadContext context, Assembly host, Stream stream)
+                    => context.LoadFromStream(assemblySymbols: stream, assembly: host.GetManifestResourceStream("plugin"));
+            }
+            """);
+
+    /// <summary>Verifies unresolved overloads, parameterless calls, and unrelated stream loaders are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonAssemblyAndUnresolvedCallsAreCleanAsync() =>
+        VerifyNet90Async(
+            """
+            using System.Reflection;
+            class C
+            {
+                object M() => Assembly.Load({|CS1503:1|});
+                object N() => C.Load();
+                object P() => C.LoadFromStream(new object());
+                static object Load() => null;
+                static object LoadFromStream(object value) => value;
+            }
+            """);
+
+    /// <summary>Verifies a framework without load contexts still distinguishes raw assembly loads from unrelated stream loaders.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MissingLoadContextTypeIsCleanAsync() =>
+        new AnalyzeLoad.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net462,
+            TestCode = """
+                using System.Reflection;
+                class Loader { public static object LoadFromStream(object stream) => stream; }
+                class C
+                {
+                    object M() => Loader.LoadFromStream(null);
+                    Assembly N(byte[] bytes) => {|SES1402:Assembly.Load(bytes)|};
+                }
+                """,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies a loader cannot be classified without reflection assembly metadata.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingAssemblyMetadataIsCleanAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("class C { object M() => Loader.Load(new byte[0]); }");
+        var compilation = CSharpCompilation.Create("MissingAssembly", [tree]);
+        var diagnostics = await compilation.WithAnalyzers([new Ses1402UnsafeAssemblyLoadAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies an omitted optional source and an unrecognized assembly method do not report.</summary>
+    /// <param name="method">The available assembly method.</param>
+    /// <param name="call">The invocation to analyze.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public static object LoadFrom(string path = null, bool flag = false) => null;", "Assembly.LoadFrom(flag: true)")]
+    [Arguments("public static object LoadFromStream(object stream) => null;", "Assembly.LoadFromStream(null)")]
+    [Arguments("public static object Load(int[] bytes) => null;", "Assembly.Load(new int[0])")]
+    public async Task UnsupportedAssemblyContractIsCleanAsync(string method, string call)
+    {
+        var source = $$"""
+            using System.Reflection;
+            namespace System.Reflection { class Assembly { {{method}} } }
+            class C { object M() => {{call}}; }
+            """;
+        var compilation = CSharpCompilation.Create("AssemblyContract", [CSharpSyntaxTree.ParseText(source)], CoreReferences);
+        var diagnostics = await compilation.WithAnalyzers([new Ses1402UnsafeAssemblyLoadAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
     /// <summary>Verifies <c>Assembly.Load(byte[])</c> on a raw buffer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -222,7 +336,7 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeLoad.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
+        var test = new AnalyzeLoad.Test { ReferenceAssemblies = AnalyzerFrameworks.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -2,7 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using Microsoft.CodeAnalysis.Text;
 using VerifyReadableConditions = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1131UseReadableConditionsAnalyzer,
     StyleSharp.Analyzers.Sst1131UseReadableConditionsCodeFixProvider>;
@@ -12,6 +18,42 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the readable-conditions rule (SST1131).</summary>
 public class UseReadableConditionsAnalyzerUnitTest
 {
+    /// <summary>Verifies each comparison operator keeps its meaning when its operands move.</summary>
+    /// <param name="original">The original comparison operator.</param>
+    /// <param name="flipped">The operator after exchanging operands.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("!=", "!=")]
+    [Arguments("<=", ">=")]
+    [Arguments(">", "<")]
+    [Arguments(">=", "<=")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ComparisonOperatorsAreFlippedAsync(string original, string flipped) =>
+        VerifyReadableConditions.VerifyCodeFixAsync(
+            $"class C {{ bool M(int count) => {{|SST1131:0 {original} count|}}; }}",
+            $"class C {{ bool M(int count) => count {flipped} 0; }}");
+
+    /// <summary>Verifies a stale diagnostic on a declaration has no single or batch fix.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DiagnosticOutsideComparisonHasNoFixAsync()
+    {
+        const string Source = "class C { }";
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, "Test.cs", SourceText.From(Source));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var diagnostic = Diagnostic.Create(ReadabilityRules.UseReadableConditions, root.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst1131UseReadableConditionsCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(Source);
+    }
+
     /// <summary>Verifies a yoda equality is reported (SST1131) and the operands swapped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

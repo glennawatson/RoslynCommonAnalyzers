@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyMemberLength = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1523MethodTooLongAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -12,6 +13,9 @@ public class MethodTooLongAnalyzerUnitTest
 {
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
+
+    /// <summary>The one-line limit used to measure minimal multiline bodies.</summary>
+    private const string OneLineMaximum = "stylesharp.SST1523.max_member_lines = 1";
 
     /// <summary>A type carrying one over-length instance of every member kind the rule measures.</summary>
     private const string EveryMemberKindSource = """
@@ -176,7 +180,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 1")));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig(OneLineMaximum)));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -228,6 +232,81 @@ public class MethodTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_member_lines = 4")));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies indexer, event and init accessor diagnostics include the owning member's name.</summary>
+    /// <param name="member">A member with a two-line accessor.</param>
+    /// <param name="name">The accessor name in the diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public int this[int index] { {|#0:get|} =>\n 1; }", "this[].get")]
+    [Arguments("public event System.Action Changed { {|#0:add|} =>\n System.GC.KeepAlive(value); remove { } }", "Changed.add")]
+    [Arguments("public event System.Action Changed { add { } {|#0:remove|} =>\n System.GC.KeepAlive(value); }", "Changed.remove")]
+    [Arguments("public int Value { get => 1; {|#0:init|} =>\n System.GC.KeepAlive(value); }", "Value.init")]
+    public async Task AccessorNamesIncludeTheirOwnerAsync(string member, string name)
+    {
+        const int AccessorLines = 2;
+        var test = new VerifyMemberLength.Test { TestCode = $"class C {{ {member} }} namespace System.Runtime.CompilerServices {{ internal static class IsExternalInit {{ }} }}" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig(OneLineMaximum)));
+        test.ExpectedDiagnostics.Add(VerifyMemberLength.Diagnostic().WithLocation(0).WithArguments(name, AccessorLines, 1));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies expression-bodied local functions are measured independently from their containing method.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ExpressionBodiedLocalFunctionIsMeasuredAsync()
+    {
+        var test = new VerifyMemberLength.Test { TestCode = "class C { int {|SST1523:Host|}() { int {|SST1523:Local|}() =>\n 1; return Local(); } }" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig(OneLineMaximum)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies invalid maxima fall back to the default rather than reporting short members.</summary>
+    /// <param name="maximum">An invalid maximum value.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("0")]
+    [Arguments("-1")]
+    [Arguments("invalid")]
+    public async Task InvalidMaximumUsesDefaultAsync(string maximum)
+    {
+        var test = new VerifyMemberLength.Test { TestCode = "class C { int M() =>\n 1; }" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig($"stylesharp.SST1523.max_member_lines = {maximum}", $"stylesharp.max_member_lines = {maximum}")));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an invalid rule-specific maximum still permits a valid general maximum.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task InvalidRuleMaximumFallsBackToGeneralAsync()
+    {
+        var test = new VerifyMemberLength.Test { TestCode = "class C { int {|SST1523:M|}() =>\n 1; }" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = invalid", "stylesharp.max_member_lines = 1")));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the configured maximum is inclusive for an expression-bodied method.</summary>
+    /// <param name="maximum">The configured line limit.</param>
+    /// <param name="reports">Whether the two-line method exceeds it.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(1, true)]
+    [Arguments(2, false)]
+    public async Task MemberAtMaximumIsCleanAsync(int maximum, bool reports)
+    {
+        var test = new VerifyMemberLength.Test { TestCode = $"class C {{ int {(reports ? "{|SST1523:M|}" : "M")}() =>\n 1; }}" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig($"stylesharp.SST1523.max_member_lines = {maximum}")));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an incomplete local function declaration has no body to measure.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task BodilessLocalFunctionIsCleanAsync()
+    {
+        var test = new VerifyMemberLength.Test { TestCode = "class C { void Host() { void Local(); } }", CompilerDiagnostics = CompilerDiagnostics.None };
         await test.RunAsync(CancellationToken.None);
     }
 

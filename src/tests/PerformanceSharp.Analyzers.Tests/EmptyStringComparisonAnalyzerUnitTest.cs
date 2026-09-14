@@ -2,9 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzerVerifyEmptyComparison = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1204EmptyStringComparisonAnalyzer>;
@@ -22,6 +27,9 @@ public class EmptyStringComparisonAnalyzerUnitTest
 
     /// <summary>The editorconfig line selecting string.IsNullOrEmpty.</summary>
     private const string IsNullOrEmptyStyleSetting = "performancesharp.PSH1204.empty_string_style = is_null_or_empty";
+
+    /// <summary>Cached references for a framework without expression trees.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
 
     /// <summary>Verifies <c>==</c> against <c>""</c> is reported (PSH1204) and rewritten to a length pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -567,6 +575,92 @@ public class EmptyStringComparisonAnalyzerUnitTest
         });
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a left-hand string.Empty field still rewrites the value operand.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EmptyFieldOnLeftReplacedAsync() =>
+        VerifyNet90Async(
+            "class C { bool M(string value) => string.Empty {|PSH1204:!=|} value; }",
+            "class C { bool M(string value) => value is not { Length: 0 }; }");
+
+    /// <summary>Verifies a string-valued custom Empty member is treated as the value when compared to a literal.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EmptyLiteralTakesPrecedenceOverCustomEmptyMemberAsync() =>
+        VerifyNet90Async(
+            "class C { static string Empty => null; bool M() => Empty {|PSH1204:==|} \"\"; bool N() => C.Empty {|PSH1204:==|} \"\"; }",
+            "class C { static string Empty => null; bool M() => Empty is { Length: 0 }; bool N() => C.Empty is { Length: 0 }; }");
+
+    /// <summary>Verifies custom Empty members and non-string comparisons are ignored.</summary>
+    /// <param name="source">The source expected to produce no diagnostic or fix.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C { static string Empty => null; bool M(string value) => value == C.Empty; }")]
+    [Arguments("class C { static string Empty; bool M(string value) => C.Empty == value; }")]
+    [Arguments("class C { public string Empty; bool M(string value, C other) => other.Empty != value; }")]
+    [Arguments("class C { bool M(object value) => value == string.Empty; }")]
+    [Arguments("class C { bool M(string value) => value == null; }")]
+    [Arguments("class C { bool M(string value) => value == \"nonempty\"; }")]
+    public Task UnrelatedComparisonsHaveNoDiagnosticOrFixAsync(string source) => VerifyNet90CleanAsync(source);
+
+    /// <summary>Verifies syntactic operand extraction rejects unrelated member and literal shapes.</summary>
+    /// <param name="expression">The comparison expression.</param>
+    /// <param name="empty">The expected empty operand, or null when there is none.</param>
+    /// <param name="value">The expected value operand, or null when there is none.</param>
+    /// <param name="literal">Whether the empty operand is a string literal.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("\"\" == value", "\"\"", "value", true)]
+    [Arguments("value != \"\"", "\"\"", "value", true)]
+    [Arguments("string.Empty == value", "string.Empty", "value", false)]
+    [Arguments("value != string.Empty", "string.Empty", "value", false)]
+    [Arguments("C.Empty == \"\"", "\"\"", "C.Empty", true)]
+    [Arguments("value == null", null, null, false)]
+    [Arguments("value == \"text\"", null, null, false)]
+    [Arguments("value == C.Other", null, null, false)]
+    [Arguments("value == C.Empty<int>", null, null, false)]
+    [Arguments("value == pointer->Empty", null, null, false)]
+    [Arguments("value == (\"\")", null, null, false)]
+    public async Task OperandExtractionPreservesSyntaxPriorityAsync(string expression, string? empty, string? value, bool literal)
+    {
+        var binary = (BinaryExpressionSyntax)SyntaxFactory.ParseExpression(expression);
+        await Assert.That(Psh1204EmptyStringComparisonAnalyzer.TryGetOperands(binary, out var actualEmpty, out var actualValue, out var actualLiteral)).IsEqualTo(empty is not null);
+        await Assert.That(actualEmpty?.ToString()).IsEqualTo(empty);
+        await Assert.That(actualValue?.ToString()).IsEqualTo(value);
+        await Assert.That(actualLiteral).IsEqualTo(literal);
+    }
+
+    /// <summary>Verifies an ordinary delegate lambda is analyzed when the framework lacks expression trees.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingExpressionTreeTypeDoesNotSkipDelegateAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("class C { System.Func<string, bool> M() => value => value == \"\"; }");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], CoreReferences);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1204EmptyStringComparisonAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+
+        await Assert.That(compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1")).IsNull();
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["PSH1204"]);
+    }
+
+    /// <summary>Verifies unfinished expressions do not cause diagnostics on unresolved operands or fields.</summary>
+    /// <param name="expression">The unfinished expression.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value == Missing.Empty")]
+    [Arguments("missing == \"\"")]
+    [Arguments("value == string.Empty<int>")]
+    public async Task UnresolvedComparisonIsIgnoredAsync(string expression)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class C {{ bool M(string value) => {expression}; }}");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1204EmptyStringComparisonAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
     }
 
     /// <summary>Runs a code-fix verification with one editorconfig setting applied.</summary>

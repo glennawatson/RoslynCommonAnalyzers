@@ -10,6 +10,64 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2405 (a debugger display string naming a member the type does not declare).</summary>
 public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 {
+    /// <summary>Verifies malformed and escaped expressions do not produce guessed member names.</summary>
+    /// <param name="display">The literal source for the display attribute.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("\"{Unclosed\"")]
+    [Arguments("\"{} {   } {123} {()} {Call(x)}\"")]
+    [Arguments("\"\\tplain\"")]
+    [Arguments("@\"\u005c{Escaped}\"")]
+    public Task UncheckableDisplayExpressionsAreCleanAsync(string display) =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync($$"""
+            [System.Diagnostics.DebuggerDisplay({{display}})]
+            class C { }
+            """);
+
+    /// <summary>Verifies trimming and commas outside the current expression preserve diagnostic locations.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task WhitespaceAndLaterFormatSpecifiersPreserveNamesAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+            """
+            [System.Diagnostics.DebuggerDisplayAttribute("{  {|SST2405:First|}  } { {|SST2405:Second|}(),nq} {{|SST2405:_third2|}}")]
+            class C { }
+            """);
+
+    /// <summary>Verifies alias-qualified names are recognized.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AliasQualifiedAttributeIsReportedAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+            """
+            using D = System.Diagnostics;
+            [D::DebuggerDisplay("{{|SST2405:Missing|}}")]
+            class C { }
+            """);
+
+    /// <summary>Verifies missing arguments, named properties and constant expressions are left alone.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AttributesWithoutPositionalLiteralAreCleanAsync() =>
+        new VerifyDebuggerDisplay.Test
+        {
+            TestCode = """
+                using System;
+                using System.Diagnostics;
+                [Obsolete] class A { }
+                [DebuggerDisplay] class B { }
+                [DebuggerDisplay()] class C { }
+                [DebuggerDisplay(Name = "{Missing}")] class D { }
+                [DebuggerDisplay(Text)] class E { const string Text = "{Missing}"; }
+                [DebuggerDisplay(null)] class F { }
+                """,
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies a display string naming a member the type does not have is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

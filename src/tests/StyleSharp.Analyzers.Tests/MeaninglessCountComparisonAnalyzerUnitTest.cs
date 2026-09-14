@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyCountComparison = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1479MeaninglessCountComparisonAnalyzer,
     StyleSharp.Analyzers.Sst1479MeaninglessCountComparisonCodeFixProvider>;
@@ -358,6 +359,107 @@ public class MeaninglessCountComparisonAnalyzerUnitTest
                 public bool Any(List<int> items) => items?.Count >= 0;
             }
             """);
+
+    /// <summary>Verifies left-hand negative bounds mirror every comparison operator.</summary>
+    /// <param name="comparison">The comparison that is constant for a string length.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("-1 >= text.Length")]
+    [Arguments("-1 > text.Length")]
+    [Arguments("-1 <= text.Length")]
+    [Arguments("-1 == text.Length")]
+    [Arguments("-1 != text.Length")]
+    [Arguments("text.Length >= -0")]
+    [Arguments("text.Length >= 0.0m")]
+    [Arguments("text.Length > -1_000L")]
+    public Task LiteralBoundaryComparisonIsReportedAsync(string comparison) =>
+        VerifyCountComparison.VerifyAnalyzerAsync($$"""class C { bool M(string text) => {|SST1479:{{comparison}}|}; }""");
+
+    /// <summary>Verifies bit patterns, exponents and nonliteral bounds are not interpreted as a count bound.</summary>
+    /// <param name="comparison">The comparison that must remain unchanged.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("text.Length >= 0x0")]
+    [Arguments("text.Length >= 0X0")]
+    [Arguments("text.Length >= 0b0")]
+    [Arguments("text.Length >= 0B0")]
+    [Arguments("text.Length >= 0e1")]
+    [Arguments("text.Length >= 0E1")]
+    [Arguments("text.Length > -0e1")]
+    [Arguments("text.Length >= -bound")]
+    [Arguments("text.Length >= +0")]
+    [Arguments("text.Length <= 0")]
+    [Arguments("0 >= text.Length")]
+    [Arguments("0 == 0")]
+    [Arguments("text.Length >= bound")]
+    public Task UnsupportedOrSatisfiableBoundIsSilentAsync(string comparison) =>
+        VerifyCountComparison.VerifyAnalyzerAsync($$"""class C { bool M(string text, int bound) => {{comparison}}; }""");
+
+    /// <summary>Verifies long counts, array long lengths and unqualified inherited counts are recognized.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task LongAndInheritedCountsAreReportedAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync("""
+            using System.Collections.Generic;
+            using System.Linq;
+            class C : List<int>
+            {
+                bool Inherited() => {|SST1479:Count >= 0|};
+                bool Long(int[] values) => {|SST1479:values.LongLength >= 0|};
+                bool Linq(IEnumerable<int> values) => {|SST1479:values.LongCount() >= 0|};
+                bool Static(IEnumerable<int> values) => {|SST1479:Enumerable.LongCount(values) >= 0|};
+            }
+            """);
+
+    /// <summary>Verifies a method or field called Count does not promise collection cardinality.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task CountFieldsAndUserMethodsAreSilentAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync("""
+            class Ledger
+            {
+                public int Count;
+                public int LongCount() => -1;
+            }
+            class C
+            {
+                int Count() => -1;
+                bool Local() => Count() >= 0;
+                bool Delegate(System.Func<int> Count) => Count() >= 0;
+                bool Field(Ledger ledger) => ledger.Count >= 0;
+                bool Method(Ledger ledger) => ledger.LongCount() >= 0;
+            }
+            """);
+
+    /// <summary>Verifies an unrelated Count property is distinct from an explicitly implemented collection count.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SeparateCollectionImplementationDoesNotConstrainPublicCountAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync("""
+            using System.Collections;
+            using System.Collections.Generic;
+            class Ledger : IReadOnlyCollection<int>
+            {
+                public int Count => -1;
+                int IReadOnlyCollection<int>.Count => 0;
+                public IEnumerator<int> GetEnumerator() => throw new System.NotImplementedException();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+                bool Public() => Count >= 0;
+                bool Interface() => {|SST1479:((IReadOnlyCollection<int>)this).Count >= 0|};
+            }
+            """);
+
+    /// <summary>Verifies an unresolved count member cannot justify replacing a comparison.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnresolvedCountIsSilentAsync() =>
+        new VerifyCountComparison.Test { TestCode = "class C { bool M() => missing.Count >= 0; }", CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
 
     /// <summary>Verifies the document-based Fix All folds every occurrence in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

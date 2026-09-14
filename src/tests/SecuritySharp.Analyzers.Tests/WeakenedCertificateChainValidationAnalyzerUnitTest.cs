@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeChain = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     SecuritySharp.Analyzers.Ses1104WeakenedCertificateChainValidationAnalyzer>;
@@ -13,6 +14,100 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for SES1104 (certificate-chain validation must not be deliberately weakened).</summary>
 public class WeakenedCertificateChainValidationAnalyzerUnitTest
 {
+    /// <summary>Verifies parentheses and either side of nested flag combinations retain weakening fields.</summary>
+    /// <param name="value">The flag expression that suppresses chain errors.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("((X509VerificationFlags.AllFlags))")]
+    [Arguments("X509VerificationFlags.AllFlags | X509VerificationFlags.NoFlag")]
+    [Arguments("(X509VerificationFlags.NoFlag | X509VerificationFlags.AllowUnknownCertificateAuthority)")]
+    [Arguments("(X509VerificationFlags.NoFlag | X509VerificationFlags.IgnoreNotTimeValid) | (X509VerificationFlags.AllFlags)")]
+    [Arguments("(X509VerificationFlags)0 | X509VerificationFlags.AllFlags")]
+    public Task NestedWeakeningFlagsAreReportedAsync(string value) =>
+        VerifyNet90Async($$"""
+        using System.Security.Cryptography.X509Certificates;
+        class C { void M(X509ChainPolicy policy) { policy.VerificationFlags = {|SES1104:{{value}}|}; } }
+        """);
+
+    /// <summary>Verifies values that do not bind directly to weakening fields remain silent.</summary>
+    /// <param name="member">The policy member being assigned.</param>
+    /// <param name="value">The value whose symbol is not a weakening field.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("RevocationMode", "(X509RevocationMode)0")]
+    [Arguments("RevocationMode", "default(X509RevocationMode)")]
+    [Arguments("RevocationMode", "X509RevocationMode.Online | X509RevocationMode.Offline")]
+    [Arguments("VerificationFlags", "(X509VerificationFlags)0")]
+    [Arguments("VerificationFlags", "(X509VerificationFlags)0 | X509VerificationFlags.NoFlag")]
+    [Arguments("VerificationFlags", "X509VerificationFlags.AllFlags & X509VerificationFlags.NoFlag")]
+    [Arguments("VerificationFlags", "((X509VerificationFlags.NoFlag))")]
+    public Task NonFieldAndSafeValuesAreCleanAsync(string member, string value) =>
+        VerifyNet90Async($$"""
+        using System.Security.Cryptography.X509Certificates;
+        class C { void M(X509ChainPolicy policy) { policy.{{member}} = {{value}}; } }
+        """);
+
+    /// <summary>Verifies parentheses do not hide the NoCheck revocation field.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ParenthesizedNoCheckIsReportedAsync() =>
+        VerifyNet90Async(
+            """
+            using System.Security.Cryptography.X509Certificates;
+            class C
+            {
+                void M(X509ChainPolicy policy)
+                {
+                    policy.RevocationMode = {|SES1104:((X509RevocationMode.NoCheck))|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies unrelated assignments and same-named fields are rejected before policy analysis.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NonPolicyAssignmentTargetsAreCleanAsync() =>
+        VerifyNet90Async(
+            """
+            using System.Security.Cryptography.X509Certificates;
+            class C
+            {
+                X509RevocationMode RevocationMode;
+                void M(X509RevocationMode[] values, X509ChainPolicy policy)
+                {
+                    values[0] = X509RevocationMode.NoCheck;
+                    RevocationMode = X509RevocationMode.NoCheck;
+                    policy.UrlRetrievalTimeout = default;
+                    int value = 0;
+                    value = 1;
+                }
+            }
+            """);
+
+    /// <summary>Verifies unresolved members and fields belonging to another enum are ignored.</summary>
+    /// <param name="assignment">The invalid assignment under analysis.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("missing.RevocationMode = X509RevocationMode.NoCheck;")]
+    [Arguments("policy.RevocationMode = Other.NoCheck;")]
+    [Arguments("policy.VerificationFlags = Other.AllFlags;")]
+    public Task UnresolvedOrMismatchedSymbolsAreCleanAsync(string assignment) =>
+        new AnalyzeChain.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = $$"""
+                       using System.Security.Cryptography.X509Certificates;
+                       enum Other { NoCheck, AllFlags }
+                       class C { void M(X509ChainPolicy policy) { {{assignment}} } }
+                       """,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies setting <c>RevocationMode</c> to <c>NoCheck</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -290,6 +290,126 @@ public class UploadFilenameInPathAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies parentheses and nested additive chains retain path separators.</summary>
+    /// <param name="expression">The path expression with its unsafe filename marked.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("((({|SES1305:file.FileName|}))) + \"/\"")]
+    [Arguments("({|SES1305:file.FileName|} + \"suffix\") + \"/\"")]
+    [Arguments("\"root\" + (({|SES1305:file.FileName|}) + (\"/\"))")]
+    [Arguments("\"root\\\\\" + {|SES1305:file.FileName|}")]
+    [Arguments("(({|SES1305:file.FileName|} + \"suffix\")) + (\"tail\" + \"/\")")]
+    public Task ParenthesizedPathConcatenationIsReportedAsync(string expression) =>
+        VerifyAsync($$"""
+            using Microsoft.AspNetCore.Http;
+            class C { string M(IFormFile file) => {{expression}}; }
+            """);
+
+    /// <summary>Verifies expressions outside the supported direct-argument and literal-separator shapes are silent.</summary>
+    /// <param name="expression">The expression whose filename is not a supported sink operand.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("file.FileName == \"/\"")]
+    [Arguments("(file.FileName + \"suffix\") == \"name\"")]
+    [Arguments("file.FileName + string.Empty")]
+    [Arguments("file.FileName + (1 + 2)")]
+    [Arguments("file.FileName + '/' ")]
+    [Arguments("System.IO.Path.Combine(\"root\", (file.FileName))")]
+    [Arguments("new System.IO.FileInfo(file.FileName)")]
+    [Arguments("new FileStream<string>(file.FileName)")]
+    [Arguments("new Alias::FileStream(file.FileName)")]
+    [Arguments("new System.IO.FileStream[] { }[file.FileName.Length]")]
+    public Task UnsupportedPathShapeIsSilentAsync(string expression) =>
+        VerifyAsync($$"""
+            using Alias = Probe;
+            using Microsoft.AspNetCore.Http;
+            class C { object M(IFormFile file) => {{expression}}; }
+            class FileStream<T> { public FileStream(string name) { } }
+            namespace Probe { class FileStream { public FileStream(string name) { } } }
+            """);
+
+    /// <summary>Verifies an indexer argument is not treated as an invocation argument.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task FilenameIndexerArgumentIsSilentAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Http;
+            class C
+            {
+                string M(IFormFile file, System.Collections.Generic.Dictionary<string, string> names) => names[file.FileName];
+            }
+            """);
+
+    /// <summary>Verifies a base-constructor argument is not a supported filesystem sink.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task FilenameBaseConstructorArgumentIsSilentAsync() =>
+        VerifyAsync("""
+            using Microsoft.AspNetCore.Http;
+            class Base { public Base(string name) { } }
+            class C : Base { public C(IFormFile file) : base(file.FileName) { } }
+            """);
+
+    /// <summary>Verifies sink-like method and constructor names on unrelated types are rejected after binding.</summary>
+    /// <param name="expression">The unrelated call that accepts the filename.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Combine(file.FileName)")]
+    [Arguments("Create(file.FileName)")]
+    [Arguments("new FileStream(file.FileName)")]
+    public Task SameNamedSinkOnOtherTypeIsSilentAsync(string expression) =>
+        VerifyAsync($$"""
+            using Microsoft.AspNetCore.Http;
+            class C
+            {
+                object M(IFormFile file) => {{expression}};
+                static string Combine(string name) => name;
+                static string Create(string name) => name;
+            }
+            class FileStream { public FileStream(string name) { } }
+            """);
+
+    /// <summary>Verifies an upload-looking field and a concrete implementation property are not the interface property.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task FilenameMustBindToTheInterfacePropertyAsync() =>
+        VerifyAsync("""
+            using System.IO;
+            using Microsoft.AspNetCore.Http;
+            class FieldUpload { public string FileName; }
+            class Upload : IFormFile { public string FileName => "name"; }
+            class C
+            {
+                string Field(FieldUpload file) => Path.Combine("root", file.FileName);
+                string Concrete(Upload file) => Path.Combine("root", file.FileName);
+                string Interface(Upload file) => Path.Combine("root", {|SES1305:((IFormFile)file).FileName|});
+            }
+            """);
+
+    /// <summary>Verifies unresolved upload members and sink overloads cannot establish an unsafe call.</summary>
+    /// <param name="expression">The incomplete path expression.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("System.IO.Path.Combine(\"root\", missing.FileName)")]
+    [Arguments("System.IO.Path.Combine(file.FileName, 1)")]
+    public Task UnresolvedPathCallIsSilentAsync(string expression) =>
+        new AnalyzeUpload.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                using Microsoft.AspNetCore.Http;
+                class C { object M(IFormFile file) => {{expression}}; }
+                """ + FormFileStub,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies the rule stays silent when the <c>IFormFile</c> marker type is absent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -27,23 +27,5 @@ internal readonly record struct TrailingGuardOptions(int MinWrappedStatements)
     /// disables the rule nor fires it on every single-statement <c>if</c>.
     /// </remarks>
     internal static TrailingGuardOptions Read(AnalyzerConfigOptions options) =>
-        new(ReadPositiveInt(options, MinRuleKey, MinGeneralKey, DefaultMinWrappedStatements));
-
-    /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-    private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-            ? parsed
-            : fallback;
-    }
+        new(AnalyzerOptionReader.ReadPositiveInt(options, MinRuleKey, MinGeneralKey, DefaultMinWrappedStatements));
 }

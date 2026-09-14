@@ -4,6 +4,7 @@
 
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -335,18 +336,11 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
         /// <summary>Reads and caches the settings for the shift's tree.</summary>
         /// <param name="context">The syntax node context.</param>
         /// <returns>The resolved settings.</returns>
-        public ShiftCountOptions Get(in SyntaxNodeAnalysisContext context)
-        {
-            var optionsByTree = _optionsByTree ??= new ConcurrentDictionary<SyntaxTree, ShiftCountOptions>(concurrencyLevel: 1, capacity: InitialTreeCapacity);
-            var tree = context.Node.SyntaxTree;
-            if (optionsByTree.TryGetValue(tree, out var options))
-            {
-                return options;
-            }
-
-            options = ShiftCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-            _ = optionsByTree.TryAdd(tree, options);
-            return options;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ShiftCountOptions Get(in SyntaxNodeAnalysisContext context) =>
+            TreeOptionsCache.GetOrRead(
+                _optionsByTree ??= new ConcurrentDictionary<SyntaxTree, ShiftCountOptions>(concurrencyLevel: 1, capacity: InitialTreeCapacity),
+                context,
+                ShiftCountOptions.Read);
     }
 }

@@ -23,23 +23,5 @@ internal readonly record struct UnreadParameterOptions(bool IncludePublicApi)
     /// free to make. Set the key to <c>true</c> in an application, or before a major version, to see them.
     /// </remarks>
     internal static UnreadParameterOptions Read(AnalyzerConfigOptions options) =>
-        new(ReadBool(options, IncludePublicApiRuleKey, IncludePublicApiGeneralKey, fallback: false));
-
-    /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured value, or <paramref name="fallback"/>.</returns>
-    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey, bool fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed)
-            ? parsed
-            : fallback;
-    }
+        new(AnalyzerOptionReader.ReadBool(options, IncludePublicApiRuleKey, IncludePublicApiGeneralKey, fallback: false));
 }

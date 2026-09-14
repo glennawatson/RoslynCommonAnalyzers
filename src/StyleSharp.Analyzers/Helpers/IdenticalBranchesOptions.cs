@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1476 settings for one syntax tree.</summary>
@@ -29,39 +27,5 @@ internal readonly record struct IdenticalBranchesOptions(int MinimumStatements)
     /// shapes along with the one-line <c>if</c>.
     /// </remarks>
     internal static IdenticalBranchesOptions Read(AnalyzerConfigOptions options) =>
-        new(ReadPositiveInt(options, MinimumStatementsRuleKey, MinimumStatementsGeneralKey, DefaultMinimumStatements));
-
-    /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-    private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-    {
-        if (TryReadPositiveInt(options, ruleKey, out var parsed))
-        {
-            return parsed;
-        }
-
-        return TryReadPositiveInt(options, generalKey, out parsed) ? parsed : fallback;
-    }
-
-    /// <summary>Reads one positive integer key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="key">The key to read.</param>
-    /// <param name="value">The parsed value.</param>
-    /// <returns><see langword="true"/> when the key is set to a positive integer.</returns>
-    private static bool TryReadPositiveInt(AnalyzerConfigOptions options, string key, out int value)
-    {
-        if (options.TryGetValue(key, out var text)
-            && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)
-            && value > 0)
-        {
-            return true;
-        }
-
-        value = 0;
-        return false;
-    }
+        new(AnalyzerOptionReader.ReadPositiveInt(options, MinimumStatementsRuleKey, MinimumStatementsGeneralKey, DefaultMinimumStatements));
 }

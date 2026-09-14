@@ -329,7 +329,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions> floors)
     {
         var level = LevelOf(context, call.MethodName, call.Arguments);
-        if (level < 0 || !GetFloor(context, floors).Includes(level) || !state.HasExceptionOverload(call.MethodName))
+        if (level < 0 || !TreeOptionsCache.GetOrRead(floors, context, LogLevelFloorOptions.Read).Includes(level) || !state.HasExceptionOverload(call.MethodName))
         {
             return;
         }
@@ -490,23 +490,6 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         }
 
         return -1;
-    }
-
-    /// <summary>Reads the SST2438 level floor for a call's tree, parsing each tree at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="floors">The per-tree level floor cache.</param>
-    /// <returns>The resolved floor.</returns>
-    private static LogLevelFloorOptions GetFloor(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions> floors)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (floors.TryGetValue(tree, out var floor))
-        {
-            return floor;
-        }
-
-        floor = LogLevelFloorOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = floors.TryAdd(tree, floor);
-        return floor;
     }
 
     /// <summary>Finds the catch clause a call sits directly inside, stopping at a function boundary.</summary>

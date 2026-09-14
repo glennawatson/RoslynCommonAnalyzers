@@ -543,26 +543,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree,
         int statements) =>
-        statements >= GetOptions(context, optionsByTree).MinimumStatements;
-
-    /// <summary>Reads the settings for the construct's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static IdenticalBranchesOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = IdenticalBranchesOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
+        statements >= TreeOptionsCache.GetOrRead(optionsByTree, context, IdenticalBranchesOptions.Read).MinimumStatements;
 
     /// <summary>Returns whether two branch bodies run the same statements in the same order.</summary>
     /// <param name="first">The first branch's body.</param>

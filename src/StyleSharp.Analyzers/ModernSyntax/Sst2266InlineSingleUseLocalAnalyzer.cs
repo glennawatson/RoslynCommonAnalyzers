@@ -322,25 +322,6 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
             ? null
             : (block, declaration.Variables[0], equalsValue.Value);
 
-    /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static InlineSingleUseLocalOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = InlineSingleUseLocalOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
-
     /// <summary>Returns whether a local's one reference is a plain, uncaptured read this fix can safely inline into.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="block">The enclosing block.</param>
@@ -395,7 +376,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         }
 
         // Width is the cheapest of the remaining tests, and the only one that needs neither the model nor a scan.
-        if (value.Span.Length > GetOptions(context, optionsByTree).MaxInitializerLength)
+        if (value.Span.Length > TreeOptionsCache.GetOrRead(optionsByTree, context, InlineSingleUseLocalOptions.Read).MaxInitializerLength)
         {
             return;
         }

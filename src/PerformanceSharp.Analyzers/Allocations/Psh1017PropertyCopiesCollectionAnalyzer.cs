@@ -101,7 +101,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         var name = property.Identifier.ValueText;
-        if (GetOptions(context, optionsByTree).IsExcluded(name))
+        if (TreeOptionsCache.GetOrRead(optionsByTree, context, PropertyCopyOptions.Read).IsExcluded(name))
         {
             return;
         }
@@ -117,25 +117,6 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
             AllocationRules.PropertyCopiesCollection,
             property.Identifier.GetLocation(),
             name));
-    }
-
-    /// <summary>Reads the settings for the property's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static PropertyCopyOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, PropertyCopyOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = PropertyCopyOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Gets the node holding the getter's result: an expression, or the accessor's block.</summary>

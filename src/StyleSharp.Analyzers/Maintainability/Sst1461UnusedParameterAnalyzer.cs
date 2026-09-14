@@ -91,7 +91,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.ContainingSymbol is not IMethodSymbol method
-            || (!GetOptions(context, optionsByTree).IncludePublicApi && IsExternallyVisible(method))
+            || (!TreeOptionsCache.GetOrRead(optionsByTree, context, UnreadParameterOptions.Read).IncludePublicApi && IsExternallyVisible(method))
             || IsEventHandler(member, context))
         {
             return;
@@ -202,25 +202,6 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         IMethodSymbol? member,
         ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>? cache) =>
         member is not null && (IsBoundByAContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
-
-    /// <summary>Reads the settings for the member's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static UnreadParameterOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, UnreadParameterOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = UnreadParameterOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
 
     /// <summary>Returns whether a method shape should not have parameters removed locally.</summary>
     /// <param name="modifiers">The declaration modifiers.</param>

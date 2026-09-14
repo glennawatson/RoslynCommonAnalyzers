@@ -150,7 +150,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree) => member switch
         {
             MethodDeclarationSyntax method => IsImplicitlyInvoked(method)
-                || GetOptions(context, optionsByTree).Contains(method.Identifier.ValueText),
+                || TreeOptionsCache.GetOrRead(optionsByTree, context, UnexpectedThrowOptions.Read).Contains(method.Identifier.ValueText),
             ConstructorDeclarationSyntax constructor => ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
             DestructorDeclarationSyntax => true,
             OperatorDeclarationSyntax @operator => IsComparisonOperator(@operator.OperatorToken),
@@ -185,25 +185,6 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         or SyntaxKind.GreaterThanToken
         or SyntaxKind.LessThanEqualsToken
         or SyntaxKind.GreaterThanEqualsToken;
-
-    /// <summary>Reads the settings for the member's tree without allocating a factory on a cache miss.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static UnexpectedThrowOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = UnexpectedThrowOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
 
     /// <summary>Walks a member's body in preorder, reporting every throw the member itself originates.</summary>
     /// <param name="node">The node being scanned.</param>

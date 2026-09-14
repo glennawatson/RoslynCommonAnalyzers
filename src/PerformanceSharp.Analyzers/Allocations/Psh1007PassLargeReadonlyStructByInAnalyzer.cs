@@ -145,7 +145,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         INamedTypeSymbol type,
         ParameterCaches caches)
     {
-        var options = GetOptions(context, caches.OptionsByTree);
+        var options = TreeOptionsCache.GetOrRead(caches.OptionsByTree, context, InParameterOptions.Read);
         if (InParameterOptions.IsExcluded(type, options.ExcludedTypes))
         {
             return StructSizeEstimator.Unknown;
@@ -165,25 +165,6 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         return IsSignatureChangeable(symbol, caches) && CanBodyTakeReadonlyReference(container, symbol, context)
             ? size
             : StructSizeEstimator.Unknown;
-    }
-
-    /// <summary>Reads the settings for the parameter's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static InParameterOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, InParameterOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = InParameterOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Gets the declaration whose parameter list could be changed, if there is one.</summary>

@@ -121,7 +121,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = GetOptions(context, optionsByTree);
+        var options = TreeOptionsCache.GetOrRead(optionsByTree, context, ParameterCountOptions.Read);
         if (declared <= options.Maximum)
         {
             return;
@@ -147,25 +147,6 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             identifier.ValueText,
             counted,
             options.Maximum));
-    }
-
-    /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static ParameterCountOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, ParameterCountOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = ParameterCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Gets the parameter list a declaration measures, if it declares one.</summary>

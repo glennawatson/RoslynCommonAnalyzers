@@ -55,44 +55,26 @@ internal static class SizeLimitOptions
     /// <returns>The configured maximum, or <see cref="DefaultMaxLineLength"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int ReadMaxLineLength(AnalyzerConfigOptions options) =>
-        ReadPositiveInt(options, MaxLineLengthRuleKey, MaxLineLengthGeneralKey, DefaultMaxLineLength);
+        AnalyzerOptionReader.ReadPositiveInt(options, MaxLineLengthRuleKey, MaxLineLengthGeneralKey, DefaultMaxLineLength);
 
     /// <summary>Reads the SST1522 maximum file length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxFileLines"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int ReadMaxFileLines(AnalyzerConfigOptions options) =>
-        ReadPositiveInt(options, MaxFileLinesRuleKey, MaxFileLinesGeneralKey, DefaultMaxFileLines);
+        AnalyzerOptionReader.ReadPositiveInt(options, MaxFileLinesRuleKey, MaxFileLinesGeneralKey, DefaultMaxFileLines);
 
     /// <summary>Reads the SST1523 maximum member length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxMemberLines"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int ReadMaxMemberLines(AnalyzerConfigOptions options) =>
-        ReadPositiveInt(options, MaxMemberLinesRuleKey, MaxMemberLinesGeneralKey, DefaultMaxMemberLines);
+        AnalyzerOptionReader.ReadPositiveInt(options, MaxMemberLinesRuleKey, MaxMemberLinesGeneralKey, DefaultMaxMemberLines);
 
     /// <summary>Reads the SST1524 maximum switch-section length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxSwitchSectionLines"/>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int ReadMaxSwitchSectionLines(AnalyzerConfigOptions options) =>
-        ReadPositiveInt(options, MaxSwitchSectionLinesRuleKey, MaxSwitchSectionLinesGeneralKey, DefaultMaxSwitchSectionLines);
-
-    /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-    private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-            ? parsed
-            : fallback;
-    }
+        AnalyzerOptionReader.ReadPositiveInt(options, MaxSwitchSectionLinesRuleKey, MaxSwitchSectionLinesGeneralKey, DefaultMaxSwitchSectionLines);
 }

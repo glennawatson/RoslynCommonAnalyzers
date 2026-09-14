@@ -53,70 +53,7 @@ internal static class SecretScanningOptions
     /// </remarks>
     private static string[]? ReadAllowedExamples(AnalyzerConfigOptions options)
     {
-        if (!options.TryGetValue(AllowedExamplesRuleKey, out var value)
-            && !options.TryGetValue(AllowedExamplesGeneralKey, out value))
-        {
-            return null;
-        }
-
-        var capacity = 1;
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (value[i] == ',')
-            {
-                capacity++;
-            }
-        }
-
-        var kept = new string[capacity];
-        var count = 0;
-        var start = 0;
-        while (start < value.Length)
-        {
-            var separator = value.IndexOf(',', start);
-            var end = separator < 0 ? value.Length : separator;
-            var entry = TrimEntry(value, start, end);
-            if (!entry.IsEmpty)
-            {
-                kept[count] = entry.ToString();
-                count++;
-            }
-
-            start = end + 1;
-        }
-
-        if (count == 0)
-        {
-            return null;
-        }
-
-        if (count == kept.Length)
-        {
-            return kept;
-        }
-
-        var trimmed = new string[count];
-        Array.Copy(kept, trimmed, count);
-        return trimmed;
-    }
-
-    /// <summary>Excludes surrounding whitespace from one configured example without copying it.</summary>
-    /// <param name="value">The configured example list.</param>
-    /// <param name="start">The first character of the entry.</param>
-    /// <param name="end">The exclusive end of the entry.</param>
-    /// <returns>The trimmed entry.</returns>
-    private static ReadOnlySpan<char> TrimEntry(string value, int start, int end)
-    {
-        while (start < end && char.IsWhiteSpace(value[start]))
-        {
-            start++;
-        }
-
-        while (end > start && char.IsWhiteSpace(value[end - 1]))
-        {
-            end--;
-        }
-
-        return value.AsSpan(start, end - start);
+        var examples = AnalyzerOptionReader.ReadCommaSeparatedList(options, AllowedExamplesRuleKey, AllowedExamplesGeneralKey);
+        return examples.Length == 0 ? null : examples;
     }
 }

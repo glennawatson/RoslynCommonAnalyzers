@@ -215,30 +215,13 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var minimum = GetOptions(context, optionsByTree).MinWrappedStatements;
+        var minimum = TreeOptionsCache.GetOrRead(optionsByTree, context, TrailingGuardOptions.Read).MinWrappedStatements;
         if (WrappedStatementCount(ifStatement) < minimum)
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.PreferGuardClause, ifStatement.IfKeyword.GetLocation()));
-    }
-
-    /// <summary>Reads the settings for the tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static TrailingGuardOptions GetOptions(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, TrailingGuardOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = TrailingGuardOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Determines the guard jump for the block's owner, or rejects an owner that has no early exit.</summary>

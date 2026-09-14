@@ -93,7 +93,7 @@ internal static class MagicNumberOptions
                 end = value.Length;
             }
 
-            var segment = TrimSegment(value, start, end);
+            var segment = AnalyzerOptionReader.TrimSegment(value, start, end);
             start = end + 1;
 
             // netstandard2.0 requires a string for decimal parsing; materialize only the trimmed segment.
@@ -120,25 +120,5 @@ internal static class MagicNumberOptions
         var trimmed = new decimal[count];
         Array.Copy(parsed, trimmed, count);
         return trimmed;
-    }
-
-    /// <summary>Returns a numeric segment without its leading and trailing whitespace.</summary>
-    /// <param name="value">The option text.</param>
-    /// <param name="start">The inclusive segment start.</param>
-    /// <param name="end">The exclusive segment end.</param>
-    /// <returns>The trimmed segment as a view of the option text.</returns>
-    private static ReadOnlySpan<char> TrimSegment(string value, int start, int end)
-    {
-        while (start < end && char.IsWhiteSpace(value[start]))
-        {
-            start++;
-        }
-
-        while (end > start && char.IsWhiteSpace(value[end - 1]))
-        {
-            end--;
-        }
-
-        return value.AsSpan(start, end - start);
     }
 }

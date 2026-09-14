@@ -29,23 +29,5 @@ internal readonly record struct InlineSingleUseLocalOptions(int MaxInitializerLe
     /// default, so a typo neither disables the rule nor lets every width through.
     /// </remarks>
     internal static InlineSingleUseLocalOptions Read(AnalyzerConfigOptions options) =>
-        new(ReadPositiveInt(options, MaxRuleKey, MaxGeneralKey, DefaultMaxInitializerLength));
-
-    /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
-    /// <param name="options">The analyzer config options.</param>
-    /// <param name="ruleKey">The rule-specific key.</param>
-    /// <param name="generalKey">The project-wide key.</param>
-    /// <param name="fallback">The value used when neither key parses.</param>
-    /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-    private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-            ? parsed
-            : fallback;
-    }
+        new(AnalyzerOptionReader.ReadPositiveInt(options, MaxRuleKey, MaxGeneralKey, DefaultMaxInitializerLength));
 }

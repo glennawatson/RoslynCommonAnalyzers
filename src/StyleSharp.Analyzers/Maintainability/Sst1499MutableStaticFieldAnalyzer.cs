@@ -79,7 +79,7 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
         var variables = declaration.Declaration.Variables;
         if (context.SemanticModel.GetDeclaredSymbol(variables[0], context.CancellationToken) is not IFieldSymbol field
-            || !IsVisibleOutsideItsType(field, GetOptions(context, state.GetOptionsByTree()))
+            || !IsVisibleOutsideItsType(field, TreeOptionsCache.GetOrRead(state.GetOptionsByTree(), context, MutableStaticFieldOptions.Read))
             || (ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
                 && !state.GetMutableTypes().IsMutable(field.Type)))
         {
@@ -181,25 +181,6 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
         _ => string.Empty,
     };
-
-    /// <summary>Reads the settings for the field's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static MutableStaticFieldOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = MutableStaticFieldOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
-    }
 
     /// <summary>Creates compilation-scoped state only after a visible static field is found.</summary>
     /// <param name="compilation">The compilation whose collection types are resolved.</param>

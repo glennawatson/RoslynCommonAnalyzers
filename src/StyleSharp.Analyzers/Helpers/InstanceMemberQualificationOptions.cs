@@ -23,19 +23,7 @@ internal static class InstanceMemberQualificationOptions
             return Default;
         }
 
-        var start = 0;
-        var end = value.Length;
-        while (start < end && char.IsWhiteSpace(value[start]))
-        {
-            start++;
-        }
-
-        while (end > start && char.IsWhiteSpace(value[end - 1]))
-        {
-            end--;
-        }
-
-        var trimmed = value.AsSpan(start, end - start);
+        var trimmed = AnalyzerOptionReader.TrimSegment(value, 0, value.Length);
         if (trimmed.Equals("require_this".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || trimmed.Equals("this".AsSpan(), StringComparison.OrdinalIgnoreCase))
         {

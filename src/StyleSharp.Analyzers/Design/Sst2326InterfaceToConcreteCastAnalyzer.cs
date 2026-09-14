@@ -222,26 +222,6 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        /// <summary>Creates the metadata-name key only while parsing a previously unseen option.</summary>
-        /// <param name="value">The comma-separated allow-list.</param>
-        /// <param name="start">The entry's first character.</param>
-        /// <param name="end">The offset just past the entry.</param>
-        /// <returns>The trimmed metadata-name lookup key.</returns>
-        private static string TrimEntry(string value, int start, int end)
-        {
-            while (start < end && char.IsWhiteSpace(value[start]))
-            {
-                start++;
-            }
-
-            while (end > start && char.IsWhiteSpace(value[end - 1]))
-            {
-                end--;
-            }
-
-            return value.Substring(start, end - start);
-        }
-
         /// <summary>Parses each option once and resolves each distinct metadata name once.</summary>
         /// <param name="value">The file's complete allow-list option.</param>
         /// <returns>The resolved entries for this option.</returns>
@@ -261,9 +241,10 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
                 {
                     var comma = value.IndexOf(',', start);
                     var end = comma < 0 ? value.Length : comma;
-                    var entry = TrimEntry(value, start, end);
-                    if (entry.Length > 0)
+                    var segment = AnalyzerOptionReader.TrimSegment(value, start, end);
+                    if (!segment.IsEmpty)
                     {
+                        var entry = segment.Length == value.Length ? value : segment.ToString();
                         _metadata ??= new(StringComparer.Ordinal);
                         if (!_metadata.TryGetValue(entry, out var type))
                         {

@@ -213,7 +213,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         }
 
         if (ModifierListHelper.Contains(field.Modifiers, SyntaxKind.NewKeyword)
-            || !GetOptions(context, optionsByTree).CheckBaseTypes)
+            || !TreeOptionsCache.GetOrRead(optionsByTree.Value, context, ShadowedDeclarationOptions.Read).CheckBaseTypes)
         {
             return;
         }
@@ -399,26 +399,6 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
             : ShadowedMemberTable.Empty;
         _ = cache.TryAdd(typeDeclaration, table);
         return table;
-    }
-
-    /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static ShadowedDeclarationOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        Lazy<ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>> optionsByTree)
-    {
-        var cache = optionsByTree.Value;
-        var tree = context.Node.SyntaxTree;
-        if (cache.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = ShadowedDeclarationOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = cache.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Returns whether a declaration stands where instance members are out of scope.</summary>

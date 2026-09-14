@@ -249,27 +249,9 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <returns>The resolved thresholds.</returns>
         public static ComplexityThresholds Read(AnalyzerConfigOptions options) =>
             new(
-                ReadPositiveInt(options, "stylesharp.SST1442.max_cyclomatic_complexity", "stylesharp.max_cyclomatic_complexity", DefaultCyclomaticMaximum),
-                ReadPositiveInt(options, "stylesharp.SST1443.max_cognitive_complexity", "stylesharp.max_cognitive_complexity", DefaultCognitiveMaximum),
-                ReadPositiveInt(options, "stylesharp.SST1443.max_property_cognitive_complexity", "stylesharp.max_property_cognitive_complexity", DefaultPropertyCognitiveMaximum));
-
-        /// <summary>Reads a positive integer setting.</summary>
-        /// <param name="options">The analyzer config options.</param>
-        /// <param name="ruleKey">The rule-specific key.</param>
-        /// <param name="generalKey">The general key.</param>
-        /// <param name="fallback">The fallback value.</param>
-        /// <returns>The configured positive integer, or <paramref name="fallback"/>.</returns>
-        private static int ReadPositiveInt(AnalyzerConfigOptions options, string ruleKey, string generalKey, int fallback)
-        {
-            if (options.TryGetValue(ruleKey, out var value) && int.TryParse(value, out var parsed) && parsed > 0)
-            {
-                return parsed;
-            }
-
-            return options.TryGetValue(generalKey, out value) && int.TryParse(value, out parsed) && parsed > 0
-                ? parsed
-                : fallback;
-        }
+                AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1442.max_cyclomatic_complexity", "stylesharp.max_cyclomatic_complexity", DefaultCyclomaticMaximum),
+                AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1443.max_cognitive_complexity", "stylesharp.max_cognitive_complexity", DefaultCognitiveMaximum),
+                AnalyzerOptionReader.ReadPositiveInt(options, "stylesharp.SST1443.max_property_cognitive_complexity", "stylesharp.max_property_cognitive_complexity", DefaultPropertyCognitiveMaximum));
     }
 
     /// <summary>Counts branching and nested-flow complexity in one syntax pass.</summary>

@@ -35,6 +35,7 @@
              Exclude="..\StyleSharp.Analyzers\bin\**\*.cs;..\StyleSharp.Analyzers\obj\**\*.cs"
              LinkBase="StyleSharp.Analyzers" />
     <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
+    <Compile Include="..\Shared\Polyfills\*.cs" Link="Polyfills\%(Filename).cs" />
   </ItemGroup>
 
   <!-- The manifest name has to match the floor's, which the linked designer binds to. -->

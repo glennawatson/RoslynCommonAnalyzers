@@ -68,7 +68,7 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   fix the underlying issue. The one allowed exception is a
   `SuppressMessageAttribute` on a proven perf-motivated large `switch` statement
   when the switch is measurably better than the non-suppressed alternatives.
-  The second is a rule the code physically cannot satisfy: `Polyfills/IsExternalInit.cs`
+  The second is a rule the code physically cannot satisfy: `src/Shared/Polyfills/IsExternalInit.cs`
   suppresses the empty-type rule because the compiler only requires that type to
   *exist* for `init` accessors to compile on netstandard2.0, so it has no members by
   design. Keep both exceptions narrow, document the justification inline, and do not
@@ -129,9 +129,10 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   `stylesharp.<RuleId>.<option>` / `performancesharp.<RuleId>.<option>`
   (rule-specific override). See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**.
 
-- **Records on netstandard2.0** are enabled via `Polyfills/IsExternalInit.cs`
+- **Records on netstandard2.0** are enabled via `src/Shared/Polyfills/IsExternalInit.cs`
   (`#if !NET`), so value types are `readonly record struct` instead of
-  hand-written `IEquatable<T>`.
+  hand-written `IEquatable<T>`. The polyfills are linked into every analyzer project and
+  slot, never into a code-fix project, which sees the analyzer assembly's copies.
 
 - **Never build metadata references inside a test.** `MetadataReference.CreateFromFile`
   memory-maps the assembly and holds the mapping for as long as the reference lives,

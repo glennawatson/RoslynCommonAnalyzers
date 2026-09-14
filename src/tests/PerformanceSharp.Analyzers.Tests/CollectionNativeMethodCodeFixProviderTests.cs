@@ -21,6 +21,7 @@ public class CollectionNativeMethodCodeFixProviderTests
     /// <param name="membership">Whether the diagnostic requests membership rewriting.</param>
     /// <param name="expected">The expected expression, or null when unchanged.</param>
     /// <returns>A task representing the asynchronous test.</returns>
+    /// <remarks>The provider trusts a stale diagnostic's equality classification even when the predicate's operator changes.</remarks>
     [Test]
     [Arguments("items.Any(x => x > 0)", null, false, null)]
     [Arguments("items.Any(x => x > 0)", "", false, null)]
@@ -34,7 +35,6 @@ public class CollectionNativeMethodCodeFixProviderTests
     [Arguments("items.Any()", null, true, null)]
     [Arguments("items.Any(predicate)", null, true, null)]
     [Arguments("items.Any(x => true)", null, true, null)]
-    // The provider trusts the diagnostic's equality classification after the predicate changes.
     [Arguments("items.Any(x => x > 2)", null, true, "items.Contains(2)")]
     [Arguments("items.Any(x => 1 == 2)", null, true, null)]
     [Arguments("items.Any(x => x == 2)", null, true, "items.Contains(2)")]

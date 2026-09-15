@@ -315,12 +315,15 @@ jobs:
           }
           CS
 
+      # Only the exports the report reads. The profiled benchmark classes also leave traces tens of megabytes each.
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: benchmark-ab-${{ matrix.slice }}
-          path: ${{ runner.temp }}/benchmark-ab
+          path: |
+            ${{ runner.temp }}/benchmark-ab/**/*-report-full.json
+            ${{ runner.temp }}/benchmark-ab/**/*-report-github.md
           if-no-files-found: ignore
 
   compare:
@@ -564,8 +567,9 @@ jobs:
           // BenchmarkDotNet generates job ids that differ between runs, so a benchmark is keyed by its name and job characteristics.
           static string Key(JsonElement benchmark)
           {
-              var characteristics = Regex.Match(benchmark.GetProperty("DisplayInfo").GetString() ?? string.Empty, @"\(([^()]*)\)\s*$");
-              return $"{benchmark.GetProperty("FullName").GetString()} ({characteristics.Groups[1].Value})";
+              var name = benchmark.GetProperty("FullName").GetString();
+              var characteristics = Regex.Match(benchmark.GetProperty("DisplayInfo").GetString() ?? string.Empty, @"\(([^()]*)\)\s*$").Groups[1].Value;
+              return characteristics is "" ? name! : $"{name} ({characteristics})";
           }
 
           static string Format(Measurement? measurement)

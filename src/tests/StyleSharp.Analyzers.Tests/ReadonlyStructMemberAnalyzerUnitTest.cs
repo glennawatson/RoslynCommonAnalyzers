@@ -149,6 +149,46 @@ public class ReadonlyStructMemberAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a writable reference returned from a member whose <c>this</c> is scoped is reported.</summary>
+    /// <param name="member">A writable <c>ref</c> member without <c>[UnscopedRef]</c>, with expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// Without <c>[UnscopedRef]</c> the reference cannot point into the struct's own storage, so <c>readonly</c>
+    /// still compiles.
+    /// </remarks>
+    [Test]
+    [Arguments("public ref int {|SST1460:First|} => ref _items[0];")]
+    [Arguments("public ref int {|SST1460:First|} { get { return ref _items[0]; } }")]
+    [Arguments("public ref int {|SST1460:First|} { get => ref _items[0]; }")]
+    [Arguments("public ref int {|SST1460:At|}(int index) => ref _items[index];")]
+    [Arguments("public ref int {|SST1460:Shared|}() => ref s_shared;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ScopedWritableRefReturnIsReportedAsync(string member) =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync($$"""
+            public struct Counter
+            {
+                private static int s_shared;
+                private int[] _items;
+                {{member}}
+            }
+            """);
+
+    /// <summary>Verifies an unscoped block-bodied getter returning a writable reference is skipped.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnscopedRefBlockGetterIsCleanAsync() =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+            """
+            public struct Counter
+            {
+                private int _value;
+
+                [System.Diagnostics.CodeAnalysis.UnscopedRef]
+                public ref int Value { get { return ref _value; } }
+            }
+            """);
+
     /// <summary>Verifies a property returning a readonly reference is still reported, which stays compilable.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

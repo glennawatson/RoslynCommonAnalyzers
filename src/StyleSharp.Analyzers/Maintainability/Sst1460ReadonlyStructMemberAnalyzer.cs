@@ -7,15 +7,18 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Finds struct members that are cheap to prove non-mutating and can therefore be marked
 /// <c>readonly</c>. The analyzer deliberately under-reports: calls, assignments, ref/out
-/// arguments, increment/decrement operations, and writable <c>ref</c> returns are all treated as
-/// reasons to stay quiet. That keeps the rule correct without expensive interprocedural analysis
-/// and keeps the no-diagnostic path a short syntax scan.
+/// arguments, increment/decrement operations, and writable <c>ref</c> returns from a member whose
+/// <c>this</c> is unscoped are all treated as reasons to stay quiet. That keeps the rule correct without
+/// expensive interprocedural analysis and keeps the no-diagnostic path a short syntax scan.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.MakeStructMemberReadonly);
+
+    /// <summary>A standalone <c>this</c> expression, bound speculatively inside a member to read its receiver's scope.</summary>
+    private static readonly ThisExpressionSyntax ThisExpression = SyntaxFactory.ThisExpression();
 
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
@@ -40,9 +43,14 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
 
         var method = (MethodDeclarationSyntax)context.Node;
         if (!IsStructInstanceMember(method.Modifiers, method.Parent)
-            || ReturnsWritableRef(method.ReturnType)
-            || (method.Body is null && method.ExpressionBody is null)
-            || HasRiskyOperation(method.Body ?? (SyntaxNode)method.ExpressionBody!))
+            || (method.Body is null && method.ExpressionBody is null))
+        {
+            return;
+        }
+
+        var body = method.Body ?? (SyntaxNode)method.ExpressionBody!;
+        if (HasRiskyOperation(body)
+            || (ReturnsWritableRef(method.ReturnType) && !HasScopedThis(context.SemanticModel, body.SpanStart, context.CancellationToken)))
         {
             return;
         }
@@ -64,14 +72,15 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
 
         var property = (PropertyDeclarationSyntax)context.Node;
         if (!IsStructInstanceMember(property.Modifiers, property.Parent)
-            || ReturnsWritableRef(property.Type)
             || HasSetter(property))
         {
             return;
         }
 
         var body = property.ExpressionBody as SyntaxNode ?? property.AccessorList;
-        if (body is null || HasRiskyOperation(body))
+        if (body is null
+            || HasRiskyOperation(body)
+            || (ReturnsWritableRef(property.Type) && !HasScopedThis(context.SemanticModel, GetBodyPosition(body), context.CancellationToken)))
         {
             return;
         }
@@ -98,15 +107,37 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member hands out a writable reference.</summary>
     /// <param name="type">The declared return or property type.</param>
     /// <returns><see langword="true"/> for a <c>ref</c> return that is not <c>ref readonly</c>.</returns>
-    /// <remarks>
-    /// <c>readonly</c> makes the receiver a readonly reference, so a member that returns <c>ref</c> to one of
-    /// the struct's own fields stops compiling ("cannot return 'this' by reference"). Whether the reference
-    /// actually reaches the struct's storage — <c>ref _value</c> does, <c>ref _items[0]</c> through a
-    /// reference-type field does not — takes semantic analysis, so every writable <c>ref</c> return is left
-    /// alone. A <c>ref readonly</c> return is unaffected and is still reported.
-    /// </remarks>
     private static bool ReturnsWritableRef(TypeSyntax type) =>
         type is RefTypeSyntax { ReadOnlyKeyword.RawKind: 0 };
+
+    /// <summary>Returns whether the compiler treats <c>this</c> inside a member as a scoped reference.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="position">A position inside the member body.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when <c>this</c> binds with <see cref="ScopedKind.ScopedRef"/>.</returns>
+    /// <remarks>
+    /// A writable <c>ref</c> can only point into the struct's own storage when <c>this</c> is unscoped, which the
+    /// <c>[UnscopedRef]</c> attribute grants. Adding <c>readonly</c> to such a member stops it compiling. When
+    /// <c>this</c> is scoped, the returned reference already points elsewhere and <c>readonly</c> is safe. A binding
+    /// that does not yield the receiver is treated as unscoped, so the member stays unreported.
+    /// </remarks>
+    private static bool HasScopedThis(SemanticModel model, int position, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return model.GetSpeculativeSymbolInfo(position, ThisExpression, SpeculativeBindingOption.BindAsExpression).Symbol
+            is IParameterSymbol { IsThis: true, ScopedKind: ScopedKind.ScopedRef };
+    }
+
+    /// <summary>Returns a position inside a property body where <c>this</c> binds to the property's receiver.</summary>
+    /// <param name="body">The property's expression body or accessor list.</param>
+    /// <returns>The start of the arrow expression, or of the first accessor's body.</returns>
+    private static int GetBodyPosition(SyntaxNode body) => body switch
+    {
+        ArrowExpressionClauseSyntax arrow => arrow.Expression.SpanStart,
+        AccessorListSyntax { Accessors: [{ Body: { } block }, ..] } => block.SpanStart + 1,
+        AccessorListSyntax { Accessors: [{ ExpressionBody: { } arrow }, ..] } => arrow.Expression.SpanStart,
+        _ => body.SpanStart,
+    };
 
     /// <summary>Returns whether a property declares a setter or init accessor.</summary>
     /// <param name="property">The property declaration.</param>

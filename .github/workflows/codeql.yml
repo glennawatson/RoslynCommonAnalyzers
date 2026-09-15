@@ -1,87 +1,76 @@
 name: "CodeQL Advanced"
 
 on:
-    push:
-        branches: [ main ]
-    pull_request:
-        branches: [ main ]
-    schedule:
-        -   cron: '17 9 * * 2'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '17 9 * * 2'
 
 permissions: { }
 
-env:
-    DOTNET_NOLOGO: true
-    DOTNET_CLI_TELEMETRY_OPTOUT: true
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-    analyze-csharp:
-        name: Analyze C#
-        runs-on: ubuntu-latest
-        permissions:
-            security-events: write
-            contents: read
-            packages: read
-            actions: read
-        env:
-            DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
-            MINVERVERSIONOVERRIDE: 0.0.0-codeql.0+${{ github.sha }}
+  analyze-csharp:
+    name: Analyze C#
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      packages: read
+      actions: read
+    env:
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
 
-        steps:
-            -   name: Checkout repository
-                uses: actions/checkout@v7
-                with:
-                    fetch-depth: 0
-                    fetch-tags: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-            -   name: Setup .NET
-                uses: actions/setup-dotnet@v6
-                with:
-                    dotnet-version: |
-                        8.0.x
-                        10.0.x
-                        11.0.x
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
 
-            -   name: Initialize CodeQL
-                uses: github/codeql-action/init@v4
-                with:
-                    languages: csharp
-                    build-mode: manual
-                    queries: security-extended
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: csharp
+          build-mode: manual
+          queries: security-extended
 
-            -   name: Restore
-                working-directory: src
-                run: dotnet restore RoslynCommonAnalyzers.slnx
+      - name: Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          solution-file: RoslynCommonAnalyzers.slnx
 
-            -   name: Build
-                working-directory: src
-                run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:csharp"
 
-            -   name: Perform CodeQL analysis
-                uses: github/codeql-action/analyze@v4
-                with:
-                    category: "/language:csharp"
+  analyze-actions:
+    name: Analyze GitHub Actions
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
 
-    analyze-actions:
-        name: Analyze GitHub Actions
-        runs-on: ubuntu-latest
-        permissions:
-            security-events: write
-            contents: read
-            actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-        steps:
-            -   name: Checkout repository
-                uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+          queries: security-extended
 
-            -   name: Initialize CodeQL
-                uses: github/codeql-action/init@v4
-                with:
-                    languages: actions
-                    queries: security-extended
-
-            -   name: Perform CodeQL analysis
-                uses: github/codeql-action/analyze@v4
-                with:
-                    category: "/language:actions"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:actions"

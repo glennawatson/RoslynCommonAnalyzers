@@ -1,0 +1,138 @@
+name: MinVer
+description: Install the minver-cli dotnet global tool and stamp MINVER_* environment variables and step outputs for the current commit.
+
+inputs:
+  tag-prefix:
+    description: 'Tag prefix MinVer expects on release tags. Release tags here are bare (4.2.2), so the default is empty.'
+    required: false
+    default: ''
+  minimum-major-minor:
+    description: 'Floor major.minor when no tag is reachable. Empty leaves the MinVer default of 0.0.'
+    required: false
+    default: '1.0'
+  default-pre-release-identifiers:
+    description: 'Pre-release identifier(s) for height-only builds.'
+    required: false
+    default: 'alpha.0'
+  auto-increment:
+    description: 'Which segment MinVer auto-increments past the latest tag (major|minor|patch).'
+    required: false
+    default: 'patch'
+  version-override:
+    description: 'Exact version to stamp, bypassing the MinVer git walk. Empty = compute the version from git tags as normal.'
+    required: false
+    default: ''
+  verbosity:
+    description: 'MinVer CLI verbosity (error|warn|info|debug|trace).'
+    required: false
+    default: 'info'
+
+outputs:
+  SemVer2:
+    description: 'Full MinVer SemVer2 version string (e.g. 4.2.3-alpha.0.45+sha.abcdef0)'
+    value: ${{ steps.outputs.outputs.SemVer2 }}
+  SimpleVersion:
+    description: 'major.minor.patch only (no pre-release / metadata)'
+    value: ${{ steps.outputs.outputs.SimpleVersion }}
+  NuGetPackageVersion:
+    description: 'NuGet-compatible version (SemVer2 without build metadata)'
+    value: ${{ steps.outputs.outputs.NuGetPackageVersion }}
+  GitCommitId:
+    description: 'Full SHA of HEAD'
+    value: ${{ steps.outputs.outputs.GitCommitId }}
+  VersionHeight:
+    description: 'Commits since the last reachable version tag'
+    value: ${{ steps.outputs.outputs.VersionHeight }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install (or update) minver-cli global tool
+      if: inputs.version-override == ''
+      shell: bash
+      run: |
+        echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+        # `tool update` installs when missing and upgrades otherwise.
+        dotnet tool update --global minver-cli
+
+    - name: Compute MinVer version and export MINVER_* + GITHUB_OUTPUT
+      id: outputs
+      shell: bash
+      env:
+        TAG_PREFIX: ${{ inputs.tag-prefix }}
+        MINIMUM_MAJOR_MINOR: ${{ inputs.minimum-major-minor }}
+        DEFAULT_PRE_RELEASE: ${{ inputs.default-pre-release-identifiers }}
+        AUTO_INCREMENT: ${{ inputs.auto-increment }}
+        VERBOSITY: ${{ inputs.verbosity }}
+        VERSION_OVERRIDE: ${{ inputs.version-override }}
+      run: |
+        cd "$RUNNER_TEMP" && dotnet run - -- "$TAG_PREFIX" "$MINIMUM_MAJOR_MINOR" "$DEFAULT_PRE_RELEASE" "$AUTO_INCREMENT" "$VERBOSITY" "$VERSION_OVERRIDE" <<'CS'
+        using System.Diagnostics;
+        using static System.Environment;
+
+        if (args is not [var tagPrefix, var minimumMajorMinor, var defaultPreRelease, var autoIncrement, var verbosity, var versionOverride])
+        {
+            Console.WriteLine("::error::Expected the tag prefix, minimum major.minor, pre-release identifiers, auto-increment, verbosity and version override arguments.");
+            return 2;
+        }
+
+        Directory.SetCurrentDirectory(GetEnvironmentVariable("GITHUB_WORKSPACE")!);
+
+        string semVer2;
+        if (versionOverride is not "")
+        {
+            semVer2 = versionOverride;
+            Console.WriteLine($"Version override supplied; skipping MinVer git walk. Using: {semVer2}");
+        }
+        else
+        {
+            // An empty prefix is passed by leaving the option out, which is also MinVer's own default.
+            var minver = Process.RunAndCaptureText(
+                "minver",
+                [
+                    "--verbosity", verbosity, "--auto-increment", autoIncrement,
+                    .. Option("--tag-prefix", tagPrefix),
+                    .. Option("--minimum-major-minor", minimumMajorMinor),
+                    .. Option("--default-pre-release-identifiers", defaultPreRelease),
+                ]);
+
+            Console.Error.Write(minver.StandardError);
+            if (minver is not { ExitStatus.ExitCode: 0, StandardOutput: var output })
+            {
+                return minver.ExitStatus.ExitCode;
+            }
+
+            semVer2 = output.Trim();
+            Console.WriteLine($"MinVer produced: {semVer2}");
+        }
+
+        // SemVer2 is "<major>.<minor>.<patch>[-<pre>][+<meta>]".
+        var core = semVer2.Split('-', '+')[0];
+        var preRelease = semVer2[core.Length..] is ['-', .. var rest] ? rest.Split('+')[0] : string.Empty;
+
+        var height = Process.RunAndCaptureText("git", ["describe", "--tags", "--abbrev=0", "--match", $"{tagPrefix}[0-9]*"]) switch
+        {
+            { ExitStatus.ExitCode: 0, StandardOutput: var lastTag } => Git("rev-list", "--count", $"{lastTag.Trim()}..HEAD"),
+            _ => Git("rev-list", "--count", "HEAD"),
+        };
+
+        (string Name, string Value)[] values =
+        [
+            ("SemVer2", semVer2),
+            ("SimpleVersion", core),
+
+            // Package feeds reject build metadata, so the NuGet version drops it.
+            ("NuGetPackageVersion", preRelease is "" ? core : $"{core}-{preRelease}"),
+            ("GitCommitId", Git("rev-parse", "HEAD")),
+            ("VersionHeight", height),
+        ];
+
+        // MinVer's MSBuild task stamps MINVERVERSIONOVERRIDE verbatim instead of walking git per project.
+        File.AppendAllLines(GetEnvironmentVariable("GITHUB_ENV")!, [.. values.Select(value => $"MINVER_{value.Name}={value.Value}"), $"MINVERVERSIONOVERRIDE={semVer2}"]);
+        File.AppendAllLines(GetEnvironmentVariable("GITHUB_OUTPUT")!, values.Select(value => $"{value.Name}={value.Value}"));
+        return 0;
+
+        static string[] Option(string name, string value) => value is "" ? [] : [name, value];
+
+        static string Git(params IEnumerable<string> arguments) => Process.RunAndCaptureText("git", arguments).StandardOutput.Trim();
+        CS

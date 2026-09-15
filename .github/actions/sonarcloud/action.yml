@@ -1,0 +1,161 @@
+name: SonarCloud
+description: |
+  Wrap a .NET build/test run with SonarCloud analysis. Call once with mode=begin before the build, then again with
+  mode=end after the test step, on the same machine.
+
+  The SonarCloud token is read from the SONAR_TOKEN environment variable. Map the SONAR_TOKEN secret into env on the
+  calling job so the value flows through the secret-masking pipeline; composite actions cannot declare secret inputs.
+
+inputs:
+  mode:
+    description: 'begin (before build) or end (after test).'
+    required: true
+  project-key:
+    description: 'SonarCloud project key. Required for both modes.'
+    required: true
+  organization:
+    description: 'SonarCloud organization slug. Required for begin.'
+    required: false
+    default: ''
+  host-url:
+    description: 'Sonar host URL.'
+    required: false
+    default: 'https://sonarcloud.io'
+  version:
+    description: 'Project version (the MinVer SemVer2 output). Optional but improves Sonar history.'
+    required: false
+    default: ''
+  coverage-glob:
+    description: 'Glob for cobertura coverage reports. Microsoft.Testing.Platform writes <guid>.cobertura.xml files, so the default matches any under the workspace.'
+    required: false
+    default: '**/*.cobertura.xml'
+  extra-begin-args:
+    description: 'Extra raw arguments appended to the dotnet-sonarscanner begin invocation.'
+    required: false
+    default: ''
+  exclusions:
+    description: 'Comma-separated globs for sonar.exclusions. Empty = flag omitted.'
+    required: false
+    default: ''
+  coverage-exclusions:
+    description: 'Comma-separated globs for sonar.coverage.exclusions. Empty = flag omitted.'
+    required: false
+    default: ''
+  cpd-exclusions:
+    description: 'Comma-separated globs for sonar.cpd.exclusions. Empty = flag omitted.'
+    required: false
+    default: ''
+  test-exclusions:
+    description: 'Comma-separated globs for sonar.test.exclusions. Empty = flag omitted.'
+    required: false
+    default: ''
+  working-directory:
+    description: 'Directory in which to run sonarscanner begin/end. Must be the folder the build runs from.'
+    required: false
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - name: Validate SONAR_TOKEN is in scope
+      shell: bash
+      run: |
+        cd "$RUNNER_TEMP" && dotnet run - <<'CS'
+        using static System.Environment;
+
+        if (GetEnvironmentVariable("SONAR_TOKEN") is not { Length: > 0 })
+        {
+            Console.WriteLine("::error::SONAR_TOKEN is not set in the job/step env. Map the SONAR_TOKEN secret into env on the calling job.");
+            return 1;
+        }
+
+        return 0;
+        CS
+
+    - name: Set up JDK 25 (SonarScanner prerequisite)
+      # skipJreProvisioning runs the scanner on this JDK instead of downloading a JRE.
+      if: inputs.mode == 'begin'
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: '25'
+
+    - name: Install (or update) dotnet-sonarscanner global tool
+      if: inputs.mode == 'begin'
+      shell: bash
+      run: |
+        echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+        dotnet tool update --global dotnet-sonarscanner
+
+    - name: SonarScanner begin
+      if: inputs.mode == 'begin'
+      shell: bash
+      env:
+        # Git Bash on Windows rewrites path-like arguments, mangling the /d: switches in extra-begin-args.
+        MSYS2_ARG_CONV_EXCL: '*'
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PROJECT_KEY: ${{ inputs.project-key }}
+        ORGANIZATION: ${{ inputs.organization }}
+        HOST_URL: ${{ inputs.host-url }}
+        VERSION: ${{ inputs.version }}
+        COVERAGE_GLOB: ${{ inputs.coverage-glob }}
+        EXTRA_BEGIN_ARGS: ${{ inputs.extra-begin-args }}
+        EXCLUSIONS: ${{ inputs.exclusions }}
+        COVERAGE_EXCLUSIONS: ${{ inputs.coverage-exclusions }}
+        CPD_EXCLUSIONS: ${{ inputs.cpd-exclusions }}
+        TEST_EXCLUSIONS: ${{ inputs.test-exclusions }}
+      run: |
+        cd "$RUNNER_TEMP" && dotnet run - -- "$WORKING_DIRECTORY" "$PROJECT_KEY" "$ORGANIZATION" "$HOST_URL" "$VERSION" "$COVERAGE_GLOB" "$EXTRA_BEGIN_ARGS" "$EXCLUSIONS" "$COVERAGE_EXCLUSIONS" "$CPD_EXCLUSIONS" "$TEST_EXCLUSIONS" <<'CS'
+        using System.Diagnostics;
+        using static System.Environment;
+
+        if (args is not [var workingDirectory, var projectKey, var organization, var hostUrl, var version, var coverageGlob, var extraBeginArgs, var exclusions, var coverageExclusions, var cpdExclusions, var testExclusions])
+        {
+            Console.WriteLine("::error::Expected the eleven SonarScanner begin arguments.");
+            return 2;
+        }
+
+        Directory.SetCurrentDirectory(Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, workingDirectory));
+
+        return Process.Run(
+            "dotnet",
+            [
+                "sonarscanner", "begin",
+                $"/k:{projectKey}",
+                .. Switch("/o:", organization),
+                $"/d:sonar.host.url={hostUrl}",
+                $"/d:sonar.token={GetEnvironmentVariable("SONAR_TOKEN")}",
+                "/d:sonar.scanner.skipJreProvisioning=true",
+                $"/d:sonar.cs.cobertura.reportsPaths={coverageGlob}",
+
+                // These contradict conventions this repo enforces itself: one asks for LINQ in the analyzer projects,
+                // which remove the System.Linq global using on purpose, and the other two judge null-forgiving
+                // operators and null checks against one Roslyn slot's nullability annotations, which differ between
+                // the slots these projects build against.
+                "/d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks,linqLoops",
+                "/d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969",
+                "/d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs",
+                "/d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey=csharpsquid:S2589",
+                "/d:sonar.issue.ignore.multicriteria.nullChecks.resourceKey=**/*.cs",
+                "/d:sonar.issue.ignore.multicriteria.linqLoops.ruleKey=csharpsquid:S3267",
+                "/d:sonar.issue.ignore.multicriteria.linqLoops.resourceKey=**/*.cs",
+                .. Switch("/d:sonar.exclusions=", exclusions),
+                .. Switch("/d:sonar.coverage.exclusions=", coverageExclusions),
+                .. Switch("/d:sonar.cpd.exclusions=", cpdExclusions),
+                .. Switch("/d:sonar.test.exclusions=", testExclusions),
+                .. Switch("/v:", version),
+                .. extraBeginArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+            ]).ExitCode;
+
+        // An empty value leaves its switch out.
+        static string[] Switch(string name, string value) => value is "" ? [] : [name + value];
+        CS
+
+    - name: SonarScanner end
+      if: inputs.mode == 'end'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        # Same Git Bash path rewriting as the begin step.
+        MSYS2_ARG_CONV_EXCL: '*'
+      run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"

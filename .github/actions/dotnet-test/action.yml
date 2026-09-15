@@ -1,0 +1,103 @@
+name: .NET Test
+description: Run tests on Microsoft Testing Platform (MTP) with native coverage and per-OS artifact upload
+
+inputs:
+  configuration:
+    description: 'Build configuration'
+    required: false
+    default: 'Release'
+  src-folder:
+    description: 'Folder containing the solution'
+    required: false
+    default: 'src'
+  solution-file:
+    description: 'Solution file relative to src-folder'
+    required: false
+    default: ''
+  enable-detailed-test-logging:
+    description: 'Enable MTP diagnostic logging for hang/crash debugging: writes log_*.diag (Trace level, synchronous), turns on framework log-level Trace, and switches console output to Detailed (real-time per-test).'
+    required: false
+    default: 'true'
+  test-timeout:
+    description: 'Optional global test timeout passed to MTP --timeout (format [h|m|s], e.g. "5m"). Empty = no timeout. Use to fail fast on hangs instead of letting the CI runner kill the job.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Expose GitHub Actions runtime for TUnit HTML report upload
+      uses: actions/github-script@v9
+      with:
+        script: |
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
+          core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
+
+    - name: Run tests with Microsoft Testing Platform and native coverage
+      shell: bash
+      env:
+        SRC_FOLDER: ${{ inputs.src-folder }}
+        SOLUTION_FILE: ${{ inputs.solution-file }}
+        CONFIGURATION: ${{ inputs.configuration }}
+        DETAILED_LOGGING: ${{ inputs.enable-detailed-test-logging }}
+        TEST_TIMEOUT: ${{ inputs.test-timeout }}
+      run: |
+        cd "$RUNNER_TEMP" && dotnet run - -- "$SRC_FOLDER" "$SOLUTION_FILE" "$CONFIGURATION" "$DETAILED_LOGGING" "$TEST_TIMEOUT" <<'CS'
+        using System.Diagnostics;
+        using static System.Environment;
+
+        if (args is not [var srcFolder, var solutionFile, var configuration, var detailedLogging, var testTimeout])
+        {
+            Console.WriteLine("::error::Expected the source folder, solution file, configuration, detailed logging and test timeout arguments.");
+            return 2;
+        }
+
+        Directory.SetCurrentDirectory(Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, srcFolder));
+
+        if (!File.Exists("testconfig.json"))
+        {
+            Console.WriteLine($"::error::MTP requires '{srcFolder}/testconfig.json' (manages coverage and execution). See https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform-extensions-code-coverage");
+            return 1;
+        }
+
+        string[] solution = (solutionFile, Directory.EnumerateFiles(".", "*.slnx").Concat(Directory.EnumerateFiles(".", "*.sln")).FirstOrDefault()) switch
+        {
+            (not "", _) => ["--solution", solutionFile],
+            (_, { } found) => ["--solution", found],
+            _ => [],
+        };
+
+        // --verbosity is VSTest-only and ignored by MTP. Synchronous writes keep the log when the runner kills a hung test.
+        string[] diagnostics = detailedLogging is "true"
+            ? ["--diagnostic", "--diagnostic-verbosity", "Trace", "--diagnostic-synchronous-write", "--log-level", "Trace", "--output", "Detailed"]
+            : [];
+
+        string[] timeout = testTimeout is "" ? [] : ["--timeout", testTimeout];
+
+        // No --results-directory: parallel test hosts sharing one directory collide on log_<ts>.diag names.
+        return Process.Run(
+            "dotnet",
+            ["test", .. solution, "--no-build", "--configuration", configuration, .. diagnostics, .. timeout, "--coverage", "--coverage-output-format", "cobertura"]).ExitCode;
+        CS
+
+    - name: Upload per-OS coverage reports as build artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: tmp-coverage-${{ runner.os }}
+        path: |
+          ${{ inputs.src-folder }}/**/coverage.cobertura.xml
+          ${{ inputs.src-folder }}/**/coverage*.cobertura.xml
+          ${{ inputs.src-folder }}/**/TestResults/**/*.cobertura.xml
+        if-no-files-found: warn
+        retention-days: 3
+
+    - name: Upload MTP diagnostic logs
+      if: always() && inputs.enable-detailed-test-logging == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: mtp-diagnostic-logs-${{ runner.os }}
+        path: |
+          ${{ inputs.src-folder }}/**/TestResults/**/*.diag
+          ${{ inputs.src-folder }}/**/TestResults/**/log_*.diag
+        if-no-files-found: ignore
+        retention-days: 7

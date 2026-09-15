@@ -1,125 +1,68 @@
 name: SonarCloud
 
 on:
-    push:
-        branches: [ main ]
-    pull_request:
-        branches: [ main ]
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
-    contents: read
+  contents: read
 
-env:
-    DOTNET_NOLOGO: true
-    DOTNET_CLI_TELEMETRY_OPTOUT: true
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-    MINVERVERSIONOVERRIDE: 0.0.0-sonar.0+${{ github.sha }}
+concurrency:
+  group: sonarcloud-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-    analyze:
-        name: Build, test, and analyze
-        runs-on: ubuntu-latest
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+  sonarcloud:
+    name: Build, test, and analyze
+    # Fork PRs get no SONAR_TOKEN, so they are skipped rather than failed.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
+      # Composite actions cannot declare secret inputs, so the sonarcloud action reads this from env.
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-        steps:
-            -   name: Checkout
-                uses: actions/checkout@v7
-                with:
-                    fetch-depth: 0
-                    fetch-tags: true
+      - name: Setup .NET Environment
+        id: environment
+        uses: ./.github/actions/dotnet-environment
 
-            -   name: Set up JDK 21
-                uses: actions/setup-java@v6.0.1
-                with:
-                    java-version: '21'
-                    distribution: temurin
+      - name: SonarCloud begin
+        uses: ./.github/actions/sonarcloud
+        with:
+          mode: begin
+          project-key: glennawatson_RoslynCommonAnalyzers
+          organization: glennawatson
+          version: ${{ steps.environment.outputs.version-semver2 }}
+          exclusions: '**/tests/**,**/benchmarks/**'
+          coverage-exclusions: '**/tests/**,**/benchmarks/**'
+          cpd-exclusions: '**/tests/**,**/benchmarks/**'
+          test-exclusions: '**/tests/**,**/benchmarks/**'
+          working-directory: src
 
-            -   name: Setup .NET
-                uses: actions/setup-dotnet@v6
-                with:
-                    dotnet-version: |
-                        8.0.x
-                        10.0.x
-                        11.0.x
+      - name: Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          solution-file: RoslynCommonAnalyzers.slnx
 
-            -   name: Cache SonarCloud packages
-                uses: actions/cache@v6
-                with:
-                    path: ~/.sonar/cache
-                    key: ${{ runner.os }}-sonar
-                    restore-keys: ${{ runner.os }}-sonar
+      - name: Test
+        uses: ./.github/actions/dotnet-test
+        with:
+          solution-file: RoslynCommonAnalyzers.slnx
 
-            -   name: Cache SonarScanner
-                id: cache-sonar-scanner
-                uses: actions/cache@v6
-                with:
-                    path: ${{ runner.temp }}/sonar-scanner
-                    key: ${{ runner.os }}-sonar-scanner
-                    restore-keys: ${{ runner.os }}-sonar-scanner
-
-            -   name: Install SonarScanner
-                if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
-                run: |
-                    mkdir -p "${{ runner.temp }}/sonar-scanner"
-                    dotnet tool update dotnet-sonarscanner --tool-path "${{ runner.temp }}/sonar-scanner"
-
-            -   name: Restore
-                working-directory: src
-                run: dotnet restore RoslynCommonAnalyzers.slnx
-
-            -   name: Begin Sonar analysis
-                working-directory: src
-                env:
-                    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-                # The ignored rules contradict conventions this repo enforces itself: one asks for LINQ
-                # in the analyzer projects, which remove the System.Linq global using on purpose, and the
-                # other two judge null-forgiving operators and null checks against one Roslyn slot's
-                # nullability annotations, which differ between the slots these projects build against.
-                run: |
-                    "${{ runner.temp }}/sonar-scanner/dotnet-sonarscanner" begin \
-                      /k:"glennawatson_RoslynCommonAnalyzers" \
-                      /o:"glennawatson" \
-                      /d:sonar.token="${SONAR_TOKEN}" \
-                      /d:sonar.host.url="https://sonarcloud.io" \
-                      /d:sonar.scanner.skipJreProvisioning=true \
-                      /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/**/sonar-coverage.xml" \
-                      /d:sonar.exclusions="**/tests/**,**/benchmarks/**" \
-                      /d:sonar.coverage.exclusions="**/tests/**,**/benchmarks/**" \
-                      /d:sonar.cpd.exclusions="**/tests/**,**/benchmarks/**" \
-                      /d:sonar.test.exclusions="**/tests/**,**/benchmarks/**" \
-                      /d:sonar.issue.ignore.multicriteria="nullForgiving,nullChecks,linqLoops" \
-                      /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey="csharpsquid:S8969" \
-                      /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey="**/*.cs" \
-                      /d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey="csharpsquid:S2589" \
-                      /d:sonar.issue.ignore.multicriteria.nullChecks.resourceKey="**/*.cs" \
-                      /d:sonar.issue.ignore.multicriteria.linqLoops.ruleKey="csharpsquid:S3267" \
-                      /d:sonar.issue.ignore.multicriteria.linqLoops.resourceKey="**/*.cs"
-
-            -   name: Build
-                working-directory: src
-                run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
-
-            # Run each package's tests into its own results directory. A single
-            # --solution run points every project at the same --coverage-output file,
-            # so the slower report overwrites the other and one package lands at 0%
-            # in the coverage import. Distinct results directories keep both reports;
-            # the shared sonar-coverage.xml name still matches the import glob below.
-            -   name: Test StyleSharp with MTP coverage
-                working-directory: src
-                run: dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj --configuration Release --no-restore --coverage --coverage-output-format xml --results-directory TestResults/StyleSharp --coverage-output sonar-coverage.xml
-
-            -   name: Test PerformanceSharp with MTP coverage
-                working-directory: src
-                run: dotnet test --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj --configuration Release --no-restore --coverage --coverage-output-format xml --results-directory TestResults/PerformanceSharp --coverage-output sonar-coverage.xml
-
-            -   name: Test SecuritySharp with MTP coverage
-                working-directory: src
-                run: dotnet test --project tests/SecuritySharp.Analyzers.Tests/SecuritySharp.Analyzers.Tests.csproj --configuration Release --no-restore --coverage --coverage-output-format xml --results-directory TestResults/SecuritySharp --coverage-output sonar-coverage.xml
-
-            -   name: End Sonar analysis
-                working-directory: src
-                env:
-                    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-                run: |
-                    "${{ runner.temp }}/sonar-scanner/dotnet-sonarscanner" end \
-                      /d:sonar.token="${SONAR_TOKEN}"
+      - name: SonarCloud end
+        # A failed build or test still uploads partial analysis.
+        if: always()
+        uses: ./.github/actions/sonarcloud
+        with:
+          mode: end
+          project-key: glennawatson_RoslynCommonAnalyzers
+          working-directory: src

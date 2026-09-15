@@ -1,0 +1,296 @@
+name: Benchmarks A/B
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'Baseline commit.'
+        type: string
+        required: true
+      head:
+        description: 'Commit compared against the baseline.'
+        type: string
+        required: true
+      suite:
+        description: 'Which benchmark suite to run'
+        type: choice
+        default: stylesharp
+        options:
+          - stylesharp
+          - performancesharp
+          - securitysharp
+          - all
+      filter:
+        description: 'BenchmarkDotNet filter. Narrow it: every matching benchmark runs four times.'
+        type: string
+        default: '*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-ab-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
+
+      # Every build-server connect attempt waits out a timeout, and a lingering server competes with the measurement.
+      DOTNET_CLI_USE_MSBUILD_SERVER: 0
+
+      # Both builds stamp the same version, so the assemblies differ only in their code.
+      MINVERVERSIONOVERRIDE: 0.0.0-benchmark
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Checkout base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.base }}
+          path: ab/base
+
+      - name: Checkout head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.head }}
+          path: ab/head
+
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
+        with:
+          stamp-version: 'false'
+
+      # A-B-B-A: drift across the job (thermal, neighbours, disk cache) lands on each side once, so a real change shows
+      # in both orders and drift shows in only one.
+      - name: Run base and head in both orders
+        shell: bash
+        env:
+          SUITE: ${{ inputs.suite }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" "$RUNNER_TEMP/benchmark-ab" <<'CS'
+          using System.Diagnostics;
+          using static System.Environment;
+
+          if (args is not [var suite, var filter, var results])
+          {
+              Console.WriteLine("::error::Expected the suite, filter and results folder arguments.");
+              return 2;
+          }
+
+          string[] projects = suite switch
+          {
+              "stylesharp" => ["benchmarks/StyleSharp.Analyzers.Benchmarks"],
+              "performancesharp" => ["benchmarks/PerformanceSharp.Analyzers.Benchmarks"],
+              "securitysharp" => ["benchmarks/SecuritySharp.Analyzers.Benchmarks"],
+              "all" => ["benchmarks/StyleSharp.Analyzers.Benchmarks", "benchmarks/PerformanceSharp.Analyzers.Benchmarks", "benchmarks/SecuritySharp.Analyzers.Benchmarks"],
+              _ => [],
+          };
+
+          if (projects is [])
+          {
+              Console.WriteLine($"::error::Unknown benchmark suite '{suite}'.");
+              return 2;
+          }
+
+          var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
+
+          RaisePriority();
+
+          // Each tree builds once before anything is measured, so no run shares the machine with a compiler.
+          foreach (var side in (string[])["base", "head"])
+          {
+              foreach (var project in projects)
+              {
+                  Console.WriteLine($"::group::Build {side} {Path.GetFileName(project)}");
+                  var build = Process.Run("dotnet", ["build", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release"]);
+                  Console.WriteLine("::endgroup::");
+                  if (build is { ExitCode: not 0 })
+                  {
+                      Console.WriteLine($"::error::Building {side} {project} exited with {build.ExitCode}");
+                      return build.ExitCode;
+                  }
+              }
+          }
+
+          foreach (var run in (string[][])[["r1", "base"], ["r1", "head"], ["r2", "head"], ["r2", "base"]])
+          {
+              var (order, side) = (run[0], run[1]);
+
+              // BenchmarkDotNet finds the project by searching below the working directory, which must hold only one tree.
+              Directory.SetCurrentDirectory(Path.Combine(workspace, "ab", side, "src"));
+              foreach (var project in projects)
+              {
+                  var name = Path.GetFileName(project);
+                  Console.WriteLine($"::group::{order} {side} {name}");
+
+                  var status = Process.Run(
+                      "dotnet",
+                      [
+                          "run", "--project", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release", "--no-build", "--",
+                          "--filter", filter, "--artifacts", Path.Combine(results, order, side, name), "--exporters", "github", "fulljson",
+                      ]);
+
+                  Console.WriteLine("::endgroup::");
+                  if (status is { ExitCode: not 0 })
+                  {
+                      Console.WriteLine($"::error::{order} {side} {name} exited with {status.ExitCode}");
+                      return status.ExitCode;
+                  }
+              }
+          }
+
+          return 0;
+
+          // The runner is a shared virtual machine: the raised priority removes the noise that is ours to remove.
+          // Processes started from here inherit it.
+          static void RaisePriority()
+          {
+              if (Process.Run("sudo", ["-n", "renice", "-n", "-20", "-p", $"{ProcessId}"], silent: true) is { ExitCode: 0 })
+              {
+                  return;
+              }
+
+              Console.WriteLine("::warning::Could not raise the benchmark priority.");
+          }
+          CS
+
+      - name: Compare base and head
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - -- "$RUNNER_TEMP/benchmark-ab" <<'CS'
+          using System.Globalization;
+          using System.Text.Json;
+          using System.Text.RegularExpressions;
+          using static System.Environment;
+
+          if (args is not [var results])
+          {
+              Console.WriteLine("::error::Expected the results folder argument.");
+              return 2;
+          }
+
+          // A benchmark is faster or slower only when the 99.9% confidence intervals of its two means do not overlap,
+          // and only when both orders agree.
+          var firstBase = Load(Path.Combine(results, "r1", "base"));
+          var firstHead = Load(Path.Combine(results, "r1", "head"));
+          var secondBase = Load(Path.Combine(results, "r2", "base"));
+          var secondHead = Load(Path.Combine(results, "r2", "head"));
+
+          if (firstBase.Count == 0 || firstHead.Count == 0)
+          {
+              Console.WriteLine("::error::No benchmark results were exported. Check the validation errors above.");
+              return 1;
+          }
+
+          using var summary = File.AppendText(GetEnvironmentVariable("GITHUB_STEP_SUMMARY")!);
+          summary.WriteLine("# A/B benchmark results");
+          summary.WriteLine();
+          summary.WriteLine("Measured base, head, head, base. A result needs separated confidence intervals in both orders.");
+          summary.WriteLine();
+          summary.WriteLine("| Benchmark | Base | Head | Head/Base (1st) | Head/Base (2nd) | Allocated base | Allocated head | Result |");
+          summary.WriteLine("|---|---:|---:|---:|---:|---:|---:|---|");
+
+          foreach (var key in firstBase.Keys.Union(firstHead.Keys).Order(StringComparer.Ordinal))
+          {
+              var hasBase = firstBase.TryGetValue(key, out var before) & secondBase.TryGetValue(key, out var beforeAgain);
+              var hasHead = firstHead.TryGetValue(key, out var after) & secondHead.TryGetValue(key, out var afterAgain);
+
+              if (!hasBase || !hasHead)
+              {
+                  summary.WriteLine($"| {key} | {(hasBase ? Format(before) : "-")} | {(hasHead ? Format(after) : "-")} | - | - | - | - | {(hasBase ? "base only" : hasHead ? "head only" : "incomplete")} |");
+                  continue;
+              }
+
+              var result = (Verdict(before, after), Verdict(beforeAgain, afterAgain)) switch
+              {
+                  ("slower", "slower") => "slower",
+                  ("faster", "faster") => "faster",
+                  _ => "unresolved",
+              };
+
+              summary.WriteLine($"| {key} | {Format(before)} | {Format(after)} | {Ratio(before, after)} | {Ratio(beforeAgain, afterAgain)} | {Bytes(before.Allocated)} | {Bytes(after.Allocated)} | {result} |");
+          }
+
+          return 0;
+
+          static string Verdict(Measurement before, Measurement after) =>
+              after.Lower > before.Upper ? "slower" : after.Upper < before.Lower ? "faster" : "unresolved";
+
+          static string Ratio(Measurement before, Measurement after) =>
+              (after.Mean / before.Mean).ToString("0.000", CultureInfo.InvariantCulture);
+
+          static Dictionary<string, Measurement> Load(string folder)
+          {
+              var results = new Dictionary<string, Measurement>(StringComparer.Ordinal);
+              if (!Directory.Exists(folder))
+              {
+                  return results;
+              }
+
+              foreach (var path in Directory.EnumerateFiles(folder, "*full.json", SearchOption.AllDirectories))
+              {
+                  using var document = JsonDocument.Parse(File.ReadAllText(path));
+
+                  foreach (var benchmark in document.RootElement.GetProperty("Benchmarks").EnumerateArray())
+                  {
+                      if (!benchmark.TryGetProperty("Statistics", out var statistics) || statistics.ValueKind != JsonValueKind.Object)
+                      {
+                          continue;
+                      }
+
+                      var allocated = benchmark.TryGetProperty("Memory", out var memory) && memory.ValueKind == JsonValueKind.Object
+                          ? memory.GetProperty("BytesAllocatedPerOperation").GetInt64()
+                          : -1;
+
+                      var interval = statistics.GetProperty("ConfidenceInterval");
+                      results[Key(benchmark)] = new(
+                          statistics.GetProperty("Mean").GetDouble(),
+                          interval.GetProperty("Lower").GetDouble(),
+                          interval.GetProperty("Upper").GetDouble(),
+                          allocated);
+                  }
+              }
+
+              return results;
+          }
+
+          // BenchmarkDotNet generates job ids that differ between runs, so a benchmark is keyed by its name and job characteristics.
+          static string Key(JsonElement benchmark)
+          {
+              var characteristics = Regex.Match(benchmark.GetProperty("DisplayInfo").GetString() ?? string.Empty, @"\(([^()]*)\)\s*$");
+              return $"{benchmark.GetProperty("FullName").GetString()} ({characteristics.Groups[1].Value})";
+          }
+
+          static string Format(Measurement measurement)
+          {
+              var (scale, unit) = measurement.Mean switch
+              {
+                  >= 1_000_000_000 => (1_000_000_000d, "s"),
+                  >= 1_000_000 => (1_000_000d, "ms"),
+                  >= 1_000 => (1_000d, "us"),
+                  _ => (1d, "ns"),
+              };
+
+              var margin = (measurement.Upper - measurement.Mean) / scale;
+              return string.Create(CultureInfo.InvariantCulture, $"{measurement.Mean / scale:0.00} ± {margin:0.00} {unit}");
+          }
+
+          static string Bytes(long bytes) => bytes < 0 ? "-" : bytes.ToString("N0", CultureInfo.InvariantCulture) + " B";
+
+          internal readonly record struct Measurement(double Mean, double Lower, double Upper, long Allocated);
+          CS
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-ab
+          path: ${{ runner.temp }}/benchmark-ab

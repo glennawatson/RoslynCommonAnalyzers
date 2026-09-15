@@ -1,0 +1,182 @@
+name: Compute version and tag
+description: |
+  Cut a clean version for a tag-first MinVer repo. Given a bump level
+  (major|minor|patch), find the latest RTM tag (<prefix>X.Y.Z, ignoring
+  pre-release tags), increment the requested segment, create and push the new
+  tag on HEAD, and export MINVERVERSIONOVERRIDE so the subsequent build/pack
+  stamps that exact version.
+
+  Pre-release channel (pre-release-id, e.g. beta): the bumped core is suffixed
+  with -<id>.<N>, where <N> auto-increments from the highest existing
+  <prefix><core>-<id>.<N> tag (starting at 1). So bump=major + pre-release-id=beta
+  off v5.4.0 yields v6.0.0-beta.1, then v6.0.0-beta.2 on the next run, and a later
+  bump=major with no pre-release-id finalises the same core as v6.0.0. Dotted
+  SemVer 2.0 form (-beta.1, not -beta-1) so NuGet orders pre-releases correctly.
+
+  Brand-new repo with no RTM tag yet: the baseline is seeded at 0.0.0, so the
+  first release comes straight from the bump (patch -> 0.0.1, minor -> 0.1.0,
+  major -> 1.0.0) with no manual first tag required.
+
+  With an empty bump this action is a no-op: it emits empty outputs and changes
+  nothing, so the normal CI path (MinVer at HEAD producing a pre-release) is
+  unaffected.
+
+  Requires the job to have `contents: write` so the tag can be pushed, the
+  checkout to include full history + tags (e.g. fetch-depth: 0), and the .NET
+  SDK set up by dotnet-environment.
+
+inputs:
+  bump:
+    description: 'Release level: major | minor | patch. Empty = no-op (CI build).'
+    required: false
+    default: ''
+  tag-prefix:
+    description: 'Tag prefix for RTM tags. Empty for bare version tags.'
+    required: false
+    default: ''
+  push-tag:
+    description: 'true = create and push the tag now. false = only compute the version + export MINVERVERSIONOVERRIDE and emit the tag name, leaving tag creation to a later step (e.g. GitHub release creation), so a failed build/sign/publish does not leave an orphan tag.'
+    required: false
+    default: 'true'
+  pre-release-id:
+    description: 'Pre-release channel identifier (e.g. alpha, beta, rc). Empty = stable RTM release. When set, the computed version is <core>-<id>.<N> where <core> is the bumped stable version and <N> auto-increments from the highest existing <prefix><core>-<id>.<N> tag (starting at 1). Must be a SemVer 2.0 alphanumeric/hyphen identifier (no dots).'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'Computed version (e.g. 2.4.0, or 6.0.0-beta.1 for a pre-release). Empty when bump is empty.'
+    value: ${{ steps.compute.outputs.version }}
+  tag:
+    description: 'Pushed tag, prefix included (e.g. v2.4.0 or v6.0.0-beta.1). Empty when bump is empty.'
+    value: ${{ steps.compute.outputs.tag }}
+  prerelease:
+    description: 'true when a pre-release version was computed (pre-release-id set), false for a stable RTM version. Empty when bump is empty.'
+    value: ${{ steps.compute.outputs.prerelease }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute next RTM version and push tag
+      id: compute
+      shell: bash
+      env:
+        BUMP: ${{ inputs.bump }}
+        TAG_PREFIX: ${{ inputs.tag-prefix }}
+        PUSH_TAG: ${{ inputs.push-tag }}
+        PRE_RELEASE_ID: ${{ inputs.pre-release-id }}
+      run: |
+        cd "$RUNNER_TEMP" && dotnet run - -- "$BUMP" "$TAG_PREFIX" "$PUSH_TAG" "$PRE_RELEASE_ID" <<'CS'
+        using System.Diagnostics;
+        using System.Globalization;
+        using System.Text.RegularExpressions;
+        using static System.Environment;
+
+        if (args is not [var bump, var tagPrefix, var pushTag, var preReleaseId])
+        {
+            Console.WriteLine("::error::Expected the bump, tag prefix, push-tag and pre-release id arguments.");
+            return 2;
+        }
+
+        if (bump is "")
+        {
+            Console.WriteLine("No bump requested; skipping version/tag computation (CI pre-release path).");
+            return 0;
+        }
+
+        if (bump is not ("major" or "minor" or "patch"))
+        {
+            Console.WriteLine($"::error::bump must be one of major|minor|patch (got '{bump}').");
+            return 1;
+        }
+
+        // No dots, so "<core>-<id>.<N>" has exactly one numeric counter to parse.
+        if (preReleaseId is not "" && !Regex.IsMatch(preReleaseId, "^[A-Za-z0-9-]+$"))
+        {
+            Console.WriteLine($"::error::pre-release-id '{preReleaseId}' must be a SemVer 2.0 alphanumeric/hyphen identifier (no dots).");
+            return 1;
+        }
+
+        Directory.SetCurrentDirectory(GetEnvironmentVariable("GITHUB_WORKSPACE")!);
+
+        var rtm = new Regex($@"^{Regex.Escape(tagPrefix)}(\d+)\.(\d+)\.(\d+)$");
+        var latest = Git("tag", "--list", $"{tagPrefix}[0-9]*.[0-9]*.[0-9]*").Lines
+            .Select(tag => rtm.Match(tag))
+            .Where(match => match.Success)
+            .Select(match => new Version(Number(match.Groups[1]), Number(match.Groups[2]), Number(match.Groups[3])))
+            .Max();
+
+        if (latest is null)
+        {
+            Console.WriteLine($"No RTM tag ({tagPrefix}X.Y.Z) found in history; seeding first release from 0.0.0.");
+        }
+
+        var last = latest ?? new Version(0, 0, 0);
+        var core = bump switch
+        {
+            "major" => new Version(last.Major + 1, 0, 0),
+            "minor" => new Version(last.Major, last.Minor + 1, 0),
+            _ => new Version(last.Major, last.Minor, last.Build + 1),
+        };
+
+        var version = preReleaseId switch
+        {
+            "" => core.ToString(),
+            _ => $"{core}-{preReleaseId}.{NextCounter(tagPrefix, core, preReleaseId)}",
+        };
+
+        var tag = $"{tagPrefix}{version}";
+        Console.WriteLine($"Latest RTM tag: {tagPrefix}{last} -> next ({bump}{(preReleaseId is "" ? string.Empty : $", {preReleaseId}")}): {tag}");
+
+        if (Process.Run("git", ["rev-parse", "-q", "--verify", $"refs/tags/{tag}"], silent: true) is { ExitCode: 0 })
+        {
+            Console.WriteLine($"::error::Tag {tag} already exists. Refusing to re-release an existing version.");
+            return 1;
+        }
+
+        if (pushTag is "true")
+        {
+            Git("config", "user.name", "github-actions[bot]");
+            Git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com");
+            Git("tag", tag);
+            Git("push", "origin", tag);
+            Console.WriteLine($"Pushed tag {tag}.");
+        }
+        else
+        {
+            Console.WriteLine($"push-tag=false: computed {tag} but not creating it now (deferred, e.g. to GitHub release creation).");
+        }
+
+        // MinVer's MSBuild task stamps this verbatim instead of walking git.
+        File.AppendAllLines(GetEnvironmentVariable("GITHUB_ENV")!, [$"MINVERVERSIONOVERRIDE={version}"]);
+        File.AppendAllLines(GetEnvironmentVariable("GITHUB_OUTPUT")!, [$"version={version}", $"tag={tag}", $"prerelease={(preReleaseId is "" ? "false" : "true")}"]);
+        return 0;
+
+        static int NextCounter(string tagPrefix, Version core, string preReleaseId) =>
+            Git("tag", "--list", $"{tagPrefix}{core}-{preReleaseId}.[0-9]*").Lines
+                .Select(tag => int.TryParse(tag.AsSpan(tag.LastIndexOf('.') + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var counter) ? counter : 0)
+                .DefaultIfEmpty()
+                .Max() + 1;
+
+        static int Number(Group group) => int.Parse(group.ValueSpan, CultureInfo.InvariantCulture);
+
+        static ProcessTextOutput Git(params IEnumerable<string> arguments)
+        {
+            var result = Process.RunAndCaptureText("git", arguments);
+            Console.Error.Write(result.StandardError);
+            if (result is not { ExitStatus.ExitCode: 0 })
+            {
+                Exit(result.ExitStatus.ExitCode);
+            }
+
+            return result;
+        }
+
+        internal static class ProcessOutputExtensions
+        {
+            extension(ProcessTextOutput output)
+            {
+                public string[] Lines => output.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            }
+        }
+        CS

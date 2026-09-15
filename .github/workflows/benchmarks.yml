@@ -1,166 +1,226 @@
 name: Benchmarks
 
 on:
-    workflow_dispatch:
-        inputs:
-            suite:
-                description: 'Which benchmark suite to run'
-                type: choice
-                default: all
-                options:
-                    - stylesharp
-                    - performancesharp
-                    - securitysharp
-                    - all
-            filter:
-                description: 'BenchmarkDotNet filter, e.g. *RedundantCast* or *'
-                type: string
-                default: '*'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Which benchmark suite to run'
+        type: choice
+        default: all
+        options:
+          - stylesharp
+          - performancesharp
+          - securitysharp
+          - all
+      filter:
+        description: 'BenchmarkDotNet filter, e.g. *RedundantCast* or *'
+        type: string
+        default: '*'
+      ref:
+        description: 'Commit to check out and measure. Empty measures the commit that triggered the run.'
+        type: string
+        default: ''
 
 permissions:
-    contents: read
+  contents: read
 
-env:
-    DOTNET_NOLOGO: true
-    DOTNET_CLI_TELEMETRY_OPTOUT: true
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+concurrency:
+  group: benchmarks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-    benchmark:
-        runs-on: ubuntu-latest
-        timeout-minutes: 360
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v7
-              with:
-                  fetch-depth: 0
+    env:
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
 
-            - name: Setup .NET
-              uses: actions/setup-dotnet@v6
-              with:
-                  dotnet-version: |
-                      8.0.x
-                      10.0.x
-                      11.0.x
+      # Every build-server connect attempt waits out a timeout, and a lingering server competes with the measurement.
+      DOTNET_CLI_USE_MSBUILD_SERVER: 0
 
-            - name: Report the installed runtimes
-              run: dotnet --info
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
 
-            # The runner is a shared VM, so treat these as trend and regression figures rather than
-            # absolute ones. Raising the priority removes the noise that is ours to remove; compare a
-            # run only against another run of the same suite on the same runner image.
-            - name: Run the benchmarks
-              working-directory: src
-              env:
-                  SUITE: ${{ inputs.suite }}
-                  FILTER: ${{ inputs.filter }}
-              run: |
-                  set -euo pipefail
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
 
-                  projects=()
-                  if [ "$SUITE" = 'stylesharp' ]       || [ "$SUITE" = 'all' ]; then projects+=('benchmarks/StyleSharp.Analyzers.Benchmarks'); fi
-                  if [ "$SUITE" = 'performancesharp' ] || [ "$SUITE" = 'all' ]; then projects+=('benchmarks/PerformanceSharp.Analyzers.Benchmarks'); fi
-                  if [ "$SUITE" = 'securitysharp' ]    || [ "$SUITE" = 'all' ]; then projects+=('benchmarks/SecuritySharp.Analyzers.Benchmarks'); fi
+      - name: Run benchmarks
+        shell: bash
+        env:
+          SUITE: ${{ inputs.suite }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
+          using System.Diagnostics;
+          using static System.Environment;
 
-                  for project in "${projects[@]}"; do
-                      name="$(basename "$project")"
-                      echo "::group::$name"
+          if (args is not [var suite, var filter])
+          {
+              Console.WriteLine("::error::Expected the suite and filter arguments.");
+              return 2;
+          }
 
-                      # -E keeps DOTNET_ROOT and PATH; the artifacts come back root-owned and are
-                      # handed back below so the upload step can read them.
-                      sudo -E nice -n -20 dotnet run --project "$project" -c Release -- \
-                          --filter "$FILTER" \
-                          --artifacts "$GITHUB_WORKSPACE/benchmark-artifacts/$name" \
-                          --exporters github json html csv
+          string[] projects = suite switch
+          {
+              "stylesharp" => ["benchmarks/StyleSharp.Analyzers.Benchmarks"],
+              "performancesharp" => ["benchmarks/PerformanceSharp.Analyzers.Benchmarks"],
+              "securitysharp" => ["benchmarks/SecuritySharp.Analyzers.Benchmarks"],
+              "all" => ["benchmarks/StyleSharp.Analyzers.Benchmarks", "benchmarks/PerformanceSharp.Analyzers.Benchmarks", "benchmarks/SecuritySharp.Analyzers.Benchmarks"],
+              _ => [],
+          };
 
-                      echo '::endgroup::'
-                  done
+          if (projects is [])
+          {
+              Console.WriteLine($"::error::Unknown benchmark suite '{suite}'.");
+              return 2;
+          }
 
-                  sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE/benchmark-artifacts"
+          var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
 
-            # BenchmarkDotNet reports a validation error and still exits zero, and a job whose build
-            # failed exports its rows with every measurement written as NA. Both look identical to a
-            # clean run unless the reports themselves are checked.
-            - name: Confirm the run measured something
-              run: |
-                  set -euo pipefail
-                  root="$GITHUB_WORKSPACE/benchmark-artifacts"
+          RaisePriority();
+          Directory.SetCurrentDirectory(Path.Combine(workspace, "src"));
 
-                  mapfile -t reports < <(find "$root" -name '*-report-github.md' 2>/dev/null | sort)
-                  if [ "${#reports[@]}" -eq 0 ]; then
-                      echo 'No benchmark reports were produced. Check the validation errors above.' >&2
-                      exit 1
-                  fi
+          foreach (var project in projects)
+          {
+              var name = Path.GetFileName(project);
+              Console.WriteLine($"::group::{name}");
 
-                  unmeasured=()
-                  for report in "${reports[@]}"; do
-                      if awk '/^\|/ && /\|[[:space:]]*NA[[:space:]]*\|/ { found = 1 } END { exit !found }' "$report"; then
-                          unmeasured+=("$(basename "$report" -report-github.md)")
-                      fi
-                  done
+              var status = Process.Run(
+                  "dotnet",
+                  [
+                      "run", "--project", project, "-c", "Release", "--",
+                      "--filter", filter, "--artifacts", Path.Combine(workspace, "benchmark-artifacts", name),
+                      "--exporters", "github", "json", "html", "csv",
+                  ]);
 
-                  if [ "${#unmeasured[@]}" -gt 0 ]; then
-                      echo "These benchmarks measured nothing: ${unmeasured[*]}" >&2
-                      exit 1
-                  fi
+              Console.WriteLine("::endgroup::");
+              if (status is { ExitCode: not 0 })
+              {
+                  Console.WriteLine($"::error::{name} exited with {status.ExitCode}");
+                  return status.ExitCode;
+              }
+          }
 
-            - name: Collect the reports into the run summary
-              if: always()
-              env:
-                  SUITE: ${{ inputs.suite }}
-                  FILTER: ${{ inputs.filter }}
-              run: |
-                  set -euo pipefail
-                  root="$GITHUB_WORKSPACE/benchmark-artifacts"
+          return 0;
 
-                  {
-                      echo '# Benchmark results'
-                      echo
-                      echo "Suite \`$SUITE\`, filter \`$FILTER\`, commit \`$GITHUB_SHA\`."
-                      echo
-                      echo 'The runner is a shared VM, so read these for trend and regression rather than as'
-                      echo 'absolute figures. Full JSON, HTML and CSV exports are attached as `benchmark-reports`.'
-                      echo
-                  } >> "$GITHUB_STEP_SUMMARY"
+          // The runner is a shared virtual machine: the raised priority removes the noise that is ours to remove, and the
+          // figures remain trend and regression evidence rather than absolutes. Processes started from here inherit it.
+          static void RaisePriority()
+          {
+              if (Process.Run("sudo", ["-n", "renice", "-n", "-20", "-p", $"{ProcessId}"], silent: true) is { ExitCode: 0 })
+              {
+                  return;
+              }
 
-                  if [ ! -d "$root" ]; then
-                      echo 'No benchmark artifacts were produced.' >> "$GITHUB_STEP_SUMMARY"
-                      exit 0
-                  fi
+              Console.WriteLine("::warning::Could not raise the benchmark priority.");
+          }
+          CS
 
-                  # A step summary is capped at 1 MiB and is dropped whole once exceeded, so stop
-                  # appending tables before that and leave the rest to the artifact.
-                  budget=900000
-                  skipped=()
+      - name: Validate benchmark reports
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - <<'CS'
+          using static System.Environment;
 
-                  while IFS= read -r report; do
-                      title="$(basename "$report" -report-github.md)"
-                      size=$(stat -c %s "$GITHUB_STEP_SUMMARY")
-                      if [ $((size + $(stat -c %s "$report"))) -gt "$budget" ]; then
-                          skipped+=("$title")
-                          continue
-                      fi
+          var root = Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "benchmark-artifacts");
 
-                      {
-                          echo "<details><summary>$title</summary>"
-                          echo
-                          cat "$report"
-                          echo
-                          echo '</details>'
-                          echo
-                      } >> "$GITHUB_STEP_SUMMARY"
-                  done < <(find "$root" -name '*-report-github.md' | sort)
+          // BenchmarkDotNet exits zero on a validation error, so the exported reports are the evidence it ran.
+          string[] reports = Directory.Exists(root) ? Directory.GetFiles(root, "*-report-github.md", SearchOption.AllDirectories) : [];
+          if (reports is [])
+          {
+              Console.WriteLine("::error::No benchmark reports were produced. Check the validation errors above.");
+              return 1;
+          }
 
-                  if [ "${#skipped[@]}" -gt 0 ]; then
-                      echo "Omitted here to stay inside the summary limit: ${skipped[*]}. Read them in the \`benchmark-reports\` artifact." >> "$GITHUB_STEP_SUMMARY"
-                  fi
+          // A job whose build fails still exports its rows, with every measurement as NA.
+          var unmeasured = reports
+              .Select(report => (Name: Path.GetFileName(report).Replace("-report-github.md", string.Empty), Rows: File.ReadLines(report).Count(line => line.StartsWith('|') && line.Split('|').Any(cell => cell.Trim() == "NA"))))
+              .Where(report => report.Rows > 0)
+              .Select(report => $"{report.Name} ({report.Rows} rows)")
+              .ToArray();
 
-            - name: Upload the full reports
-              if: always()
-              uses: actions/upload-artifact@v7
-              with:
-                  name: benchmark-reports
-                  path: benchmark-artifacts/**
-                  if-no-files-found: error
-                  retention-days: 30
+          if (unmeasured is not [])
+          {
+              Console.WriteLine($"::error::These benchmarks measured nothing: {string.Join("; ", unmeasured)}");
+              return 1;
+          }
+
+          return 0;
+          CS
+
+      - name: Publish results to run summary
+        if: always()
+        shell: bash
+        env:
+          SUITE: ${{ inputs.suite }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
+          using static System.Environment;
+
+          if (args is not [var suite, var filter])
+          {
+              Console.WriteLine("::error::Expected the suite and filter arguments.");
+              return;
+          }
+
+          // A step summary is dropped whole once it passes 1 MiB, so the tables stop before that and the artifact carries the rest.
+          const long Budget = 900 * 1024;
+
+          var summary = GetEnvironmentVariable("GITHUB_STEP_SUMMARY")!;
+          var root = Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "benchmark-artifacts");
+
+          // With a ref input the triggering commit is not the measured one, so the checked-out commit MinVer read comes first.
+          var commit = GetEnvironmentVariable("MINVER_GitCommitId") ?? GetEnvironmentVariable("GITHUB_SHA");
+
+          File.AppendAllLines(
+              summary,
+              [
+                  "# Benchmark results",
+                  "",
+                  $"Suite `{suite}`, filter `{filter}`, commit `{commit}`.",
+                  "",
+                  "The runner is shared, so read these for trend and regression rather than as absolute figures.",
+                  "Full JSON, HTML and CSV exports are attached to this run as `benchmark-reports`.",
+                  "",
+              ]);
+
+          string[] reports = Directory.Exists(root) ? [.. Directory.GetFiles(root, "*-report-github.md", SearchOption.AllDirectories).Order(StringComparer.Ordinal)] : [];
+          if (reports is [])
+          {
+              File.AppendAllLines(summary, ["No benchmark reports were exported."]);
+              return;
+          }
+
+          List<string> skipped = [];
+          foreach (var report in reports)
+          {
+              var title = Path.GetFileName(report).Replace("-report-github.md", string.Empty);
+              if (new FileInfo(summary).Length + new FileInfo(report).Length > Budget)
+              {
+                  skipped.Add(title);
+                  continue;
+              }
+
+              File.AppendAllLines(summary, [$"<details><summary>{title}</summary>", "", .. File.ReadLines(report), "", "</details>", ""]);
+          }
+
+          if (skipped is not [])
+          {
+              File.AppendAllLines(summary, ["", $"Omitted here to stay inside the summary limit: {string.Join(", ", skipped)}. Read them in the benchmark-reports artifact.", ""]);
+          }
+          CS
+
+      - name: Upload benchmark reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-reports
+          path: benchmark-artifacts/**
+          if-no-files-found: error
+          retention-days: 30

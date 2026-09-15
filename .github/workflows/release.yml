@@ -4,22 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Auto-increment level for the new tag. You must pick one."
+        description: 'Release level for the new tag. Pick one, unless versionOverride is set.'
         required: true
         type: choice
         options:
-          - "(pick one)"
+          - '(pick one)'
           - major
           - minor
           - patch
 
+      preRelease:
+        description: 'Pre-release channel (e.g. beta, rc). The version becomes <bumped-core>-<channel>.<N>. Empty = stable release.'
+        required: false
+        type: string
+        default: ''
+
+      versionOverride:
+        description: 'Exact version to release (e.g. 4.2.5), bypassing the bump from the latest tag. Leave bump at "(pick one)".'
+        required: false
+        type: string
+        default: ''
+
+      sourceRef:
+        description: 'Git ref (tag, branch or SHA) to release from. Empty = the ref this run was started on.'
+        required: false
+        type: string
+        default: ''
+
 permissions:
   contents: read
-
-env:
-  DOTNET_NOLOGO: true
-  DOTNET_CLI_TELEMETRY_OPTOUT: true
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
   build:
@@ -27,83 +40,142 @@ jobs:
     permissions:
       contents: read
     outputs:
-      version: ${{ steps.ver.outputs.version }}
-      tag: ${{ steps.ver.outputs.tag }}
+      semver2: ${{ steps.minver.outputs.SemVer2 }}
+      tag: ${{ steps.tagname.outputs.tag }}
+      prerelease: ${{ steps.tagname.outputs.prerelease }}
+      sourceSha: ${{ steps.sourcesha.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.sourceRef }}
           fetch-depth: 0
-          fetch-tags: true
-          filter: tree:0
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+      # The source ref may predate these actions, so they are taken from the commit this workflow runs on.
+      - name: Checkout release actions
+        uses: actions/checkout@v7
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
-            11.0.x
+          path: .release-actions
+          sparse-checkout: .github/actions
 
-      - name: Compute next version
-        id: ver
+      - name: Use the release actions
+        shell: bash
+        run: |
+          rm -rf .github/actions
+          mkdir -p .github
+          cp -r .release-actions/.github/actions .github/actions
+
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
+        with:
+          stamp-version: 'false'
+
+      - name: Resolve built commit SHA
+        id: sourcesha
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate version inputs
+        shell: bash
         env:
           BUMP: ${{ inputs.bump }}
+          PRE_RELEASE: ${{ inputs.preRelease }}
+          VERSION_OVERRIDE: ${{ inputs.versionOverride }}
         run: |
-          case "$BUMP" in
-            major|minor|patch) ;;
-            *) echo "Pick a bump level (major / minor / patch)." >&2; exit 1 ;;
-          esac
-          LAST="$(git tag --list '[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-' | sort -V | tail -1)"
-          if [ -z "$LAST" ]; then echo "No RTM tag (X.Y.Z) found." >&2; exit 1; fi
-          IFS=. read -r MAJ MIN PAT <<<"$LAST"
-          case "$BUMP" in
-            major) VERSION="$((MAJ+1)).0.0" ;;
-            minor) VERSION="${MAJ}.$((MIN+1)).0" ;;
-            patch) VERSION="${MAJ}.${MIN}.$((PAT+1))" ;;
-          esac
-          echo "Latest RTM tag: $LAST -> next: $VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
-          # The tag is not created here. Everything after this point can still fail, and
-          # a tag pushed up front outlives the failure -- it has to be hunted down and
-          # deleted before the run can be retried. Creating it with the release instead
-          # means a version is only marked once it has actually shipped.
-          echo "MINVERVERSIONOVERRIDE=$VERSION" >> "$GITHUB_ENV"
+          cd "$RUNNER_TEMP" && dotnet run - -- "$BUMP" "$PRE_RELEASE" "$VERSION_OVERRIDE" <<'CS'
+          if (args is not [var choice, var preRelease, var versionOverride])
+          {
+              Console.WriteLine("::error::Expected the bump, pre-release and version override arguments.");
+              return 2;
+          }
 
-      - name: Restore
-        working-directory: src
-        run: dotnet restore RoslynCommonAnalyzers.slnx
+          var bump = choice is "(pick one)" ? string.Empty : choice;
+          string? error = (bump, preRelease, versionOverride) switch
+          {
+              ("", _, "") => "Pick a bump level (major, minor or patch), or give a version override.",
+              (not "", _, not "") => "'bump' and 'versionOverride' are mutually exclusive: set exactly one.",
+              (_, not "", not "") => "'preRelease' cannot be combined with 'versionOverride': put any pre-release suffix in the override itself.",
+              _ => null,
+          };
+
+          if (error is not null)
+          {
+              Console.WriteLine($"::error::{error}");
+              return 1;
+          }
+
+          return 0;
+          CS
+
+      # The create-release job creates the tag, so a failed build or sign leaves no orphan tag.
+      - name: Compute version and tag
+        if: inputs.bump != '(pick one)' && inputs.versionOverride == ''
+        id: bump
+        uses: ./.github/actions/compute-version-and-tag
+        with:
+          bump: ${{ inputs.bump }}
+          tag-prefix: ''
+          pre-release-id: ${{ inputs.preRelease }}
+          push-tag: 'false'
+
+      # compute-version-and-tag rejects an existing bump tag; an existing override tag is rejected here.
+      - name: Resolve release tag
+        id: tagname
+        shell: bash
+        env:
+          BUMP_TAG: ${{ steps.bump.outputs.tag }}
+          BUMP_PRERELEASE: ${{ steps.bump.outputs.prerelease }}
+          VERSION_OVERRIDE: ${{ inputs.versionOverride }}
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - -- "$BUMP_TAG" "$BUMP_PRERELEASE" "$VERSION_OVERRIDE" <<'CS'
+          using System.Diagnostics;
+          using static System.Environment;
+
+          if (args is not [var bumpTag, var bumpPrerelease, var versionOverride])
+          {
+              Console.WriteLine("::error::Expected the bump tag, bump pre-release and version override arguments.");
+              return 2;
+          }
+
+          var outputs = GetEnvironmentVariable("GITHUB_OUTPUT")!;
+          if (versionOverride is "")
+          {
+              File.AppendAllLines(outputs, [$"tag={bumpTag}", $"prerelease={(bumpPrerelease is "" ? "false" : bumpPrerelease)}"]);
+              return 0;
+          }
+
+          Directory.SetCurrentDirectory(GetEnvironmentVariable("GITHUB_WORKSPACE")!);
+          if (Process.Run("git", ["rev-parse", "-q", "--verify", $"refs/tags/{versionOverride}"], silent: true) is { ExitCode: 0 })
+          {
+              Console.WriteLine($"::error::Tag {versionOverride} already exists. Refusing to re-release an existing version.");
+              return 1;
+          }
+
+          File.AppendAllLines(outputs, [$"tag={versionOverride}", $"prerelease={(versionOverride.Contains('-') ? "true" : "false")}"]);
+          return 0;
+          CS
+
+      - name: Stamp version with MinVer
+        id: minver
+        uses: ./.github/actions/minver
+        with:
+          version-override: ${{ inputs.versionOverride != '' && inputs.versionOverride || steps.bump.outputs.version }}
 
       - name: Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          solution-file: RoslynCommonAnalyzers.slnx
+
+      - name: Pack NuGet packages
+        shell: bash
         working-directory: src
-        run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
-
-      - name: Pack
-        working-directory: src
-        run: dotnet pack RoslynCommonAnalyzers.slnx --no-build --configuration Release -o packages
-
-      - name: Install GitReleaseNoteGenerator
-        run: dotnet tool install -g GitReleaseNoteGenerator
-
-      - name: Generate release notes
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ steps.ver.outputs.version }}
-        run: git-release-notes --release-version "$RELEASE_VERSION" --output-file release-notes.md
+        run: dotnet pack RoslynCommonAnalyzers.slnx --no-build --configuration Release -o "${GITHUB_WORKSPACE}/packages"
 
       - name: Upload unsigned packages
         uses: actions/upload-artifact@v7
         with:
           name: unsigned-nuget
-          path: src/packages/*.nupkg
-          if-no-files-found: error
-
-      - name: Upload release notes
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-notes
-          path: release-notes.md
+          path: packages/*.nupkg
           if-no-files-found: error
 
   sign:
@@ -113,147 +185,31 @@ jobs:
       name: release
     permissions:
       contents: read
+      packages: read
+    # SimplySign has no headless API; certum-sign drives its GUI under Xvfb, which needs Linux.
     container:
       image: ghcr.io/reactiveui/certum-signer:latest@sha256:842fff11bc5ea1e9efd13058589c15c17c61f15609ec63531d1c8dbcae24c257
+    # Composite actions cannot declare secret inputs, so certum-sign reads these from env.
     env:
       CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
       CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
+      - name: Checkout release actions
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+
       - name: Download unsigned packages
         uses: actions/download-artifact@v8
         with:
           name: unsigned-nuget
           path: signed
 
-      - name: Resolve prebuilt SimplySign paths
-        shell: bash
-        run: |
-          set -euxo pipefail
-          # The prebuilt image bakes SimplySign at $SS_DIST and jsign at $JSIGN_JAR.
-          : "${SS_DIST:?prebuilt image must set SS_DIST}"
-          {
-            echo "SS_DIST=$SS_DIST"
-            echo "SS_START=$(find "$SS_DIST/" -name 'SimplySignDesktop_start' -type f | head -1)"
-            echo "SS_EXE=$(find "$SS_DIST/" -name 'SimplySignDesktop' -type f | head -1)"
-            echo "SS_PKCS11=$(find "$SS_DIST/" -name 'SimplySignPKCS*.so' | head -1)"
-          } >> "$GITHUB_ENV"
-
-      - name: Start headless display
-        shell: bash
-        run: |
-          set -euxo pipefail
-          Xvfb :99 -screen 0 1280x1024x24 >"$RUNNER_TEMP/xvfb.log" 2>&1 &
-          sleep 3
-          # Stop fluxbox running fbsetbg (a missing wallpaper pops an xmessage that
-          # steals focus from the login form).
-          mkdir -p "$HOME/.fluxbox"
-          printf 'session.screen0.rootCommand: /bin/true\n' > "$HOME/.fluxbox/init"
-          DISPLAY=:99 fluxbox >"$RUNNER_TEMP/fluxbox.log" 2>&1 &
-          sleep 2
-          DISPLAY=:99 xdpyinfo >/dev/null && echo "X display :99 up"
-
-      - name: Connect SimplySign (headless login)
-        shell: bash
-        env:
-          DISPLAY: ':99'
-        run: |
-          set -uxo pipefail
-          : "${CERTUM_USER_ID:?map the CERTUM_USER_ID secret into the job env}"
-          : "${CERTUM_OTP_URI:?map the CERTUM_OTP_URI secret into the job env}"
-          # SimplySignDesktop reads $USER at startup and segfaults when unset.
-          export USER="${USER:-root}"
-          cp "$SS_DIST/SimplySignDesktop.xml" "$HOME/" 2>/dev/null || true
-          mkdir -p "$HOME/.config"
-          { echo "[General]"; echo "CacheUserIdAtLogon=Yes"; echo "ShowLogonDialogAfterApplicationStartup=Yes"; echo "ShowLogonDialogWhenAnyAppRequestsAccess=Yes"; } > "$HOME/.config/Unknown Organization.conf"
-          export LD_LIBRARY_PATH="$SS_DIST:${LD_LIBRARY_PATH:-}"
-          if [ -n "${SS_START:-}" ]; then "$SS_START" >"$RUNNER_TEMP/simplysign.log" 2>&1 &
-          else "$SS_EXE" >"$RUNNER_TEMP/simplysign.log" 2>&1 & fi
-          sleep 20
-          # Current TOTP from the otpauth:// URI (honours algorithm/digits/period).
-          OTP="$(python3 -c 'import os,hmac,hashlib,base64,struct,time;from urllib.parse import urlparse,parse_qs;q=parse_qs(urlparse(os.environ["CERTUM_OTP_URI"]).query);s=q["secret"][0];digits=int(q.get("digits",["6"])[0]);period=int(q.get("period",["30"])[0]);algo={"SHA1":hashlib.sha1,"SHA256":hashlib.sha256,"SHA512":hashlib.sha512}[q.get("algorithm",["SHA1"])[0].upper()];key=base64.b32decode(s+"="*((8-len(s)%8)%8));h=hmac.new(key,struct.pack(">Q",int(time.time()//period)),algo).digest();o=h[-1]&0xF;print(str((int.from_bytes(h[o:o+4],"big")&0x7fffffff)%(10**digits)).zfill(digits))')"
-          echo "::add-mask::$OTP"
-          # Find the login window, retry-waiting because the dialog can lag launch.
-          WID=""; BX=0; BY=0; BW=0; BH=0
-          for attempt in $(seq 1 30); do
-            best=0; WID=""
-            for w in $(xdotool search --name '' 2>/dev/null); do
-              nm="$(xdotool getwindowname "$w" 2>/dev/null || true)"
-              case "$nm" in *implySign*) ;; *) continue ;; esac
-              eval "$(xdotool getwindowgeometry --shell "$w" 2>/dev/null)"
-              area=$(( ${WIDTH:-0} * ${HEIGHT:-0} ))
-              if [ "$area" -gt "$best" ]; then best=$area; WID=$w; BX=${X:-0}; BY=${Y:-0}; BW=${WIDTH:-0}; BH=${HEIGHT:-0}; fi
-            done
-            [ "${BW:-0}" -ge 400 ] && [ "${BH:-0}" -ge 300 ] && { echo "login window $WID ${BW}x${BH} (attempt $attempt)"; break; }
-            WID=""; sleep 2
-          done
-          [ -z "$WID" ] && { echo "::error::SimplySign login window did not appear"; cat "$RUNNER_TEMP/simplysign.log" || true; exit 1; }
-          xdotool windowactivate --sync "$WID" || xdotool windowactivate "$WID" || true
-          xdotool windowraise "$WID" || true
-          sleep 1
-          # Click E-MAIL field, type id; Tab; type OTP; click Login.
-          xdotool mousemove $((BX + BW/2)) $((BY + BH*39/100)) click 1; sleep 1
-          xdotool type --clearmodifiers --delay 50 "$CERTUM_USER_ID"
-          xdotool key Tab; sleep 1
-          xdotool type --clearmodifiers --delay 50 "$OTP"
-          xdotool mousemove $((BX + BW/2)) $((BY + BH*76/100)) click 1
-          sleep 8
-          # "Logon successful" dialog: token activates only after its Close button.
-          best=0
-          for w in $(xdotool search --name '' 2>/dev/null); do
-            nm="$(xdotool getwindowname "$w" 2>/dev/null || true)"
-            case "$nm" in *implySign*) ;; *) continue ;; esac
-            eval "$(xdotool getwindowgeometry --shell "$w" 2>/dev/null)"
-            area=$(( ${WIDTH:-0} * ${HEIGHT:-0} ))
-            if [ "$area" -gt "$best" ]; then best=$area; WID=$w; BX=${X:-0}; BY=${Y:-0}; BW=${WIDTH:-0}; BH=${HEIGHT:-0}; fi
-          done
-          xdotool windowactivate --sync "$WID" || true
-          xdotool mousemove $((BX + BW/2)) $((BY + BH*94/100)) click 1
-          sleep 3
-          # Confirm the token is active (fails fast if login did not take).
-          timeout 60 pkcs11-tool --module "$SS_PKCS11" -L
-
-      - name: Sign packages with jsign + verify
-        shell: bash
-        run: |
-          set -euxo pipefail
-          JAR="${JSIGN_JAR:-$RUNNER_TEMP/jsign.jar}"
-          if [ ! -s "$JAR" ]; then
-            curl -fsSL -o "$JAR" "https://repo1.maven.org/maven2/net/jsign/jsign/7.4/jsign-7.4.jar"
-          fi
-          CONF="$RUNNER_TEMP/sunpkcs11.conf"
-          { echo "name = SimplySign"; echo "library = $SS_PKCS11"; echo "slotListIndex = 0"; } > "$CONF"
-          shopt -s nullglob
-          pkgs=( signed/*.nupkg )
-          [ "${#pkgs[@]}" -gt 0 ] || { echo "::error::no packages matched: signed/*.nupkg"; exit 1; }
-          for pkg in "${pkgs[@]}"; do
-            echo "::group::sign $pkg"
-            # The token enumerates before its objects are populated, so the keystore can still
-            # report no certificate for a few seconds after login - which hits the first package
-            # and, left alone, fails roughly one run in ten. Retry that one message and let every
-            # other failure through on the first attempt; the token has one key, so jsign
-            # auto-selects it. RFC3161 timestamp so the signature outlives the cert.
-            signed=0
-            for attempt in $(seq 1 15); do
-              if out="$(java -jar "$JAR" --storetype PKCS11 --keystore "$CONF" --storepass "" \
-                          --alg SHA-256 --tsmode RFC3161 --tsaurl "http://time.certum.pl" --replace "$pkg" 2>&1)"; then
-                printf '%s\n' "$out"
-                signed=1
-                break
-              fi
-
-              printf '%s\n' "$out"
-              case "$out" in
-                *'No certificate found'*) echo "keystore not populated yet (attempt $attempt)" ;;
-                *) exit 1 ;;
-              esac
-              sleep 4
-            done
-
-            [ "$signed" = 1 ] || { echo "::error::keystore exposed no certificate to jsign"; exit 1; }
-            dotnet nuget verify "$pkg" --all --verbosity detailed
-            echo "::endgroup::"
-          done
+      - name: Sign packages with Certum SimplySign
+        uses: ./.github/actions/certum-sign
+        with:
+          packages-glob: 'signed/*.nupkg'
 
       - name: Upload signed packages
         uses: actions/upload-artifact@v7
@@ -262,31 +218,25 @@ jobs:
           path: signed/*.nupkg
           if-no-files-found: error
 
-  publish:
-    needs: [build, sign]
+  publish-nuget:
+    needs: [ build, sign ]
     runs-on: ubuntu-latest
     environment:
       name: release
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
 
       - name: Download signed packages
         uses: actions/download-artifact@v8
         with:
           name: signed-nuget
           path: signed
-
-      - name: Download release notes
-        uses: actions/download-artifact@v8
-        with:
-          name: release-notes
-          path: .
 
       - name: NuGet login (OIDC trusted publishing)
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
@@ -295,19 +245,88 @@ jobs:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Push to NuGet
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
-          for pkg in ./signed/*.nupkg; do
-            dotnet nuget push "$pkg" --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          done
+          cd "$RUNNER_TEMP" && dotnet run - <<'CS'
+          using System.Diagnostics;
+          using static System.Environment;
 
+          var packages = Directory.GetFiles(Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "signed"), "*.nupkg");
+          if (packages is [])
+          {
+              Console.WriteLine("::error::No signed packages were downloaded.");
+              return 1;
+          }
+
+          foreach (var package in packages.Order(StringComparer.Ordinal))
+          {
+              if (Process.Run("dotnet", ["nuget", "push", package, "--source", "https://api.nuget.org/v3/index.json", "--api-key", GetEnvironmentVariable("NUGET_API_KEY")!]) is { ExitCode: not 0 } push)
+              {
+                  return push.ExitCode;
+              }
+          }
+
+          return 0;
+          CS
+
+  create-release:
+    needs: [ build, publish-nuget ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download signed packages
+        uses: actions/download-artifact@v8
+        with:
+          name: signed-nuget
+          path: signed
+
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
+        with:
+          stamp-version: 'false'
+
+      - name: Install GitReleaseNoteGenerator
+        run: dotnet tool install -g GitReleaseNoteGenerator
+
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.build.outputs.semver2 }}
+        run: git-release-notes --release-version "$RELEASE_VERSION" --output-file release-notes.md
+
+      # Also creates the tag, pinned by --target to the commit the build job built.
       - name: Create GitHub Release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        # Creates the tag as well, at the commit this run built rather than wherever the
-        # branch has since moved to.
+          REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          TARGET: ${{ needs.build.outputs.sourceSha }}
+          TITLE: ${{ needs.build.outputs.semver2 }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
         run: |
-          gh release create "${{ needs.build.outputs.tag }}" \
-            --repo "${{ github.repository }}" \
-            --target "${{ github.sha }}" \
-            --title "${{ needs.build.outputs.version }}" \
-            --notes-file release-notes.md
+          cd "$RUNNER_TEMP" && dotnet run - -- "$REPO" "$TAG" "$TARGET" "$TITLE" "$PRERELEASE" <<'CS'
+          using System.Diagnostics;
+          using static System.Environment;
+
+          if (args is not [var repository, var tag, var target, var title, var prerelease])
+          {
+              Console.WriteLine("::error::Expected the repository, tag, target, title and pre-release arguments.");
+              return 2;
+          }
+
+          Directory.SetCurrentDirectory(GetEnvironmentVariable("GITHUB_WORKSPACE")!);
+
+          string[] flags = prerelease is "true" ? ["--prerelease"] : [];
+          return Process.Run(
+              "gh",
+              ["release", "create", tag, "--repo", repository, "--target", target, "--title", title, "--notes-file", "release-notes.md", .. flags, .. Directory.GetFiles("signed", "*.nupkg")]).ExitCode;
+          CS

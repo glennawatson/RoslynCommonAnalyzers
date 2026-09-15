@@ -1,54 +1,43 @@
-name: CI Build
+name: Build
 
 on:
-    push:
-        branches: [ main ]
-    pull_request:
-        branches: [ main ]
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
-    contents: read
+  contents: read
 
-env:
-    DOTNET_NOLOGO: true
-    DOTNET_CLI_TELEMETRY_OPTOUT: true
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-    build:
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [ windows-latest, ubuntu-latest, macos-latest ]
-        runs-on: ${{ matrix.os }}
-        env:
-            # MinVer is tag-first; on CI commits past the latest tag it would otherwise
-            # walk git per project. Pin a deterministic CI version so every project
-            # stamps the same value without the walk.
-            MINVERVERSIONOVERRIDE: 0.0.0-ci.0+${{ github.sha }}
-        steps:
-            -   name: Checkout
-                uses: actions/checkout@v7
-                with:
-                    fetch-depth: 0
-                    fetch-tags: true
+  build:
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    env:
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-            -   name: Setup .NET
-                uses: actions/setup-dotnet@v6
-                with:
-                    dotnet-version: |
-                        8.0.x
-                        10.0.x
-                        11.0.x
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
 
-            -   name: Restore
-                working-directory: src
-                run: dotnet restore RoslynCommonAnalyzers.slnx
+      - name: Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          solution-file: RoslynCommonAnalyzers.slnx
 
-            -   name: Build
-                working-directory: src
-                run: dotnet build RoslynCommonAnalyzers.slnx --no-restore --configuration Release
-
-            -   name: Test
-                working-directory: src
-                run: dotnet test --solution RoslynCommonAnalyzers.slnx --no-build --configuration Release
+      - name: Test
+        uses: ./.github/actions/dotnet-test
+        with:
+          solution-file: RoslynCommonAnalyzers.slnx

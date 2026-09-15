@@ -21,13 +21,21 @@ on:
           - securitysharp
           - all
       filter:
-        description: 'BenchmarkDotNet filter globs, separated by spaces. Narrow it: every matching benchmark runs four times.'
+        description: 'BenchmarkDotNet filter globs, separated by spaces.'
         type: string
         default: '*'
       benchmarksPerSlice:
-        description: 'Benchmarks each runner measures. 140 keeps four passes inside the job time limit; a smaller value gives more, shorter slices.'
+        description: 'Benchmarks per runner. 25 keeps a slice near 2.5 hours.'
         type: number
-        default: 140
+        default: 25
+      warmupCount:
+        description: 'Warmup iterations per benchmark.'
+        type: number
+        default: 6
+      iterationCount:
+        description: 'Measured iterations per benchmark.'
+        type: number
+        default: 15
 
 permissions:
   contents: read
@@ -53,7 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # Set up from the trusted checkout before either compared commit is on disk.
+      # Set up before either compared commit is on disk.
       - name: Setup .NET Environment
         uses: ./.github/actions/dotnet-environment
         with:
@@ -92,8 +100,6 @@ jobs:
               return 2;
           }
 
-          // The default of 140 is about 300 benchmark cases. Four passes over that many take about 4.5 hours on a hosted
-          // runner, inside the 6-hour job limit.
           if (!int.TryParse(perSlice, NumberStyles.Integer, CultureInfo.InvariantCulture, out var benchmarksPerSlice) || benchmarksPerSlice < 1)
           {
               Console.WriteLine($"::error::benchmarksPerSlice must be a whole number above zero, got '{perSlice}'.");
@@ -125,7 +131,7 @@ jobs:
               writer.WriteStartArray();
               foreach (var project in projects)
               {
-                  // A benchmark that exists on only one side still runs, so the two lists are merged.
+                  // Merged so a benchmark on only one side still runs.
                   var benchmarks = new SortedSet<string>(StringComparer.Ordinal);
                   foreach (var side in (string[])["base", "head"])
                   {
@@ -155,7 +161,7 @@ jobs:
                       }
                   }
 
-                  // A slice holds whole classes, so no class is split across runners.
+                  // Whole classes per slice.
                   List<List<string>> slices = [];
                   List<string> current = [];
                   foreach (var type in benchmarks.GroupBy(static name => name[..name.LastIndexOf('.')]))
@@ -216,15 +222,14 @@ jobs:
     env:
       DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
 
-      # Every build-server connect attempt waits out a timeout, and a lingering server competes with the measurement.
+      # A lingering build server competes with the measurement.
       DOTNET_CLI_USE_MSBUILD_SERVER: 0
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # Set up from the trusted checkout before either compared commit is on disk. The version stamped here applies to
-      # both builds, so the assemblies differ only in their code.
+      # Stamps one version for both builds, so the assemblies differ only in their code.
       - name: Setup .NET Environment
         uses: ./.github/actions/dotnet-environment
 
@@ -240,31 +245,34 @@ jobs:
           ref: ${{ inputs.candidate }}
           path: ab/head
 
-      # A-B-B-A on one runner: drift across the job (thermal, neighbours, disk cache) lands on each side once, so a real
-      # change shows in both orders and drift shows in only one.
+      # A-B-B-A: drift across the job lands on each side once.
       - name: Run base and head in both orders
         shell: bash
         env:
           PROJECT: ${{ matrix.project }}
           SLICE: ${{ matrix.slice }}
           BENCHMARKS: ${{ matrix.benchmarks }}
+          WARMUP_COUNT: ${{ inputs.warmupCount }}
+          ITERATION_COUNT: ${{ inputs.iterationCount }}
         run: |
-          cd "$RUNNER_TEMP" && dotnet run - -- "$PROJECT" "$SLICE" "$RUNNER_TEMP/benchmark-ab" <<'CS'
+          cd "$RUNNER_TEMP" && dotnet run - -- "$PROJECT" "$SLICE" "$RUNNER_TEMP/benchmark-ab" "$WARMUP_COUNT" "$ITERATION_COUNT" <<'CS'
           using System.Diagnostics;
           using static System.Environment;
 
-          if (args is not [var project, var slice, var results])
+          if (args is not [var project, var slice, var results, var warmupCount, var iterationCount])
           {
-              Console.WriteLine("::error::Expected the project, slice and results folder arguments.");
+              Console.WriteLine("::error::Expected the project, slice, results folder, warmup count and iteration count arguments.");
               return 2;
           }
+
+          string[] iterations = ["--warmupCount", warmupCount, "--iterationCount", iterationCount, "--launchCount", "1"];
 
           string[] filters = ["--filter", .. GetEnvironmentVariable("BENCHMARKS")!.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
           var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
 
           RaisePriority();
 
-          // Each tree builds once before anything is measured, so no run shares the machine with a compiler.
+          // Both trees build first, so no measurement shares the machine with a compiler.
           foreach (var side in (string[])["base", "head"])
           {
               Console.WriteLine($"::group::Build {side}");
@@ -281,7 +289,7 @@ jobs:
           {
               var (order, side) = (run[0], run[1]);
 
-              // BenchmarkDotNet finds the project by searching below the working directory, which must hold only one tree.
+              // BenchmarkDotNet searches below the working directory, which must hold one tree.
               Directory.SetCurrentDirectory(Path.Combine(workspace, "ab", side, "src"));
               Console.WriteLine($"::group::{order} {side}");
 
@@ -289,7 +297,7 @@ jobs:
                   "dotnet",
                   [
                       "run", "--project", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release", "--no-build", "--",
-                      .. filters, "--artifacts", Path.Combine(results, slice, order, side), "--exporters", "github", "fulljson",
+                      .. filters, .. iterations, "--artifacts", Path.Combine(results, slice, order, side), "--exporters", "github", "fulljson",
                   ]);
 
               Console.WriteLine("::endgroup::");
@@ -302,8 +310,7 @@ jobs:
 
           return 0;
 
-          // The runner is a shared virtual machine: the raised priority removes the noise that is ours to remove.
-          // Processes started from here inherit it.
+          // Processes started from here inherit the priority.
           static void RaisePriority()
           {
               if (Process.Run("sudo", ["-n", "renice", "-n", "-20", "-p", $"{ProcessId}"], silent: true) is { ExitCode: 0 })
@@ -315,7 +322,7 @@ jobs:
           }
           CS
 
-      # Only the exports the report reads. The profiled benchmark classes also leave traces tens of megabytes each.
+      # Profiled classes also leave traces tens of megabytes each.
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -370,8 +377,7 @@ jobs:
               return 2;
           }
 
-          // A step summary is dropped whole once it passes 1 MiB, so the summary stays below that and the artifact carries
-          // the full report.
+          // A step summary over 1 MiB is dropped whole.
           const int SummaryBudget = 900 * 1024;
           const string TableHeader = "| Benchmark | Base | Head | Head/Base (1st) | Head/Base (2nd) | Allocated base | Allocated head | Result |\n|---|---:|---:|---:|---:|---:|---:|---|";
 
@@ -399,12 +405,12 @@ jobs:
 
                   if (hasFirstBase && hasSecondBase && hasFirstHead && hasSecondHead)
                   {
-                      // Faster or slower only when the 99.9% confidence intervals separate in both orders.
+                      // Inconclusive means this run could not tell, not that nothing changed.
                       var result = (Verdict(before, after), Verdict(beforeAgain, afterAgain)) switch
                       {
                           ("slower", "slower") => "slower",
                           ("faster", "faster") => "faster",
-                          _ => "unresolved",
+                          _ => "inconclusive",
                       };
 
                       rows.Add(new(project, key, before, after, after.Mean / before.Mean, afterAgain.Mean / beforeAgain.Mean, result));
@@ -445,7 +451,7 @@ jobs:
               .AppendLine()
               .AppendLine("| Result | Benchmarks |")
               .AppendLine("|---|---:|");
-          foreach (var result in (string[])["slower", "faster", "unresolved", "incomplete", "base only", "head only"])
+          foreach (var result in (string[])["slower", "faster", "inconclusive", "incomplete", "base only", "head only"])
           {
               overview.AppendLine($"| {result} | {counts.GetValueOrDefault(result)} |");
           }
@@ -564,7 +570,7 @@ jobs:
               return results;
           }
 
-          // BenchmarkDotNet generates job ids that differ between runs, so a benchmark is keyed by its name and job characteristics.
+          // Job ids differ between runs, so key on the name and job characteristics.
           static string Key(JsonElement benchmark)
           {
               var name = benchmark.GetProperty("FullName").GetString();

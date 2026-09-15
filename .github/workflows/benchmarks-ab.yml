@@ -3,11 +3,11 @@ name: Benchmarks A/B
 on:
   workflow_dispatch:
     inputs:
-      base:
+      baseline:
         description: 'Baseline commit.'
         type: string
         required: true
-      head:
+      candidate:
         description: 'Commit compared against the baseline.'
         type: string
         required: true
@@ -55,13 +55,13 @@ jobs:
       - name: Checkout base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.base }}
+          ref: ${{ inputs.baseline }}
           path: ab/base
 
       - name: Checkout head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.head }}
+          ref: ${{ inputs.candidate }}
           path: ab/head
 
       # A-B-B-A: drift across the job (thermal, neighbours, disk cache) lands on each side once, so a real change shows

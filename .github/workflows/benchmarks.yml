@@ -16,7 +16,7 @@ on:
         description: 'BenchmarkDotNet filter, e.g. *RedundantCast* or *'
         type: string
         default: '*'
-      ref:
+      revision:
         description: 'Commit to check out and measure. Empty measures the commit that triggered the run.'
         type: string
         default: ''
@@ -43,11 +43,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.ref }}
           fetch-depth: 0
 
+      # Set up from the trusted checkout before the measured commit is on disk.
       - name: Setup .NET Environment
         uses: ./.github/actions/dotnet-environment
+
+      - name: Checkout measured commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.revision }}
+          path: bench
 
       - name: Run benchmarks
         shell: bash
@@ -83,7 +89,7 @@ jobs:
           var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
 
           RaisePriority();
-          Directory.SetCurrentDirectory(Path.Combine(workspace, "src"));
+          Directory.SetCurrentDirectory(Path.Combine(workspace, "bench", "src"));
 
           foreach (var project in projects)
           {
@@ -161,6 +167,7 @@ jobs:
           FILTER: ${{ inputs.filter }}
         run: |
           cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
+          using System.Diagnostics;
           using static System.Environment;
 
           if (args is not [var suite, var filter])
@@ -175,8 +182,8 @@ jobs:
           var summary = GetEnvironmentVariable("GITHUB_STEP_SUMMARY")!;
           var root = Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "benchmark-artifacts");
 
-          // With a ref input the triggering commit is not the measured one, so the checked-out commit MinVer read comes first.
-          var commit = GetEnvironmentVariable("MINVER_GitCommitId") ?? GetEnvironmentVariable("GITHUB_SHA");
+          // With a revision input the triggering commit is not the measured one, so the commit is read from the measured tree.
+          var commit = Process.RunAndCaptureText("git", ["-C", Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "bench"), "rev-parse", "HEAD"]).StandardOutput.Trim();
 
           File.AppendAllLines(
               summary,

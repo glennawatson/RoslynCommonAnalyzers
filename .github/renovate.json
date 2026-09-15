@@ -97,6 +97,14 @@
       "groupName": "GitHub Actions"
     },
     {
+      "description": "Pinning names the group it pins rather than the generic dependencies topic.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["pin", "pinDigest"],
+      "group": {
+        "commitMessageTopic": "GitHub Actions digests"
+      }
+    },
+    {
       "description": "Minor, patch and digest updates to actions from GitHub and Microsoft merge automatically.",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["/^actions\\//", "/^github\\//", "/^microsoft\\//"],

@@ -3,8 +3,10 @@ name: SonarCloud
 on:
   push:
     branches: [ main ]
+    paths-ignore: [ '.github/**' ]
   pull_request:
     branches: [ main ]
+    paths-ignore: [ '.github/**' ]
 
 permissions:
   contents: read

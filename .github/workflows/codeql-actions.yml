@@ -1,55 +1,41 @@
-name: "CodeQL Advanced"
+name: "CodeQL GitHub Actions"
 
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
+    paths: [ '.github/**' ]
   pull_request:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
+    paths: [ '.github/**' ]
   schedule:
     - cron: '17 9 * * 2'
 
 permissions: { }
 
 concurrency:
-  group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: codeql-actions-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  analyze-csharp:
-    name: Analyze C#
+  analyze-actions:
+    name: Analyze GitHub Actions
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       contents: read
-      packages: read
       actions: read
-    env:
-      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET Environment
-        uses: ./.github/actions/dotnet-environment
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
-          languages: csharp
-          build-mode: manual
+          languages: actions
           queries: security-extended
-
-      - name: Build
-        uses: ./.github/actions/dotnet-build
-        with:
-          solution-file: RoslynCommonAnalyzers.slnx
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
-          category: "/language:csharp"
+          category: "/language:actions"

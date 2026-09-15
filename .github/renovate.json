@@ -97,10 +97,18 @@
       "groupName": "GitHub Actions"
     },
     {
-      "description": "These publishers stay on version tags. Any other action keeps the digest pinning config:best-practices turns on.",
+      "description": "Minor, patch and digest updates to actions from GitHub and Microsoft merge automatically.",
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["/^actions\\//", "/^github\\//", "/^dotnet\\//", "/^microsoft\\//", "/^NuGet\\//"],
-      "pinDigests": false
+      "matchPackageNames": ["/^actions\\//", "/^github\\//", "/^microsoft\\//"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "description": "Digest updates to Microsoft's, Docker's Dockerfile syntax and ReactiveUI's container images merge automatically.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["/^mcr\\.microsoft\\.com\\//", "/^ghcr\\.io\\/reactiveui\\//", "docker/dockerfile"],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
+      "automerge": true
     }
   ],
   "customManagers": [

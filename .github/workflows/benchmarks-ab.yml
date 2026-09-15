@@ -203,6 +203,7 @@ jobs:
           CS
 
   benchmark:
+    name: benchmark (${{ matrix.slice }})
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 360

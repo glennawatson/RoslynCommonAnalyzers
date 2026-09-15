@@ -21,9 +21,13 @@ on:
           - securitysharp
           - all
       filter:
-        description: 'BenchmarkDotNet filter. Narrow it: every matching benchmark runs four times.'
+        description: 'BenchmarkDotNet filter globs, separated by spaces. Narrow it: every matching benchmark runs four times.'
         type: string
         default: '*'
+      benchmarksPerSlice:
+        description: 'Benchmarks each runner measures. 140 keeps four passes inside the job time limit; a smaller value gives more, shorter slices.'
+        type: number
+        default: 140
 
 permissions:
   contents: read
@@ -73,22 +77,30 @@ jobs:
         env:
           SUITE: ${{ inputs.suite }}
           FILTER: ${{ inputs.filter }}
+          BENCHMARKS_PER_SLICE: ${{ inputs.benchmarksPerSlice }}
         run: |
-          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
+          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" "$BENCHMARKS_PER_SLICE" <<'CS'
           using System.Diagnostics;
+          using System.Globalization;
           using System.Text;
           using System.Text.Json;
           using static System.Environment;
 
-          if (args is not [var suite, var filter])
+          if (args is not [var suite, var filter, var perSlice])
           {
-              Console.WriteLine("::error::Expected the suite and filter arguments.");
+              Console.WriteLine("::error::Expected the suite, filter and benchmarks-per-slice arguments.");
               return 2;
           }
 
-          // About 300 benchmark cases. Four passes over that many take about 4.5 hours on a hosted runner, inside the
-          // 6-hour job limit.
-          const int BenchmarksPerSlice = 140;
+          // The default of 140 is about 300 benchmark cases. Four passes over that many take about 4.5 hours on a hosted
+          // runner, inside the 6-hour job limit.
+          if (!int.TryParse(perSlice, NumberStyles.Integer, CultureInfo.InvariantCulture, out var benchmarksPerSlice) || benchmarksPerSlice < 1)
+          {
+              Console.WriteLine($"::error::benchmarksPerSlice must be a whole number above zero, got '{perSlice}'.");
+              return 2;
+          }
+
+          string[] filters = ["--filter", .. filter.Split(' ', StringSplitOptions.RemoveEmptyEntries)];
 
           string[] projects = suite switch
           {
@@ -127,7 +139,7 @@ jobs:
                           return build.ExitCode;
                       }
 
-                      var list = Process.RunAndCaptureText("dotnet", ["run", "--project", path, "-c", "Release", "--no-build", "--", "--list", "flat", "--filter", filter]);
+                      var list = Process.RunAndCaptureText("dotnet", ["run", "--project", path, "-c", "Release", "--no-build", "--", "--list", "flat", .. filters]);
                       if (list is not { ExitStatus.ExitCode: 0, StandardOutput: var output })
                       {
                           Console.WriteLine($"::error::Listing {side} {project} exited with {list.ExitStatus.ExitCode}: {list.StandardError}");
@@ -149,7 +161,7 @@ jobs:
                   foreach (var type in benchmarks.GroupBy(static name => name[..name.LastIndexOf('.')]))
                   {
                       var methods = type.ToArray();
-                      if (current.Count > 0 && current.Count + methods.Length > BenchmarksPerSlice)
+                      if (current.Count > 0 && current.Count + methods.Length > benchmarksPerSlice)
                       {
                           slices.Add(current);
                           current = [];
@@ -191,7 +203,6 @@ jobs:
           CS
 
   benchmark:
-    name: ${{ matrix.slice }}
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 360

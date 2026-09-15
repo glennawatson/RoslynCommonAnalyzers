@@ -31,38 +31,28 @@ public sealed class Sst2427HidingGeneralOverloadAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSymbolAction(AnalyzeNamedType, SymbolKind.NamedType);
+        context.RegisterSymbolAction(static symbolContext => ClassInheritance.AnalyzeOwnMembers(symbolContext, AnalyzeMember), SymbolKind.NamedType);
     }
 
-    /// <summary>Examines a class's own methods for one that hides a more specific base overload.</summary>
+    /// <summary>Examines one of a derived class's own members for a method that hides a more specific base overload.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context)
+    /// <param name="member">The member the class declares.</param>
+    private static void AnalyzeMember(in SymbolAnalysisContext context, ISymbol member)
     {
-        var type = (INamedTypeSymbol)context.Symbol;
-        if (!ClassInheritance.HasNonObjectBase(type))
+        if (member is IMethodSymbol { MethodKind: MethodKind.Ordinary, IsOverride: false, Arity: 0, IsImplicitlyDeclared: false } method
+            && !method.Parameters.IsEmpty
+            && !HasParamsParameter(method.Parameters))
         {
-            return;
-        }
-
-        var members = type.GetMembers();
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { MethodKind: MethodKind.Ordinary, IsOverride: false, Arity: 0, IsImplicitlyDeclared: false } method
-                && !method.Parameters.IsEmpty
-                && !HasParamsParameter(method.Parameters))
-            {
-                AnalyzeMethod(context, type, method);
-            }
+            AnalyzeMethod(context, method);
         }
     }
 
     /// <summary>Walks the base chain for a same-named overload this method is general enough to hide.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="type">The declaring type.</param>
     /// <param name="method">The declared method under test.</param>
-    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol method)
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, IMethodSymbol method)
     {
-        for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
+        for (var baseType = method.ContainingType.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
             var candidates = baseType.GetMembers(method.Name);
             for (var i = 0; i < candidates.Length; i++)

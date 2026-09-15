@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,75 +13,45 @@ namespace StyleSharp.Analyzers;
 internal static class RecordRules
 {
     /// <summary>SST1800 — a record class is neither sealed nor abstract (opt-in).</summary>
-    public static readonly DiagnosticDescriptor SealRecordClass = CreateOptIn(
+    public static readonly DiagnosticDescriptor SealRecordClass = DescriptorFactory.CreateOptIn(
         "SST1800",
         "Record classes should be sealed",
         "Seal record '{0}' or make it abstract",
+        Category,
         "A record class that is not part of an inheritance hierarchy is sealed so its compiler-generated equality is final. Off by default — record inheritance is a deliberate design choice.");
 
     /// <summary>SST1801 — a positional record parameter does not match the configured casing (default PascalCase).</summary>
-    public static readonly DiagnosticDescriptor PositionalParameterNaming = Create(
+    public static readonly DiagnosticDescriptor PositionalParameterNaming = DescriptorFactory.Create(
         "SST1801",
         "Positional record parameters should match the configured casing",
         "Positional record parameter '{0}' should match the configured casing convention",
+        Category,
         "A positional record parameter becomes a public property, so it follows the configured casing (default PascalCase); set 'stylesharp.record_parameter_naming' in .editorconfig to override.");
 
     /// <summary>SST1802 — a record declares a settable (rather than init-only) instance property.</summary>
-    public static readonly DiagnosticDescriptor InitOnlyProperty = Create(
+    public static readonly DiagnosticDescriptor InitOnlyProperty = DescriptorFactory.Create(
         "SST1802",
         "Record properties should be init-only",
         "Replace the 'set' accessor of '{0}' with 'init'",
+        Category,
         "An instance property on a record uses 'init' rather than 'set' so the value semantics records provide are not undermined by mutation after construction.");
 
     /// <summary>SST1803 — a record struct is not declared readonly.</summary>
-    public static readonly DiagnosticDescriptor ReadonlyRecordStruct = Create(
+    public static readonly DiagnosticDescriptor ReadonlyRecordStruct = DescriptorFactory.Create(
         "SST1803",
         "Record structs should be readonly",
         "Make record struct '{0}' readonly",
+        Category,
         "A record struct is declared 'readonly record struct' so the value type cannot mutate in place, matching how records are intended to be used.");
 
     /// <summary>SST1804 — a positional record has an empty body where a semicolon would do.</summary>
-    public static readonly DiagnosticDescriptor EmptyPositionalRecordBody = CreateInfo(
+    public static readonly DiagnosticDescriptor EmptyPositionalRecordBody = DescriptorFactory.CreateInfo(
         "SST1804",
         "Empty positional record bodies should be a semicolon",
         "Replace the empty '{ }' body of this positional record with a semicolon",
+        Category,
         "A positional record with an empty body adds nothing over a semicolon-terminated declaration; 'record Point(int X, int Y);' is the idiomatic form.");
 
     /// <summary>The diagnostic category every descriptor in this range is filed under.</summary>
     private const string Category = "Records";
-
-    /// <summary>Creates a Warning-severity Records descriptor whose help link points at the rule's docs page.</summary>
-    /// <param name="id">The diagnostic id.</param>
-    /// <param name="title">The rule title.</param>
-    /// <param name="messageFormat">The message format.</param>
-    /// <param name="description">The rule description.</param>
-    /// <returns>The descriptor.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.Create(id, title, messageFormat, Category, description);
-
-    /// <summary>Creates an enabled-by-default Info-severity Records descriptor — an idiomatic nudge that never breaks a build.</summary>
-    /// <param name="id">The diagnostic id.</param>
-    /// <param name="title">The rule title.</param>
-    /// <param name="messageFormat">The message format.</param>
-    /// <param name="description">The rule description.</param>
-    /// <returns>The descriptor.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static DiagnosticDescriptor CreateInfo(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.CreateInfo(
-            id,
-            title,
-            messageFormat,
-            Category,
-            description);
-
-    /// <summary>Creates a Records descriptor that is disabled by default (opt-in via .editorconfig).</summary>
-    /// <param name="id">The diagnostic id.</param>
-    /// <param name="title">The rule title.</param>
-    /// <param name="messageFormat">The message format.</param>
-    /// <param name="description">The rule description.</param>
-    /// <returns>The descriptor.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
-        DescriptorFactory.CreateOptIn(id, title, messageFormat, Category, description);
 }

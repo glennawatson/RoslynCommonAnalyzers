@@ -12,4 +12,22 @@ internal static class ClassInheritance
     /// <returns><see langword="true"/> for a class with a base class that can declare members of its own.</returns>
     internal static bool HasNonObjectBase(INamedTypeSymbol type) =>
         type.TypeKind == TypeKind.Class && type.BaseType is { SpecialType: not SpecialType.System_Object };
+
+    /// <summary>Hands each member the analyzed class declares to <paramref name="analyzeMember"/>, when the class has a base of its own.</summary>
+    /// <param name="context">The symbol analysis context for a named type.</param>
+    /// <param name="analyzeMember">Examines one declared member; its containing type is the analyzed class.</param>
+    internal static void AnalyzeOwnMembers(in SymbolAnalysisContext context, ActionIn<SymbolAnalysisContext, ISymbol> analyzeMember)
+    {
+        var type = (INamedTypeSymbol)context.Symbol;
+        if (!HasNonObjectBase(type))
+        {
+            return;
+        }
+
+        var members = type.GetMembers();
+        for (var i = 0; i < members.Length; i++)
+        {
+            analyzeMember(context, members[i]);
+        }
+    }
 }

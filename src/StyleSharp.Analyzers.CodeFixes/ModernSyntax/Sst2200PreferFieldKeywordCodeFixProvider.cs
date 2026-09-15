@@ -16,43 +16,16 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-
-            // The backing field is deleted from the member list, so a directive among the members would
-            // lose the half that sits on it.
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { } property
-                || property.Parent is not TypeDeclarationSyntax containing
-                || DirectiveBoundaries.SeparateMembers(containing)
-                || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
-                    model,
-                    property,
-                    context.CancellationToken,
-                    out _,
-                    out _,
-                    out var field))
-                {
-                    continue;
-                }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Use the field keyword",
-                    cancellationToken => ApplyAsync(context.Document, root, model, property, field!.Name, cancellationToken),
-                    equivalenceKey: nameof(Sst2200PreferFieldKeywordCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        BackingFieldPropertyCodeFix.RegisterAsync(
+            context,
+            "Use the field keyword",
+            nameof(Sst2200PreferFieldKeywordCodeFixProvider),
+            static (model, property, cancellationToken) =>
+                FieldReferenceAnalysis.TryFindSingleUseBackingField(model, property, cancellationToken, out _, out _, out var field)
+                    ? field!.Name
+                    : null,
+            ApplyAsync);
 
     /// <summary>Applies the field-keyword fix to the reported property.</summary>
     /// <param name="document">The document being fixed.</param>

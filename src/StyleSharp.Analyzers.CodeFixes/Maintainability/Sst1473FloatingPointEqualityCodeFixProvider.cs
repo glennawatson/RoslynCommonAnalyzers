@@ -107,10 +107,16 @@ public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvide
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The code action title, or <see langword="null"/> when the comparison no longer matches.</returns>
-    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic) =>
-        !TryGetRewrite(root, diagnostic, out _, out var keyword, out var negated)
-            ? null
-            : $"Use '{(negated ? "!" : string.Empty)}{keyword}.{IsNaNMethodName}(...)'";
+    private static string? TryCreateTitle(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (!TryGetRewrite(root, diagnostic, out _, out var keyword, out var negated))
+        {
+            return null;
+        }
+
+        var negation = negated ? "!" : string.Empty;
+        return $"Use '{negation}{keyword}.{IsNaNMethodName}(...)'";
+    }
 
     /// <summary>Resolves the reported comparison and builds its <c>IsNaN</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

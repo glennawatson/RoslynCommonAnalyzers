@@ -32,37 +32,24 @@ public sealed class Sst2463InheritedFieldCaseClashAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSymbolAction(AnalyzeNamedType, SymbolKind.NamedType);
+        context.RegisterSymbolAction(static symbolContext => ClassInheritance.AnalyzeOwnMembers(symbolContext, ReportIfInheritedCaseClash), SymbolKind.NamedType);
     }
 
-    /// <summary>Examines a class's own instance fields for one that case-clashes with an inherited field.</summary>
+    /// <summary>
+    /// Climbs the base chain for a non-private instance field whose name differs only by case from
+    /// <paramref name="member"/>, when that member is one of the derived class's own instance fields.
+    /// </summary>
     /// <param name="context">The symbol analysis context.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context)
+    /// <param name="member">The member the class declares.</param>
+    private static void ReportIfInheritedCaseClash(in SymbolAnalysisContext context, ISymbol member)
     {
-        var type = (INamedTypeSymbol)context.Symbol;
-        if (!ClassInheritance.HasNonObjectBase(type))
+        if (member is not IFieldSymbol { IsStatic: false, IsImplicitlyDeclared: false } field)
         {
             return;
         }
 
-        var members = type.GetMembers();
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IFieldSymbol { IsStatic: false, IsImplicitlyDeclared: false } field)
-            {
-                ReportIfInheritedCaseClash(context, type, field);
-            }
-        }
-    }
-
-    /// <summary>Climbs the base chain for a non-private instance field whose name differs from <paramref name="field"/> only by case.</summary>
-    /// <param name="context">The symbol analysis context.</param>
-    /// <param name="type">The declaring type.</param>
-    /// <param name="field">The derived type's own instance field under test.</param>
-    private static void ReportIfInheritedCaseClash(in SymbolAnalysisContext context, INamedTypeSymbol type, IFieldSymbol field)
-    {
         var name = field.Name;
-        for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
+        for (var baseType = field.ContainingType.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
             var baseMembers = baseType.GetMembers();
             for (var i = 0; i < baseMembers.Length; i++)

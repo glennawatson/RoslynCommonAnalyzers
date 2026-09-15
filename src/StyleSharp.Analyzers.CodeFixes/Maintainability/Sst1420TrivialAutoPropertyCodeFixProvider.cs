@@ -18,45 +18,17 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        for (var i = 0; i < context.Diagnostics.Length; i++)
-        {
-            var diagnostic = context.Diagnostics[i];
-
-            // The backing field is deleted from the member list, so a directive among the members would
-            // lose the half that sits on it.
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not { } property
-                || property.Parent is not TypeDeclarationSyntax containing
-                || DirectiveBoundaries.SeparateMembers(containing)
-                || !Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
-                || !FieldReferenceAnalysis.TryFindSingleUseBackingField(
-                    model,
-                    property,
-                    fieldName!,
-                    context.CancellationToken,
-                    out _,
-                    out _,
-                    out _))
-                {
-                    continue;
-                }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Convert to auto-property",
-                    cancellationToken => ApplyAsync(context.Document, root, model, property, fieldName!, cancellationToken),
-                    equivalenceKey: nameof(Sst1420TrivialAutoPropertyCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        BackingFieldPropertyCodeFix.RegisterAsync(
+            context,
+            "Convert to auto-property",
+            nameof(Sst1420TrivialAutoPropertyCodeFixProvider),
+            static (model, property, cancellationToken) =>
+                Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
+                && FieldReferenceAnalysis.TryFindSingleUseBackingField(model, property, fieldName!, cancellationToken, out _, out _, out _)
+                    ? fieldName
+                    : null,
+            ApplyAsync);
 
     /// <summary>Applies the auto-property fix to the reported property.</summary>
     /// <param name="document">The document being fixed.</param>

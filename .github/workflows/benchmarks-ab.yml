@@ -43,12 +43,14 @@ jobs:
       # Every build-server connect attempt waits out a timeout, and a lingering server competes with the measurement.
       DOTNET_CLI_USE_MSBUILD_SERVER: 0
 
-      # Both builds stamp the same version, so the assemblies differ only in their code.
-      MINVERVERSIONOVERRIDE: 0.0.0-benchmark
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # Set up from the trusted checkout before either compared commit is on disk. The version stamped here applies to
+      # both builds, so the assemblies differ only in their code.
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
 
       - name: Checkout base
         uses: actions/checkout@v7
@@ -61,11 +63,6 @@ jobs:
         with:
           ref: ${{ inputs.head }}
           path: ab/head
-
-      - name: Setup .NET Environment
-        uses: ./.github/actions/dotnet-environment
-        with:
-          stamp-version: 'false'
 
       # A-B-B-A: drift across the job (thermal, neighbours, disk cache) lands on each side once, so a real change shows
       # in both orders and drift shows in only one.

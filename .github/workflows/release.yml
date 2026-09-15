@@ -46,14 +46,14 @@ jobs:
       sourceSha: ${{ steps.sourcesha.outputs.sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.sourceRef }}
           fetch-depth: 0
 
       # The source ref may predate these actions, so they are taken from the commit this workflow runs on.
       - name: Checkout release actions
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: .release-actions
           sparse-checkout: .github/actions
@@ -172,7 +172,7 @@ jobs:
         run: dotnet pack RoslynCommonAnalyzers.slnx --no-build --configuration Release -o "${GITHUB_WORKSPACE}/packages"
 
       - name: Upload unsigned packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: unsigned-nuget
           path: packages/*.nupkg
@@ -188,7 +188,7 @@ jobs:
       packages: read
     # SimplySign has no headless API; certum-sign drives its GUI under Xvfb, which needs Linux.
     container:
-      image: ghcr.io/reactiveui/certum-signer:latest@sha256:842fff11bc5ea1e9efd13058589c15c17c61f15609ec63531d1c8dbcae24c257
+      image: ghcr.io/reactiveui/certum-signer:latest@sha256:54d12a5f55d2ddee42adbd67e9a25d95ed451ceee80bfe8ad2c3da36102876f2
     # Composite actions cannot declare secret inputs, so certum-sign reads these from env.
     env:
       CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
@@ -196,12 +196,12 @@ jobs:
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
       - name: Checkout release actions
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/actions
 
       - name: Download unsigned packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: unsigned-nuget
           path: signed
@@ -212,7 +212,7 @@ jobs:
           packages-glob: 'signed/*.nupkg'
 
       - name: Upload signed packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: signed-nuget
           path: signed/*.nupkg
@@ -228,12 +228,12 @@ jobs:
       id-token: write
     steps:
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: 11.0.x
 
       - name: Download signed packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: signed-nuget
           path: signed
@@ -278,12 +278,12 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Download signed packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: signed-nuget
           path: signed

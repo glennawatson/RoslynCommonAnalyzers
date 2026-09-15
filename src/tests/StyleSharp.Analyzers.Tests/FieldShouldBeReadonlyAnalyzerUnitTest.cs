@@ -201,6 +201,78 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a field returned by writable <c>ref</c> is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A <c>readonly</c> field cannot be returned by writable <c>ref</c>, so the fix would not compile.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task RefReturnedFieldIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct State
+            {
+                public int Count;
+            }
+
+            public interface IHasState
+            {
+                ref State State { get; }
+            }
+
+            public sealed class Holder : IHasState
+            {
+                private State _state;
+
+                ref State IHasState.State => ref _state;
+            }
+            """);
+
+    /// <summary>Verifies a field bound to a writable <c>ref</c> local is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task RefLocalFieldIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct State
+            {
+                public int Count;
+            }
+
+            public sealed class Holder
+            {
+                private State _state;
+
+                public void Bump()
+                {
+                    ref var state = ref _state;
+                    state.Count++;
+                }
+            }
+            """);
+
+    /// <summary>Verifies fields chosen by a writable <c>ref</c> conditional are not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task RefConditionalFieldsAreCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
+            """
+            public struct State
+            {
+                public int Count;
+            }
+
+            public sealed class Holder
+            {
+                private State _first;
+
+                private State _second;
+
+                public ref State Pick(bool first) => ref first ? ref _first : ref _second;
+            }
+            """);
+
     /// <summary>Verifies a method assignment prevents the diagnostic.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

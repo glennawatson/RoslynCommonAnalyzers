@@ -166,6 +166,10 @@ internal static class FieldReferenceAnalysis
     /// <summary>Returns whether a reference writes to a field.</summary>
     /// <param name="identifier">The field reference.</param>
     /// <returns><see langword="true"/> when the reference is a write.</returns>
+    /// <remarks>
+    /// Taking a <c>ref</c> to the field counts as a write: a <c>ref</c> return, a <c>ref</c> local initializer and a
+    /// <c>ref</c> conditional operand all hand out a writable reference, which a <c>readonly</c> field cannot give.
+    /// </remarks>
     internal static bool IsWrite(IdentifierNameSyntax identifier)
     {
         SyntaxNode expression = identifier;
@@ -180,7 +184,7 @@ internal static class FieldReferenceAnalysis
             PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression)
                                                   || prefix.IsKind(SyntaxKind.PreDecrementExpression),
             ArgumentSyntax { Parent: TupleExpressionSyntax } => IsDeconstructionTarget(expression),
-            _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
+            _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 } or RefExpressionSyntax
         };
     }
 

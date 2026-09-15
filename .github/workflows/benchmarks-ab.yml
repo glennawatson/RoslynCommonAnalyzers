@@ -8,13 +8,13 @@ on:
         type: string
         required: true
       candidate:
-        description: 'Commit compared against the baseline.'
+        description: 'Commit compared against the baseline. Empty uses the latest commit on this branch.'
         type: string
-        required: true
+        default: ''
       suite:
         description: 'Which benchmark suite to run'
         type: choice
-        default: stylesharp
+        default: all
         options:
           - stylesharp
           - performancesharp
@@ -76,7 +76,7 @@ jobs:
       - name: Checkout head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.candidate }}
+          ref: ${{ inputs.candidate || github.sha }}
           path: ab/head
 
       - name: Split the matching benchmarks into slices
@@ -242,7 +242,7 @@ jobs:
       - name: Checkout head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.candidate }}
+          ref: ${{ inputs.candidate || github.sha }}
           path: ab/head
 
       # A-B-B-A: drift across the job lands on each side once.
@@ -359,7 +359,7 @@ jobs:
         shell: bash
         env:
           BASELINE: ${{ inputs.baseline }}
-          CANDIDATE: ${{ inputs.candidate }}
+          CANDIDATE: ${{ inputs.candidate || github.sha }}
           SUITE: ${{ inputs.suite }}
           FILTER: ${{ inputs.filter }}
           SLICES: ${{ needs.plan.outputs.slices }}

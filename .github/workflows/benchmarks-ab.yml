@@ -33,9 +33,173 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: Plan slices
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
+      DOTNET_CLI_USE_MSBUILD_SERVER: 0
+
+    outputs:
+      slices: ${{ steps.plan.outputs.slices }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Set up from the trusted checkout before either compared commit is on disk.
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
+        with:
+          stamp-version: 'false'
+
+      - name: Checkout base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.baseline }}
+          path: ab/base
+
+      - name: Checkout head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.candidate }}
+          path: ab/head
+
+      - name: Split the matching benchmarks into slices
+        id: plan
+        shell: bash
+        env:
+          SUITE: ${{ inputs.suite }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
+          using System.Diagnostics;
+          using System.Text;
+          using System.Text.Json;
+          using static System.Environment;
+
+          if (args is not [var suite, var filter])
+          {
+              Console.WriteLine("::error::Expected the suite and filter arguments.");
+              return 2;
+          }
+
+          // About 300 benchmark cases. Four passes over that many take about 4.5 hours on a hosted runner, inside the
+          // 6-hour job limit.
+          const int BenchmarksPerSlice = 140;
+
+          string[] projects = suite switch
+          {
+              "stylesharp" => ["benchmarks/StyleSharp.Analyzers.Benchmarks"],
+              "performancesharp" => ["benchmarks/PerformanceSharp.Analyzers.Benchmarks"],
+              "securitysharp" => ["benchmarks/SecuritySharp.Analyzers.Benchmarks"],
+              "all" => ["benchmarks/StyleSharp.Analyzers.Benchmarks", "benchmarks/PerformanceSharp.Analyzers.Benchmarks", "benchmarks/SecuritySharp.Analyzers.Benchmarks"],
+              _ => [],
+          };
+
+          if (projects is [])
+          {
+              Console.WriteLine($"::error::Unknown benchmark suite '{suite}'.");
+              return 2;
+          }
+
+          var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
+          var total = 0;
+          using var buffer = new MemoryStream();
+          using (var writer = new Utf8JsonWriter(buffer))
+          {
+              writer.WriteStartArray();
+              foreach (var project in projects)
+              {
+                  // A benchmark that exists on only one side still runs, so the two lists are merged.
+                  var benchmarks = new SortedSet<string>(StringComparer.Ordinal);
+                  foreach (var side in (string[])["base", "head"])
+                  {
+                      var path = Path.Combine(workspace, "ab", side, "src", project);
+                      Console.WriteLine($"::group::Build {side} {Path.GetFileName(project)}");
+                      var build = Process.Run("dotnet", ["build", path, "-c", "Release"]);
+                      Console.WriteLine("::endgroup::");
+                      if (build is { ExitCode: not 0 })
+                      {
+                          Console.WriteLine($"::error::Building {side} {project} exited with {build.ExitCode}");
+                          return build.ExitCode;
+                      }
+
+                      var list = Process.RunAndCaptureText("dotnet", ["run", "--project", path, "-c", "Release", "--no-build", "--", "--list", "flat", "--filter", filter]);
+                      if (list is not { ExitStatus.ExitCode: 0, StandardOutput: var output })
+                      {
+                          Console.WriteLine($"::error::Listing {side} {project} exited with {list.ExitStatus.ExitCode}: {list.StandardError}");
+                          return list.ExitStatus.ExitCode;
+                      }
+
+                      foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                      {
+                          if (line.Contains('.') && !line.Contains(' '))
+                          {
+                              benchmarks.Add(line);
+                          }
+                      }
+                  }
+
+                  // A slice holds whole classes, so no class is split across runners.
+                  List<List<string>> slices = [];
+                  List<string> current = [];
+                  foreach (var type in benchmarks.GroupBy(static name => name[..name.LastIndexOf('.')]))
+                  {
+                      var methods = type.ToArray();
+                      if (current.Count > 0 && current.Count + methods.Length > BenchmarksPerSlice)
+                      {
+                          slices.Add(current);
+                          current = [];
+                      }
+
+                      current.AddRange(methods);
+                  }
+
+                  if (current.Count > 0)
+                  {
+                      slices.Add(current);
+                  }
+
+                  var prefix = Path.GetFileName(project).Split('.')[0];
+                  for (var i = 0; i < slices.Count; i++)
+                  {
+                      writer.WriteStartObject();
+                      writer.WriteString("project", project);
+                      writer.WriteString("slice", $"{prefix}-{i + 1:00}");
+                      writer.WriteString("benchmarks", string.Join('\n', slices[i]));
+                      writer.WriteEndObject();
+                  }
+
+                  Console.WriteLine($"{Path.GetFileName(project)}: {benchmarks.Count} benchmarks in {slices.Count} slices");
+                  total += benchmarks.Count;
+              }
+
+              writer.WriteEndArray();
+          }
+
+          if (total == 0)
+          {
+              Console.WriteLine("::error::The filter matched no benchmarks.");
+              return 1;
+          }
+
+          File.AppendAllLines(GetEnvironmentVariable("GITHUB_OUTPUT")!, [$"slices={Encoding.UTF8.GetString(buffer.ToArray())}"]);
+          return 0;
+          CS
+
   benchmark:
+    name: ${{ matrix.slice }}
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 360
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.slices) }}
 
     env:
       DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
@@ -64,39 +228,26 @@ jobs:
           ref: ${{ inputs.candidate }}
           path: ab/head
 
-      # A-B-B-A: drift across the job (thermal, neighbours, disk cache) lands on each side once, so a real change shows
-      # in both orders and drift shows in only one.
+      # A-B-B-A on one runner: drift across the job (thermal, neighbours, disk cache) lands on each side once, so a real
+      # change shows in both orders and drift shows in only one.
       - name: Run base and head in both orders
         shell: bash
         env:
-          SUITE: ${{ inputs.suite }}
-          FILTER: ${{ inputs.filter }}
+          PROJECT: ${{ matrix.project }}
+          SLICE: ${{ matrix.slice }}
+          BENCHMARKS: ${{ matrix.benchmarks }}
         run: |
-          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" "$RUNNER_TEMP/benchmark-ab" <<'CS'
+          cd "$RUNNER_TEMP" && dotnet run - -- "$PROJECT" "$SLICE" "$RUNNER_TEMP/benchmark-ab" <<'CS'
           using System.Diagnostics;
           using static System.Environment;
 
-          if (args is not [var suite, var filter, var results])
+          if (args is not [var project, var slice, var results])
           {
-              Console.WriteLine("::error::Expected the suite, filter and results folder arguments.");
+              Console.WriteLine("::error::Expected the project, slice and results folder arguments.");
               return 2;
           }
 
-          string[] projects = suite switch
-          {
-              "stylesharp" => ["benchmarks/StyleSharp.Analyzers.Benchmarks"],
-              "performancesharp" => ["benchmarks/PerformanceSharp.Analyzers.Benchmarks"],
-              "securitysharp" => ["benchmarks/SecuritySharp.Analyzers.Benchmarks"],
-              "all" => ["benchmarks/StyleSharp.Analyzers.Benchmarks", "benchmarks/PerformanceSharp.Analyzers.Benchmarks", "benchmarks/SecuritySharp.Analyzers.Benchmarks"],
-              _ => [],
-          };
-
-          if (projects is [])
-          {
-              Console.WriteLine($"::error::Unknown benchmark suite '{suite}'.");
-              return 2;
-          }
-
+          string[] filters = ["--filter", .. GetEnvironmentVariable("BENCHMARKS")!.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
           var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
 
           RaisePriority();
@@ -104,16 +255,13 @@ jobs:
           // Each tree builds once before anything is measured, so no run shares the machine with a compiler.
           foreach (var side in (string[])["base", "head"])
           {
-              foreach (var project in projects)
+              Console.WriteLine($"::group::Build {side}");
+              var build = Process.Run("dotnet", ["build", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release"]);
+              Console.WriteLine("::endgroup::");
+              if (build is { ExitCode: not 0 })
               {
-                  Console.WriteLine($"::group::Build {side} {Path.GetFileName(project)}");
-                  var build = Process.Run("dotnet", ["build", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release"]);
-                  Console.WriteLine("::endgroup::");
-                  if (build is { ExitCode: not 0 })
-                  {
-                      Console.WriteLine($"::error::Building {side} {project} exited with {build.ExitCode}");
-                      return build.ExitCode;
-                  }
+                  Console.WriteLine($"::error::Building {side} {project} exited with {build.ExitCode}");
+                  return build.ExitCode;
               }
           }
 
@@ -123,24 +271,20 @@ jobs:
 
               // BenchmarkDotNet finds the project by searching below the working directory, which must hold only one tree.
               Directory.SetCurrentDirectory(Path.Combine(workspace, "ab", side, "src"));
-              foreach (var project in projects)
+              Console.WriteLine($"::group::{order} {side}");
+
+              var status = Process.Run(
+                  "dotnet",
+                  [
+                      "run", "--project", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release", "--no-build", "--",
+                      .. filters, "--artifacts", Path.Combine(results, slice, order, side), "--exporters", "github", "fulljson",
+                  ]);
+
+              Console.WriteLine("::endgroup::");
+              if (status is { ExitCode: not 0 })
               {
-                  var name = Path.GetFileName(project);
-                  Console.WriteLine($"::group::{order} {side} {name}");
-
-                  var status = Process.Run(
-                      "dotnet",
-                      [
-                          "run", "--project", Path.Combine(workspace, "ab", side, "src", project), "-c", "Release", "--no-build", "--",
-                          "--filter", filter, "--artifacts", Path.Combine(results, order, side, name), "--exporters", "github", "fulljson",
-                      ]);
-
-                  Console.WriteLine("::endgroup::");
-                  if (status is { ExitCode: not 0 })
-                  {
-                      Console.WriteLine($"::error::{order} {side} {name} exited with {status.ExitCode}");
-                      return status.ExitCode;
-                  }
+                  Console.WriteLine($"::error::{order} {side} {slice} exited with {status.ExitCode}");
+                  return status.ExitCode;
               }
           }
 
@@ -159,70 +303,216 @@ jobs:
           }
           CS
 
-      - name: Compare base and head
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: benchmark-ab-${{ matrix.slice }}
+          path: ${{ runner.temp }}/benchmark-ab
+          if-no-files-found: ignore
+
+  compare:
+    name: Compare base and head
+    needs: [ plan, benchmark ]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup .NET Environment
+        uses: ./.github/actions/dotnet-environment
+        with:
+          stamp-version: 'false'
+
+      - name: Download slice results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: benchmark-ab-*
+          path: ${{ runner.temp }}/benchmark-ab
+          merge-multiple: true
+
+      - name: Write the report
         shell: bash
+        env:
+          BASELINE: ${{ inputs.baseline }}
+          CANDIDATE: ${{ inputs.candidate }}
+          SUITE: ${{ inputs.suite }}
+          FILTER: ${{ inputs.filter }}
+          SLICES: ${{ needs.plan.outputs.slices }}
         run: |
-          cd "$RUNNER_TEMP" && dotnet run - -- "$RUNNER_TEMP/benchmark-ab" <<'CS'
+          cd "$RUNNER_TEMP" && dotnet run - -- "$RUNNER_TEMP/benchmark-ab" "$RUNNER_TEMP/benchmark-ab-report.md" "$BASELINE" "$CANDIDATE" "$SUITE" "$FILTER" <<'CS'
           using System.Globalization;
+          using System.Text;
           using System.Text.Json;
           using System.Text.RegularExpressions;
           using static System.Environment;
 
-          if (args is not [var results])
+          if (args is not [var results, var reportPath, var baseline, var candidate, var suite, var filter])
           {
-              Console.WriteLine("::error::Expected the results folder argument.");
+              Console.WriteLine("::error::Expected the results folder, report path, baseline, candidate, suite and filter arguments.");
               return 2;
           }
 
-          // A benchmark is faster or slower only when the 99.9% confidence intervals of its two means do not overlap,
-          // and only when both orders agree.
-          var firstBase = Load(Path.Combine(results, "r1", "base"));
-          var firstHead = Load(Path.Combine(results, "r1", "head"));
-          var secondBase = Load(Path.Combine(results, "r2", "base"));
-          var secondHead = Load(Path.Combine(results, "r2", "head"));
+          // A step summary is dropped whole once it passes 1 MiB, so the summary stays below that and the artifact carries
+          // the full report.
+          const int SummaryBudget = 900 * 1024;
+          const string TableHeader = "| Benchmark | Base | Head | Head/Base (1st) | Head/Base (2nd) | Allocated base | Allocated head | Result |\n|---|---:|---:|---:|---:|---:|---:|---|";
 
-          if (firstBase.Count == 0 || firstHead.Count == 0)
+          string[] passes = ["r1/base", "r1/head", "r2/head", "r2/base"];
+          List<Row> rows = [];
+          List<SliceStatus> slices = [];
+
+          using var plan = JsonDocument.Parse(GetEnvironmentVariable("SLICES") is { Length: > 0 } planned ? planned : "[]");
+          foreach (var entry in plan.RootElement.EnumerateArray())
           {
-              Console.WriteLine("::error::No benchmark results were exported. Check the validation errors above.");
+              var slice = entry.GetProperty("slice").GetString()!;
+              var project = Path.GetFileName(entry.GetProperty("project").GetString()!);
+              var benchmarks = entry.GetProperty("benchmarks").GetString()!.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+
+              var measured = passes.Select(pass => Load(Path.Combine(results, slice, pass))).ToArray();
+              var (firstBase, firstHead, secondHead, secondBase) = (measured[0], measured[1], measured[2], measured[3]);
+              slices.Add(new(slice, project, benchmarks, measured.Count(pass => pass.Count > 0)));
+
+              foreach (var key in measured.SelectMany(pass => pass.Keys).Distinct().Order(StringComparer.Ordinal))
+              {
+                  var hasFirstBase = firstBase.TryGetValue(key, out var before);
+                  var hasSecondBase = secondBase.TryGetValue(key, out var beforeAgain);
+                  var hasFirstHead = firstHead.TryGetValue(key, out var after);
+                  var hasSecondHead = secondHead.TryGetValue(key, out var afterAgain);
+
+                  if (hasFirstBase && hasSecondBase && hasFirstHead && hasSecondHead)
+                  {
+                      // Faster or slower only when the 99.9% confidence intervals separate in both orders.
+                      var result = (Verdict(before, after), Verdict(beforeAgain, afterAgain)) switch
+                      {
+                          ("slower", "slower") => "slower",
+                          ("faster", "faster") => "faster",
+                          _ => "unresolved",
+                      };
+
+                      rows.Add(new(project, key, before, after, after.Mean / before.Mean, afterAgain.Mean / beforeAgain.Mean, result));
+                      continue;
+                  }
+
+                  var hasBase = hasFirstBase || hasSecondBase;
+                  var hasHead = hasFirstHead || hasSecondHead;
+                  rows.Add(new(
+                      project,
+                      key,
+                      hasFirstBase ? before : hasSecondBase ? beforeAgain : null,
+                      hasFirstHead ? after : hasSecondHead ? afterAgain : null,
+                      null,
+                      null,
+                      (hasBase, hasHead) switch
+                      {
+                          (true, true) => "incomplete",
+                          (true, false) => "base only",
+                          _ => "head only",
+                      }));
+              }
+          }
+
+          if (rows.Count == 0)
+          {
+              Console.WriteLine("::error::No benchmark results were exported. Check the slice jobs.");
               return 1;
           }
 
-          using var summary = File.AppendText(GetEnvironmentVariable("GITHUB_STEP_SUMMARY")!);
-          summary.WriteLine("# A/B benchmark results");
-          summary.WriteLine();
-          summary.WriteLine("Measured base, head, head, base. A result needs separated confidence intervals in both orders.");
-          summary.WriteLine();
-          summary.WriteLine("| Benchmark | Base | Head | Head/Base (1st) | Head/Base (2nd) | Allocated base | Allocated head | Result |");
-          summary.WriteLine("|---|---:|---:|---:|---:|---:|---:|---|");
-
-          foreach (var key in firstBase.Keys.Union(firstHead.Keys).Order(StringComparer.Ordinal))
+          var counts = rows.CountBy(row => row.Result).ToDictionary(StringComparer.Ordinal);
+          var overview = new StringBuilder()
+              .AppendLine("# A/B benchmark results")
+              .AppendLine()
+              .AppendLine($"Baseline `{baseline}`, candidate `{candidate}`, suite `{suite}`, filter `{filter}`.")
+              .AppendLine()
+              .AppendLine("Each slice runs base, head, head, base on its own runner, so base and head always share hardware. A benchmark is faster or slower only when the 99.9% confidence intervals of its means separate in both orders.")
+              .AppendLine()
+              .AppendLine("| Result | Benchmarks |")
+              .AppendLine("|---|---:|");
+          foreach (var result in (string[])["slower", "faster", "unresolved", "incomplete", "base only", "head only"])
           {
-              var hasBase = firstBase.TryGetValue(key, out var before) & secondBase.TryGetValue(key, out var beforeAgain);
-              var hasHead = firstHead.TryGetValue(key, out var after) & secondHead.TryGetValue(key, out var afterAgain);
-
-              if (!hasBase || !hasHead)
-              {
-                  summary.WriteLine($"| {key} | {(hasBase ? Format(before) : "-")} | {(hasHead ? Format(after) : "-")} | - | - | - | - | {(hasBase ? "base only" : hasHead ? "head only" : "incomplete")} |");
-                  continue;
-              }
-
-              var result = (Verdict(before, after), Verdict(beforeAgain, afterAgain)) switch
-              {
-                  ("slower", "slower") => "slower",
-                  ("faster", "faster") => "faster",
-                  _ => "unresolved",
-              };
-
-              summary.WriteLine($"| {key} | {Format(before)} | {Format(after)} | {Ratio(before, after)} | {Ratio(beforeAgain, afterAgain)} | {Bytes(before.Allocated)} | {Bytes(after.Allocated)} | {result} |");
+              overview.AppendLine($"| {result} | {counts.GetValueOrDefault(result)} |");
           }
 
-          return 0;
+          overview.AppendLine();
+
+          var slower = Section("Slower", rows.Where(static row => row.Result == "slower").OrderByDescending(static row => Math.Min(row.FirstRatio!.Value, row.SecondRatio!.Value)));
+          var faster = Section("Faster", rows.Where(static row => row.Result == "faster").OrderBy(static row => Math.Max(row.FirstRatio!.Value, row.SecondRatio!.Value)));
+
+          var sliceTable = new StringBuilder()
+              .AppendLine("## Slices")
+              .AppendLine()
+              .AppendLine("| Slice | Project | Benchmarks | Passes exported |")
+              .AppendLine("|---|---|---:|---|");
+          foreach (var slice in slices)
+          {
+              sliceTable.AppendLine($"| {slice.Slice} | {slice.Project} | {slice.Benchmarks} | {slice.Passes} of 4{(slice.Passes < 4 ? " (timed out or failed)" : string.Empty)} |");
+          }
+
+          sliceTable.AppendLine();
+
+          var all = new StringBuilder().AppendLine("## All results").AppendLine();
+          foreach (var project in rows.GroupBy(static row => row.Project).OrderBy(static group => group.Key, StringComparer.Ordinal))
+          {
+              all.AppendLine($"<details><summary>{project.Key} ({project.Count()} benchmarks)</summary>")
+                  .AppendLine()
+                  .AppendLine(TableHeader);
+              foreach (var row in project.OrderBy(static row => row.Key, StringComparer.Ordinal))
+              {
+                  all.AppendLine(RowLine(row));
+              }
+
+              all.AppendLine().AppendLine("</details>").AppendLine();
+          }
+
+          var report = string.Concat(overview, slower, faster, sliceTable, all);
+          File.WriteAllText(reportPath, report);
+
+          var summary = report.Length <= SummaryBudget
+              ? report
+              : string.Concat(overview, slower, faster, sliceTable, "The full results are in the `benchmark-ab-report` artifact.\n");
+          if (summary.Length > SummaryBudget)
+          {
+              summary = string.Concat(overview, sliceTable, "The report is too large for the run summary. Read it in the `benchmark-ab-report` artifact.\n");
+          }
+
+          File.AppendAllText(GetEnvironmentVariable("GITHUB_STEP_SUMMARY")!, summary);
+
+          var missing = 0;
+          foreach (var slice in slices.Where(static slice => slice.Passes < 4))
+          {
+              Console.WriteLine($"::error::{slice.Slice} exported {slice.Passes} of 4 passes.");
+              missing++;
+          }
+
+          return missing > 0 ? 1 : 0;
+
+          static string Section(string title, IEnumerable<Row> rows)
+          {
+              var section = new StringBuilder().AppendLine($"## {title}").AppendLine();
+              var any = false;
+              foreach (var row in rows)
+              {
+                  if (!any)
+                  {
+                      section.AppendLine(TableHeader);
+                      any = true;
+                  }
+
+                  section.AppendLine(RowLine(row));
+              }
+
+              return section.AppendLine(any ? string.Empty : "None.").AppendLine().ToString();
+          }
+
+          static string RowLine(Row row) =>
+              $"| {row.Key.Replace("|", "\\|", StringComparison.Ordinal)} | {Format(row.Base)} | {Format(row.Head)} | {Ratio(row.FirstRatio)} | {Ratio(row.SecondRatio)} | {Bytes(row.Base)} | {Bytes(row.Head)} | {row.Result} |";
 
           static string Verdict(Measurement before, Measurement after) =>
               after.Lower > before.Upper ? "slower" : after.Upper < before.Lower ? "faster" : "unresolved";
 
-          static string Ratio(Measurement before, Measurement after) =>
-              (after.Mean / before.Mean).ToString("0.000", CultureInfo.InvariantCulture);
+          static string Ratio(double? ratio) => ratio is { } value ? value.ToString("0.000", CultureInfo.InvariantCulture) : "-";
 
           static Dictionary<string, Measurement> Load(string folder)
           {
@@ -266,9 +556,14 @@ jobs:
               return $"{benchmark.GetProperty("FullName").GetString()} ({characteristics.Groups[1].Value})";
           }
 
-          static string Format(Measurement measurement)
+          static string Format(Measurement? measurement)
           {
-              var (scale, unit) = measurement.Mean switch
+              if (measurement is not { } value)
+              {
+                  return "-";
+              }
+
+              var (scale, unit) = value.Mean switch
               {
                   >= 1_000_000_000 => (1_000_000_000d, "s"),
                   >= 1_000_000 => (1_000_000d, "ms"),
@@ -276,18 +571,24 @@ jobs:
                   _ => (1d, "ns"),
               };
 
-              var margin = (measurement.Upper - measurement.Mean) / scale;
-              return string.Create(CultureInfo.InvariantCulture, $"{measurement.Mean / scale:0.00} ± {margin:0.00} {unit}");
+              var margin = (value.Upper - value.Mean) / scale;
+              return string.Create(CultureInfo.InvariantCulture, $"{value.Mean / scale:0.00} ± {margin:0.00} {unit}");
           }
 
-          static string Bytes(long bytes) => bytes < 0 ? "-" : bytes.ToString("N0", CultureInfo.InvariantCulture) + " B";
+          static string Bytes(Measurement? measurement) =>
+              measurement is { Allocated: >= 0 } value ? value.Allocated.ToString("N0", CultureInfo.InvariantCulture) + " B" : "-";
 
           internal readonly record struct Measurement(double Mean, double Lower, double Upper, long Allocated);
+
+          internal sealed record Row(string Project, string Key, Measurement? Base, Measurement? Head, double? FirstRatio, double? SecondRatio, string Result);
+
+          internal readonly record struct SliceStatus(string Slice, string Project, int Benchmarks, int Passes);
           CS
 
-      - name: Upload results
+      - name: Upload report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: benchmark-ab
-          path: ${{ runner.temp }}/benchmark-ab
+          name: benchmark-ab-report
+          path: ${{ runner.temp }}/benchmark-ab-report.md
+          if-no-files-found: ignore

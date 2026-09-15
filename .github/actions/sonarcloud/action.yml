@@ -75,7 +75,7 @@ runs:
     - name: Set up JDK 25 (SonarScanner prerequisite)
       # skipJreProvisioning runs the scanner on this JDK instead of downloading a JRE.
       if: inputs.mode == 'begin'
-      uses: actions/setup-java@v6
+      uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
       with:
         distribution: temurin
         java-version: '25'

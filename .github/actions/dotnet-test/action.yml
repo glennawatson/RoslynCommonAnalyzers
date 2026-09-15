@@ -27,7 +27,7 @@ runs:
   using: composite
   steps:
     - name: Expose GitHub Actions runtime for TUnit HTML report upload
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       with:
         script: |
           core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
@@ -81,7 +81,7 @@ runs:
         CS
 
     - name: Upload per-OS coverage reports as build artifacts
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: tmp-coverage-${{ runner.os }}
         path: |
@@ -93,7 +93,7 @@ runs:
 
     - name: Upload MTP diagnostic logs
       if: always() && inputs.enable-detailed-test-logging == 'true'
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: mtp-diagnostic-logs-${{ runner.os }}
         path: |

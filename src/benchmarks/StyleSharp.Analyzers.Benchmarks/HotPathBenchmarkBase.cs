@@ -254,7 +254,7 @@ public class HotPathBenchmarkBase
     /// <returns>The type's method declarations.</returns>
     private static MethodDeclarationSyntax[] GetTypeMethods(CompilationUnitSyntax root)
     {
-        var members = ((TypeDeclarationSyntax)root.Members[0]).Members;
+        var members = GetSingleType(root).Members;
         var methods = new MethodDeclarationSyntax[members.Count];
         for (var i = 0; i < members.Count; i++)
         {
@@ -316,7 +316,17 @@ public class HotPathBenchmarkBase
     /// <param name="root">The parsed compilation unit.</param>
     /// <returns>The single method declaration.</returns>
     private static MethodDeclarationSyntax GetSingleMethod(CompilationUnitSyntax root) =>
-        (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
+        (MethodDeclarationSyntax)GetSingleType(root).Members[0];
+
+    /// <summary>Gets the single top-level type, reaching through a namespace declaration when the corpus has one.</summary>
+    /// <param name="root">The parsed compilation unit.</param>
+    /// <returns>The single type declaration.</returns>
+    private static TypeDeclarationSyntax GetSingleType(CompilationUnitSyntax root) =>
+        root.Members[0] switch
+        {
+            BaseNamespaceDeclarationSyntax declaration => (TypeDeclarationSyntax)declaration.Members[0],
+            var member => (TypeDeclarationSyntax)member,
+        };
 
     /// <summary>Parses the jagged-line benchmark fixture.</summary>
     private void SetupLineScan()

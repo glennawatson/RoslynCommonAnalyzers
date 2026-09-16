@@ -29,17 +29,16 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     ];
 
     /// <summary>The helper-alias names probed for null guards (the Primitives polyfill convention).</summary>
-    private static readonly IdentifierNameSyntax[] NullCheckAliases =
-        [SyntaxFactory.IdentifierName("ArgumentNullExceptionHelper"), SyntaxFactory.IdentifierName("ArgumentExceptionHelper")];
+    private static readonly string[] NullCheckAliases = ["ArgumentNullExceptionHelper", "ArgumentExceptionHelper"];
 
     /// <summary>The helper-alias names probed for string emptiness guards.</summary>
-    private static readonly IdentifierNameSyntax[] EmptinessAliases = [NullCheckAliases[1], NullCheckAliases[0]];
+    private static readonly string[] EmptinessAliases = [NullCheckAliases[1], NullCheckAliases[0]];
 
     /// <summary>The helper-alias names probed for disposal guards.</summary>
-    private static readonly IdentifierNameSyntax[] DisposedAliases = [SyntaxFactory.IdentifierName("ObjectDisposedExceptionHelper")];
+    private static readonly string[] DisposedAliases = ["ObjectDisposedExceptionHelper"];
 
     /// <summary>The helper-alias names probed for comparison guards.</summary>
-    private static readonly IdentifierNameSyntax[] ComparisonAliases = [SyntaxFactory.IdentifierName("ArgumentOutOfRangeExceptionHelper")];
+    private static readonly string[] ComparisonAliases = ["ArgumentOutOfRangeExceptionHelper"];
 
     /// <summary>The cached type syntax used to check the short BCL receiver spelling.</summary>
     private static readonly IdentifierNameSyntax ArgumentExceptionName = SyntaxFactory.IdentifierName(nameof(ArgumentException));
@@ -135,14 +134,23 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
         // Alias names first: projects following the Primitives polyfill model alias
         // e.g. ArgumentExceptionHelper to an internal polyfill on net4x and to the BCL
         // exception on net8+, so the alias spelling compiles on every target framework.
+        // A name that is not in scope is the common case. Looking it up returns an empty result, where
+        // binding it speculatively builds a binder chain and an error symbol every time.
         foreach (var alias in GetAliasCandidates(shape.Kind))
         {
-            // Bind the candidate directly: enumerating the scope through LookupNamespacesAndTypes
-            // materializes unrelated symbols and immutable lookup maps.
-            if (model.GetSpeculativeSymbolInfo(position, alias, SpeculativeBindingOption.BindAsTypeOrNamespace).Symbol
-                is INamedTypeSymbol type && HasHelperMember(type, shape.HelperName))
+            foreach (var candidate in model.LookupNamespacesAndTypes(position, name: alias))
             {
-                return alias.Identifier.ValueText;
+                var type = candidate switch
+                {
+                    IAliasSymbol { Target: INamedTypeSymbol aliased } => aliased,
+                    INamedTypeSymbol named => named,
+                    _ => null,
+                };
+
+                if (type is not null && HasHelperMember(type, shape.HelperName))
+                {
+                    return alias;
+                }
             }
         }
 
@@ -391,7 +399,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the alias names probed for a guard kind.</summary>
     /// <param name="kind">The guard kind.</param>
     /// <returns>The candidate alias names.</returns>
-    private static IdentifierNameSyntax[] GetAliasCandidates(GuardKind kind) =>
+    private static string[] GetAliasCandidates(GuardKind kind) =>
         kind switch
         {
             GuardKind.NullCheck => NullCheckAliases,

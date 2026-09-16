@@ -81,7 +81,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
                     return true;
                 }
 
-                var usage = current.Usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage());
+                var usage = current.Usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage(shared: true));
                 CollectCandidates(typeDeclaration, current.Context.SemanticModel, usage, current.Context.CancellationToken);
                 CollectReferences(typeDeclaration, usage, current.Context.SemanticModel, current.Context.CancellationToken);
                 return true;
@@ -93,16 +93,16 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="typeDeclaration">The type declaration.</param>
     private static void AnalyzeSinglePartType(in SemanticModelAnalysisContext context, TypeDeclarationSyntax typeDeclaration)
     {
-        var usage = new PrivateTypeUsage();
+        var usage = new PrivateTypeUsage(shared: false);
         CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
         CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
-        var candidates = usage.SnapshotCandidates();
+        var candidates = usage.Candidates;
         if (candidates.Count == 0)
         {
             return;
         }
 
-        MarkReferences(candidates, usage.SnapshotReferences(), context.CancellationToken);
+        MarkReferences(candidates, usage.References, context.CancellationToken);
         ReportCandidates(context.ReportDiagnostic, candidates, context.SemanticModel.Compilation.GetEntryPoint(context.CancellationToken));
     }
 
@@ -354,13 +354,13 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="usage">The type usage state.</param>
     private static void ReportCandidates(in CompilationAnalysisContext context, PrivateTypeUsage usage)
     {
-        var candidates = usage.SnapshotCandidates();
+        var candidates = usage.Candidates;
         if (candidates.Count == 0)
         {
             return;
         }
 
-        MarkReferences(candidates, usage.SnapshotReferences(), context.CancellationToken);
+        MarkReferences(candidates, usage.References, context.CancellationToken);
         ReportCandidates(context.ReportDiagnostic, candidates, context.Compilation.GetEntryPoint(context.CancellationToken));
     }
 

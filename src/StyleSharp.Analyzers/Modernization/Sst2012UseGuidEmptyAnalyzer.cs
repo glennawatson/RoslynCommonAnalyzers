@@ -74,13 +74,15 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(DiagnosticHelper.Create(ModernizationRules.UseGuidEmpty, creation.GetLocation()));
     }
 
-    /// <summary>Binds a directly declared target type before falling back to binding the construction.</summary>
+    /// <summary>Binds a target-typed construction's declared type before falling back to binding the construction.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="creation">The parameterless construction to inspect.</param>
     /// <returns>The created type, or null when syntax excludes Guid.</returns>
     private static ITypeSymbol? GetCreatedType(in SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation)
     {
-        var typeSyntax = GetCreationTypeSyntax(creation);
+        // A written type is already part of the construction's bound node, so binding the construction reuses the
+        // enclosing member's bound tree; binding the type on its own builds a second one.
+        var typeSyntax = creation is ImplicitObjectCreationExpressionSyntax ? GetDeclaredTargetTypeSyntax(creation) : null;
         if (typeSyntax is null or NullableTypeSyntax)
         {
             return context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type;
@@ -93,18 +95,16 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
 
         // An alias can denote Nullable<Guid>; target-typed new then constructs its underlying Guid.
         var created = context.SemanticModel.GetTypeInfo(typeSyntax, context.CancellationToken).Type;
-        return creation is ImplicitObjectCreationExpressionSyntax
-            && created is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
+        return created is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
             ? context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type
             : created;
     }
 
-    /// <summary>Finds a directly declared construction type without binding its surrounding expression.</summary>
+    /// <summary>Finds the declared type a target-typed construction takes, without binding its surrounding expression.</summary>
     /// <param name="creation">The construction whose type is needed.</param>
-    /// <returns>The explicit or declared type, or null when the surrounding expression determines it.</returns>
-    private static TypeSyntax? GetCreationTypeSyntax(BaseObjectCreationExpressionSyntax creation) => creation switch
+    /// <returns>The declared type, or null when the surrounding expression determines it.</returns>
+    private static TypeSyntax? GetDeclaredTargetTypeSyntax(BaseObjectCreationExpressionSyntax creation) => creation switch
     {
-        ObjectCreationExpressionSyntax explicitObject => explicitObject.Type,
         { Parent: EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } } } => declaration.Type,
         { Parent: EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax property } } => property.Type,
         _ => null,

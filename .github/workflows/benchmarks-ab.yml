@@ -56,6 +56,7 @@ jobs:
 
     outputs:
       slices: ${{ steps.plan.outputs.slices }}
+      sliceSummary: ${{ steps.plan.outputs.sliceSummary }}
 
     steps:
       - name: Checkout
@@ -126,9 +127,12 @@ jobs:
           var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
           var total = 0;
           using var buffer = new MemoryStream();
+          using var summaryBuffer = new MemoryStream();
           using (var writer = new Utf8JsonWriter(buffer))
+          using (var summaryWriter = new Utf8JsonWriter(summaryBuffer))
           {
               writer.WriteStartArray();
+              summaryWriter.WriteStartArray();
               foreach (var project in projects)
               {
                   // Merged so a benchmark on only one side still runs.
@@ -184,11 +188,18 @@ jobs:
                   var prefix = Path.GetFileName(project).Split('.')[0];
                   for (var i = 0; i < slices.Count; i++)
                   {
+                      var name = $"{prefix}-{i + 1:00}";
                       writer.WriteStartObject();
                       writer.WriteString("project", project);
-                      writer.WriteString("slice", $"{prefix}-{i + 1:00}");
+                      writer.WriteString("slice", name);
                       writer.WriteString("benchmarks", string.Join('\n', slices[i]));
                       writer.WriteEndObject();
+
+                      summaryWriter.WriteStartObject();
+                      summaryWriter.WriteString("project", project);
+                      summaryWriter.WriteString("slice", name);
+                      summaryWriter.WriteNumber("benchmarks", slices[i].Count);
+                      summaryWriter.WriteEndObject();
                   }
 
                   Console.WriteLine($"{Path.GetFileName(project)}: {benchmarks.Count} benchmarks in {slices.Count} slices");
@@ -196,6 +207,7 @@ jobs:
               }
 
               writer.WriteEndArray();
+              summaryWriter.WriteEndArray();
           }
 
           if (total == 0)
@@ -204,7 +216,14 @@ jobs:
               return 1;
           }
 
-          File.AppendAllLines(GetEnvironmentVariable("GITHUB_OUTPUT")!, [$"slices={Encoding.UTF8.GetString(buffer.ToArray())}"]);
+          // The benchmark names only fit in the matrix. execve rejects any single environment
+          // variable over 128 KB, so the compare job gets counts instead of the names.
+          File.AppendAllLines(
+              GetEnvironmentVariable("GITHUB_OUTPUT")!,
+              [
+                  $"slices={Encoding.UTF8.GetString(buffer.ToArray())}",
+                  $"sliceSummary={Encoding.UTF8.GetString(summaryBuffer.ToArray())}",
+              ]);
           return 0;
           CS
 
@@ -362,7 +381,7 @@ jobs:
           CANDIDATE: ${{ inputs.candidate || github.sha }}
           SUITE: ${{ inputs.suite }}
           FILTER: ${{ inputs.filter }}
-          SLICES: ${{ needs.plan.outputs.slices }}
+          SLICES: ${{ needs.plan.outputs.sliceSummary }}
         run: |
           cd "$RUNNER_TEMP" && dotnet run - -- "$RUNNER_TEMP/benchmark-ab" "$RUNNER_TEMP/benchmark-ab-report.md" "$BASELINE" "$CANDIDATE" "$SUITE" "$FILTER" <<'CS'
           using System.Globalization;
@@ -390,7 +409,7 @@ jobs:
           {
               var slice = entry.GetProperty("slice").GetString()!;
               var project = Path.GetFileName(entry.GetProperty("project").GetString()!);
-              var benchmarks = entry.GetProperty("benchmarks").GetString()!.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+              var benchmarks = entry.GetProperty("benchmarks").GetInt32();
 
               var measured = passes.Select(pass => Load(Path.Combine(results, slice, pass))).ToArray();
               var (firstBase, firstHead, secondHead, secondBase) = (measured[0], measured[1], measured[2], measured[3]);

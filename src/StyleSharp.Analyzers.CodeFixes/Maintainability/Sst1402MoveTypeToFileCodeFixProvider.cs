@@ -36,6 +36,13 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
+        // MSBuildWorkspace unconditionally adds a Compile Include for a new document, duplicating
+        // SDK globbed items. Its document-add operation cannot safely apply this fix.
+        if (!TypeFileDestination.IsSupported(context.Document))
+        {
+            return;
+        }
+
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var tree = await context.Document.GetSyntaxTreeAsync(context.CancellationToken).ConfigureAwait(false);
 
@@ -57,6 +64,11 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
             }
 
             var fileName = $"{TypeFileNaming.Stem(type, useMetadata)}.cs";
+            if (!TypeFileDestination.IsAvailable(context.Document, fileName))
+            {
+                continue;
+            }
+
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Move type to '{fileName}'",
@@ -88,6 +100,11 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// </remarks>
     internal static async Task<Solution> MoveAllAsync(Document document, IReadOnlyList<TypeFileMove> moves, CancellationToken cancellationToken)
     {
+        if (!DestinationsAvailable(document, moves))
+        {
+            return document.Project.Solution;
+        }
+
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is not CompilationUnitSyntax compilationUnit || moves.Count == 0)
         {
@@ -165,7 +182,31 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     private static Solution AddLinkedDocument(Solution solution, DocumentId siblingId, string fileName, SourceText text, IReadOnlyList<string> folders)
     {
         var newId = DocumentId.CreateNewId(siblingId.ProjectId);
-        return solution.AddDocument(newId, fileName, text, folders);
+        var sibling = solution.GetDocument(siblingId)!;
+        return solution.AddDocument(newId, fileName, text, folders, TypeFileDestination.GetPath(sibling, fileName));
+    }
+
+    /// <summary>Validates the whole batch before removing any declaration, including duplicate destinations.</summary>
+    /// <param name="document">The original document.</param>
+    /// <param name="moves">The requested extractions.</param>
+    /// <returns>Whether every destination is distinct and unoccupied.</returns>
+    private static bool DestinationsAvailable(Document document, IReadOnlyList<TypeFileMove> moves)
+    {
+        if (!TypeFileDestination.IsSupported(document))
+        {
+            return false;
+        }
+
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < moves.Count; index++)
+        {
+            if (!names.Add(moves[index].FileName) || !TypeFileDestination.IsAvailable(document, moves[index].FileName))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Detects the dominant newline of a source document from its first line break.</summary>

@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.Text;
 using VerifyRename = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1649FileNameAnalyzer,
@@ -19,6 +20,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the SST1649 rename-file code fix.</summary>
 public class FileNameCodeFixUnitTest
 {
+    /// <summary>The file name matching the declared type.</summary>
+    private const string WidgetFileName = "Widget.cs";
+
     /// <summary>The name of the source file that does not match the type it declares.</summary>
     private const string MismatchedFileName = "Other.cs";
 
@@ -39,7 +43,7 @@ public class FileNameCodeFixUnitTest
     {
         var test = new VerifyRename.Test();
         test.TestState.Sources.Add((MismatchedFileName, "public class {|SST1649:Widget|} { }"));
-        test.FixedState.Sources.Add(("Widget.cs", "public class Widget { }"));
+        test.FixedState.Sources.Add((WidgetFileName, "public class Widget { }"));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -134,10 +138,61 @@ public class FileNameCodeFixUnitTest
         foreach (var project in changed.Projects)
         {
             var renamed = project.Documents.Single();
-            await Assert.That(renamed.Name).IsEqualTo("Widget.cs");
+            await Assert.That(renamed.Name).IsEqualTo(WidgetFileName);
             await Assert.That(renamed.Folders.Single()).IsEqualTo(ModelFolder);
+            await Assert.That(renamed.FilePath).IsEqualTo(Path.GetFullPath("/shared/Widget.cs"));
             await Assert.That((await renamed.GetTextAsync()).ToString()).IsEqualTo(Source);
         }
+    }
+
+    /// <summary>Checks collisions and MSBuild hosts reject both registration and application.</summary>
+    /// <param name="workspaceKind">The host applying the rename.</param>
+    /// <param name="existingDestination">Whether the target document already exists.</param>
+    /// <param name="fixAll">Whether application uses Fix All.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(WorkspaceKind.Host, true, false)]
+    [Arguments(WorkspaceKind.Host, true, true)]
+    [Arguments(WorkspaceKind.MSBuild, false, false)]
+    [Arguments(WorkspaceKind.MSBuild, false, true)]
+    public async Task UnsafeRenameLeavesSolutionUnchangedAsync(string workspaceKind, bool existingDestination, bool fixAll)
+    {
+        using var workspace = new AdhocWorkspace(MefHostServices.DefaultHost, workspaceKind);
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument(MismatchedFileName, "class Widget {}");
+        if (existingDestination)
+        {
+            document = document.Project.AddDocument(WidgetFileName, "// Existing file").Project.GetDocument(document.Id)!;
+        }
+
+        var root = (await document.GetSyntaxRootAsync())!;
+        var type = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var diagnostic = Diagnostic.Create(DocumentationRules.FileNameMatchesType, type.Identifier.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst1649FileNameCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        Solution changed;
+        if (fixAll)
+        {
+            var context = new FixAllContext(
+                document,
+                provider,
+                FixAllScope.Document,
+                nameof(Sst1649FileNameCodeFixProvider),
+                provider.FixableDiagnosticIds,
+                new SelectedDiagnostics([diagnostic]),
+                CancellationToken.None);
+            var action = (await provider.GetFixAllProvider()!.GetFixAsync(context))!;
+            var operations = await action.GetOperationsAsync(CancellationToken.None);
+            changed = operations.OfType<ApplyChangesOperation>().SingleOrDefault()?.ChangedSolution ?? document.Project.Solution;
+        }
+        else
+        {
+            changed = await Sst1649FileNameCodeFixProvider.RenameAsync(document, WidgetFileName, CancellationToken.None);
+        }
+
+        await Assert.That(changed).IsSameReferenceAs(document.Project.Solution);
     }
 
     /// <summary>Verifies a diagnostic on a using directive cannot rename a document through either action path.</summary>

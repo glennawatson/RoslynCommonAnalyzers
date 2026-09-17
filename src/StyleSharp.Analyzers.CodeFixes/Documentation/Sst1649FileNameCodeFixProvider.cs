@@ -31,6 +31,11 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
+        if (!TypeFileDestination.IsSupported(context.Document))
+        {
+            return;
+        }
+
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var tree = await context.Document.GetSyntaxTreeAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null || tree is null)
@@ -49,6 +54,11 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
             }
 
             var fileName = $"{TypeFileNaming.Stem(member, useMetadata)}.cs";
+            if (!TypeFileDestination.IsAvailable(context.Document, fileName))
+            {
+                continue;
+            }
+
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Rename file to '{fileName}'",
@@ -65,6 +75,11 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
     /// <returns>The updated solution.</returns>
     internal static async Task<Solution> RenameAsync(Document document, string fileName, CancellationToken cancellationToken)
     {
+        if (!TypeFileDestination.IsSupported(document) || !TypeFileDestination.IsAvailable(document, fileName))
+        {
+            return document.Project.Solution;
+        }
+
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is null)
         {
@@ -76,6 +91,7 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
         // project so the rename stays a single linked file rather than diverging per framework.
         var projectIds = new List<ProjectId> { document.Project.Id };
         var folders = document.Folders;
+        var path = TypeFileDestination.GetPath(document, fileName);
         foreach (var linkedId in document.GetLinkedDocumentIds())
         {
             projectIds.Add(linkedId.ProjectId);
@@ -91,7 +107,7 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
         for (var index = 0; index < projectIds.Count; index++)
         {
             var newId = DocumentId.CreateNewId(projectIds[index]);
-            solution = solution.AddDocument(newId, fileName, root, folders);
+            solution = solution.AddDocument(newId, fileName, root, folders, path);
         }
 
         return solution;

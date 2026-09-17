@@ -116,6 +116,7 @@ public class MoveTypeToFileCodeFixUnitTest
             await Assert.That((await original.GetTextAsync()).ToString()).IsEqualTo("class First {}\n");
             await Assert.That((await moved.GetTextAsync()).ToString()).IsEqualTo("class Second {}\n");
             await Assert.That(moved.Folders).IsEquivalentTo([ModelFolder]);
+            await Assert.That(moved.FilePath).IsEqualTo(Path.GetFullPath("/project/Models/Second.cs"));
         }
     }
 

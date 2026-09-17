@@ -15,6 +15,49 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the collection-expression-arguments rule (SST2106).</summary>
 public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 {
+    /// <summary>Verifies configuration is not moved into a collection expression with a different target type.</summary>
+    /// <param name="source">A collection creation converted to an interface or object target.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("""
+        using System; using System.Collections.Generic;
+        class C { public IDictionary<string, object> Values { get; } = new Dictionary<string, object>(StringComparer.Ordinal); }
+        """)]
+    [Arguments("""
+        using System; using System.Collections.Generic;
+        class C { public IDictionary<string, object> Values = new Dictionary<string, object>(StringComparer.Ordinal); }
+        """)]
+    [Arguments("""
+        using System; using System.Collections.Generic;
+        class C
+        {
+            public IDictionary<string, object> M()
+            {
+                IDictionary<string, object> values = new Dictionary<string, object>(StringComparer.Ordinal);
+                return values;
+            }
+        }
+        """)]
+    [Arguments("using System.Collections.Generic; class C { public IList<int> Values { get; } = new List<int>(4); }")]
+    [Arguments("using System; using System.Collections.Generic; class C { public ISet<string> Values { get; } = new HashSet<string>(StringComparer.Ordinal); }")]
+    [Arguments("using System.Collections.Generic; class C { public object Values { get; } = new List<int>(4); }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConvertedCollectionTargetIsCleanAsync(string source) => RunAsync(source);
+
+    /// <summary>Verifies capacity and comparer arguments are reported for a concrete dictionary property.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConcreteDictionaryPropertyIsReportedAsync() =>
+        RunAsync(
+            """
+            using System; using System.Collections.Generic;
+            class C
+            {
+                public Dictionary<string, object> Values { get; } = {|SST2106:new Dictionary<string, object>(4, StringComparer.Ordinal)|};
+            }
+            """);
+
     /// <summary>Verifies named or by-reference arguments and missing constructors are ignored.</summary>
     /// <param name="source">The noncandidate collection creation.</param>
     /// <returns>A task representing the asynchronous test.</returns>

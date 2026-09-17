@@ -59,7 +59,10 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
         }
 
         var created = ConfiguredCollection(context, creation, resolved);
-        if (created is null)
+        if (created is null
+            || !SymbolEqualityComparer.Default.Equals(
+                created,
+                context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).ConvertedType))
         {
             return;
         }

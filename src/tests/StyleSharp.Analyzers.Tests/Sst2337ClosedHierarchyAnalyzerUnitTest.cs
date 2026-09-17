@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Testing;
 using RoslynCommon.Analyzers.Tests;
 using VerifyClosed = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2337ClosedHierarchyAnalyzer>;
@@ -13,6 +14,55 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the closed-hierarchy rule (SST2337, opt-in).</summary>
 public class Sst2337ClosedHierarchyAnalyzerUnitTest
 {
+    /// <summary>Verifies C# 15 does not require a modifier unsupported by the .NET 10 references.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task Net10WithoutClosedTypeAttributeIsCleanAsync() =>
+        RunAsync(
+            """
+            internal abstract class Base;
+            internal sealed class First : Base;
+            internal sealed class Second : Base;
+            """,
+            referenceAssemblies: AnalyzerFrameworks.Net100);
+
+    /// <summary>Verifies a source-provided attribute enables the rule without .NET 11 references.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task Net10WithClosedTypeAttributeIsReportedAsync() =>
+        RunAsync(
+            """
+            internal abstract class {|SST2337:Base|};
+            internal sealed class First : Base;
+            internal sealed class Second : Base;
+
+            namespace System.Runtime.CompilerServices
+            {
+                internal sealed class IsClosedTypeAttribute : System.Attribute;
+            }
+            """,
+            referenceAssemblies: AnalyzerFrameworks.Net100);
+
+    /// <summary>Verifies the source-provided attribute makes the closed modifier compile on .NET 10.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task Net10WithClosedTypeAttributeAlreadyClosedIsCleanAsync() =>
+        RunAsync(
+            """
+            internal closed class Base;
+            internal sealed class First : Base;
+            internal sealed class Second : Base;
+
+            namespace System.Runtime.CompilerServices
+            {
+                internal sealed class IsClosedTypeAttribute : System.Attribute;
+            }
+            """,
+            referenceAssemblies: AnalyzerFrameworks.Net100);
+
     /// <summary>Verifies an assembly-internal abstract base with two descendants is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -133,16 +183,14 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
     /// <summary>Runs the analyzer verifier at the requested language version.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <param name="languageVersion">The language version to parse with.</param>
+    /// <param name="referenceAssemblies">The framework references; defaults to .NET 11 for closed-type support.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
+    private static async Task RunAsync(
+        string source,
+        LanguageVersion languageVersion = LanguageVersion.Preview,
+        ReferenceAssemblies? referenceAssemblies = null)
     {
-        var test = new VerifyClosed.Test
-        {
-            // The 'closed' modifier binds against IsClosedTypeAttribute, which only the .NET 11
-            // reference assemblies carry.
-            ReferenceAssemblies = DotNet11ReferenceAssemblies.Net110,
-            TestCode = source,
-        };
+        var test = new VerifyClosed.Test { ReferenceAssemblies = referenceAssemblies ?? DotNet11ReferenceAssemblies.Net110, TestCode = source };
 
         test.SolutionTransforms.Add((solution, projectId) =>
         {

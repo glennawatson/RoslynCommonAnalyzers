@@ -29,6 +29,11 @@ public sealed class Sst2337ClosedHierarchyAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
+            if (start.Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.IsClosedTypeAttribute") is null)
+            {
+                return;
+            }
+
             var tally = new ClosedHierarchyTally();
             start.RegisterSymbolAction(symbolContext => tally.Observe((INamedTypeSymbol)symbolContext.Symbol), SymbolKind.NamedType);
             start.RegisterCompilationEndAction(tally.Report);

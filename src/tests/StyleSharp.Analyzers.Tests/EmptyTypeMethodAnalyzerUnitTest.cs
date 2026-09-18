@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyEmpty = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.EmptyCodeAnalyzer>;
 
@@ -11,6 +15,34 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the opt-in empty-construct rules SST1436, SST1437, and SST1438.</summary>
 public class EmptyTypeMethodAnalyzerUnitTest
 {
+    /// <summary>Verifies compiler markers remain valid unless empty-type checking is explicitly enabled.</summary>
+    /// <param name="enabled">Whether the project opts into empty-type checking.</param>
+    /// <param name="shape">The marker declaration shape.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MatrixDataSource]
+    public async Task CompilerMarkerRequiresOptInAsync(
+        [Matrix(false, true)] bool enabled,
+        [Matrix("static class", "class", "struct")] string shape)
+    {
+        var source = $$"""
+            namespace System.Runtime.CompilerServices
+            {
+                internal {{shape}} IsExternalInit { }
+            }
+            """;
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (enabled)
+        {
+            options = options.WithSpecificDiagnosticOptions(new Dictionary<string, ReportDiagnostic> { ["SST1436"] = ReportDiagnostic.Warn });
+        }
+
+        var compilation = CSharpCompilation.Create("CompilerMarker", [CSharpSyntaxTree.ParseText(source)], [RuntimeMetadataReferences.CoreLibrary], options);
+        await Assert.That(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsEmpty();
+        var diagnostics = await compilation.WithAnalyzers([new EmptyCodeAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(enabled ? 1 : 0);
+    }
+
     /// <summary>Verifies an empty class, interface, and method are each reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

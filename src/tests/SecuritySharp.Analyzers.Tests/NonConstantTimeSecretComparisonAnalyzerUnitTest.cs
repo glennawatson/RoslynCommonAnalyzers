@@ -128,9 +128,9 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
                               public class C
                               {
-                                  public bool Run(byte[] expected, byte[] actual)
+                                  public bool Run(byte[] expectedDigest, byte[] actual)
                                   {
-                                      bool Verify() => {|SES1005:expected.SequenceEqual(actual)|};
+                                      bool Verify() => {|SES1005:expectedDigest.SequenceEqual(actual)|};
                                       return Verify();
                                   }
                               }
@@ -140,9 +140,9 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
                                    public class C
                                    {
-                                       public bool Run(byte[] expected, byte[] actual)
+                                       public bool Run(byte[] expectedDigest, byte[] actual)
                                        {
-                                           bool Verify() => global::System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, actual);
+                                           bool Verify() => global::System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedDigest, actual);
                                            return Verify();
                                        }
                                    }
@@ -150,28 +150,20 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
         await VerifyAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies <c>expected</c>/<c>actual</c> operands are reported inside a verify-shaped method.</summary>
+    /// <summary>Verifies <c>expected</c>/<c>actual</c> operands do not establish a secret inside a verify-shaped method.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task ExpectationOperandsInVerifyMethodReportedAsync()
+    public async Task ExpectationOperandsInVerifyMethodCleanAsync()
     {
         const string Source = """
                               using System.Linq;
 
                               public class C
                               {
-                                  public bool VerifyDigest(byte[] expected, byte[] actual) => {|SES1005:expected.SequenceEqual(actual)|};
+                                  public bool VerifyDigest(byte[] expected, byte[] actual) => expected.SequenceEqual(actual);
                               }
                               """;
-        const string FixedSource = """
-                                   using System.Linq;
-
-                                   public class C
-                                   {
-                                       public bool VerifyDigest(byte[] expected, byte[] actual) => global::System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, actual);
-                                   }
-                                   """;
-        await VerifyAsync(Source, FixedSource);
+        await VerifyAsync(Source);
     }
 
     /// <summary>Verifies a secret member-access operand (<c>request.Signature</c>) compared with <c>==</c> is reported (no fix).</summary>

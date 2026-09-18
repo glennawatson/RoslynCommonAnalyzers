@@ -13,7 +13,7 @@ namespace SecuritySharp.Analyzers;
 /// byte span, or <c>string</c>. Detection is a curated, high-precision name-and-type heuristic (near-zero
 /// false positives): an operand's identifier or member name must contain one of <c>hmac</c>,
 /// <c>signature</c>, <c>sig</c>, <c>mac</c>, <c>tag</c>, <c>token</c>, <c>hash</c>, <c>digest</c>,
-/// <c>secret</c>, or -- only inside a verify/validate/check-shaped method -- <c>expected</c>/<c>actual</c>.
+/// or <c>secret</c>.
 /// A comparison against a compile-time constant (for example <c>token == ""</c>) is not the
 /// attacker-versus-secret shape and is never reported. The rule is gated on
 /// <c>System.Security.Cryptography.CryptographicOperations</c> resolving, so a target framework without
@@ -37,6 +37,12 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <summary>The metadata name of the type whose presence gates the rule and hosts the suggested fix.</summary>
     private const string CryptographicOperationsMetadataName = "System.Security.Cryptography.CryptographicOperations";
 
+    /// <summary>The binary comparison kinds shared by all compilations.</summary>
+    private static readonly ImmutableArray<SyntaxKind> BinaryKinds = ImmutableArrays.Of(SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
+
+    /// <summary>The invocation kind shared by all compilations.</summary>
+    private static readonly ImmutableArray<SyntaxKind> InvocationKinds = ImmutableArrays.Of(SyntaxKind.InvocationExpression);
+
     /// <summary>The curated, high-precision fragments that mark an operand name as a secret.</summary>
     private static readonly string[] SecretNameFragments =
     [
@@ -49,24 +55,6 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
         "hash",
         "digest",
         "secret",
-    ];
-
-    /// <summary>The fragments that mark an enclosing method as verify/validate/check-shaped.</summary>
-    private static readonly string[] VerifyMethodFragments =
-    [
-        "verify",
-        "validate",
-        "check",
-        "compare",
-        "authenticate",
-        "match",
-    ];
-
-    /// <summary>The names that only count as a secret inside a verify/validate/check-shaped method.</summary>
-    private static readonly string[] ExpectationNameFragments =
-    [
-        "expected",
-        "actual",
     ];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
@@ -82,11 +70,12 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        CompilationStateRegistration.RegisterSyntaxNodeActions(
-            context,
-            static compilation => new LazyMetadataType(compilation, CryptographicOperationsMetadataName),
-            new(AnalyzeBinary, [SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression]),
-            new(AnalyzeInvocation, [SyntaxKind.InvocationExpression]));
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var cryptographicTypes = new LazyMetadataType(start.Compilation, CryptographicOperationsMetadataName);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeBinary(nodeContext, cryptographicTypes), BinaryKinds);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, cryptographicTypes), InvocationKinds);
+        });
     }
 
     /// <summary>Resolves the two <c>SequenceEqual</c> byte-buffer operands a code fix can rewrite to <c>FixedTimeEquals</c>.</summary>
@@ -149,7 +138,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
         var binary = (BinaryExpressionSyntax)context.Node;
 
         // Cheap syntactic prefilter: at least one operand is named like a secret.
-        if (PickSecretName(binary, GetOperandName(binary.Left), GetOperandName(binary.Right)) is not { } secretName)
+        if (PickSecretName(GetOperandName(binary.Left), GetOperandName(binary.Right)) is not { } secretName)
         {
             return;
         }
@@ -192,7 +181,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
 
         // Authoritative name check on the two resolved operands (the syntactic pass also scans the receiver,
         // which is a type for the static forms).
-        if (PickSecretName(invocation, GetOperandName(left), GetOperandName(right)) is not { } secretName
+        if (PickSecretName(GetOperandName(left), GetOperandName(right)) is not { } secretName
             || !IsGuardedComparison(context, left, right))
         {
             return;
@@ -253,7 +242,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <returns><see langword="true"/> when a candidate operand is named like a secret.</returns>
     private static bool HasCandidateSecretName(InvocationExpressionSyntax invocation, MemberAccessExpressionSyntax member)
     {
-        if (PickSecretName(invocation, GetOperandName(member.Expression), null) is not null)
+        if (PickSecretName(GetOperandName(member.Expression), null) is not null)
         {
             return true;
         }
@@ -261,7 +250,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
         var arguments = invocation.ArgumentList.Arguments;
         for (var i = 0; i < arguments.Count; i++)
         {
-            if (PickSecretName(invocation, GetOperandName(arguments[i].Expression), null) is not null)
+            if (PickSecretName(GetOperandName(arguments[i].Expression), null) is not null)
             {
                 return true;
             }
@@ -313,38 +302,18 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     private static bool IsStaticTwoOperandForm(IMethodSymbol method) =>
         method.IsStatic && method.MethodKind != MethodKind.ReducedExtension;
 
-    /// <summary>Returns the secret operand name, honouring the verify-method guard for expectation names.</summary>
-    /// <param name="node">The comparison node, used to locate the enclosing method for the guard.</param>
+    /// <summary>Returns the operand name containing a secret-bearing fragment.</summary>
     /// <param name="leftName">The first operand's name, or <see langword="null"/>.</param>
     /// <param name="rightName">The second operand's name, or <see langword="null"/>.</param>
     /// <returns>The secret operand's name, or <see langword="null"/> when neither qualifies.</returns>
-    private static string? PickSecretName(SyntaxNode node, string? leftName, string? rightName)
+    private static string? PickSecretName(string? leftName, string? rightName)
     {
         if (ContainsAnyFragment(leftName, SecretNameFragments))
         {
             return leftName;
         }
 
-        if (ContainsAnyFragment(rightName, SecretNameFragments))
-        {
-            return rightName;
-        }
-
-        // 'expected'/'actual' are ordinary in test asserts, so they only count as a secret inside a
-        // verify/validate/check-shaped method.
-        var leftExpectation = ContainsAnyFragment(leftName, ExpectationNameFragments);
-        var rightExpectation = ContainsAnyFragment(rightName, ExpectationNameFragments);
-        if (!leftExpectation && !rightExpectation)
-        {
-            return null;
-        }
-
-        if (!IsInVerifyShapedMethod(node))
-        {
-            return null;
-        }
-
-        return leftExpectation ? leftName : rightName;
+        return ContainsAnyFragment(rightName, SecretNameFragments) ? rightName : null;
     }
 
     /// <summary>Extracts the rightmost meaningful identifier from a comparison operand expression.</summary>
@@ -364,31 +333,6 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <returns><see langword="true"/> when the name contains a fragment.</returns>
     private static bool ContainsAnyFragment(string? name, string[] fragments) =>
         name is not null && TextFragments.ContainsAny(name, fragments, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Returns whether the nearest enclosing method or local function is verify/validate/check-shaped.</summary>
-    /// <param name="node">The comparison node.</param>
-    /// <returns><see langword="true"/> when the enclosing method name marks a verification routine.</returns>
-    private static bool IsInVerifyShapedMethod(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            var name = current switch
-            {
-                MethodDeclarationSyntax method => method.Identifier.ValueText,
-                LocalFunctionStatementSyntax localFunction => localFunction.Identifier.ValueText,
-                _ => null,
-            };
-
-            if (name is null)
-            {
-                continue;
-            }
-
-            return ContainsAnyFragment(name, VerifyMethodFragments);
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a type is one the constant-time comparison heuristic covers.</summary>
     /// <param name="type">The operand type.</param>

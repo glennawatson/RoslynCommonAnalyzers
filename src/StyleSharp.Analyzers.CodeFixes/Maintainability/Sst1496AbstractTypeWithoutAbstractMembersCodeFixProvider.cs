@@ -10,7 +10,7 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Turns an abstract class that asks nothing of its derived types into a concrete one (SST1496): the
 /// <c>abstract</c> modifier is removed, and replaced by <c>sealed</c> when nothing derives from the type and
-/// nothing in it was written for a derived type to reach.
+/// nothing in it was written for a derived type to reach, and no generic constraint requires it to remain inheritable.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -117,7 +117,7 @@ public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : C
         ClassDeclarationSyntax declaration,
         CancellationToken cancellationToken)
     {
-        if (DeclaresInheritanceOnlyMember(declaration))
+        if (DeclaresInheritanceOnlyMember(declaration) || HasSyntacticSelfConstraint(declaration))
         {
             return false;
         }
@@ -128,11 +128,92 @@ public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : C
             return false;
         }
 
+        if (HasSelfConstraint(type))
+        {
+            return false;
+        }
+
         var derived = await SymbolFinder
             .FindDerivedClassesAsync(type, document.Project.Solution, projects: null, cancellationToken)
             .ConfigureAwait(false);
         using var candidates = derived.GetEnumerator();
-        return !candidates.MoveNext();
+        return !candidates.MoveNext()
+            && !await IsUsedAsConstraintAsync(type, document.Project.Solution, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Recognizes an unqualified reference to the declaring generic class without binding.</summary>
+    /// <param name="declaration">The class being considered for sealing.</param>
+    /// <returns>Whether a constraint names this class with its declared arity.</returns>
+    private static bool HasSyntacticSelfConstraint(ClassDeclarationSyntax declaration)
+    {
+        if (declaration.TypeParameterList is not { Parameters.Count: > 0 } parameters)
+        {
+            return false;
+        }
+
+        foreach (var clause in declaration.ConstraintClauses)
+        {
+            foreach (var constraint in clause.Constraints)
+            {
+                if (constraint is TypeConstraintSyntax { Type: GenericNameSyntax name }
+                    && name.Identifier.ValueText == declaration.Identifier.ValueText
+                    && name.TypeArgumentList.Arguments.Count == parameters.Parameters.Count)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Recognizes a self-referential generic base before searching its solution.</summary>
+    /// <param name="type">The class being considered for sealing.</param>
+    /// <returns>Whether one of its own constraints requires inheritance from this class.</returns>
+    private static bool HasSelfConstraint(INamedTypeSymbol type)
+    {
+        foreach (var parameter in type.TypeParameters)
+        {
+            foreach (var constraint in parameter.ConstraintTypes)
+            {
+                if (SymbolEqualityComparer.Default.Equals(constraint.OriginalDefinition, type))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Finds generic constraints that cannot legally name a sealed class.</summary>
+    /// <param name="type">The class being considered for sealing.</param>
+    /// <param name="solution">The solution whose source contracts must remain valid.</param>
+    /// <param name="cancellationToken">A token that cancels the search.</param>
+    /// <returns>Whether any constraint names this class as its complete constraint type.</returns>
+    private static async Task<bool> IsUsedAsConstraintAsync(INamedTypeSymbol type, Solution solution, CancellationToken cancellationToken)
+    {
+        var references = await SymbolFinder.FindReferencesAsync(type, solution, cancellationToken).ConfigureAwait(false);
+        foreach (var reference in references)
+        {
+            foreach (var location in reference.Locations)
+            {
+                var document = location.Document;
+                var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+                if (root?.FindNode(location.Location.SourceSpan).FirstAncestorOrSelf<TypeConstraintSyntax>() is not { } constraint)
+                {
+                    continue;
+                }
+
+                var model = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+                if (SymbolEqualityComparer.Default.Equals(model?.GetTypeInfo(constraint.Type, cancellationToken).Type?.OriginalDefinition, type))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether the class declares a member that only a derived type could use.</summary>

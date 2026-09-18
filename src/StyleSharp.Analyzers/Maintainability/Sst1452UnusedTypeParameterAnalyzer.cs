@@ -139,7 +139,7 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
         node is MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null };
 
     /// <summary>Tracks which type parameter names have been seen outside the parameter list.</summary>
-    private sealed class ScanState
+    private struct ScanState
     {
         /// <summary>The declared type parameters.</summary>
         private readonly SeparatedSyntaxList<TypeParameterSyntax> _parameters;
@@ -153,7 +153,7 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
         /// <summary>The number of parameters not yet seen.</summary>
         private int _remaining;
 
-        /// <summary>Initializes a new instance of the <see cref="ScanState"/> class.</summary>
+        /// <summary>Initializes a new instance of the <see cref="ScanState"/> struct.</summary>
         /// <param name="parameters">The declared type parameters.</param>
         /// <param name="listSpan">The type parameter list span.</param>
         public ScanState(SeparatedSyntaxList<TypeParameterSyntax> parameters, TextSpan listSpan)
@@ -167,7 +167,7 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether the parameter at an index was seen.</summary>
         /// <param name="index">The parameter index.</param>
         /// <returns><see langword="true"/> when the parameter is referenced.</returns>
-        public bool IsSeen(int index) => (_seenMask & (1UL << index)) != 0;
+        public readonly bool IsSeen(int index) => (_seenMask & (1UL << index)) != 0;
 
         /// <summary>Records one token and reports whether the scan should continue.</summary>
         /// <param name="token">The current descendant token.</param>

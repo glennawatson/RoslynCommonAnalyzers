@@ -11,6 +11,24 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Sst1452UnusedTypeParameterAnalyzer"/> (SST1452 unused type parameters).</summary>
 public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 {
+    /// <summary>Verifies a self-referential constraint uses its type parameter with either abstraction policy.</summary>
+    /// <param name="modifier">The base class abstraction modifier.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("abstract ")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SelfReferentialConstraintUsesTypeParameterAsync(string modifier) =>
+        Verify.VerifyAnalyzerAsync(
+            $$"""
+            public {{modifier}}class Runner<T> where T : Runner<T>, new()
+            {
+                public int Value => 1;
+            }
+
+            public class SchemaTests : Runner<SchemaTests> { }
+            """);
+
     /// <summary>Verifies local functions count signature and body references independently.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

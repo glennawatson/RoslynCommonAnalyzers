@@ -18,6 +18,122 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1496 (an abstract type declares nothing abstract) and its fix.</summary>
 public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 {
+    /// <summary>Verifies constraints on another type do not prevent sealing the generic class.</summary>
+    /// <param name="constraint">The unrelated constraint on the type argument.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class")]
+    [Arguments("System.Collections.Generic.IEnumerable<int>")]
+    [Arguments("Other<int>")]
+    [Arguments("Runner<int, int>")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedGenericConstraintAllowsSealingAsync(string constraint) =>
+        VerifyAbstractType.VerifyCodeFixAsync(
+            $$"""
+            public class Other<T> { }
+            public class Runner<TFirst, TSecond> { }
+            public abstract class {|SST1496:Runner|}<T> where T : {{constraint}}
+            {
+                public int Value => 1;
+            }
+            """,
+            $$"""
+            public class Other<T> { }
+            public class Runner<TFirst, TSecond> { }
+            public sealed class Runner<T> where T : {{constraint}}
+            {
+                public int Value => 1;
+            }
+            """);
+
+    /// <summary>Verifies removing abstract preserves a self-referential generic constraint.</summary>
+    /// <param name="constraint">The spelling of the self-reference.</param>
+    /// <param name="derived">Whether a concrete derived class exists.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MatrixDataSource]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SelfReferentialGenericBaseIsNotSealedAsync(
+        [Matrix("Runner<T>", "global::Runner<T>")] string constraint,
+        [Matrix("", "public class Schema : Runner<Schema> { }")] string derived) =>
+        VerifyAbstractType.VerifyCodeFixAsync(
+            $$"""
+            public abstract class {|SST1496:Runner|}<T> where T : {{constraint}}, new()
+            {
+                public int Value => 1;
+            }
+            {{derived}}
+            """,
+            $$"""
+            public class Runner<T> where T : {{constraint}}, new()
+            {
+                public int Value => 1;
+            }
+            {{derived}}
+            """);
+
+    /// <summary>Verifies generic constraints in members and consumers preserve an inheritable class.</summary>
+    /// <param name="members">Members containing a possible generic constraint.</param>
+    /// <param name="consumer">A separate declaration containing a possible generic constraint.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public void Run<T>() where T : Runner { }", "")]
+    [Arguments("public class Nested<T> where T : Runner { }", "")]
+    [Arguments("public int Value => 1;", "public class Consumer<T> where T : Runner { }")]
+    [Arguments("public int Value => 1;", "public class Consumer { public void Run<T>() where T : Runner { } }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ClassUsedAsConstraintIsNotSealedAsync(string members, string consumer) =>
+        VerifyAbstractType.VerifyCodeFixAsync(
+            $$"""
+            public abstract class {|SST1496:Runner|}
+            {
+                {{members}}
+            }
+            {{consumer}}
+            """,
+            $$"""
+            public class Runner
+            {
+                {{members}}
+            }
+            {{consumer}}
+            """);
+
+    /// <summary>Verifies using a class as a generic argument does not require inheritance from that class.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ClassInsideConstraintTypeArgumentCanBeSealedAsync() =>
+        VerifyAbstractType.VerifyCodeFixAsync(
+            """
+            public abstract class {|SST1496:Runner|} { public int Value => 1; }
+            public interface IContainer<T> { }
+            public class Consumer<T> where T : IContainer<Runner> { }
+            """,
+            """
+            public sealed class Runner { public int Value => 1; }
+            public interface IContainer<T> { }
+            public class Consumer<T> where T : IContainer<Runner> { }
+            """);
+
+    /// <summary>Verifies constraint references in another document prevent sealing, including aliases.</summary>
+    /// <param name="constraint">The consumer's spelling of the base constraint.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Runner")]
+    [Arguments("Base")]
+    public async Task ConstraintInAnotherDocumentPreventsSealingAsync(string constraint)
+    {
+        var test = new VerifyAbstractType.Test { TestCode = "public abstract class {|SST1496:Runner|} { public int Value => 1; }", FixedCode = "public class Runner { public int Value => 1; }" };
+        var consumer = $$"""
+            using Base = Runner;
+            public class Consumer<T> where T : {{constraint}} { }
+            """;
+        test.TestState.Sources.Add(("Consumer.cs", consumer));
+        test.FixedState.Sources.Add(("Consumer.cs", consumer));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies removing the first modifier preserves documentation on the next token.</summary>
     /// <param name="remainingModifier">The modifier that follows abstract, when present.</param>
     /// <returns>A task representing the asynchronous test.</returns>

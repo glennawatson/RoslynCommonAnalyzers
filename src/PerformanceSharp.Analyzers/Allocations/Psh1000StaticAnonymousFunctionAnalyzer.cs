@@ -9,9 +9,8 @@ namespace PerformanceSharp.Analyzers;
 /// <summary>
 /// Suggests adding the <c>static</c> modifier to anonymous functions that capture no
 /// state (PSH1000). A lambda or anonymous method qualifies only when flow analysis
-/// proves it captures nothing — no locals, no enclosing-method parameters, and no
-/// <c>this</c> — so adding the modifier cannot break compilation. Functions converted
-/// to <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> are skipped because
+/// proves it captures nothing and makes no runtime references to enclosing non-static local functions.
+/// Functions converted to <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> are skipped because
 /// static anonymous functions are illegal in expression trees, and files parsed as
 /// C# 8 or earlier are skipped because the modifier does not exist there.
 /// </summary>
@@ -66,14 +65,15 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, LazyMetadataType expressionTreeType)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
-        if (!IsSyntaxCandidate(function))
+        if (!IsSyntaxCandidate(function)
+            || HasEnclosingLocalFunctionReference(context.SemanticModel, function, context.CancellationToken))
         {
             return;
         }
 
         var expressionOfTType = expressionTreeType.Get();
         if (IsExpressionTreeConversion(context.SemanticModel, function, expressionOfTType, context.CancellationToken)
-            || !HasNoCaptures(context.SemanticModel, function))
+            || !HasNoCaptures(context.SemanticModel, function, context.CancellationToken))
         {
             return;
         }
@@ -82,6 +82,64 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
             AllocationRules.MakeAnonymousFunctionStatic,
             function.SyntaxTree,
             GetReportSpan(function)));
+    }
+
+    /// <summary>Rejects references to enclosing non-static local functions before allocating data-flow analysis state.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="function">The candidate anonymous function.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>Whether a local function in an enclosing block prevents the static modifier.</returns>
+    private static bool HasEnclosingLocalFunctionReference(SemanticModel model, AnonymousFunctionExpressionSyntax function, CancellationToken cancellationToken)
+    {
+        for (var ancestor = function.Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (ancestor is BaseMethodDeclarationSyntax or AccessorDeclarationSyntax)
+            {
+                return false;
+            }
+
+            if (ancestor is not BlockSyntax block)
+            {
+                continue;
+            }
+
+            foreach (var statement in block.Statements)
+            {
+                if (statement is not LocalFunctionStatementSyntax localFunction || localFunction.Modifiers.Any(SyntaxKind.StaticKeyword))
+                {
+                    continue;
+                }
+
+                var state = (Model: model, Declaration: localFunction, CancellationToken: cancellationToken);
+                if (!DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, (SemanticModel Model, LocalFunctionStatementSyntax Declaration, CancellationToken CancellationToken)>(
+                    function,
+                    ref state,
+                    VisitEnclosingLocalFunctionReference))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Binds only names matching an enclosing non-static local-function declaration.</summary>
+    /// <param name="name">The candidate name.</param>
+    /// <param name="state">The enclosing declaration and its binding context.</param>
+    /// <returns>Whether the search should continue.</returns>
+    private static bool VisitEnclosingLocalFunctionReference(
+        SimpleNameSyntax name,
+        ref (SemanticModel Model, LocalFunctionStatementSyntax Declaration, CancellationToken CancellationToken) state)
+    {
+        if (!string.Equals(name.Identifier.ValueText, state.Declaration.Identifier.ValueText, StringComparison.Ordinal)
+            || IsCompileTimeName(name, state.Model, state.CancellationToken)
+            || state.Model.GetSymbolInfo(name, state.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.LocalFunction, IsStatic: false } referenced)
+        {
+            return true;
+        }
+
+        return !SymbolEqualityComparer.Default.Equals(referenced.OriginalDefinition, state.Model.GetDeclaredSymbol(state.Declaration, state.CancellationToken));
     }
 
     /// <summary>Returns whether the anonymous function converts to an expression tree, where <c>static</c> is illegal.</summary>
@@ -99,20 +157,116 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
             && model.GetTypeInfo(function, cancellationToken).ConvertedType is INamedTypeSymbol convertedType
             && SymbolEqualityComparer.Default.Equals(convertedType.ConstructedFrom, expressionOfTType);
 
-    /// <summary>Returns whether flow analysis proves the anonymous function captures nothing, including <c>this</c>.</summary>
+    /// <summary>Checks captured variables and references to enclosing non-static local functions.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="function">The anonymous function to inspect.</param>
-    /// <returns><see langword="true"/> when the captured-variable sets are provably empty.</returns>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>Whether adding <c>static</c> preserves access to enclosing state and local functions.</returns>
     /// <remarks>
-    /// Only <see cref="DataFlowAnalysis.CapturedInside"/> answers the question. <c>Captured</c> is
-    /// <c>CapturedInside</c> together with <c>CapturedOutside</c>, and <c>CapturedOutside</c> holds what the
-    /// <em>other</em> lambdas in the enclosing method captured. Reading it made one capturing lambda hide
-    /// every capture-free sibling in the same statement: the rule went quiet on exactly the lambdas it
-    /// exists to find, and only where a neighbour happened to close over something.
+    /// <see cref="DataFlowAnalysis.CapturedInside"/> excludes captures in sibling lambdas.
+    /// <see cref="DataFlowAnalysis.UsedLocalFunctions"/> includes sibling uses, so each enclosing
+    /// non-static function must also have a runtime reference inside the candidate's syntax.
     /// </remarks>
-    private static bool HasNoCaptures(SemanticModel model, AnonymousFunctionExpressionSyntax function)
+    private static bool HasNoCaptures(SemanticModel model, AnonymousFunctionExpressionSyntax function, CancellationToken cancellationToken)
     {
         var dataFlow = model.AnalyzeDataFlow(function);
-        return dataFlow is { Succeeded: true, CapturedInside.IsEmpty: true };
+        if (dataFlow is not { Succeeded: true, CapturedInside.IsEmpty: true })
+        {
+            return false;
+        }
+
+        ISymbol? functionSymbol = null;
+        foreach (var localFunction in dataFlow.UsedLocalFunctions)
+        {
+            if (!localFunction.IsStatic
+                && !IsDeclaredWithinFunction(localFunction, model, function, ref functionSymbol, cancellationToken)
+                && HasLocalFunctionReference(model, function, localFunction, cancellationToken))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Finds runtime references to a local function within the candidate's syntax.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="function">The candidate anonymous function.</param>
+    /// <param name="localFunction">The enclosing local function.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>Whether the local function is invoked or used as a method group in the candidate.</returns>
+    private static bool HasLocalFunctionReference(
+        SemanticModel model,
+        AnonymousFunctionExpressionSyntax function,
+        IMethodSymbol localFunction,
+        CancellationToken cancellationToken)
+    {
+        var state = (Model: model, LocalFunction: localFunction, CancellationToken: cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, (SemanticModel Model, IMethodSymbol LocalFunction, CancellationToken CancellationToken)>(
+            function,
+            ref state,
+            VisitLocalFunctionReference);
+    }
+
+    /// <summary>Stops at a matching local-function reference, excluding compile-time names.</summary>
+    /// <param name="name">The candidate name.</param>
+    /// <param name="state">The reference being sought and its binding context.</param>
+    /// <returns>Whether the search should continue.</returns>
+    private static bool VisitLocalFunctionReference(
+        SimpleNameSyntax name,
+        ref (SemanticModel Model, IMethodSymbol LocalFunction, CancellationToken CancellationToken) state)
+    {
+        if (!string.Equals(name.Identifier.ValueText, state.LocalFunction.Name, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (IsCompileTimeName(name, state.Model, state.CancellationToken))
+        {
+            return true;
+        }
+
+        return state.Model.GetSymbolInfo(name, state.CancellationToken).Symbol is not IMethodSymbol referenced
+            || !SymbolEqualityComparer.Default.Equals(referenced.OriginalDefinition, state.LocalFunction.OriginalDefinition);
+    }
+
+    /// <summary>Recognizes a compile-time nameof operand without confusing a user-defined nameof method.</summary>
+    /// <param name="name">The candidate operand.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>Whether the reference is evaluated only to obtain its name.</returns>
+    private static bool IsCompileTimeName(SimpleNameSyntax name, SemanticModel model, CancellationToken cancellationToken) =>
+        name.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } } invocation }
+            && model.GetConstantValue(invocation, cancellationToken).HasValue;
+
+    /// <summary>Checks whether a local function belongs to the candidate lambda or one of its nested functions.</summary>
+    /// <param name="localFunction">The referenced local function.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="function">The candidate anonymous function.</param>
+    /// <param name="functionSymbol">The anonymous-function symbol, resolved only when containment requires it.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>Whether the local function remains within the candidate's scope after adding <c>static</c>.</returns>
+    private static bool IsDeclaredWithinFunction(
+        IMethodSymbol localFunction,
+        SemanticModel model,
+        AnonymousFunctionExpressionSyntax function,
+        ref ISymbol? functionSymbol,
+        CancellationToken cancellationToken)
+    {
+        for (var containing = localFunction.ContainingSymbol; containing is IMethodSymbol method; containing = method.ContainingSymbol)
+        {
+            if (method.MethodKind != MethodKind.AnonymousFunction)
+            {
+                continue;
+            }
+
+            functionSymbol ??= model.GetSymbolInfo(function, cancellationToken).Symbol;
+            if (SymbolEqualityComparer.Default.Equals(method, functionSymbol))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

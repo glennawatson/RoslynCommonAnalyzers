@@ -3,8 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyStaticFunction = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1000StaticAnonymousFunctionAnalyzer,
@@ -13,7 +16,7 @@ using VerifyStaticFunction = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerif
 namespace PerformanceSharp.Analyzers.Tests;
 
 /// <summary>Unit tests for PSH1000 (anonymous functions without captures should be static) and its code fix.</summary>
-public class StaticAnonymousFunctionAnalyzerUnitTest
+public partial class StaticAnonymousFunctionAnalyzerUnitTest
 {
     /// <summary>Verifies a non-capturing parenthesized lambda is reported (PSH1000) and made static.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -256,6 +259,54 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
                 public System.Linq.Expressions.Expression<System.Func<int>> M() => () => 1;
             }
             """);
+
+    /// <summary>A capture-free delegate remains reportable when expression-tree types are absent from the compilation.</summary>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task CaptureFreeLambdaWithoutExpressionTreeReferenceIsReportedAsync(CancellationToken cancellationToken)
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  public System.Func<int> M() => () => 1;
+                              }
+                              """;
+        var tree = CSharpSyntaxTree.ParseText(Source, cancellationToken: cancellationToken);
+        var compilation = CSharpCompilation.Create(
+            "StaticLambdaCoreLibrary",
+            [tree],
+            [RuntimeMetadataReferences.CoreLibrary],
+            new(OutputKind.DynamicallyLinkedLibrary));
+
+        await Assert.That(compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1")).IsNull();
+        await Assert.That(compilation.GetDiagnostics(cancellationToken).Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsEmpty();
+
+        var diagnostics = await compilation.WithAnalyzers([new Psh1000StaticAnonymousFunctionAnalyzer()]).GetAnalyzerDiagnosticsAsync(cancellationToken);
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id)).IsEquivalentTo(["PSH1000"]);
+    }
+
+    /// <summary>Capture-free initializer lambdas remain reportable without an enclosing method or accessor block.</summary>
+    /// <param name="declaration">The field or property receiving the lambda.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public System.Func<int> Value")]
+    [Arguments("public System.Func<int> Value { get; }")]
+    public async Task InitializerAnonymousFunctionMadeStaticAsync(string declaration, CancellationToken cancellationToken)
+    {
+        var source = CreateSource("{|PSH1000:()|}");
+        var fixedSource = CreateSource("static ()");
+        var test = new VerifyStaticFunction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
+        await test.RunAsync(cancellationToken);
+
+        string CreateSource(string parameters) => $$"""
+                                                   public class C
+                                                   {
+                                                       {{declaration}} = {{parameters}} => 1;
+                                                   }
+                                                   """;
+    }
 
     /// <summary>Verifies the rule stays silent for files parsed as C# 8, where the modifier does not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

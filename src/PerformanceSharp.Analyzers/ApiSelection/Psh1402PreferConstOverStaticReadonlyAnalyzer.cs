@@ -36,6 +36,48 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
         context.RegisterSyntaxNodeAction(AnalyzeLocal, SyntaxKind.LocalDeclarationStatement);
     }
 
+    /// <summary>Gets the syntax that bounds where a local can be referenced.</summary>
+    /// <param name="node">The local declaration statement.</param>
+    /// <returns>The enclosing block, or the compilation unit for top-level statements.</returns>
+    /// <remarks>
+    /// A local declared straight into a switch section is in scope across the whole switch, so the
+    /// walk climbs past the section to the enclosing block. A scope that is too wide can only find
+    /// more writes, which can only silence a report; a scope that is too narrow would invent one.
+    /// </remarks>
+    internal static SyntaxNode? GetEnclosingScope(SyntaxNode node)
+    {
+        for (var current = node.Parent; current is not null; current = current.Parent)
+        {
+            if (current is BlockSyntax or CompilationUnitSyntax)
+            {
+                return current;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns whether anything in the scope writes the named local after initialization.</summary>
+    /// <param name="scope">The syntax that bounds the local.</param>
+    /// <param name="name">The local's name.</param>
+    /// <returns><see langword="true"/> as soon as one write is found.</returns>
+    /// <remarks>
+    /// Writes are found by name, not by symbol: a plain identifier inside the local's scope can only
+    /// mean that local, because C# does not let a nested declaration shadow it, and every write to a
+    /// local must spell its name. That keeps the whole check off the semantic model, and the scan
+    /// covers lambda and local-function bodies, so a captured-and-mutated local is seen exactly
+    /// where it is written.
+    /// </remarks>
+    internal static bool IsWrittenInScope(SyntaxNode scope, string name)
+    {
+        var state = new WriteScanState(name);
+        _ = DescendantTraversalHelper.VisitDescendants(
+            scope,
+            ref state,
+            static (IdentifierNameSyntax identifier, ref WriteScanState scan) => scan.Observe(identifier));
+        return state.Written;
+    }
+
     /// <summary>Reports PSH1402 for a static readonly field whose initializer is a compile-time constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeField(SyntaxNodeAnalysisContext context)
@@ -103,7 +145,8 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
         AdmitsConst(localType)
             && context.SemanticModel.GetConstantValue(initializer.Value, context.CancellationToken).HasValue
             && GetEnclosingScope(local) is { } scope
-            && !IsWrittenInScope(scope, variable.Identifier.ValueText);
+            && !IsWrittenInScope(scope, variable.Identifier.ValueText)
+            && ConstLocalUsageSafety.IsSafe(scope, variable.Identifier.ValueText, context.SemanticModel, context.CancellationToken);
 
     /// <summary>Reports the local, carrying the explicit type spelling when the declaration used <c>var</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -156,48 +199,6 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
             InvocationExpressionSyntax invocation => invocation.Expression is not IdentifierNameSyntax { Identifier.ValueText: "nameof" },
             _ => false,
         };
-
-    /// <summary>Gets the syntax that bounds where a local can be referenced.</summary>
-    /// <param name="node">The local declaration statement.</param>
-    /// <returns>The enclosing block, or the compilation unit for top-level statements.</returns>
-    /// <remarks>
-    /// A local declared straight into a switch section is in scope across the whole switch, so the
-    /// walk climbs past the section to the enclosing block. A scope that is too wide can only find
-    /// more writes, which can only silence a report; a scope that is too narrow would invent one.
-    /// </remarks>
-    private static SyntaxNode? GetEnclosingScope(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
-        {
-            if (current is BlockSyntax or CompilationUnitSyntax)
-            {
-                return current;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Returns whether anything in the scope writes the named local after initialization.</summary>
-    /// <param name="scope">The syntax that bounds the local.</param>
-    /// <param name="name">The local's name.</param>
-    /// <returns><see langword="true"/> as soon as one write is found.</returns>
-    /// <remarks>
-    /// Writes are found by name, not by symbol: a plain identifier inside the local's scope can only
-    /// mean that local, because C# does not let a nested declaration shadow it, and every write to a
-    /// local must spell its name. That keeps the whole check off the semantic model, and the scan
-    /// covers lambda and local-function bodies, so a captured-and-mutated local is seen exactly
-    /// where it is written.
-    /// </remarks>
-    private static bool IsWrittenInScope(SyntaxNode scope, string name)
-    {
-        var state = new WriteScanState(name);
-        _ = DescendantTraversalHelper.VisitDescendants(
-            scope,
-            ref state,
-            static (IdentifierNameSyntax identifier, ref WriteScanState scan) => scan.Observe(identifier));
-        return state.Written;
-    }
 
     /// <summary>Returns whether a modifier list is <c>static readonly</c> without public exposure.</summary>
     /// <param name="modifiers">The modifier list to inspect.</param>

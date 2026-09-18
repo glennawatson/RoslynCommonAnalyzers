@@ -13,7 +13,7 @@ using VerifyPreferConst = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier
 namespace PerformanceSharp.Analyzers.Tests;
 
 /// <summary>Unit tests for PSH1402 (prefer const over static readonly) and its fix.</summary>
-public class PreferConstOverStaticReadonlyAnalyzerUnitTest
+public partial class PreferConstOverStaticReadonlyAnalyzerUnitTest
 {
     /// <summary>Verifies a private static readonly int with a literal value becomes const.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

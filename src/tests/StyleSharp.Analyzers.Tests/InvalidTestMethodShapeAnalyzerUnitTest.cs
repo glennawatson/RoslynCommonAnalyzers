@@ -27,7 +27,17 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
         namespace NUnit.Framework
         {
             using System;
-            public class TestAttribute : Attribute { }
+            public class TestAttribute : Attribute { public object ExpectedResult { get; set; } }
+            [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+            public class TestCaseAttribute : Attribute
+            {
+                public TestCaseAttribute(params object[] arguments) { }
+                public object ExpectedResult { get; set; }
+            }
+            public class TestCaseSourceAttribute : Attribute
+            {
+                public TestCaseSourceAttribute(string sourceName) { }
+            }
         }
         """;
 
@@ -49,6 +59,9 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
             public sealed class TestAttribute : Attribute { }
         }
         """;
+
+    /// <summary>The cached NUnit references used to verify the framework's actual attribute contracts.</summary>
+    private static readonly ReferenceAssemblies NUnitReferences = ReferenceAssemblies.Net.Net90.AddPackages([new PackageIdentity("NUnit", "4.2.2")]);
 
     /// <summary>Verifies a non-public xUnit fact is reported because the runner does not discover it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -94,6 +107,289 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
                 private void {|SST2509:Case|}() { }
             }
             """);
+
+    /// <summary>Verifies NUnit compares value returns with each case's expected result, including false and null.</summary>
+    /// <param name="returnType">The declared return type.</param>
+    /// <param name="result">The expression returned and expected by the test case.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("bool", "true")]
+    [Arguments("bool", "false")]
+    [Arguments("string", "null")]
+    [Arguments("int", "0")]
+    public Task NUnitExpectedResultAcceptsValueReturnsAsync(string returnType, string result) =>
+        VerifyAsync(NUnitStubs + $$"""
+
+            public class Tests
+            {
+                [NUnit.Framework.TestCase("a.b", "a", ExpectedResult = {{result}})]
+                [NUnit.Framework.TestCase("a.b", "c", ExpectedResult = {{result}})]
+                public {{returnType}} Case(string path, string key) => {{result}};
+            }
+            """);
+
+    /// <summary>Verifies NUnit's expected-result contracts against the framework assembly.</summary>
+    /// <param name="attributes">The NUnit attributes that provide expected results.</param>
+    /// <param name="declaration">The runnable method declaration.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("[NUnit.Framework.Test(ExpectedResult = false)]", "public bool Case() => false;")]
+    [Arguments("[NUnit.Framework.Test(ExpectedResult = null)]", "public string Case() => null;")]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = false)]", "public bool Case(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCaseAttribute(0, ExpectedResult = null)]", "public string Case(int value) => null;")]
+    [Arguments("[NUnit.Framework.TestCase(0, TestName = \"NamedCase\", ExpectedResult = false)]", "public bool Case(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = 0)]", "public T Case<T>(T value) => value;")]
+    [Arguments("[NUnit.Framework.Test][NUnit.Framework.TestCase(0, ExpectedResult = false)]", "public static bool Case(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = false)]", "public System.Threading.Tasks.Task<bool> Case(int value) => System.Threading.Tasks.Task.FromResult(false);")]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = false)]", "public System.Threading.Tasks.ValueTask<bool> Case(int value) => default;")]
+    [Arguments("[NUnit.Framework.TestCaseSource(nameof(Cases))]", "public bool Case(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = false)][NUnit.Framework.TestCaseSource(nameof(Cases))]", "public bool Case(int value) => false;")]
+    [Arguments("[NUnit.Framework.Theory][NUnit.Framework.TestCase(ExpectedResult = false)]", "public bool Case() => false;")]
+    [Arguments("[NUnit.Framework.Theory][NUnit.Framework.TestCase(0, ExpectedResult = false)]", "public bool Case(int value) => false;")]
+    [Arguments(
+        "[NUnit.Framework.TestCase(false, false, ExpectedResult = false)]",
+        "public bool Case([NUnit.Framework.Values(false, true)] bool first, [NUnit.Framework.ValueSource(nameof(Empty))] bool second) => false;")]
+    public async Task NUnitResultContractsAreAcceptedAsync(string attributes, string declaration)
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = NUnitReferences,
+            TestCode = $$"""
+                public class Tests
+                {
+                    public static NUnit.Framework.TestCaseData[] Cases => new[] { new NUnit.Framework.TestCaseData(0).Returns(false) };
+                    public static bool[] Empty => new bool[0];
+                    {{attributes}}
+                    {{declaration}}
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies every NUnit test builder accepts the signature when expected-result cases are combined.</summary>
+    /// <param name="attributes">The combined NUnit test builders.</param>
+    /// <param name="parameterData">Optional data for independently generated theory cases.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("[NUnit.Framework.Test(ExpectedResult = false)][NUnit.Framework.TestCase(false, ExpectedResult = false)]", "")]
+    [Arguments("[NUnit.Framework.TestCase(false, ExpectedResult = false)][NUnit.Framework.Test(ExpectedResult = false)]", "")]
+    [Arguments("[NUnit.Framework.Test(ExpectedResult = false)][NUnit.Framework.TestCaseSource(nameof(Cases))]", "")]
+    [Arguments("[NUnit.Framework.TestCaseSource(nameof(Cases))][NUnit.Framework.Test(ExpectedResult = false)]", "")]
+    [Arguments("[NUnit.Framework.Theory][NUnit.Framework.TestCase(false, ExpectedResult = false)]", "[NUnit.Framework.Values(false, true)]")]
+    [Arguments("[NUnit.Framework.TestCase(false, ExpectedResult = false)][NUnit.Framework.Theory]", "[NUnit.Framework.Values(false, true)]")]
+    [Arguments("[NUnit.Framework.Theory][NUnit.Framework.TestCaseSource(nameof(Cases))]", "[NUnit.Framework.Values(false, true)]")]
+    [Arguments("[NUnit.Framework.TestCaseSource(nameof(Cases))][NUnit.Framework.Theory]", "[NUnit.Framework.Values(false, true)]")]
+    public async Task NUnitCombinedBuildersKeepReturnValidationAsync(string attributes, string parameterData)
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = NUnitReferences,
+            TestCode = $$"""
+                public class Tests
+                {
+                    public static NUnit.Framework.TestCaseData[] Cases => new[] { new NUnit.Framework.TestCaseData(false).Returns(false) };
+                    {{attributes}}
+                    public bool {|SST2509:Case|}({{parameterData}} bool value) => value;
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies known parameter values create result-less cases while runtime data sources remain deferred.</summary>
+    /// <param name="marker">The optional theory marker.</param>
+    /// <param name="parameterData">The attribute supplying parameter data.</param>
+    /// <param name="reports">Whether generated cases are known to lack expected results.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("", "[NUnit.Framework.Values(false, true)]", true)]
+    [Arguments("", "[NUnit.Framework.Values]", true)]
+    [Arguments("", "[NUnit.Framework.Values(false)]", true)]
+    [Arguments("", "[NUnit.Framework.Values(new object[] { false, true })]", true)]
+    [Arguments("", "[NUnit.Framework.Values(new object[0])]", true)]
+    [Arguments("", "[NUnit.Framework.Values((object[])null)]", true)]
+    [Arguments("[NUnit.Framework.Theory]", "", true)]
+    [Arguments("", "[NUnit.Framework.ValueSource(nameof(Empty))]", false)]
+    [Arguments("", "[CustomData]", false)]
+    [Arguments("", "[Values(false, true)]", false)]
+    public async Task NUnitParameterDataPreservesKnownReturnContractsAsync(string marker, string parameterData, bool reports)
+    {
+        var name = reports ? "{|SST2509:Case|}" : "Case";
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = NUnitReferences,
+            TestCode = $$"""
+                public class CustomDataAttribute : System.Attribute, NUnit.Framework.Interfaces.IParameterDataSource
+                {
+                    public System.Collections.IEnumerable GetData(NUnit.Framework.Interfaces.IParameterInfo parameter) => new object[0];
+                }
+                public class ValuesAttribute : System.Attribute { public ValuesAttribute(params object[] values) { } }
+                public class Tests
+                {
+                    public static bool[] Empty => new bool[0];
+                    {{marker}}
+                    [NUnit.Framework.TestCase(false, ExpectedResult = false)]
+                    public bool {{name}}({{parameterData}} bool value) => value;
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies automatic data is nonempty for nullable booleans and enums with declared values.</summary>
+    /// <param name="marker">The optional theory marker.</param>
+    /// <param name="parameterData">The optional values attribute.</param>
+    /// <param name="parameterType">The type NUnit uses to generate data.</param>
+    /// <param name="argument">The argument for the explicit expected-result case.</param>
+    /// <param name="reports">Whether automatic data creates additional result-less cases.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("[NUnit.Framework.Theory]", "", "bool?", "null", true)]
+    [Arguments("", "[NUnit.Framework.Values]", "bool?", "null", true)]
+    [Arguments("[NUnit.Framework.Theory]", "", "Choice", "Choice.First", true)]
+    [Arguments("", "[NUnit.Framework.Values]", "Choice", "Choice.First", true)]
+    [Arguments("[NUnit.Framework.Theory]", "", "Choice?", "null", true)]
+    [Arguments("", "[NUnit.Framework.Values]", "Choice?", "null", true)]
+    [Arguments("[NUnit.Framework.Theory]", "", "Empty", "0", false)]
+    [Arguments("", "[NUnit.Framework.Values]", "Empty", "0", false)]
+    [Arguments("[NUnit.Framework.Theory]", "", "Empty?", "null", false)]
+    [Arguments("", "[NUnit.Framework.Values]", "int", "0", false)]
+    public async Task NUnitAutomaticDataRequiresNonemptyTypeValuesAsync(string marker, string parameterData, string parameterType, string argument, bool reports)
+    {
+        var name = reports ? "{|SST2509:Case|}" : "Case";
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = NUnitReferences,
+            TestCode = $$"""
+                public enum Choice { First, Second }
+                public enum Empty { }
+                public class Tests
+                {
+                    {{marker}}
+                    [NUnit.Framework.TestCase({{argument}}, ExpectedResult = false)]
+                    public bool {{name}}({{parameterData}} {{parameterType}} value) => false;
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies invalid values arguments do not imply generated cases while the source is being edited.</summary>
+    /// <param name="argument">An argument that is nonconstant or names a nonexistent constructor parameter.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("Input")]
+    [Arguments("missing: true")]
+    public async Task NUnitInvalidValuesArgumentsRemainDeferredAsync(string argument)
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = NUnitReferences,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = $$"""
+                public class Tests
+                {
+                    public static bool Input => false;
+                    [NUnit.Framework.TestCase(false, ExpectedResult = false)]
+                    public bool Case([NUnit.Framework.Values({{argument}})] bool value) => value;
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies NUnit result data does not excuse a known invalid signature or a case missing its expected result.</summary>
+    /// <param name="attributes">The test attributes.</param>
+    /// <param name="declaration">The unsupported method declaration.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = false)]", "private bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.Test(ExpectedResult = false)]", "internal bool {|SST2509:Case|}() => false;")]
+    [Arguments("[NUnit.Framework.TestCase(ExpectedResult = false)]", "public bool {|SST2509:Case|}<T>() => false;")]
+    [Arguments("[NUnit.Framework.TestCaseSource(\"Cases\")]", "private bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCaseSource(\"Cases\")]", "public bool {|SST2509:Case|}<T>() => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0)]", "public bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.Test]", "public bool {|SST2509:Case|}() => false;")]
+    [Arguments("[NUnit.Framework.Test(ExpectedResult = false)]", "public bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0, ExpectedResult = false)][NUnit.Framework.TestCase(1)]", "public bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0)][NUnit.Framework.TestCase(1, ExpectedResult = false)]", "public bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCase(0)][NUnit.Framework.TestCaseSource(\"Cases\")]", "public bool {|SST2509:Case|}(int value) => false;")]
+    [Arguments("[NUnit.Framework.TestCaseSource(\"Cases\")][NUnit.Framework.TestCase(0)]", "public bool {|SST2509:Case|}(int value) => false;")]
+    public Task NUnitResultDataKeepsSignatureValidationAsync(string attributes, string declaration) =>
+        VerifyAsync(NUnitStubs + $$"""
+
+            public class Tests
+            {
+                {{attributes}}
+                {{declaration}}
+            }
+            """);
+
+    /// <summary>Verifies expected results on unrelated attributes cannot legalize value returns in other frameworks.</summary>
+    /// <param name="marker">The framework's actual test marker.</param>
+    /// <param name="expectedResultAttribute">The unrelated attribute carrying a similarly named property.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [MatrixDataSource]
+    public Task NonNUnitResultAttributesKeepReturnValidationAsync(
+        [Matrix("Xunit.Fact", "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod", "TUnit.Core.Test", "NUnit.Framework.Test")] string marker,
+        [Matrix("Foreign.TestCase", "Foreign.Test", "Foreign.TestCaseSource")] string expectedResultAttribute) =>
+        VerifyAsync(XunitStubs + MsTestStubs + TUnitStubs + NUnitStubs + $$"""
+
+            namespace Foreign
+            {
+                public class TestCaseAttribute : System.Attribute { public object ExpectedResult { get; set; } }
+                public class TestAttribute : System.Attribute { public object ExpectedResult { get; set; } }
+                public class TestCaseSourceAttribute : System.Attribute { public object ExpectedResult { get; set; } }
+            }
+            public class Tests
+            {
+                [{{marker}}]
+                [{{expectedResultAttribute}}(ExpectedResult = false)]
+                public bool {|SST2509:Case|}() => false;
+            }
+            """);
+
+    /// <summary>Verifies a NUnit expected result cannot bypass a second framework's return-type requirement.</summary>
+    /// <param name="marker">The additional framework's test marker.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Xunit.Fact")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod")]
+    [Arguments("TUnit.Core.Test")]
+    public Task MixedFrameworkValueReturnsAreReportedAsync(string marker) =>
+        VerifyAsync(XunitStubs + MsTestStubs + TUnitStubs + NUnitStubs + $$"""
+
+            public class Tests
+            {
+                [NUnit.Framework.TestCase(ExpectedResult = false)]
+                [{{marker}}]
+                public bool {|SST2509:Case|}() => false;
+            }
+            """);
+
+    /// <summary>Verifies namespace aliases and derived NUnit case markers keep their result contracts.</summary>
+    /// <param name="attributes">The recognized NUnit case attributes.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("[N::TestCaseAttribute(0, ExpectedResult = false)]")]
+    [Arguments("[N::Test][CustomCase(ExpectedResult = false)]")]
+    public Task NUnitCaseAliasesAndDerivedMarkersAreCleanAsync(string attributes) =>
+        VerifyAsync($$"""
+            using N = NUnit.Framework;
+            public class CustomCaseAttribute : NUnit.Framework.TestCaseAttribute { }
+            public class Tests
+            {
+                {{attributes}}
+                public bool Case(int value) => false;
+            }
+            """ + NUnitStubs);
 
     /// <summary>Verifies a non-public MSTest test method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -453,6 +749,23 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
                 private int {|SST2509:ReturnTarget|}() => 0;
                 [return: Xunit.Fact]
                 private int {|SST2509:ReturnMarker|}() => 0;
+            }
+            """);
+
+    /// <summary>Verifies unmatched return-target attributes with failed constructor binding do not mark a test.</summary>
+    /// <param name="attribute">An unresolved attribute name or an invalid constructor invocation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Xunit.Fact(1)")]
+    [Arguments("Fact")]
+    public Task InvalidReturnAttributeConstructorsRemainQuietAsync(string attribute) =>
+        VerifyIgnoringCompilerDiagnosticsAsync(XunitStubs + $$"""
+
+            public class Tests
+            {
+                [return: {{attribute}}]
+                private int Case() => 0;
             }
             """);
 

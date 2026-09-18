@@ -7,6 +7,21 @@ namespace StyleSharp.Analyzers;
 /// <summary>Names the attributes that mark a test in the supported test frameworks.</summary>
 internal static class TestAttributeNames
 {
+    /// <summary>The first NUnit marker slot, containing its non-parameterized test attribute.</summary>
+    internal const int NUnitMarkerStart = 2;
+
+    /// <summary>The slot containing NUnit's inline test-case attribute.</summary>
+    internal const int NUnitTestCaseMarkerIndex = 3;
+
+    /// <summary>The slot containing NUnit's external test-case source attribute.</summary>
+    internal const int NUnitTestCaseSourceMarkerIndex = 4;
+
+    /// <summary>The slot containing NUnit's theory builder.</summary>
+    internal const int NUnitTheoryMarkerIndex = 5;
+
+    /// <summary>The end of the NUnit marker range, exclusive.</summary>
+    internal const int NUnitMarkerEnd = 6;
+
     /// <summary>The slot of the TUnit marker in a marker table, the one marker that does not require public methods.</summary>
     internal const int TUnitMarkerIndex = 8;
 

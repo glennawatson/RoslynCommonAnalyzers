@@ -8,9 +8,69 @@ using AnalyzeCsp = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 
 namespace SecuritySharp.Analyzers.Tests;
 
-/// <summary>Unit tests for SES1515 (a permissive Content-Security-Policy value that disables its own protection).</summary>
+/// <summary>Unit tests for SES1515's policy contexts and permissive source detection.</summary>
 public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 {
+    /// <summary>Assertion APIs used to distinguish expected policy text from configured policies.</summary>
+    private const string AssertionsStub = """
+        namespace TUnit.Assertions
+        {
+            public static class Assert
+            {
+                public static StringAssertion That(string actual) => new StringAssertion();
+            }
+            public sealed class StringAssertion
+            {
+                public void Contains(string expected) { }
+                public void DoesNotContain(string expected) { }
+                public void IsEqualTo(string expected) { }
+            }
+        }
+        namespace TUnit.Assertions.Extensions
+        {
+            public static class ComparisonExtensions
+            {
+                public static void StartsWith(this TUnit.Assertions.StringAssertion assertion, string expected) { }
+            }
+        }
+        namespace Xunit
+        {
+            public static class Assert
+            {
+                public static void Equal(string expected, string actual) { }
+                public static void Contains(string expected, string actual) { }
+            }
+        }
+        namespace NUnit.Framework
+        {
+            public static class Assert
+            {
+                public static void AreEqual(string expected, string actual) { }
+            }
+        }
+        namespace Microsoft.VisualStudio.TestTools.UnitTesting
+        {
+            public static class StringAssert
+            {
+                public static void Contains(string actual, string expected) { }
+            }
+        }
+        namespace FluentAssertions.Primitives
+        {
+            public sealed class StringAssertions
+            {
+                public void Contain(string expected) { }
+            }
+        }
+        namespace Shouldly
+        {
+            public static class ShouldlyExtensionMethods
+            {
+                public static void ShouldBe(this string actual, string expected) { }
+            }
+        }
+        """;
+
     /// <summary>Framework-agnostic stubs of the header-setting shapes the rule recognizes.</summary>
     private const string HeadersStub = """
 
@@ -373,12 +433,71 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Runs an analyzer-only verification with the inline header stubs appended.</summary>
+    /// <summary>Verifies assertions and string comparisons inspect policy text without configuring a policy.</summary>
+    /// <param name="expression">The comparison that consumes the expected policy text.</param>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("TUnit.Assertions.Assert.That(policy).Contains(\"style-src 'self' 'unsafe-inline'\")")]
+    [Arguments("TUnit.Assertions.Assert.That(policy).DoesNotContain(\"script-src 'self' 'unsafe-inline'\")")]
+    [Arguments("TUnit.Assertions.Assert.That(policy).IsEqualTo(\"script-src 'unsafe-eval'\")")]
+    [Arguments("TUnit.Assertions.Assert.That(\"script-src 'unsafe-inline'\").IsEqualTo(policy)")]
+    [Arguments("TUnit.Assertions.Assert.That(policy).Contains((\"object-src *\"))")]
+    [Arguments("TUnit.Assertions.Extensions.ComparisonExtensions.StartsWith(TUnit.Assertions.Assert.That(policy), \"script-src 'unsafe-inline'\")")]
+    [Arguments("Xunit.Assert.Equal(\"script-src 'unsafe-inline'\", policy)")]
+    [Arguments("Xunit.Assert.Contains(\"script-src 'unsafe-inline'\", policy)")]
+    [Arguments("NUnit.Framework.Assert.AreEqual(\"script-src 'unsafe-inline'\", policy)")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting.StringAssert.Contains(policy, \"script-src 'unsafe-inline'\")")]
+    [Arguments("new FluentAssertions.Primitives.StringAssertions().Contain(\"script-src 'unsafe-inline'\")")]
+    [Arguments("Shouldly.ShouldlyExtensionMethods.ShouldBe(policy, \"script-src 'unsafe-inline'\")")]
+    [Arguments("policy.Contains(\"script-src 'unsafe-inline'\")")]
+    [Arguments("policy.StartsWith(\"script-src 'unsafe-inline'\")")]
+    [Arguments("string.Equals(policy, \"script-src 'unsafe-inline'\")")]
+    [Arguments("\"script-src 'unsafe-inline'\".Contains(policy)")]
+    public Task ComparisonArgumentsAreCleanAsync(string expression) =>
+        VerifyAsync($$"""
+            public class C
+            {
+                public void M(string policy)
+                {
+                    {{expression}};
+                }
+            }
+            """);
+
+    /// <summary>Verifies an assertion cannot hide an unsafe header assignment inside its argument.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task HeaderAssignmentInsideAssertionIsReportedAsync() =>
+        VerifyAsync("""
+            public class C
+            {
+                public void M(Headers headers) =>
+                    TUnit.Assertions.Assert.That(
+                        headers["Content-Security-Policy"] = {|SES1515:"script-src 'unsafe-inline'"|}).Contains("expected");
+            }
+            """);
+
+    /// <summary>Verifies an unrelated method with an assertion-like name retains policy diagnostics.</summary>
+    /// <returns>A task representing the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnrelatedContainsMethodIsReportedAsync() =>
+        VerifyAsync("""
+            public class C
+            {
+                public void M() => Contains({|SES1515:"script-src 'unsafe-inline'"|});
+                private void Contains(string policy) { }
+            }
+            """);
+
+    /// <summary>Runs an analyzer-only verification with the header and assertion stubs appended.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeCsp.Test { TestCode = source + HeadersStub };
+        var test = new AnalyzeCsp.Test { TestCode = $"{source}{HeadersStub}{AssertionsStub}" };
 
         await test.RunAsync(CancellationToken.None);
     }

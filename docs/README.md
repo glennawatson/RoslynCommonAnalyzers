@@ -1030,7 +1030,7 @@ hardening, `SES16xx` AI input trust boundaries.
 | [SES1512](rules/SES1512.md) | Sensitive framework diagnostics — EF Core `EnableSensitiveDataLogging()`, or `IdentityModelEventSource.ShowPII`/`LogCompleteSecurityArtifact = true` — are enabled without a development-environment guard, so parameter values, PII, and full tokens land in production logs (CWE-215/532). |
 | [SES1513](rules/SES1513.md) | An `IAuthorizationService.AuthorizeAsync` call discards its `AuthorizationResult` (a bare await or `_ =`), so nothing reads `Succeeded` and the guarded operation runs whether or not authorization passed (CWE-863). |
 | [SES1514](rules/SES1514.md) | OpenID Connect protocol protections are disabled — `UsePkce`, `RequireState`, `RequireStateValidation`, or `RequireNonce` set to false — weakening the authorization-code flow against CSRF and replay (CWE-352/294). |
-| [SES1515](rules/SES1515.md) | A `Content-Security-Policy` value carries `'unsafe-inline'`, `'unsafe-eval'`, or a bare `*` source on a `default-src`/`script-src`/`style-src`/`object-src`/`base-uri` directive, re-permitting injected inline scripts and defeating the header's XSS protection (CWE-1021/79). |
+| [SES1515](rules/SES1515.md) | A Content Security Policy permits unrestricted inline scripts or styles, JavaScript string evaluation, or arbitrary resource hosts through an effective directive. Reports identify the specific permission and distinguish report-only policies. |
 
 ## Ai
 

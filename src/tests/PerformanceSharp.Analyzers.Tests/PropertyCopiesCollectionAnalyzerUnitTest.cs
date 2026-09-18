@@ -16,6 +16,25 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1017PropertyCopiesCollectionAnalyzer"/> (PSH1017 property copies a collection).</summary>
 public class PropertyCopiesCollectionAnalyzerUnitTest
 {
+    /// <summary>Verifies collection snapshots stored by auto-properties allocate only during initialization.</summary>
+    /// <param name="initialization">The snapshot storage and initialization.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public List<int> Items { get; } = Names.Select(static value => value * 2).ToList();")]
+    [Arguments("public List<int> Items { get; } public C() => Items = Names.Select(static value => value * 2).ToList();")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CachedAutoPropertyIsCleanAsync(string initialization) =>
+        VerifyAsync(
+            $$"""
+            using System.Collections.Generic;
+            using System.Linq;
+            public class C
+            {
+                private static readonly int[] Names = { 1, 2 };
+                {{initialization}}
+            }
+            """);
+
     /// <summary>Verifies an expression-bodied property ending in ToArray is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

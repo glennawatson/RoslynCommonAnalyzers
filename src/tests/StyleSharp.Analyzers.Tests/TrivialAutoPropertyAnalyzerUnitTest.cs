@@ -18,6 +18,25 @@ public class TrivialAutoPropertyAnalyzerUnitTest
     /// <summary>The field name used by the accessor checks.</summary>
     private const string BackingFieldName = "_value";
 
+    /// <summary>Verifies cached collection auto-properties satisfy the trivial-property rule.</summary>
+    /// <param name="initialization">The snapshot storage and initialization.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public List<int> Items { get; } = Names.Select(static value => value * 2).ToList();")]
+    [Arguments("public List<int> Items { get; } public C() => Items = Names.Select(static value => value * 2).ToList();")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CachedAutoPropertyIsCleanAsync(string initialization) =>
+        VerifyAutoProperty.VerifyAnalyzerAsync(
+            $$"""
+            using System.Collections.Generic;
+            using System.Linq;
+            public class C
+            {
+                private static readonly int[] Names = { 1, 2 };
+                {{initialization}}
+            }
+            """);
+
     /// <summary>Verifies semantic accessor checks reject nontrivial bodies and different field symbols.</summary>
     /// <param name="propertyText">The property whose accessor semantics are inspected.</param>
     /// <param name="expected">Whether every accessor directly uses the selected backing field.</param>

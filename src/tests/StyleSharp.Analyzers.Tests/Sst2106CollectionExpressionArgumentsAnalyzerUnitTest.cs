@@ -15,6 +15,30 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the collection-expression-arguments rule (SST2106).</summary>
 public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 {
+    /// <summary>Verifies configuration is suggested only when a collection expression can preserve the initializer.</summary>
+    /// <param name="source">A configured collection creation with expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { void M() { Dictionary<string, int> values = new Dictionary<string, int>(4) { [\"a\"] = 1, [\"b\"] = 2 }; } }")]
+    [Arguments("class C { void M() { Dictionary<string, int> values = new(StringComparer.Ordinal) { { \"a\", 1 }, { \"b\", 2 } }; } }")]
+    [Arguments("class C { void M() { Dictionary<string, int> values = new(4, StringComparer.Ordinal) { [\"a\"] = 1, [\"a\"] = 2 }; } }")]
+    [Arguments("class C { Dictionary<string, int> values = new(StringComparer.Ordinal) { [\"a\"] = 1, [\"b\"] = 2 }; }")]
+    [Arguments("class C { Dictionary<string, int> values = new Dictionary<string, int>(4, StringComparer.Ordinal) { { \"a\", 1 }, { \"b\", 2 } }; }")]
+    [Arguments("class C { Dictionary<string, int> values = new Dictionary<string, int>(4) { [\"a\"] = 1, [\"a\"] = 2 }; }")]
+    [Arguments("class C { Dictionary<string, int> Values { get; } = new Dictionary<string, int>(4, StringComparer.Ordinal) { [\"a\"] = 1, [\"b\"] = 2 }; }")]
+    [Arguments("class C { Dictionary<string, int> Values { get; } = new(4) { { \"a\", 1 }, { \"b\", 2 } }; }")]
+    [Arguments("class C { Dictionary<string, int> Values { get; } = new(StringComparer.Ordinal) { [\"a\"] = 1, [\"a\"] = 2 }; }")]
+    [Arguments("class C { Dictionary<string, int> M() => new(4) { [\"a\"] = 1, [\"b\"] = 2 }; }")]
+    [Arguments("class C { Dictionary<string, int> M() => new(StringComparer.Ordinal) { { \"a\", 1 }, { \"b\", 2 } }; }")]
+    [Arguments("class C { Dictionary<string, int> M() => new(4, StringComparer.Ordinal) { [\"a\"] = 1, [\"a\"] = 2 }; }")]
+    [Arguments("class C { Dictionary<string, int> Values { get; } = {|SST2106:new(4, StringComparer.Ordinal) { }|}; }")]
+    [Arguments("class C { HashSet<string> Values { get; } = {|SST2106:new(StringComparer.Ordinal) { }|}; }")]
+    [Arguments("class C { List<int> Values { get; } = {|SST2106:new(4) { }|}; }")]
+    [Arguments("class C { List<int> Values { get; } = {|SST2106:new(4) { 1, 2 }|}; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task InitializerConversionIsCheckedAsync(string source) =>
+        RunAsync($"using System; using System.Collections.Generic; {source}");
+
     /// <summary>Verifies configuration is not moved into a collection expression with a different target type.</summary>
     /// <param name="source">A collection creation converted to an interface or object target.</param>
     /// <returns>A task representing the asynchronous test.</returns>

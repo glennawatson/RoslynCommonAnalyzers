@@ -110,6 +110,11 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
             return null;
         }
 
+        if (created.MetadataName == "Dictionary`2" && creation.Initializer is { Expressions.Count: > 0 })
+        {
+            return null;
+        }
+
         foreach (var parameter in constructor.Parameters)
         {
             if (!targets.IsConfigurationParameter(parameter.Type))

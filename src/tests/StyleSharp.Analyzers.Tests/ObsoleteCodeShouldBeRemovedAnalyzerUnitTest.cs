@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyObsoleteRemoval = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2310ObsoleteCodeShouldBeRemovedAnalyzer>;
 
@@ -12,6 +16,36 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2310 (deprecated code should be removed).</summary>
 public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
 {
+    /// <summary>Verifies retirement reminders require an explicit choice during supported deprecation.</summary>
+    /// <param name="enabled">Whether the project enables the retirement reminder.</param>
+    /// <param name="arguments">The deprecation policy carried by the attribute.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MatrixDataSource]
+    public async Task SupportedDeprecationRequiresOptInAsync(
+        [Matrix(false, true)] bool enabled,
+        [Matrix("", "\"Use Replacement.\"", "\"Use Replacement.\", true", "\"Use Replacement.\", DiagnosticId = \"LIB0001\", UrlFormat = \"https://example.invalid/{0}\"")] string arguments)
+    {
+        var source = $$"""
+            public class Library
+            {
+                [System.Obsolete({{arguments}})]
+                public void Legacy() { }
+                public void Replacement() { }
+            }
+            """;
+        var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (enabled)
+        {
+            options = options.WithSpecificDiagnosticOptions(new Dictionary<string, ReportDiagnostic> { ["SST2310"] = ReportDiagnostic.Warn });
+        }
+
+        var compilation = CSharpCompilation.Create("DeprecationPolicy", [CSharpSyntaxTree.ParseText(source)], RuntimeMetadataReferences.Platform, options);
+        await Assert.That(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).IsEmpty();
+        var diagnostics = await compilation.WithAnalyzers([new Sst2310ObsoleteCodeShouldBeRemovedAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(enabled ? 1 : 0);
+    }
+
     /// <summary>Verifies a message does not exempt the attribute: the rule wants the code gone, not explained.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

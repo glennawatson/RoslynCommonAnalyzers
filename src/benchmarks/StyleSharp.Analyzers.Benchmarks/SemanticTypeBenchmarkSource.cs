@@ -223,6 +223,15 @@ internal static class SemanticTypeBenchmarkSource
                        }
                    }
                }
+
+               internal static partial class Native{{index}}
+               {
+                   [System.Runtime.InteropServices.LibraryImport("native")]
+                   internal static partial int Read();
+
+                   [System.Runtime.InteropServices.DllImport("native")]
+                   internal static extern partial int Read();
+               }
                """;
 
     /// <summary>Builds one clean or violating member for default-value-type-constructor analysis.</summary>

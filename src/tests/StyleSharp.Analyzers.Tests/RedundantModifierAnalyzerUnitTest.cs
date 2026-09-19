@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using RoslynCommon.Analyzers.Tests;
 using VerifyModifier = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantModifierAnalyzer,
     StyleSharp.Analyzers.RemoveModifierCodeFixProvider>;
@@ -12,6 +13,78 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1419 (remove redundant modifiers).</summary>
 public class RedundantModifierAnalyzerUnitTest
 {
+    /// <summary>Verifies the defining and implementing parts both require their partial modifiers.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task PartialMethodPartsAreCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync("""
+            public partial class C
+            {
+                public partial int M();
+            }
+
+            public partial class C
+            {
+                public partial int M() => 1;
+            }
+            """);
+
+    /// <summary>Verifies a native partial implementation preserves the declaration's required modifier.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NativePartialMethodPartsAreCleanAsync() =>
+        new VerifyModifier.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net80,
+            TestCode = """
+            using System.Runtime.InteropServices;
+
+            public static partial class NativeMethods
+            {
+                [LibraryImport("native")]
+                public static partial int GetValue();
+            }
+
+            public static partial class NativeMethods
+            {
+                [DllImport("native")]
+                public static extern partial int GetValue();
+            }
+            """,
+        }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies an optional partial method also requires its containing type to be partial.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OptionalPartialMethodIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync("""
+            public partial class C
+            {
+                partial void OnChanged();
+            }
+            """);
+
+    /// <summary>Verifies nested partial type parts do not make the containing type partial.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NestedPartialTypePartsDoNotKeepContainingTypePartialAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync("""
+            public {|SST1419:partial|} class Outer
+            {
+                private partial class Inner
+                {
+                }
+
+                private partial class Inner
+                {
+                }
+            }
+            """);
+
     /// <summary>Verifies a single-part partial declaration is reported and fixed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

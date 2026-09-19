@@ -264,12 +264,44 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
         declaration.Parent is InterfaceDeclarationSyntax
             && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword);
 
-    /// <summary>Returns whether a partial declaration has no matching part.</summary>
+    /// <summary>Returns whether a partial declaration has no matching part or required partial member.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="declaration">The declaration.</param>
-    /// <returns><see langword="true"/> when only one declaration exists.</returns>
-    private static bool IsSinglePart(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax declaration) =>
-        context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)?.DeclaringSyntaxReferences.Length == 1;
+    /// <returns><see langword="true"/> when only one declaration exists and no partial member requires the modifier.</returns>
+    private static bool IsSinglePart(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax declaration)
+    {
+        if (declaration is TypeDeclarationSyntax type && HasPartialMember(type))
+        {
+            return false;
+        }
+
+        if (declaration is not TypeDeclarationSyntax
+            && ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PartialKeyword))
+        {
+            return false;
+        }
+
+        return context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)?.DeclaringSyntaxReferences.Length == 1;
+    }
+
+    /// <summary>Returns whether an immediate member requires its containing type to be partial.</summary>
+    /// <param name="type">The type declaration.</param>
+    /// <returns><see langword="true"/> when an immediate member is partial.</returns>
+    private static bool HasPartialMember(TypeDeclarationSyntax type)
+    {
+        var members = type.Members;
+        for (var i = 0; i < members.Count; i++)
+        {
+            var member = members[i];
+            if (member is not TypeDeclarationSyntax
+                && ModifierListHelper.Contains(member.Modifiers, SyntaxKind.PartialKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Reports a redundant modifier (SST1419).</summary>
     /// <param name="context">The syntax node context.</param>

@@ -15,9 +15,31 @@ internal static class AggressiveInliningBenchmarkSource
         $$"""
            using System.Runtime.CompilerServices;
 
-           namespace Bench;
+           using TestEntry = Bench.EntryAttribute;
 
-           {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
+           namespace NUnit.Framework
+           {
+               public sealed class TestAttribute : System.Attribute { }
+               public sealed class OneTimeSetUpAttribute : System.Attribute { }
+           }
+
+           namespace Xunit
+           {
+               public class FactAttribute : System.Attribute { }
+           }
+
+           namespace Microsoft.VisualStudio.TestTools.UnitTesting
+           {
+               public sealed class TestMethodAttribute : System.Attribute { }
+           }
+
+           namespace Bench
+           {
+               public sealed class EntryAttribute : Xunit.FactAttribute { }
+               public sealed class TestAttribute : System.Attribute { }
+
+               {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
+           }
            """;
 
     /// <summary>Builds one clean or violating type.</summary>
@@ -40,6 +62,18 @@ internal static class AggressiveInliningBenchmarkSource
 
                [MethodImpl(MethodImplOptions.AggressiveInlining)]
                public int GetValue() => _value;
+
+               [NUnit.Framework.Test]
+               public int NUnitTest() => _value;
+
+               [NUnit.Framework.OneTimeSetUp]
+               public int NUnitSetup() => _value;
+
+               [TestEntry]
+               public int XunitTest() => _value;
+
+               [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethod]
+               public int MSTest() => _value;
            }
            """;
 
@@ -55,6 +89,9 @@ internal static class AggressiveInliningBenchmarkSource
                public C{{index}}(int value) => _value = value;
 
                public int GetValue() => _value;
+
+               [Test]
+               public int OrdinaryAttribute() => _value;
            }
            """;
 }

@@ -194,6 +194,14 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (declaration.AttributeLists.Count != 0
+            && (context.ContainingSymbol as IMethodSymbol
+                ?? context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)) is { } member
+            && HasTestFrameworkAttribute(member))
+        {
+            return;
+        }
+
         if (frameworkTypes.Get() is not { } options
             || options.GetMembers(AggressiveInliningMemberName).IsEmpty)
         {
@@ -208,4 +216,112 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
             identifier.GetLocation(),
             identifier.ValueText));
     }
+
+    /// <summary>Returns whether a member carries a known test framework entry point attribute.</summary>
+    /// <param name="member">The resolved member symbol.</param>
+    /// <returns><see langword="true"/> when a test or lifecycle attribute is present.</returns>
+    private static bool HasTestFrameworkAttribute(ISymbol member)
+    {
+        var attributes = member.GetAttributes();
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            if (attributes[i].AttributeClass is { } attributeType
+                && IsTestFrameworkAttribute(attributeType))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a type is a known test attribute or derives from one.</summary>
+    /// <param name="type">The resolved attribute type.</param>
+    /// <returns><see langword="true"/> when the type belongs to a supported test framework.</returns>
+    private static bool IsTestFrameworkAttribute(INamedTypeSymbol type)
+    {
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            if (IsKnownTestFrameworkAttribute(current))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a type has a supported framework namespace and attribute name.</summary>
+    /// <param name="type">The candidate attribute type.</param>
+    /// <returns><see langword="true"/> when the type is an exact supported framework attribute.</returns>
+    private static bool IsKnownTestFrameworkAttribute(INamedTypeSymbol type)
+    {
+        if (type.ContainingType is not null)
+        {
+            return false;
+        }
+
+        var containingNamespace = type.ContainingNamespace;
+        return IsNUnitTestAttribute(containingNamespace, type.Name)
+            || IsXunitTestAttribute(containingNamespace, type.Name)
+            || IsMSTestAttribute(containingNamespace, type.Name);
+    }
+
+    /// <summary>Returns whether a type is one of NUnit's test or lifecycle attributes.</summary>
+    /// <param name="containingNamespace">The type's containing namespace.</param>
+    /// <param name="name">The type name.</param>
+    /// <returns><see langword="true"/> for an exact NUnit attribute.</returns>
+    private static bool IsNUnitTestAttribute(INamespaceSymbol containingNamespace, string name) =>
+        containingNamespace is
+        {
+            Name: "Framework",
+            ContainingNamespace: { Name: "NUnit", ContainingNamespace.IsGlobalNamespace: true },
+        }
+        && name is "TestAttribute"
+            or "TestCaseAttribute"
+            or "TestCaseSourceAttribute"
+            or "TheoryAttribute"
+            or "SetUpAttribute"
+            or "TearDownAttribute"
+            or "OneTimeSetUpAttribute"
+            or "OneTimeTearDownAttribute";
+
+    /// <summary>Returns whether a type is one of xUnit's test attributes.</summary>
+    /// <param name="containingNamespace">The type's containing namespace.</param>
+    /// <param name="name">The type name.</param>
+    /// <returns><see langword="true"/> for an exact xUnit attribute.</returns>
+    private static bool IsXunitTestAttribute(INamespaceSymbol containingNamespace, string name) =>
+        containingNamespace is { Name: "Xunit", ContainingNamespace.IsGlobalNamespace: true }
+        && name is "FactAttribute" or "TheoryAttribute";
+
+    /// <summary>Returns whether a type is one of MSTest's test or lifecycle attributes.</summary>
+    /// <param name="containingNamespace">The type's containing namespace.</param>
+    /// <param name="name">The type name.</param>
+    /// <returns><see langword="true"/> for an exact MSTest attribute.</returns>
+    private static bool IsMSTestAttribute(INamespaceSymbol containingNamespace, string name) =>
+        containingNamespace is
+        {
+            Name: "UnitTesting",
+            ContainingNamespace:
+            {
+                Name: "TestTools",
+                ContainingNamespace:
+                {
+                    Name: "VisualStudio",
+                    ContainingNamespace:
+                    {
+                        Name: "Microsoft",
+                        ContainingNamespace.IsGlobalNamespace: true,
+                    },
+                },
+            },
+        }
+        && name is "TestMethodAttribute"
+            or "DataTestMethodAttribute"
+            or "TestInitializeAttribute"
+            or "TestCleanupAttribute"
+            or "ClassInitializeAttribute"
+            or "ClassCleanupAttribute"
+            or "AssemblyInitializeAttribute"
+            or "AssemblyCleanupAttribute";
 }

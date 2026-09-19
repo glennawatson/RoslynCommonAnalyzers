@@ -497,6 +497,133 @@ public class AggressiveInliningAnalyzerUnitTest
         await VerifyOptInAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies framework test and lifecycle entry points do not receive inlining hints.</summary>
+    /// <param name="attributeNamespace">The framework attribute's namespace.</param>
+    /// <param name="attributeName">The framework attribute's short name.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("NUnit.Framework", "Test")]
+    [Arguments("NUnit.Framework", "TestCase")]
+    [Arguments("NUnit.Framework", "TestCaseSource")]
+    [Arguments("NUnit.Framework", "Theory")]
+    [Arguments("NUnit.Framework", "SetUp")]
+    [Arguments("NUnit.Framework", "TearDown")]
+    [Arguments("NUnit.Framework", "OneTimeSetUp")]
+    [Arguments("NUnit.Framework", "OneTimeTearDown")]
+    [Arguments("Xunit", "Fact")]
+    [Arguments("Xunit", "Theory")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "TestMethod")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "DataTestMethod")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "TestInitialize")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "TestCleanup")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "ClassInitialize")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "ClassCleanup")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "AssemblyInitialize")]
+    [Arguments("Microsoft.VisualStudio.TestTools.UnitTesting", "AssemblyCleanup")]
+    public async Task FrameworkEntryPointIsCleanAsync(string attributeNamespace, string attributeName)
+    {
+        var source = $$"""
+                       public class C
+                       {
+                           [global::{{attributeNamespace}}.{{attributeName}}]
+                           public void Run() => System.Console.WriteLine();
+                       }
+
+                       namespace {{attributeNamespace}}
+                       {
+                           public class {{attributeName}}Attribute : System.Attribute { }
+                       }
+                       """;
+        await VerifyOptInAsync(source);
+    }
+
+    /// <summary>Verifies aliases and derived test attributes identify framework entry points.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task DerivedAliasedTestAttributeIsCleanAsync()
+    {
+        const string Source = """
+                              using Entry = Custom.EntryAttribute;
+
+                              public class C
+                              {
+                                  [Entry]
+                                  public void Run() => System.Console.WriteLine();
+                              }
+
+                              namespace Custom
+                              {
+                                  public class EntryAttribute : Xunit.FactAttribute { }
+                              }
+
+                              namespace Xunit
+                              {
+                                  public class FactAttribute : System.Attribute { }
+                              }
+                              """;
+        await VerifyOptInAsync(Source);
+    }
+
+    /// <summary>Verifies an unrelated attribute named Test does not exclude an ordinary forwarder.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task UnrelatedTestAttributeIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              using System.Runtime.CompilerServices;
+
+                              public class C
+                              {
+                                  [Custom.Test]
+                                  public int {|PSH1410:GetValue|}() => 42;
+                              }
+
+                              namespace Custom
+                              {
+                                  public class TestAttribute : System.Attribute { }
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Runtime.CompilerServices;
+
+                                   public class C
+                                   {
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       [Custom.Test]
+                                       public int GetValue() => 42;
+                                   }
+
+                                   namespace Custom
+                                   {
+                                       public class TestAttribute : System.Attribute { }
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a nested type with a framework-like name does not hide a forwarder.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task NestedFrameworkLikeTestAttributeIsFlaggedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  [global::NUnit.Framework.Wrapper.Test]
+                                  public int {|PSH1410:GetValue|}() => 42;
+                              }
+
+                              namespace NUnit.Framework
+                              {
+                                  public static class Wrapper
+                                  {
+                                      public sealed class TestAttribute : System.Attribute { }
+                                  }
+                              }
+                              """;
+        await VerifyOptInAsync(Source);
+    }
+
     /// <summary>Verifies the rule ships disabled by default; blanket inlining is an opinionated convention.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -2,7 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using RoslynCommon.Analyzers.Tests;
 using VerifyUseForOverWhile = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2287UseForOverWhileAnalyzer,
     StyleSharp.Analyzers.Sst2287UseForOverWhileCodeFixProvider>;
@@ -12,6 +18,182 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2287UseForOverWhileAnalyzer"/> and its code fix (SST2287).</summary>
 public class UseForOverWhileAnalyzerUnitTest
 {
+    /// <summary>The name used for documents created directly by these tests.</summary>
+    private const string TestFileName = "Test.cs";
+
+    /// <summary>The offset used to place a diagnostic beyond the current document.</summary>
+    private const int StaleDiagnosticOffset = 10;
+
+    /// <summary>A valid counted while loop used to exercise code-fix registration.</summary>
+    private const string ValidCountedWhileSource = "class C { void M(int n) { int i = 0; while (i < n) { System.Console.WriteLine(i); i++; } } }";
+
+    /// <summary>Verifies that a diagnostic cannot offer a rewrite after the body gains a counter assignment.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task CounterAssignmentPreventsCodeFixRegistrationAsync()
+    {
+        const string Source = "class C { void M(int n) { int i = 0; while (i < n) { i = 2; i++; } } }";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp)
+            .WithMetadataReferences(RuntimeMetadataReferences.Platform)
+            .AddDocument(TestFileName, Source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var loop = root.DescendantNodes().OfType<WhileStatementSyntax>().Single();
+        var descriptor = new Sst2287UseForOverWhileAnalyzer().SupportedDiagnostics[0];
+        var diagnostic = Diagnostic.Create(descriptor, loop.WhileKeyword.GetLocation(), "i");
+        using var container = new ContainerConfiguration().WithPart<Sst2287UseForOverWhileCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+    }
+
+    /// <summary>Verifies a cold document loads its root and semantic model when the caches are empty.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ColdDocumentOffersFixAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp)
+            .WithMetadataReferences(RuntimeMetadataReferences.Platform)
+            .AddDocument(TestFileName, ValidCountedWhileSource);
+        var start = ValidCountedWhileSource.IndexOf("while", StringComparison.Ordinal);
+        var descriptor = new Sst2287UseForOverWhileAnalyzer().SupportedDiagnostics[0];
+        var diagnostic = Diagnostic.Create(
+            descriptor,
+            Location.Create(TestFileName, new(start, "while".Length), default));
+
+        var actions = await RegisterCodeFixesAsync(document, diagnostic);
+
+        await Assert.That(actions).Count().IsEqualTo(1);
+    }
+
+    /// <summary>Verifies cached syntax and semantic models register the same fix.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task CachedDocumentOffersFixAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp)
+            .WithMetadataReferences(RuntimeMetadataReferences.Platform)
+            .AddDocument(TestFileName, ValidCountedWhileSource);
+        var root = (await document.GetSyntaxRootAsync())!;
+        _ = await document.GetSemanticModelAsync();
+        var loop = root.DescendantNodes().OfType<WhileStatementSyntax>().Single();
+        var descriptor = new Sst2287UseForOverWhileAnalyzer().SupportedDiagnostics[0];
+        var diagnostic = Diagnostic.Create(descriptor, loop.WhileKeyword.GetLocation());
+
+        var actions = await RegisterCodeFixesAsync(document, diagnostic);
+
+        await Assert.That(actions).Count().IsEqualTo(1);
+    }
+
+    /// <summary>Verifies a stale diagnostic span is ignored without loading a semantic model.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task StaleDiagnosticSpanIsIgnoredAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp)
+            .WithMetadataReferences(RuntimeMetadataReferences.Platform)
+            .AddDocument(TestFileName, ValidCountedWhileSource);
+        var descriptor = new Sst2287UseForOverWhileAnalyzer().SupportedDiagnostics[0];
+        var diagnostic = Diagnostic.Create(
+            descriptor,
+            Location.Create(TestFileName, new(ValidCountedWhileSource.Length + StaleDiagnosticOffset, 0), default));
+
+        var actions = await RegisterCodeFixesAsync(document, diagnostic);
+
+        await Assert.That(actions).IsEmpty();
+    }
+
+    /// <summary>Verifies that additional counter writes keep a self-advancing loop in while form.</summary>
+    /// <param name="statement">The body statement that can write the counter.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("i = i > 0 ? i : 1;")]
+    [Arguments("i += 2;")]
+    [Arguments("i -= 2;")]
+    [Arguments("++i;")]
+    [Arguments("i++;")]
+    [Arguments("--i;")]
+    [Arguments("i--;")]
+    [Arguments("{ i = 2; }")]
+    [Arguments("(i) = 2;")]
+    [Arguments("(i, n) = (2, 10);")]
+    [Arguments("Assign(out i);")]
+    [Arguments("Advance(ref i);")]
+    [Arguments("ref int alias = ref i; alias++;")]
+    [Arguments("if (i == 1) { i = 2; }")]
+    [Arguments("System.Action advance = () => i++; advance();")]
+    public async Task AdditionalCounterWriteIsCleanAsync(string statement)
+    {
+        var source = $$"""
+                       internal class C
+                       {
+                           public void M(int n)
+                           {
+                               int i = 0;
+                               while (i < n)
+                               {
+                                   {{statement}}
+                                   i++;
+                               }
+                           }
+
+                           private static void Assign(out int value) => value = 2;
+                           private static void Advance(ref int value) => value++;
+                       }
+                       """;
+        await VerifyUseForOverWhile.VerifyAnalyzerAsync(source);
+    }
+
+    /// <summary>Verifies that reads and writes to other symbols do not prevent gathering the counter.</summary>
+    /// <param name="statement">A statement that does not write the counter.</param>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    [Arguments("this.i++;")]
+    [Arguments("System.Action<int> advance = i => i++; advance(0);")]
+    [Arguments("Read(in i);")]
+    public async Task BodyWithoutCounterWriteIsFlaggedAndFixedAsync(string statement)
+    {
+        var source = $$"""
+                       internal class C
+                       {
+                           private int i;
+
+                           public void M(int n)
+                           {
+                               int i = 0;
+                               {|SST2287:while (i < n)|}
+                               {
+                                   {{statement}}
+                                   i++;
+                               }
+                           }
+
+                           private static void Read(in int value) { }
+                       }
+                       """;
+        var fixedSource = $$"""
+                            internal class C
+                            {
+                                private int i;
+
+                                public void M(int n)
+                                {
+                                    for (int i = 0; i < n; i++)
+                                    {
+                                        {{statement}}
+                                    }
+                                }
+
+                                private static void Read(in int value) { }
+                            }
+                            """;
+        await VerifyUseForOverWhile.VerifyCodeFixAsync(source, fixedSource);
+    }
+
     /// <summary>Verifies a counter-owning while loop is reported and gathered into a for header.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -438,4 +620,17 @@ public class UseForOverWhileAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Registers one code-fix diagnostic with the provider under test.</summary>
+    /// <param name="document">The document containing the diagnostic.</param>
+    /// <param name="diagnostic">The diagnostic to register.</param>
+    /// <returns>The code actions registered by the provider.</returns>
+    private static async Task<List<CodeAction>> RegisterCodeFixesAsync(Document document, Diagnostic diagnostic)
+    {
+        using var container = new ContainerConfiguration().WithPart<Sst2287UseForOverWhileCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        return actions;
+    }
 }

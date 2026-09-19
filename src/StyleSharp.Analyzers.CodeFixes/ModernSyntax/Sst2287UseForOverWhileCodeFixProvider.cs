@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis.CodeActions;
 
@@ -27,29 +28,62 @@ public sealed class Sst2287UseForOverWhileCodeFixProvider : CodeFixProvider
     /// <inheritdoc/>
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
+        context.CancellationToken.ThrowIfCancellationRequested();
+        if (!context.Document.TryGetSyntaxRoot(out var root))
+        {
+            root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        }
+
+        if (root is null)
         {
             return;
         }
 
+        SemanticModel? model = null;
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<WhileStatementSyntax>() is not { } loop
+            context.CancellationToken.ThrowIfCancellationRequested();
+            var span = diagnostic.Location.SourceSpan;
+            if (!root.FullSpan.Contains(span)
+                || root.FindNode(span).FirstAncestorOrSelf<WhileStatementSyntax>() is not { } loop)
+            {
+                continue;
+            }
+
+            if (model is null
+                && !context.Document.TryGetSemanticModel(out model))
+            {
+                model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+            }
+
+            if (model is null
                 || !WhileLoopCounter.TryMatch(loop, model, context.CancellationToken, out var parts))
             {
                 continue;
             }
 
             context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Convert to a for loop",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(loop.Parent!, Rewrite(loop, parts)))),
-                    nameof(Sst2287UseForOverWhileCodeFixProvider)),
+                CreateCodeAction(context.Document, root, loop, parts),
                 diagnostic);
         }
     }
+
+    /// <summary>Creates the lazy action after the loop has passed all eligibility checks.</summary>
+    /// <param name="document">The document containing the loop.</param>
+    /// <param name="root">The cached syntax root.</param>
+    /// <param name="loop">The eligible while loop.</param>
+    /// <param name="parts">The counter parts gathered for the loop.</param>
+    /// <returns>The code action that rewrites the loop when applied.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static CodeAction CreateCodeAction(
+        Document document,
+        SyntaxNode root,
+        WhileStatementSyntax loop,
+        WhileLoopCounterParts parts) =>
+        CodeAction.Create(
+            "Convert to a for loop",
+            _ => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(loop.Parent!, Rewrite(loop, parts)))),
+            nameof(Sst2287UseForOverWhileCodeFixProvider));
 
     /// <summary>Builds the enclosing block with the declaration and the loop replaced by one for statement.</summary>
     /// <param name="loop">The while statement.</param>

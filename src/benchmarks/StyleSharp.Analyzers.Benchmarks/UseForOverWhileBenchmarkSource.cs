@@ -35,6 +35,36 @@ internal static class UseForOverWhileBenchmarkSource
 
                    return total;
                }
+
+               public int JumpingCounter(int count)
+               {
+                   var total = 0;
+                   var i = 0;
+                   while (i < count)
+                   {
+                       i = i > 0 ? i + 1 : i;
+                       total += i;
+                       i++;
+                   }
+
+                   return total;
+               }
+
+               public int CounterPassedByReference(int count)
+               {
+                   var total = 0;
+                   var i = 0;
+                   while (i < count)
+                   {
+                       Advance(ref i);
+                       total += i;
+                       i++;
+                   }
+
+                   return total;
+               }
+
+               private static void Advance(ref int value) => value++;
            }
            """;
 

@@ -44,6 +44,7 @@ internal static class WhileLoopCounter
         }
 
         if (model.GetDeclaredSymbol(declarator, cancellationToken) is not ILocalSymbol counter
+            || HasCounterWrite(body, name, counter, model, cancellationToken)
             || IsReadAfter(enclosing, loop, counter, model))
         {
             return false;
@@ -51,6 +52,119 @@ internal static class WhileLoopCounter
 
         parts = new(declaration!, step!, name);
         return true;
+    }
+
+    /// <summary>Returns whether the body before its trailing step writes the counter.</summary>
+    /// <param name="body">The loop body.</param>
+    /// <param name="name">The counter's source name.</param>
+    /// <param name="counter">The declared counter symbol.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when an assignment, increment, or by-reference argument can write the counter.</returns>
+    private static bool HasCounterWrite(
+        BlockSyntax body,
+        string name,
+        ILocalSymbol counter,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        var statements = body.Statements;
+        for (var i = 0; i < statements.Count - 1; i++)
+        {
+            if (ContainsCounterWrite(statements[i], name, counter, model, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Scans one statement for a write to the declared counter.</summary>
+    /// <param name="node">The syntax node to inspect.</param>
+    /// <param name="name">The counter's source name.</param>
+    /// <param name="counter">The declared counter symbol.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the node can write the counter.</returns>
+    private static bool ContainsCounterWrite(
+        SyntaxNode node,
+        string name,
+        ILocalSymbol counter,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        if (GetWriteTarget(node) is { } target
+            && IsCounterTarget(target, name, counter, model, cancellationToken))
+        {
+            return true;
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            if (children[i].AsNode() is { } child
+                && ContainsCounterWrite(child, name, counter, model, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets the expression written by a syntax node, when it has a write target.</summary>
+    /// <param name="node">The syntax node to inspect.</param>
+    /// <returns>The written expression, or <see langword="null"/> when the node does not write a variable.</returns>
+    private static ExpressionSyntax? GetWriteTarget(SyntaxNode node) => node switch
+    {
+        AssignmentExpressionSyntax assignment => assignment.Left,
+        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression } prefix => prefix.Operand,
+        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression } postfix => postfix.Operand,
+        ArgumentSyntax { RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword or (int)SyntaxKind.OutKeyword } argument => argument.Expression,
+        RefExpressionSyntax reference => reference.Expression,
+        _ => null,
+    };
+
+    /// <summary>Returns whether an assignment target resolves to the loop counter.</summary>
+    /// <param name="target">The target expression.</param>
+    /// <param name="name">The counter's source name.</param>
+    /// <param name="counter">The declared counter symbol.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns><see langword="true"/> when the target resolves to the counter.</returns>
+    private static bool IsCounterTarget(
+        ExpressionSyntax target,
+        string name,
+        ILocalSymbol counter,
+        SemanticModel model,
+        CancellationToken cancellationToken)
+    {
+        switch (target)
+        {
+            case IdentifierNameSyntax identifier:
+                return string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal)
+                    && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, counter);
+            case ParenthesizedExpressionSyntax parenthesized:
+                return IsCounterTarget(parenthesized.Expression, name, counter, model, cancellationToken);
+            case RefExpressionSyntax reference:
+                return IsCounterTarget(reference.Expression, name, counter, model, cancellationToken);
+            case TupleExpressionSyntax tuple:
+            {
+                var arguments = tuple.Arguments;
+                for (var i = 0; i < arguments.Count; i++)
+                {
+                    if (IsCounterTarget(arguments[i].Expression, name, counter, model, cancellationToken))
+                    {
+                        return true;
+                    }
+                }
+
+                break;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Gets the single initialized local declared immediately above the loop.</summary>

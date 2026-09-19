@@ -130,6 +130,175 @@ public class Sst1440PrivateMemberUsageAnalyzerTests
             }
             """);
 
+    /// <summary>Verifies extension calls preserve the underlying private method.</summary>
+    /// <param name="invocation">The extension method invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("input.Decorate()")]
+    [Arguments("input?.Decorate()")]
+    [Arguments("Decorate(input)")]
+    public Task ExtensionInvocationKeepsMethodAsync(string invocation) =>
+        Verify.VerifyAnalyzerAsync($$"""
+            internal static class Demo
+            {
+                internal static string Use(string input) => {{invocation}};
+                private static string Decorate(this string value) => $"<{value}>";
+                private static string {|SST1440:Decorate|}(this string value, int count) => value;
+            }
+            """);
+
+    /// <summary>Verifies constructed reduced methods preserve their generic declaration.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task GenericExtensionInvocationKeepsMethodAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            internal static class Demo
+            {
+                internal static int Use(int input) => input.Identity();
+                private static T Identity<T>(this T value) => value;
+            }
+            """);
+
+    /// <summary>Verifies TestCaseSource keeps its named source method.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task TestCaseSourceNameofKeepsMethodAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Collections.Generic;
+            using NUnit.Framework;
+
+            public class Demo
+            {
+                private static IEnumerable<int> CaseSource() => new[] { 1, 2, 3 };
+
+                [TestCaseSource(nameof(CaseSource))]
+                public void Case(int value) { }
+            }
+
+            namespace NUnit.Framework
+            {
+                [AttributeUsage(AttributeTargets.Method)]
+                public sealed class TestCaseSourceAttribute : Attribute
+                {
+                    public TestCaseSourceAttribute(string name) { }
+                }
+            }
+            """);
+
+    /// <summary>Verifies a qualified nameof source reference keeps its provider.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task QualifiedTestCaseSourceNameofKeepsMethodAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Collections.Generic;
+            using NUnit.Framework;
+
+            public class Demo
+            {
+                private static IEnumerable<int> QualifiedSource() => new[] { 1, 2, 3 };
+
+                [TestCaseSource(nameof(Demo.QualifiedSource))]
+                public void Case(int value) { }
+            }
+
+            namespace NUnit.Framework
+            {
+                [AttributeUsage(AttributeTargets.Method)]
+                public sealed class TestCaseSourceAttribute : Attribute
+                {
+                    public TestCaseSourceAttribute(string name) { }
+                }
+            }
+            """);
+
+    /// <summary>Verifies every overload in a nameof source group is retained.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OverloadedTestCaseSourceNameofKeepsMethodsAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Collections.Generic;
+            using NUnit.Framework;
+
+            public class Demo
+            {
+                private static IEnumerable<int> OverloadedSource() => new[] { 1, 2, 3 };
+                private static IEnumerable<int> OverloadedSource(int count) => new[] { count };
+
+                [TestCaseSource(nameof(OverloadedSource))]
+                public void Case(int value) { }
+            }
+
+            namespace NUnit.Framework
+            {
+                [AttributeUsage(AttributeTargets.Method)]
+                public sealed class TestCaseSourceAttribute : Attribute
+                {
+                    public TestCaseSourceAttribute(string name) { }
+                }
+            }
+            """);
+
+    /// <summary>Verifies ValueSource keeps its named parameter source.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ValueSourceNameofKeepsMethodAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Collections.Generic;
+            using NUnit.Framework;
+
+            public class Demo
+            {
+                private static IEnumerable<int> ValueSource() => new[] { 1, 2, 3 };
+
+                public void Value([ValueSource(nameof(ValueSource))] int value) { }
+            }
+
+            namespace NUnit.Framework
+            {
+                [AttributeUsage(AttributeTargets.Parameter)]
+                public sealed class ValueSourceAttribute : Attribute
+                {
+                    public ValueSourceAttribute(string name) { }
+                }
+            }
+            """);
+
+    /// <summary>Verifies TestFixtureSource keeps its named fixture source.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task TestFixtureSourceNameofKeepsMethodAsync() =>
+        Verify.VerifyAnalyzerAsync("""
+            using System;
+            using System.Collections.Generic;
+            using NUnit.Framework;
+
+            [TestFixtureSource(nameof(FixtureSource))]
+            public class Demo
+            {
+                private static IEnumerable<int> FixtureSource() => new[] { 1, 2, 3 };
+            }
+
+            namespace NUnit.Framework
+            {
+                [AttributeUsage(AttributeTargets.Class)]
+                public sealed class TestFixtureSourceAttribute : Attribute
+                {
+                    public TestFixtureSourceAttribute(string name) { }
+                }
+            }
+            """);
+
     /// <summary>Verifies an entry point is preserved while unrelated private members are still reported.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

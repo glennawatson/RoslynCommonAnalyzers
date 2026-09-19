@@ -54,6 +54,22 @@ internal static class PrivateMemberUsageBenchmarkSource
                       Used();
                       return _value;
                   }
+
+                  private static int Cases() => 1;
+
+                  private static int Cases(int value) => value;
+
+                  [System.ComponentModel.Description(nameof(Cases))]
+                  public void TestSource() { }
+              }
+
+              internal static class Extensions{{index}}
+              {
+                  private static T Echo{{index}}<T>(this T value) => value;
+
+                  public static string Call(string value) => value.Echo{{index}}();
+
+                  public static string ConditionalCall(string value) => value?.Echo{{index}}();
               }
               """;
 }

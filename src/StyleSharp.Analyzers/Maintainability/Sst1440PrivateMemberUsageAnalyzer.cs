@@ -95,14 +95,26 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     {
         var usage = new PrivateTypeUsage(shared: false);
         CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
-        CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
         var candidates = usage.Candidates;
         if (candidates.Count == 0)
         {
             return;
         }
 
-        MarkReferences(candidates, usage.References, context.CancellationToken);
+        if (candidates.Count == 1)
+        {
+            CollectSingleCandidateReferences(
+                typeDeclaration,
+                context.SemanticModel,
+                candidates[0],
+                context.CancellationToken);
+        }
+        else
+        {
+            CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
+            MarkReferences(candidates, usage.References, context.CancellationToken);
+        }
+
         ReportCandidates(context.ReportDiagnostic, candidates, context.SemanticModel.Compilation.GetEntryPoint(context.CancellationToken));
     }
 
@@ -301,10 +313,19 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
                     return true;
                 }
 
-                var symbol = current.Model.GetSymbolInfo(simpleName, current.CancellationToken).Symbol;
-                if (symbol is not null)
+                var symbolInfo = current.Model.GetSymbolInfo(simpleName, current.CancellationToken);
+                if (symbolInfo.Symbol is { } symbol)
                 {
                     current.Usage.AddMemberReference(new(symbol, simpleName));
+                }
+                else if (IsNameofOperand(simpleName)
+                    && symbolInfo.CandidateReason == CandidateReason.MemberGroup)
+                {
+                    var candidates = symbolInfo.CandidateSymbols;
+                    for (var i = 0; i < candidates.Length; i++)
+                    {
+                        current.Usage.AddMemberReference(new(candidates[i], simpleName));
+                    }
                 }
 
                 return true;
@@ -315,9 +336,18 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="reference">The symbol resolved at the reference site.</param>
     /// <param name="candidate">The candidate declaration symbol.</param>
     /// <returns><see langword="true"/> when the symbols represent the same member.</returns>
-    private static bool SymbolMatches(ISymbol reference, ISymbol candidate) =>
-        SymbolEqualityComparer.Default.Equals(reference, candidate)
-            || SymbolEqualityComparer.Default.Equals(reference.OriginalDefinition, candidate.OriginalDefinition);
+    private static bool SymbolMatches(ISymbol reference, ISymbol candidate)
+    {
+        if (SymbolEqualityComparer.Default.Equals(reference, candidate))
+        {
+            return true;
+        }
+
+        var referenceDefinition = reference is IMethodSymbol { ReducedFrom: { } reducedFrom }
+            ? reducedFrom.OriginalDefinition
+            : reference.OriginalDefinition;
+        return SymbolEqualityComparer.Default.Equals(referenceDefinition, candidate.OriginalDefinition);
+    }
 
     /// <summary>Updates read/write state for one reference.</summary>
     /// <param name="candidate">The candidate member.</param>
@@ -410,6 +440,74 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <summary>Collects and marks references for a type with one private candidate.</summary>
+    /// <param name="typeDeclaration">The type declaration.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="candidate">The single candidate member.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    private static void CollectSingleCandidateReferences(
+        TypeDeclarationSyntax typeDeclaration,
+        SemanticModel model,
+        PrivateMemberCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        var scan = new SingleCandidateReferenceScan(candidate, model, candidate.Symbol.Name, cancellationToken);
+        _ = DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, SingleCandidateReferenceScan>(
+            typeDeclaration,
+            ref scan,
+            VisitSingleCandidateReference);
+    }
+
+    /// <summary>Visits one name for the single-candidate scan.</summary>
+    /// <param name="name">The visited simple name.</param>
+    /// <param name="scan">The scan state.</param>
+    /// <returns><see langword="true"/> to continue scanning; otherwise, <see langword="false"/>.</returns>
+    private static bool VisitSingleCandidateReference(SimpleNameSyntax name, ref SingleCandidateReferenceScan scan)
+    {
+        scan.CancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(name.Identifier.ValueText, scan.CandidateName, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var symbolInfo = scan.Model.GetSymbolInfo(name, scan.CancellationToken);
+        if (symbolInfo.Symbol is { } symbol)
+        {
+            MarkSingleCandidateReference(scan.Candidate, symbol, name);
+        }
+        else if (symbolInfo.CandidateReason == CandidateReason.MemberGroup
+            && IsNameofOperand(name))
+        {
+            var candidates = symbolInfo.CandidateSymbols;
+            for (var i = 0; i < candidates.Length; i++)
+            {
+                MarkSingleCandidateReference(scan.Candidate, candidates[i], name);
+                if (scan.Candidate.Read)
+                {
+                    break;
+                }
+            }
+        }
+
+        return !scan.Candidate.Read;
+    }
+
+    /// <summary>Marks a resolved symbol when it is the candidate and not its declaration.</summary>
+    /// <param name="candidate">The candidate member.</param>
+    /// <param name="symbol">The resolved symbol.</param>
+    /// <param name="name">The referenced syntax name.</param>
+    private static void MarkSingleCandidateReference(
+        PrivateMemberCandidate candidate,
+        ISymbol symbol,
+        SimpleNameSyntax name)
+    {
+        if (SymbolMatches(symbol, candidate.Symbol)
+            && !IsInsideDeclaration(name, candidate.Declaration))
+        {
+            MarkReference(candidate, name);
+        }
+    }
+
     /// <summary>Marks candidate references found across the type declarations.</summary>
     /// <param name="candidates">The candidate list.</param>
     /// <param name="references">The collected references.</param>
@@ -464,6 +562,21 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     private static bool IsInsideDeclaration(SyntaxNode name, SyntaxNode declaration) =>
         name.FirstAncestorOrSelf<MemberDeclarationSyntax>() == declaration;
 
+    /// <summary>Returns whether a simple name is the direct operand of <c>nameof</c>.</summary>
+    /// <param name="name">The simple name.</param>
+    /// <returns><see langword="true"/> when the name appears in a <c>nameof</c> argument.</returns>
+    private static bool IsNameofOperand(SimpleNameSyntax name) =>
+        name.FirstAncestorOrSelf<ArgumentSyntax>() is { } argument
+            && argument.Parent is ArgumentListSyntax
+            {
+                Arguments.Count: 1,
+                Parent: InvocationExpressionSyntax
+                {
+                    Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" },
+                },
+            }
+            && argument.Expression.Span.Contains(name.Span);
+
     /// <summary>Gets whether a field-like reference reads, writes, or both.</summary>
     /// <param name="name">The referenced name.</param>
     /// <returns>The usage kind.</returns>
@@ -499,4 +612,15 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
             (int)SyntaxKind.RefKeyword or (int)SyntaxKind.InKeyword => ValueUsages.ReadWrite,
             _ => ValueUsages.Read
         };
+
+    /// <summary>Carries state for the single-candidate reference scan.</summary>
+    /// <param name="Candidate">The candidate member.</param>
+    /// <param name="Model">The semantic model.</param>
+    /// <param name="CandidateName">The candidate's source name.</param>
+    /// <param name="CancellationToken">The cancellation token.</param>
+    private readonly record struct SingleCandidateReferenceScan(
+        PrivateMemberCandidate Candidate,
+        SemanticModel Model,
+        string CandidateName,
+        CancellationToken CancellationToken);
 }

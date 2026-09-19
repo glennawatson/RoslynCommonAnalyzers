@@ -113,6 +113,7 @@ dotnet_diagnostic.SST1104.severity = warning # Query clause should begin on a ne
 dotnet_diagnostic.SST1105.severity = warning # Query clauses spanning multiple lines should begin on their own line
 dotnet_diagnostic.SST1106.severity = warning # Code should not contain empty statements
 dotnet_diagnostic.SST1107.severity = warning # Code should not contain multiple statements on one line
+# dotnet_diagnostic.SST1108.severity = warning # A source file contains only commented-out C# code (opt-in)
 dotnet_diagnostic.SST1110.severity = warning # Opening parenthesis or bracket should be on the declaration line
 dotnet_diagnostic.SST1111.severity = warning # Closing parenthesis or bracket should be on the line of the last parameter
 dotnet_diagnostic.SST1112.severity = warning # Closing parenthesis should be on the line of the opening parenthesis when the list is empty

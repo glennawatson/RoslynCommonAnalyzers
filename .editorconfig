@@ -907,6 +907,7 @@ dotnet_diagnostic.SST1104.severity = error # A query clause shares the last line
 dotnet_diagnostic.SST1105.severity = error # A multi-line query clause does not begin on its own line
 dotnet_diagnostic.SST1106.severity = error # A statement is empty (a stray semicolon)
 dotnet_diagnostic.SST1107.severity = error # More than one statement shares a line
+dotnet_diagnostic.SST1108.severity = error # A source file contains only commented-out C# code
 dotnet_diagnostic.SST1110.severity = error # An opening parenthesis or bracket does not sit on the line of the preceding code
 dotnet_diagnostic.SST1111.severity = error # A closing parenthesis or bracket does not sit on the last parameter's line
 dotnet_diagnostic.SST1112.severity = error # An empty parameter list's closing parenthesis is on a different line

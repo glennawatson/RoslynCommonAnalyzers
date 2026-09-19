@@ -806,6 +806,7 @@ type, so a project that does not use the framework pays nothing.
 | [SST1105](rules/SST1105.md) | A multi-line query clause does not begin on its own line. |
 | [SST1106](rules/SST1106.md) | A statement is empty. |
 | [SST1107](rules/SST1107.md) | More than one statement shares a line. |
+| [SST1108](rules/SST1108.md) | A source file contains only commented-out C# code. Opt-in. |
 | [SST1110](rules/SST1110.md) | An opening parenthesis or bracket does not sit on the line of the preceding code. |
 | [SST1111](rules/SST1111.md) | A closing parenthesis or bracket does not sit on the last parameter's line. |
 | [SST1112](rules/SST1112.md) | An empty parameter list's closing parenthesis is on a different line. |

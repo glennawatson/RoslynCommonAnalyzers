@@ -33,6 +33,13 @@ internal static class NoConsoleOutputBenchmarkSource
            public sealed class C{{index}}
            {
                public void M(System.IO.TextWriter writer) => writer.WriteLine("text");
+
+               public void ThroughCustomWriter() => Console.Out.WriteLine("text");
+
+               private static class Console
+               {
+                   public static System.IO.TextWriter Out => System.IO.TextWriter.Null;
+               }
            }
            """;
 
@@ -44,6 +51,10 @@ internal static class NoConsoleOutputBenchmarkSource
            public sealed class C{{index}}
            {
                public void M() => System.Console.WriteLine("text");
+
+               public void ThroughOutput() => System.Console.Out.WriteLine("text");
+
+               public void ThroughError() => System.Console.Error.Write("text");
            }
            """;
 }

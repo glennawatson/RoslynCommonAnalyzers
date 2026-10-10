@@ -43,7 +43,7 @@ jobs:
           queries: security-extended
 
       - name: Build
-        uses: glennawatson/actions-common/.github/actions/dotnet-build@ccd848765a7faee125e5e09b60acb86f34f9adc5 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 

@@ -33,11 +33,11 @@ jobs:
         uses: ./.github/actions/dotnet-environment
 
       - name: Build
-        uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@ccd848765a7faee125e5e09b60acb86f34f9adc5 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: Test
-        uses: glennawatson/actions-common/.github/actions/dotnet-test@main
+        uses: glennawatson/actions-common/.github/actions/dotnet-test@ccd848765a7faee125e5e09b60acb86f34f9adc5 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx

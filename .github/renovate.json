@@ -97,6 +97,13 @@
       "groupName": "GitHub Actions"
     },
     {
+      "description": "Keep shared actions pinned to a commit while tracking main through the ref comment.",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["glennawatson/actions-common"],
+      "pinDigests": true,
+      "groupName": "shared GitHub Actions"
+    },
+    {
       "description": "Pinning names the group it pins rather than the generic dependencies topic.",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["pin", "pinDigest"],

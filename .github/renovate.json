@@ -81,6 +81,12 @@
       "dependencyDashboardApproval": true
     },
     {
+      "description": "The current stable BenchmarkDotNet cannot run .NET 11 benchmarks; track previews until stable support ships.",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["BenchmarkDotNet"],
+      "ignoreUnstable": false
+    },
+    {
       "description": "Still a release candidate, so unstable versions are the only ones on offer.",
       "matchManagers": ["custom.regex"],
       "matchPackageNames": ["/^Microsoft\\.NETCore\\.App\\.Ref$/"],

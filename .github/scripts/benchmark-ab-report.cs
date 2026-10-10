@@ -188,7 +188,7 @@ internal static partial class BenchmarkReport
             return results;
         }
 
-        foreach (var path in Directory.EnumerateFiles(folder, "*full.json", SearchOption.AllDirectories))
+        foreach (var path in Directory.EnumerateFiles(folder, "*-report-full*.json", SearchOption.AllDirectories))
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
 

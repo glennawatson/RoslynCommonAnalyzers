@@ -1,116 +1,49 @@
 name: .NET Environment Setup
-description: |
-  Set up the .NET SDKs and the CLI environment, and stamp the version with MinVer. The version is computed from the
-  latest reachable release tag, or the minver-minimum-major-minor floor when none is reachable.
+description: Set up the shared .NET environment with this repository's SDK and version defaults.
 
 inputs:
   dotnet-versions:
-    description: 'Newline-separated list of .NET SDK versions'
-    required: false
+    description: 'SDKs for the test targets. Action scripts use .NET 11.'
     default: |
-      8.0.x
       10.0.x
       11.0.x
   stamp-version:
-    description: 'Stamp the version with MinVer. Set false for a job with no checkout, or one that stamps the version itself later.'
-    required: false
+    description: 'Stamp the version with MinVer.'
     default: 'true'
   minver-tag-prefix:
-    description: 'Tag prefix for MinVer. Release tags here are bare (4.2.2), so the default is empty.'
-    required: false
+    description: 'Release tags are bare versions.'
     default: ''
   minver-minimum-major-minor:
-    description: 'MinVer floor major.minor when no tag is reachable.'
-    required: false
+    description: 'MinVer floor when no tag is reachable.'
     default: '1.0'
   minver-default-pre-release-identifiers:
-    description: 'MinVer pre-release identifiers for height-only builds.'
-    required: false
+    description: 'Pre-release identifiers for height-only builds.'
     default: 'alpha.0'
   minver-auto-increment:
-    description: 'MinVer auto-increment segment (major|minor|patch).'
-    required: false
+    description: 'Version segment to increment.'
     default: 'patch'
   minver-version-override:
-    description: 'Exact version to stamp, bypassing the MinVer git walk. Empty = compute from tags as normal.'
-    required: false
+    description: 'Exact version to stamp.'
     default: ''
 
 outputs:
   version-semver2:
-    description: 'MinVer SemVer2 version string.'
-    value: ${{ steps.minver.outputs.SemVer2 }}
+    description: 'MinVer SemVer2 version.'
+    value: ${{ steps.environment.outputs.version-semver2 }}
 
 runs:
   using: composite
   steps:
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+    - name: Setup shared .NET environment
+      id: environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
       with:
-        dotnet-version: ${{ inputs.dotnet-versions }}
-
-    - name: Configure .NET CLI environment
-      shell: bash
-      run: |
-        cd "$RUNNER_TEMP" && dotnet run - <<'CS'
-        using static System.Environment;
-
-        File.AppendAllLines(GetEnvironmentVariable("GITHUB_ENV")!, ["DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1", "DOTNET_NOLOGO=1", "DOTNET_CLI_TELEMETRY_OPTOUT=1"]);
-        CS
-
-    - name: Configure Windows Defender exclusions
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        cd "$RUNNER_TEMP" && dotnet run - <<'CS'
-        #:package System.Management@*
-        #:property PublishAot=false
-
-        using System.Management;
-        using System.Runtime.Versioning;
-        using static System.Environment;
-
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        // Real-time scanning of build output is a large share of Windows build time. Best-effort.
-        AddExclusions(
-            "ExclusionPath",
-            [
-                GetEnvironmentVariable("GITHUB_WORKSPACE")!,
-                GetEnvironmentVariable("DOTNET_ROOT")!,
-                GetEnvironmentVariable("RUNNER_TEMP")!,
-                Path.Combine(GetFolderPath(SpecialFolder.UserProfile), ".nuget"),
-            ]);
-        AddExclusions("ExclusionProcess", ["dotnet.exe", "MSBuild.exe", "VBCSCompiler.exe"]);
-
-        [SupportedOSPlatform("windows")]
-        static void AddExclusions(string preference, string[] values)
-        {
-            try
-            {
-                using var preferences = new ManagementClass(@"root\Microsoft\Windows\Defender", "MSFT_MpPreference", null);
-                using var parameters = preferences.GetMethodParameters("Add");
-                parameters[preference] = values;
-                preferences.InvokeMethod("Add", parameters, null);
-                Console.WriteLine($"Defender {preference}: {string.Join(", ", values)}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Skipped Defender {preference} ({ex.Message})");
-            }
-        }
-        CS
-
-    - name: Stamp version with MinVer
-      id: minver
-      if: inputs.stamp-version == 'true'
-      uses: ./.github/actions/minver
-      with:
-        tag-prefix: ${{ inputs.minver-tag-prefix }}
-        minimum-major-minor: ${{ inputs.minver-minimum-major-minor }}
-        default-pre-release-identifiers: ${{ inputs.minver-default-pre-release-identifiers }}
-        auto-increment: ${{ inputs.minver-auto-increment }}
-        version-override: ${{ inputs.minver-version-override }}
+        dotnet-versions: ${{ inputs.dotnet-versions }}
+        src-folder: src
+        solution-file: RoslynCommonAnalyzers.slnx
+        stamp-version: ${{ inputs.stamp-version }}
+        minver-tag-prefix: ${{ inputs.minver-tag-prefix }}
+        minver-minimum-major-minor: ${{ inputs.minver-minimum-major-minor }}
+        minver-default-pre-release-identifiers: ${{ inputs.minver-default-pre-release-identifiers }}
+        minver-auto-increment: ${{ inputs.minver-auto-increment }}
+        minver-version-override: ${{ inputs.minver-version-override }}

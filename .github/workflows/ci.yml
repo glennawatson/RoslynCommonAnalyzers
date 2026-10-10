@@ -3,10 +3,8 @@ name: Build
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
   pull_request:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
 
 permissions:
   contents: read
@@ -35,11 +33,11 @@ jobs:
         uses: ./.github/actions/dotnet-environment
 
       - name: Build
-        uses: ./.github/actions/dotnet-build
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: Test
-        uses: ./.github/actions/dotnet-test
+        uses: glennawatson/actions-common/.github/actions/dotnet-test@main
         with:
           solution-file: RoslynCommonAnalyzers.slnx

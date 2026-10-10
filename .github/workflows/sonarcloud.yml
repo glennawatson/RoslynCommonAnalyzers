@@ -69,7 +69,7 @@ jobs:
 
       - name: SonarCloud end
         # A failed build or test still uploads partial analysis.
-        if: always() && steps.sonar-begin.outcome == 'success'
+        if: ${{ !cancelled() && steps.sonar-begin.outcome == 'success' }}
         uses: glennawatson/actions-common/.github/actions/sonarcloud@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           mode: end

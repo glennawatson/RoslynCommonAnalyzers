@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyToken = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -651,6 +652,36 @@ public class Psh1317CancellationTokenOverloadUnitTest
                               """;
         await VerifyNet90Async(Source, Source);
     }
+
+    /// <summary>Verifies a cancellation wrapper can call its core without recursive forwarding.</summary>
+    /// <param name="members">The wrapper and synchronous core declarations.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("static int Read() => 1; static int Read(CancellationToken token) { token.ThrowIfCancellationRequested(); return Read(); }")]
+    [Arguments("int Read() => 1; int Read(CancellationToken token) => Read();")]
+    [Arguments("int Read() => 1; int Read(CancellationToken token = default) => Read();")]
+    [Arguments("int Read() => 1; int Read(CancellationToken token) { System.Func<int> core = () => Read(); return core(); }")]
+    public Task EnclosingCancellationOverloadIsCleanAsync(string members)
+    {
+        var source = $"using System.Threading; class C {{ {members} }}";
+        return VerifyNet90Async(source, source);
+    }
+
+    /// <summary>Verifies excluding a wrapper does not hide another valid cancellation overload.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DistinctCancellationOverloadIsStillFixedAsync() => VerifyNet90Async(
+        "using System.Threading; class C { int Read() => 1; int Read(int value = 0, CancellationToken token = default) => {|PSH1317:Read()|}; int Read(CancellationToken token) => 1; }",
+        "using System.Threading; class C { int Read() => 1; int Read(int value = 0, CancellationToken token = default) => Read(token); int Read(CancellationToken token) => 1; }");
+
+    /// <summary>Verifies a wrapper's cached result does not suppress calls from other methods.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task WrapperAndOtherCallerShareTheOverloadCacheAsync() => VerifyNet90Async(
+        "using System.Threading; class C { int Read() => 1; int Read(CancellationToken token) => Read(); int Other(CancellationToken token) => {|PSH1317:Read()|}; }",
+        "using System.Threading; class C { int Read() => 1; int Read(CancellationToken token) => Read(); int Other(CancellationToken token) => Read(token); }");
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>

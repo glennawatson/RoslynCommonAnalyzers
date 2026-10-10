@@ -79,7 +79,7 @@ public sealed class Psh1317PassCancellationTokenAnalyzer : DiagnosticAnalyzer
         private INamedTypeSymbol?[]? _resolved;
 
         /// <summary>The shared overload cache, allocated only when a token type is available.</summary>
-        private ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?>? _targets;
+        private ConcurrentDictionary<ISymbol, ImmutableArray<CancellationTokenOverload.TokenTarget>>? _targets;
 
         /// <summary>Gets the cached token type, resolving it on first use.</summary>
         /// <returns>The token type, or <see langword="null"/> when absent.</returns>
@@ -88,7 +88,7 @@ public sealed class Psh1317PassCancellationTokenAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets the single shared overload cache, publishing it atomically on first use.</summary>
         /// <returns>The per-compilation overload cache.</returns>
-        public ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?> GetTargets()
+        public ConcurrentDictionary<ISymbol, ImmutableArray<CancellationTokenOverload.TokenTarget>> GetTargets()
         {
             var targets = Volatile.Read(ref _targets);
             if (targets is null)

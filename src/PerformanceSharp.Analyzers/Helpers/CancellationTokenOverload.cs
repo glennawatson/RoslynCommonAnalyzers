@@ -32,7 +32,7 @@ internal static class CancellationTokenOverload
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol tokenType,
-        ConcurrentDictionary<ISymbol, TokenTarget?>? cache,
+        ConcurrentDictionary<ISymbol, ImmutableArray<TokenTarget>>? cache,
         CancellationToken cancellationToken)
     {
         if (CancellationTokenScope.TryFindInScope(invocation) is not { } parameter
@@ -41,18 +41,8 @@ internal static class CancellationTokenOverload
             return null;
         }
 
-        if (Resolve(called, tokenType, cache) is not { } target)
-        {
-            return null;
-        }
-
-        var isSameMethod = SymbolEqualityComparer.Default.Equals(target.Method, called);
-        if (isSameMethod && IsSupplied(invocation.ArgumentList.Arguments, target.Method.Parameters[target.TokenIndex].Name, target.TokenIndex))
-        {
-            return null;
-        }
-
-        if (!isSameMethod && !model.IsAccessible(invocation.SpanStart, target.Method))
+        var targets = Resolve(called, tokenType, cache);
+        if (TrySelectTarget(model, invocation, called, targets, cancellationToken) is not { } target)
         {
             return null;
         }
@@ -62,12 +52,62 @@ internal static class CancellationTokenOverload
             : null;
     }
 
-    /// <summary>Resolves a call's token target, reusing the per-compilation cache when one was supplied.</summary>
+    /// <summary>Selects an accessible token target that does not introduce recursive forwarding.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="invocation">The call being inspected.</param>
+    /// <param name="called">The method the call resolves to.</param>
+    /// <param name="targets">The cached token targets.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>A usable target, or null when none qualifies.</returns>
+    private static TokenTarget? TrySelectTarget(
+        SemanticModel model,
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol called,
+        ImmutableArray<TokenTarget> targets,
+        CancellationToken cancellationToken)
+    {
+        ISymbol? enclosing = null;
+        foreach (var target in targets)
+        {
+            var isSameMethod = SymbolEqualityComparer.Default.Equals(target.Method, called);
+            if (isSameMethod)
+            {
+                return IsSupplied(invocation.ArgumentList.Arguments, target.Method.Parameters[target.TokenIndex].Name, target.TokenIndex) ? null : target;
+            }
+
+            enclosing ??= model.GetEnclosingSymbol(invocation.SpanStart, cancellationToken);
+            if (!IsEnclosingMethod(target.Method, enclosing) && model.IsAccessible(invocation.SpanStart, target.Method))
+            {
+                return target;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Returns whether selecting an overload would redirect a core call into its wrapper.</summary>
+    /// <param name="target">The cancellation overload being considered.</param>
+    /// <param name="enclosing">The symbol enclosing the call site.</param>
+    /// <returns>True when the overload encloses the call, including calls inside nested functions.</returns>
+    private static bool IsEnclosingMethod(IMethodSymbol target, ISymbol? enclosing)
+    {
+        for (var current = enclosing; current is not null; current = current.ContainingSymbol)
+        {
+            if (SymbolEqualityComparer.Default.Equals(target.OriginalDefinition, current.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Resolves a call's token targets, reusing the per-compilation cache when one was supplied.</summary>
     /// <param name="called">The bound method.</param>
     /// <param name="tokenType">The cancellation token type resolved for the compilation.</param>
     /// <param name="cache">The per-compilation resolution cache, or <see langword="null"/> to resolve without memoizing.</param>
-    /// <returns>The token target, or <see langword="null"/> when the call has no cancellable form.</returns>
-    private static TokenTarget? Resolve(IMethodSymbol called, INamedTypeSymbol tokenType, ConcurrentDictionary<ISymbol, TokenTarget?>? cache)
+    /// <returns>The token targets, empty when the call has no cancellable form.</returns>
+    private static ImmutableArray<TokenTarget> Resolve(IMethodSymbol called, INamedTypeSymbol tokenType, ConcurrentDictionary<ISymbol, ImmutableArray<TokenTarget>>? cache)
     {
         if (cache is null)
         {
@@ -86,14 +126,14 @@ internal static class CancellationTokenOverload
     /// <summary>Resolves the method that would receive the token: the called one, or a sibling overload.</summary>
     /// <param name="called">The bound method.</param>
     /// <param name="tokenType">The cancellation token type resolved for the compilation.</param>
-    /// <returns>The token target, or <see langword="null"/> when neither shape applies.</returns>
-    private static TokenTarget? TryResolveTarget(IMethodSymbol called, INamedTypeSymbol tokenType)
+    /// <returns>The token targets, empty when neither shape applies.</returns>
+    private static ImmutableArray<TokenTarget> TryResolveTarget(IMethodSymbol called, INamedTypeSymbol tokenType)
     {
         var index = IndexOfSoleToken(called.Parameters, tokenType);
         if (index >= 0)
         {
             // A required token parameter was necessarily supplied, or the call would not have bound.
-            return called.Parameters[index].IsOptional ? new TokenTarget(called, index) : null;
+            return called.Parameters[index].IsOptional ? ImmutableArrays.Of(new TokenTarget(called, index)) : ImmutableArray<TokenTarget>.Empty;
         }
 
         // An overload search compares against the sibling's own parameter list, which only lines up with the
@@ -101,15 +141,16 @@ internal static class CancellationTokenOverload
         // and a generic method's type parameters belong to the method that declared them.
         return called.MethodKind == MethodKind.Ordinary && !called.IsGenericMethod
             ? TryResolveOverload(called, tokenType)
-            : null;
+            : ImmutableArray<TokenTarget>.Empty;
     }
 
     /// <summary>Searches the called method's type for an overload that takes a token and accepts the same arguments.</summary>
     /// <param name="called">The bound method.</param>
     /// <param name="tokenType">The cancellation token type resolved for the compilation.</param>
-    /// <returns>The overload target, or <see langword="null"/> when the type has none that fits.</returns>
-    private static TokenTarget? TryResolveOverload(IMethodSymbol called, INamedTypeSymbol tokenType)
+    /// <returns>The overload targets, empty when the type has none that fits.</returns>
+    private static ImmutableArray<TokenTarget> TryResolveOverload(IMethodSymbol called, INamedTypeSymbol tokenType)
     {
+        var targets = ImmutableArray<TokenTarget>.Empty;
         var candidates = called.ContainingType.GetMembers(called.Name);
         for (var i = 0; i < candidates.Length; i++)
         {
@@ -121,11 +162,11 @@ internal static class CancellationTokenOverload
             var index = IndexOfSoleToken(candidate.Parameters, tokenType);
             if (index >= 0 && AcceptsSameArguments(called.Parameters, candidate.Parameters, index))
             {
-                return new TokenTarget(candidate, index);
+                targets = targets.Add(new(candidate, index));
             }
         }
 
-        return null;
+        return targets;
     }
 
     /// <summary>Returns whether a same-named sibling could stand in for the called method at all.</summary>

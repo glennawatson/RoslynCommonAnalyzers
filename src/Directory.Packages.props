@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <SharpAnalyzersVersion>5.0.2</SharpAnalyzersVersion>
+    <SharpAnalyzersVersion>5.1.2</SharpAnalyzersVersion>
   </PropertyGroup>
 
   <ItemGroup Label="Roslyn">
@@ -17,13 +17,13 @@
 
   <ItemGroup Label="Analyzers">
     <PackageVersion Include="PerformanceSharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
-    <PackageVersion Include="PublicApiSharp.Analyzers" Version="2.0.1" />
+    <PackageVersion Include="PublicApiSharp.Analyzers" Version="2.1.0" />
     <PackageVersion Include="SecuritySharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
     <PackageVersion Include="StyleSharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
   </ItemGroup>
 
   <ItemGroup Label="Benchmarks">
-    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
   </ItemGroup>
 
   <ItemGroup Label="Versioning">
@@ -34,9 +34,9 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" Version="1.1.4" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeRefactoring.Testing" Version="1.1.4" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
-    <PackageVersion Include="TUnit" Version="1.70.1" />
+    <PackageVersion Include="TUnit" Version="1.73.19" />
   </ItemGroup>
 
 </Project>

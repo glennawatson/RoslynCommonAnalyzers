@@ -81,6 +81,12 @@
       "dependencyDashboardApproval": true
     },
     {
+      "description": "The current stable BenchmarkDotNet cannot run .NET 11 benchmarks; track previews until stable support ships.",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["BenchmarkDotNet"],
+      "ignoreUnstable": false
+    },
+    {
       "description": "Still a release candidate, so unstable versions are the only ones on offer.",
       "matchManagers": ["custom.regex"],
       "matchPackageNames": ["/^Microsoft\\.NETCore\\.App\\.Ref$/"],
@@ -95,6 +101,13 @@
     {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Keep shared actions pinned to a commit while tracking main through the ref comment.",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["glennawatson/actions-common"],
+      "pinDigests": true,
+      "groupName": "shared GitHub Actions"
     },
     {
       "description": "Pinning names the group it pins rather than the generic dependencies topic.",

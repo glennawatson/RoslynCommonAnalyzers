@@ -45,7 +45,8 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <returns><see langword="true"/> when the shape matches.</returns>
     internal static bool IsBareToStringShape(InvocationExpressionSyntax invocation) =>
         invocation.ArgumentList.Arguments.Count == 0
-            && SimpleMemberCall.IsNamed(invocation, ToStringMethodName);
+            && SimpleMemberCall.IsNamed(invocation, ToStringMethodName)
+            && invocation.Expression is not MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax };
 
     /// <summary>Reports PSH1211 for a ToString result feeding a value-capable consumer.</summary>
     /// <param name="context">The syntax node analysis context.</param>

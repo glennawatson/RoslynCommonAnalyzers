@@ -273,6 +273,16 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies base calls retain their explicit dispatch in interpolation and arguments.</summary>
+    /// <param name="expression">The expression containing a base call.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("$\"{base.ToString()} - name\"")]
+    [Arguments("Use(base.ToString())")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task BaseToStringIsCleanAsync(string expression) => VerifyAsync(
+        $"class B {{ }} class C : B {{ public override string ToString() => {expression}; string Use(string value) => value; string Use(B value) => value.ToString(); }}");
+
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>

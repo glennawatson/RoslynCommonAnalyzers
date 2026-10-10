@@ -33,9 +33,11 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
     [Arguments("value, 166, 166, 166, 166, 166, 166, 166", false)]
     public async Task InitializerRequiresEightConstantBytesAsync(string elements, bool reported)
     {
-        var source = $"class C {{ object[] M(int value) => new object[] {{ {elements} }}; }}";
+        var source = $"class C {{ object[] M(int value) => new object[] {{ {elements} }}; }} namespace System.Security.Cryptography {{ class Aes {{ public void EncryptKeyWrap() {{ }} }} }}";
         var tree = CSharpSyntaxTree.ParseText(source);
-        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+
+        // These cases isolate constant recognition from the test host's key-wrap API availability.
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], CoreReferences, new(OutputKind.DynamicallyLinkedLibrary));
         var diagnostics = await compilation.WithAnalyzers([new Ses1010HandRolledKeyWrapAnalyzer()]).GetAnalyzerDiagnosticsAsync();
         await Assert.That(diagnostics.Length).IsEqualTo(reported ? 1 : 0);
         if (reported)

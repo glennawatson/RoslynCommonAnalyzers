@@ -48,7 +48,7 @@
     <!-- Contains, not EndsWith: a slot sibling is named ...Tests.Roslyn59. -->
     <IsTestProject>$(MSBuildProjectName.Contains('Tests'))</IsTestProject>
 
-    <AnalyzerTestTargets>net11.0</AnalyzerTestTargets>
+    <AnalyzerTestTargets>net10.0;net11.0</AnalyzerTestTargets>
   </PropertyGroup>
 
   <!-- Multi-Roslyn slots; see docs/ARCHITECTURE.md. Keep these netstandard2.0 (RS1041). -->

@@ -55,173 +55,30 @@ jobs:
           ref: ${{ inputs.revision }}
           path: bench
 
-      - name: Run benchmarks
+      - name: Select benchmark framework
+        id: framework
         shell: bash
         env:
           SUITE: ${{ inputs.suite }}
-          FILTER: ${{ inputs.filter }}
-        run: |
-          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
-          using System.Diagnostics;
-          using static System.Environment;
+        working-directory: ${{ runner.temp }}
+        run: dotnet run --file "$GITHUB_WORKSPACE/.github/scripts/benchmark-framework.cs" -- "$SUITE" "$GITHUB_WORKSPACE/bench/src"
 
-          if (args is not [var suite, var filter])
-          {
-              Console.WriteLine("::error::Expected the suite and filter arguments.");
-              return 2;
-          }
-
-          string[] projects = suite switch
-          {
-              "stylesharp" => ["benchmarks/StyleSharp.Analyzers.Benchmarks"],
-              "performancesharp" => ["benchmarks/PerformanceSharp.Analyzers.Benchmarks"],
-              "securitysharp" => ["benchmarks/SecuritySharp.Analyzers.Benchmarks"],
-              "all" => ["benchmarks/StyleSharp.Analyzers.Benchmarks", "benchmarks/PerformanceSharp.Analyzers.Benchmarks", "benchmarks/SecuritySharp.Analyzers.Benchmarks"],
-              _ => [],
-          };
-
-          if (projects is [])
-          {
-              Console.WriteLine($"::error::Unknown benchmark suite '{suite}'.");
-              return 2;
-          }
-
-          var workspace = GetEnvironmentVariable("GITHUB_WORKSPACE")!;
-
-          RaisePriority();
-          Directory.SetCurrentDirectory(Path.Combine(workspace, "bench", "src"));
-
-          foreach (var project in projects)
-          {
-              var name = Path.GetFileName(project);
-              Console.WriteLine($"::group::{name}");
-
-              var status = Process.Run(
-                  "dotnet",
-                  [
-                      "run", "--project", project, "-c", "Release", "--",
-                      "--filter", filter, "--artifacts", Path.Combine(workspace, "benchmark-artifacts", name),
-                      "--exporters", "github", "json", "html", "csv",
-                  ]);
-
-              Console.WriteLine("::endgroup::");
-              if (status is { ExitCode: not 0 })
-              {
-                  Console.WriteLine($"::error::{name} exited with {status.ExitCode}");
-                  return status.ExitCode;
-              }
-          }
-
-          return 0;
-
-          // The runner is a shared virtual machine: the raised priority removes the noise that is ours to remove, and the
-          // figures remain trend and regression evidence rather than absolutes. Processes started from here inherit it.
-          static void RaisePriority()
-          {
-              if (Process.Run("sudo", ["-n", "renice", "-n", "-20", "-p", $"{ProcessId}"], silent: true) is { ExitCode: 0 })
-              {
-                  return;
-              }
-
-              Console.WriteLine("::warning::Could not raise the benchmark priority.");
-          }
-          CS
+      - name: Run benchmarks
+        uses: glennawatson/actions-common/.github/actions/benchmark-run@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        with:
+          projects: ${{ steps.framework.outputs.projects }}
+          src-folder: bench/src
+          host-framework: ${{ steps.framework.outputs.framework }}
+          filter: ${{ inputs.filter }}
 
       - name: Validate benchmark reports
-        shell: bash
-        run: |
-          cd "$RUNNER_TEMP" && dotnet run - <<'CS'
-          using static System.Environment;
-
-          var root = Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "benchmark-artifacts");
-
-          // BenchmarkDotNet exits zero on a validation error, so the exported reports are the evidence it ran.
-          string[] reports = Directory.Exists(root) ? Directory.GetFiles(root, "*-report-github.md", SearchOption.AllDirectories) : [];
-          if (reports is [])
-          {
-              Console.WriteLine("::error::No benchmark reports were produced. Check the validation errors above.");
-              return 1;
-          }
-
-          // A job whose build fails still exports its rows, with every measurement as NA.
-          var unmeasured = reports
-              .Select(report => (Name: Path.GetFileName(report).Replace("-report-github.md", string.Empty), Rows: File.ReadLines(report).Count(line => line.StartsWith('|') && line.Split('|').Any(cell => cell.Trim() == "NA"))))
-              .Where(report => report.Rows > 0)
-              .Select(report => $"{report.Name} ({report.Rows} rows)")
-              .ToArray();
-
-          if (unmeasured is not [])
-          {
-              Console.WriteLine($"::error::These benchmarks measured nothing: {string.Join("; ", unmeasured)}");
-              return 1;
-          }
-
-          return 0;
-          CS
+        uses: glennawatson/actions-common/.github/actions/benchmark-validate@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
 
       - name: Publish results to run summary
         if: always()
-        shell: bash
-        env:
-          SUITE: ${{ inputs.suite }}
-          FILTER: ${{ inputs.filter }}
-        run: |
-          cd "$RUNNER_TEMP" && dotnet run - -- "$SUITE" "$FILTER" <<'CS'
-          using System.Diagnostics;
-          using static System.Environment;
-
-          if (args is not [var suite, var filter])
-          {
-              Console.WriteLine("::error::Expected the suite and filter arguments.");
-              return;
-          }
-
-          // A step summary is dropped whole once it passes 1 MiB, so the tables stop before that and the artifact carries the rest.
-          const long Budget = 900 * 1024;
-
-          var summary = GetEnvironmentVariable("GITHUB_STEP_SUMMARY")!;
-          var root = Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "benchmark-artifacts");
-
-          // With a revision input the triggering commit is not the measured one, so the commit is read from the measured tree.
-          var commit = Process.RunAndCaptureText("git", ["-C", Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "bench"), "rev-parse", "HEAD"]).StandardOutput.Trim();
-
-          File.AppendAllLines(
-              summary,
-              [
-                  "# Benchmark results",
-                  "",
-                  $"Suite `{suite}`, filter `{filter}`, commit `{commit}`.",
-                  "",
-                  "The runner is shared, so read these for trend and regression rather than as absolute figures.",
-                  "Full JSON, HTML and CSV exports are attached to this run as `benchmark-reports`.",
-                  "",
-              ]);
-
-          string[] reports = Directory.Exists(root) ? [.. Directory.GetFiles(root, "*-report-github.md", SearchOption.AllDirectories).Order(StringComparer.Ordinal)] : [];
-          if (reports is [])
-          {
-              File.AppendAllLines(summary, ["No benchmark reports were exported."]);
-              return;
-          }
-
-          List<string> skipped = [];
-          foreach (var report in reports)
-          {
-              var title = Path.GetFileName(report).Replace("-report-github.md", string.Empty);
-              if (new FileInfo(summary).Length + new FileInfo(report).Length > Budget)
-              {
-                  skipped.Add(title);
-                  continue;
-              }
-
-              File.AppendAllLines(summary, [$"<details><summary>{title}</summary>", "", .. File.ReadLines(report), "", "</details>", ""]);
-          }
-
-          if (skipped is not [])
-          {
-              File.AppendAllLines(summary, ["", $"Omitted here to stay inside the summary limit: {string.Join(", ", skipped)}. Read them in the benchmark-reports artifact.", ""]);
-          }
-          CS
+        uses: glennawatson/actions-common/.github/actions/benchmark-summary@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        with:
+          filter: ${{ inputs.filter }}
 
       - name: Upload benchmark reports
         if: always()

@@ -3,10 +3,8 @@ name: SonarCloud
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
   pull_request:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
 
 permissions:
   contents: read
@@ -38,9 +36,18 @@ jobs:
         uses: ./.github/actions/dotnet-environment
 
       - name: SonarCloud begin
-        uses: ./.github/actions/sonarcloud
+        id: sonar-begin
+        uses: glennawatson/actions-common/.github/actions/sonarcloud@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           mode: begin
+          extra-begin-args: >-
+            /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks,linqLoops
+            /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
+            /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
+            /d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey=csharpsquid:S2589
+            /d:sonar.issue.ignore.multicriteria.nullChecks.resourceKey=**/*.cs
+            /d:sonar.issue.ignore.multicriteria.linqLoops.ruleKey=csharpsquid:S3267
+            /d:sonar.issue.ignore.multicriteria.linqLoops.resourceKey=**/*.cs
           project-key: glennawatson_RoslynCommonAnalyzers
           organization: glennawatson
           version: ${{ steps.environment.outputs.version-semver2 }}
@@ -51,19 +58,19 @@ jobs:
           working-directory: src
 
       - name: Build
-        uses: ./.github/actions/dotnet-build
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: Test
-        uses: ./.github/actions/dotnet-test
+        uses: glennawatson/actions-common/.github/actions/dotnet-test@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: SonarCloud end
         # A failed build or test still uploads partial analysis.
-        if: always()
-        uses: ./.github/actions/sonarcloud
+        if: ${{ !cancelled() && steps.sonar-begin.outcome == 'success' }}
+        uses: glennawatson/actions-common/.github/actions/sonarcloud@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           mode: end
           project-key: glennawatson_RoslynCommonAnalyzers

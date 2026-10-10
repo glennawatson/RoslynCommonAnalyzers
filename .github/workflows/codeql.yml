@@ -3,10 +3,8 @@ name: "CodeQL Advanced"
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
   pull_request:
     branches: [ main ]
-    paths-ignore: [ '.github/**' ]
   schedule:
     - cron: '17 9 * * 2'
 
@@ -45,7 +43,7 @@ jobs:
           queries: security-extended
 
       - name: Build
-        uses: ./.github/actions/dotnet-build
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 

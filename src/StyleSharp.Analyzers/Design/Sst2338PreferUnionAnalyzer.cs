@@ -61,7 +61,7 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (CountDistinctPayloads(type, out var hasValueTypePayload) < MinimumPayloads)
+        if (CountDistinctPayloads(type, context.CancellationToken, out var hasValueTypePayload) < MinimumPayloads)
         {
             return;
         }
@@ -132,40 +132,75 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Counts the distinct payload types held alongside the discriminator.</summary>
     /// <param name="type">The declared type.</param>
+    /// <param name="cancellationToken">The analysis cancellation token.</param>
     /// <param name="hasValueTypePayload">Whether any payload is a value type, which a union would box.</param>
     /// <returns>The number of distinct nullable or reference-typed members.</returns>
-    private static int CountDistinctPayloads(INamedTypeSymbol type, out bool hasValueTypePayload)
+    private static int CountDistinctPayloads(INamedTypeSymbol type, CancellationToken cancellationToken, out bool hasValueTypePayload)
     {
-        const int InitialPayloadTypeCapacity = 4;
-
         hasValueTypePayload = false;
-        var seen = new List<ITypeSymbol>(InitialPayloadTypeCapacity);
+        ITypeSymbol? first = null;
+        var foundDistinct = false;
         foreach (var member in type.GetMembers())
         {
             var memberType = PayloadType(member);
-            if (memberType is null || !IsPayload(memberType) || Contains(seen, memberType))
+            if (memberType is null || !IsPayload(memberType) || !IsOptionalState(member, cancellationToken))
             {
                 continue;
             }
 
             hasValueTypePayload |= memberType.IsValueType;
-            seen.Add(memberType);
+            if (first is null)
+            {
+                first = memberType;
+            }
+            else if (!SymbolEqualityComparer.Default.Equals(first, memberType))
+            {
+                foundDistinct = true;
+            }
         }
 
-        return seen.Count;
+        if (foundDistinct)
+        {
+            return MinimumPayloads;
+        }
+
+        return first is null ? 0 : 1;
     }
 
-    /// <summary>Gets whether a list already holds a type.</summary>
-    /// <param name="seen">The types collected so far.</param>
-    /// <param name="candidate">The type to test.</param>
-    /// <returns><see langword="true"/> when already present.</returns>
-    private static bool Contains(List<ITypeSymbol> seen, ITypeSymbol candidate)
+    /// <summary>Gets whether a member stores an optional alternative rather than required metadata or a projection.</summary>
+    /// <param name="member">The candidate state member.</param>
+    /// <param name="cancellationToken">The analysis cancellation token.</param>
+    /// <returns>Whether the member can represent an absent alternative.</returns>
+    private static bool IsOptionalState(ISymbol member, CancellationToken cancellationToken)
     {
-        for (var i = 0; i < seen.Count; i++)
+        if (member is IFieldSymbol field)
         {
-            if (SymbolEqualityComparer.Default.Equals(seen[i], candidate))
+            return !field.IsRequired;
+        }
+
+        if (member is not IPropertySymbol { IsRequired: false } property)
+        {
+            return false;
+        }
+
+        // A getter-only auto-property can be assigned by a constructor. A computed getter cannot store an arm.
+        if (property.SetMethod is not null)
+        {
+            return true;
+        }
+
+        foreach (var reference in property.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax(cancellationToken) is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } accessors })
             {
-                return true;
+                foreach (var accessor in accessors.Accessors)
+                {
+                    if (accessor.IsKind(SyntaxKind.GetAccessorDeclaration)
+                        && accessor.Body is null && accessor.ExpressionBody is null)
+                    {
+                        return true;
+                    }
+                }
             }
         }
 
@@ -189,7 +224,8 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a reference type or a nullable value type.</returns>
     private static bool IsPayload(ITypeSymbol type) =>
         type.TypeKind != TypeKind.Enum
-            && (type.IsReferenceType || type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
+            && ((type.IsReferenceType && type.NullableAnnotation != NullableAnnotation.NotAnnotated)
+                || type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
 
     /// <summary>Gets whether a member name reads as a discriminator.</summary>
     /// <param name="name">The member name.</param>

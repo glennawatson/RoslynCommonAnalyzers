@@ -68,6 +68,21 @@ internal static class Sst2338PreferUnionBenchmarkSource
 
                public byte[]? Bytes { get; set; }
            }
+
+           public sealed class CleanMetadata{{index}}
+           {
+               private readonly byte[] _bytes = new byte[0];
+
+               public CleanKind{{index}} Kind { get; init; }
+
+               public required string Identity { get; init; }
+
+               public required object Metadata { get; init; }
+
+               public string? Version { get; init; }
+
+               public byte[]? Bytes => _bytes;
+           }
            """;
 
     /// <summary>Builds one type reported as a hand-rolled union.</summary>

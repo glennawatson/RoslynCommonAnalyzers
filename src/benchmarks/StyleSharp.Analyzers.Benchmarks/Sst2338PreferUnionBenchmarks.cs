@@ -16,13 +16,26 @@ public class Sst2338PreferUnionBenchmarks
     /// <summary>The prepared benchmark state.</summary>
     private SingleAnalyzerBenchmarkState _state = null!;
 
+    /// <summary>The compilation that isolates the fixed analyzer startup cost.</summary>
+    private AnalyzerBenchmarkScenario _startup;
+
     /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
 
     /// <summary>Builds the clean and violating scenarios once per parameter set.</summary>
     [GlobalSetup]
-    public void Setup() => _state = Sst2338PreferUnionBenchmarkCases.Create(Nodes);
+    public void Setup()
+    {
+        _state = Sst2338PreferUnionBenchmarkCases.Create(Nodes);
+        _startup = new(BenchmarkCompilationFactory.CreateCompilation("class Startup { }", ["SST2338"]).Compilation);
+    }
+
+    /// <summary>Benchmarks the fixed prefer-union startup cost.</summary>
+    /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Benchmark]
+    public Task<int> Sst2338PreferUnion_Startup() => AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_startup, _state.Analyzers);
 
     /// <summary>Benchmarks the clean prefer-union path.</summary>
     /// <returns>The number of diagnostics produced.</returns>

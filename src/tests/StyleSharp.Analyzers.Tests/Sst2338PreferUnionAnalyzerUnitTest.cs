@@ -202,6 +202,139 @@ public class Sst2338PreferUnionAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies coexisting required metadata and nonnullable collections are not alternatives.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RequiredMetadataIsCleanAsync() => RunAsync(Marker + """
+        public enum OperationType { Create, Update }
+        public sealed record Operation
+        {
+            public required OperationType Type { get; init; }
+            public required string? Identity { get; init; }
+            public required byte[] Payload { get; init; }
+            public string? Version { get; init; }
+            public System.Collections.Generic.IReadOnlyDictionary<string, string> Metadata { get; init; }
+                = new System.Collections.Generic.Dictionary<string, string>();
+        }
+        """);
+
+    /// <summary>Verifies storage and computed projections do not inflate the optional payload count.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ComputedProjectionIsCleanAsync() => RunAsync(Marker + """
+        public enum PayloadKind { Text, Bytes }
+        public sealed class Payload
+        {
+            private readonly byte[] _bytes = new byte[0];
+            public PayloadKind Kind { get; init; }
+            public string? Text { get; init; }
+            public byte[]? Bytes => _bytes;
+            public object? Value { get { return Text; } }
+        }
+        """);
+
+    /// <summary>Verifies constructor-assigned readonly and auto-property alternatives remain reportable.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ReadonlyAlternativesReportedAsync() => RunAsync(Marker + """
+        public enum PayloadKind { Text, Bytes }
+        public sealed class {|SST2338:Payload|}
+        {
+            public required PayloadKind Kind { get; init; }
+            public required object Metadata { get; init; }
+            public readonly string? Text;
+            public byte[]? Bytes { get; }
+            public Payload(string? text, byte[]? bytes) { Text = text; Bytes = bytes; }
+        }
+        """);
+
+    /// <summary>Verifies nullable-oblivious source retains its existing alternative detection.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ObliviousAlternativesReportedAsync() => RunAsync(Marker + """
+        #nullable disable
+        public enum PayloadKind { Text, Bytes }
+        public sealed class {|SST2338:Payload|}
+        {
+            public PayloadKind Kind { get; set; }
+            public string Text { get; set; }
+            public byte[] Bytes { get; set; }
+        }
+        """);
+
+    /// <summary>Verifies CRDT collection state coexists while input alternatives remain reportable.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CollectionStateAndInputAlternativesAsync() => RunAsync(Marker + """
+        public enum StateKind { Counter, Set, Register }
+        public enum InputKind { Mutation, State }
+        public sealed record State
+        {
+            private readonly byte[] _bytes = new byte[0];
+            public required StateKind Kind { get; init; }
+            public System.Collections.Generic.IReadOnlyDictionary<string, long> Components
+            {
+                get;
+                init => field = value;
+            } = new System.Collections.Generic.Dictionary<string, long>();
+            public System.Collections.Generic.IReadOnlyList<string> Elements { get; init; } = new string[0];
+            public System.Collections.Generic.IReadOnlyList<string> RemovedElements { get; init; } = new string[0];
+            public System.ReadOnlyMemory<byte> Bytes { get => _bytes; init => _bytes = value.ToArray(); }
+            public object? Stamp { get; init; }
+            public object Value => Components;
+        }
+        public sealed record Mutation
+        {
+            private readonly byte[] _bytes = new byte[0];
+            public required StateKind Kind { get; init; }
+            public string? Actor { get; init; }
+            public System.Collections.Generic.IReadOnlyList<string> Dots { get; init; } = new string[0];
+            public byte[] Bytes { get => _bytes; init => _bytes = value; }
+        }
+        public sealed record {|SST2338:Input|}
+        {
+            public required InputKind Kind { get; init; }
+            public Mutation? Mutation { get; init; }
+            public State? State { get; init; }
+        }
+        """);
+
+    /// <summary>Verifies duplicate reference types do not form two alternatives.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DuplicateTypesAreCleanAsync() => RunAsync(Marker + """
+        public enum PayloadKind { First, Second }
+        public sealed class Payload
+        {
+            public PayloadKind Kind { get; init; }
+            public string? First { get; init; }
+            public string? Second { get; init; }
+        }
+        """);
+
+    /// <summary>Verifies the rule cannot suggest C# 15 syntax in an earlier language.</summary>
+    /// <returns>The asynchronous test operation.</returns>
+    [Test]
+    public async Task EarlierLanguageIsCleanAsync()
+    {
+        const string Source = Marker + """
+        public enum PayloadKind { Text, Bytes }
+        public sealed class Payload
+        {
+            public PayloadKind Kind { get; init; }
+            public string? Text { get; init; }
+            public byte[]? Bytes { get; init; }
+        }
+        """;
+        await RunAsync(Source, LanguageVersion.CSharp12);
+    }
+
     /// <summary>Runs the analyzer verifier at the requested language version.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <param name="languageVersion">The language version to parse with.</param>

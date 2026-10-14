@@ -17,7 +17,7 @@ internal static class DotNet11ReferenceAssemblies
     private const string ReferencePackageId = "Microsoft.NETCore.App.Ref";
 
     /// <summary>The pinned .NET 11 reference-assembly version.</summary>
-    private const string ReferencePackageVersion = "11.0.0-rc.1.26425.128";
+    private const string ReferencePackageVersion = "11.0.0-rc.2.26504.105";
 
     /// <summary>Gets the .NET 11 reference assemblies.</summary>
     public static ReferenceAssemblies Net110 { get; } = new(

@@ -64,7 +64,7 @@ jobs:
         run: dotnet run --file "$GITHUB_WORKSPACE/.github/scripts/benchmark-framework.cs" -- "$SUITE" "$GITHUB_WORKSPACE/bench/src"
 
       - name: Run benchmarks
-        uses: glennawatson/actions-common/.github/actions/benchmark-run@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        uses: glennawatson/actions-common/.github/actions/benchmark-run@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:
           projects: ${{ steps.framework.outputs.projects }}
           src-folder: bench/src
@@ -72,11 +72,11 @@ jobs:
           filter: ${{ inputs.filter }}
 
       - name: Validate benchmark reports
-        uses: glennawatson/actions-common/.github/actions/benchmark-validate@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        uses: glennawatson/actions-common/.github/actions/benchmark-validate@4d538f76071ed73496cbf406cebe85e760fb734d # main
 
       - name: Publish results to run summary
         if: always()
-        uses: glennawatson/actions-common/.github/actions/benchmark-summary@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        uses: glennawatson/actions-common/.github/actions/benchmark-summary@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:
           filter: ${{ inputs.filter }}
 

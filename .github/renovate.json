@@ -60,7 +60,6 @@
       "matchPackageNames": [
         "/^Microsoft\\.CodeAnalysis\\.Analyzers$/",
         "/^StyleCop\\.Analyzers$/",
-        "/^Roslynator(\\.|$)/",
         "/^SonarAnalyzer(\\.|$)/"
       ],
       "groupName": null,

@@ -40,16 +40,16 @@ jobs:
       sourceSha: ${{ steps.tagname.outputs.sha }}
     steps:
     - name: Checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ inputs.sourceRef }}
         fetch-depth: 0
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         stamp-version: 'false'
     - name: Validate version inputs
-      uses: glennawatson/actions-common/.github/actions/release-inputs-validate@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/release-inputs-validate@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         bump: ${{ inputs.bump != '(pick one)' && inputs.bump || '' }}
         pre-release: ${{ inputs.preRelease }}
@@ -57,7 +57,7 @@ jobs:
     - name: Compute version and tag
       if: inputs.bump != '(pick one)' && inputs.versionOverride == ''
       id: bump
-      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         bump: ${{ inputs.bump }}
         tag-prefix: ''
@@ -65,7 +65,7 @@ jobs:
         push-tag: 'false'
     - name: Resolve release tag
       id: tagname
-      uses: glennawatson/actions-common/.github/actions/release-tag-resolve@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/release-tag-resolve@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         bump-tag: ${{ steps.bump.outputs.tag }}
         bump-prerelease: ${{ steps.bump.outputs.prerelease }}
@@ -73,14 +73,14 @@ jobs:
         tag-prefix: ''
     - name: Stamp version with MinVer
       id: minver
-      uses: glennawatson/actions-common/.github/actions/minver@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/minver@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         tag-prefix: ''
         minimum-major-minor: '1.0'
         auto-increment: patch
         version-override: ${{ inputs.versionOverride != '' && inputs.versionOverride || steps.bump.outputs.version }}
     - name: Build
-      uses: glennawatson/actions-common/.github/actions/dotnet-build@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         solution-file: RoslynCommonAnalyzers.slnx
     - name: Pack NuGet packages
@@ -88,7 +88,7 @@ jobs:
       working-directory: src
       run: dotnet pack RoslynCommonAnalyzers.slnx --no-build --configuration Release -o "${GITHUB_WORKSPACE}/packages"
     - name: Upload unsigned packages
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: unsigned-nuget
         path: packages/*.nupkg
@@ -107,21 +107,21 @@ jobs:
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         stamp-version: false
         dotnet-versions: 11.0.x
     - name: Download unsigned packages
-      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: unsigned-nuget
         path: signed
     - name: Sign packages with Certum SimplySign
-      uses: glennawatson/actions-common/.github/actions/certum-sign@381282a6137c4f3c099ff80d9ee909e5d262998a
+      uses: glennawatson/actions-common/.github/actions/certum-sign@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         nuget: 'signed/*.nupkg'
     - name: Upload signed packages
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: signed-nuget
         path: signed/*.nupkg
@@ -136,20 +136,20 @@ jobs:
       id-token: write
     steps:
     - name: Checkout publishing script
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         sparse-checkout: .github/scripts
     - name: Setup .NET
-      uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73
+      uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
       with:
         dotnet-version: 11.0.x
     - name: Download signed packages
-      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: signed-nuget
         path: signed
     - name: NuGet login (OIDC trusted publishing)
-      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
       id: nuget-login
       with:
         user: ${{ secrets.NUGET_USER }}
@@ -165,7 +165,7 @@ jobs:
     - publish-nuget
     permissions:
       contents: write
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@381282a6137c4f3c099ff80d9ee909e5d262998a
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
     with:
       version: ${{ needs.build.outputs.semver2 }}
       tag: ${{ needs.build.outputs.tag }}

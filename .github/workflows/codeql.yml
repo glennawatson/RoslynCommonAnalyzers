@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -36,18 +36,18 @@ jobs:
         uses: ./.github/actions/dotnet-environment
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           languages: csharp
           build-mode: manual
           queries: security-extended
 
       - name: Build
-        uses: glennawatson/actions-common/.github/actions/dotnet-build@7f2014219353aee799dfeef2a9b97acaeabca0b8 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           category: "/language:csharp"

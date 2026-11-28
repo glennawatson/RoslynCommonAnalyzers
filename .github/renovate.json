@@ -18,6 +18,9 @@
   "semanticCommitType": "build",
   "semanticCommitScope": "deps",
   "commitMessageAction": "bump",
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": false,
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "schedule": ["at any time"],
@@ -57,11 +60,7 @@
     {
       "description": "Each of these can introduce a diagnostic and the build treats warnings as errors, so one PR each keeps a red build attributable.",
       "matchManagers": ["nuget"],
-      "matchPackageNames": [
-        "/^Microsoft\\.CodeAnalysis\\.Analyzers$/",
-        "/^StyleCop\\.Analyzers$/",
-        "/^SonarAnalyzer(\\.|$)/"
-      ],
+      "matchPackageNames": ["/^Microsoft\\.CodeAnalysis\\.Analyzers$/", "/^StyleCop\\.Analyzers$/", "/^SonarAnalyzer(\\.|$)/"],
       "groupName": null,
       "labels": ["dependencies", "build-gate"]
     },
@@ -112,23 +111,7 @@
       "description": "Pinning names the group it pins rather than the generic dependencies topic.",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["pin", "pinDigest"],
-      "group": {
-        "commitMessageTopic": "GitHub Actions digests"
-      }
-    },
-    {
-      "description": "Minor, patch and digest updates to actions from GitHub and Microsoft merge automatically.",
-      "matchManagers": ["github-actions"],
-      "matchPackageNames": ["/^actions\\//", "/^github\\//", "/^microsoft\\//"],
-      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
-      "automerge": true
-    },
-    {
-      "description": "Digest updates to Microsoft's, Docker's Dockerfile syntax and ReactiveUI's container images merge automatically.",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["/^mcr\\.microsoft\\.com\\//", "/^ghcr\\.io\\/reactiveui\\//", "docker/dockerfile"],
-      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
-      "automerge": true
+      "group": { "commitMessageTopic": "GitHub Actions digests" }
     },
     {
       "description": "Keep .NET 10 package entries on 10.x.",
@@ -167,6 +150,21 @@
   ],
   "customManagers": [
     {
+      "description": "Packages a file-based app pins inline with #:package Name@Version. Versionless #:package lines take their version from Directory.Packages.props, which the nuget manager already reads.",
+      "customType": "regex",
+      "managerFilePatterns": ["/\\.cs$/"],
+      "matchStrings": ["(?m)^#:package\\s+(?<depName>[^@\\s]+)@(?<currentValue>\\S+)"],
+      "datasourceTemplate": "nuget"
+    },
+    {
+      "description": "MSBuild SDKs a file-based app pins inline with #:sdk Name@Version.",
+      "customType": "regex",
+      "managerFilePatterns": ["/\\.cs$/"],
+      "matchStrings": ["(?m)^#:sdk\\s+(?<depName>[^@\\s]+)@(?<currentValue>\\S+)"],
+      "datasourceTemplate": "nuget",
+      "depTypeTemplate": "msbuild-sdk"
+    },
+    {
       "description": "The highest Roslyn slot. The lower pins are the floor contract and are deliberately untracked.",
       "customType": "regex",
       "managerFilePatterns": ["src/Directory.Build.props"],
@@ -180,9 +178,7 @@
       "description": "Pinned in C# because the testing library takes an exact package identity.",
       "customType": "regex",
       "managerFilePatterns": ["src/Shared/Tests/DotNet11ReferenceAssemblies.cs"],
-      "matchStrings": [
-        "ReferencePackageVersion = \"(?<currentValue>[^\"]+)\""
-      ],
+      "matchStrings": ["ReferencePackageVersion = \"(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "Microsoft.NETCore.App.Ref",
       "datasourceTemplate": "nuget"
     }

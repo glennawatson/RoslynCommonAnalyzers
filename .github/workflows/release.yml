@@ -45,11 +45,11 @@ jobs:
         ref: ${{ inputs.sourceRef }}
         fetch-depth: 0
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         stamp-version: 'false'
     - name: Validate version inputs
-      uses: glennawatson/actions-common/.github/actions/release-inputs-validate@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/release-inputs-validate@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         bump: ${{ inputs.bump != '(pick one)' && inputs.bump || '' }}
         pre-release: ${{ inputs.preRelease }}
@@ -57,7 +57,7 @@ jobs:
     - name: Compute version and tag
       if: inputs.bump != '(pick one)' && inputs.versionOverride == ''
       id: bump
-      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         bump: ${{ inputs.bump }}
         tag-prefix: ''
@@ -65,7 +65,7 @@ jobs:
         push-tag: 'false'
     - name: Resolve release tag
       id: tagname
-      uses: glennawatson/actions-common/.github/actions/release-tag-resolve@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/release-tag-resolve@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         bump-tag: ${{ steps.bump.outputs.tag }}
         bump-prerelease: ${{ steps.bump.outputs.prerelease }}
@@ -73,14 +73,14 @@ jobs:
         tag-prefix: ''
     - name: Stamp version with MinVer
       id: minver
-      uses: glennawatson/actions-common/.github/actions/minver@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/minver@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         tag-prefix: ''
         minimum-major-minor: '1.0'
         auto-increment: patch
         version-override: ${{ inputs.versionOverride != '' && inputs.versionOverride || steps.bump.outputs.version }}
     - name: Build
-      uses: glennawatson/actions-common/.github/actions/dotnet-build@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         solution-file: RoslynCommonAnalyzers.slnx
     - name: Pack NuGet packages
@@ -107,7 +107,7 @@ jobs:
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         stamp-version: false
         dotnet-versions: 11.0.x
@@ -117,7 +117,7 @@ jobs:
         name: unsigned-nuget
         path: signed
     - name: Sign packages with Certum SimplySign
-      uses: glennawatson/actions-common/.github/actions/certum-sign@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/certum-sign@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         nuget: 'signed/*.nupkg'
     - name: Upload signed packages
@@ -165,7 +165,7 @@ jobs:
     - publish-nuget
     permissions:
       contents: write
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@e793ab9257b1b034ed5cb9695609338317ea1221 # main
     with:
       version: ${{ needs.build.outputs.semver2 }}
       tag: ${{ needs.build.outputs.tag }}

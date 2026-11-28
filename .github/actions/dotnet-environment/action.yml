@@ -36,7 +36,7 @@ runs:
   steps:
     - name: Setup shared .NET environment
       id: environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@e793ab9257b1b034ed5cb9695609338317ea1221 # main
       with:
         dotnet-versions: ${{ inputs.dotnet-versions }}
         src-folder: src

@@ -37,7 +37,7 @@ jobs:
 
       - name: SonarCloud begin
         id: sonar-begin
-        uses: glennawatson/actions-common/.github/actions/sonarcloud@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+        uses: glennawatson/actions-common/.github/actions/sonarcloud@e793ab9257b1b034ed5cb9695609338317ea1221 # main
         with:
           mode: begin
           extra-begin-args: >-
@@ -58,19 +58,19 @@ jobs:
           working-directory: src
 
       - name: Build
-        uses: glennawatson/actions-common/.github/actions/dotnet-build@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-build@e793ab9257b1b034ed5cb9695609338317ea1221 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: Test
-        uses: glennawatson/actions-common/.github/actions/dotnet-test@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-test@e793ab9257b1b034ed5cb9695609338317ea1221 # main
         with:
           solution-file: RoslynCommonAnalyzers.slnx
 
       - name: SonarCloud end
         # A failed build or test still uploads partial analysis.
         if: ${{ !cancelled() && steps.sonar-begin.outcome == 'success' }}
-        uses: glennawatson/actions-common/.github/actions/sonarcloud@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+        uses: glennawatson/actions-common/.github/actions/sonarcloud@e793ab9257b1b034ed5cb9695609338317ea1221 # main
         with:
           mode: end
           project-key: glennawatson_RoslynCommonAnalyzers
